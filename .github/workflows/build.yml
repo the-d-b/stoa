@@ -61,6 +61,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Generate package-lock.json
+        working-directory: ./frontend
+        run: npm install
+        
       - name: Extract metadata for frontend
         id: meta-frontend
         uses: docker/metadata-action@v5
