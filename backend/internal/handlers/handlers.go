@@ -131,10 +131,15 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		db := authSvc.DB()
 		var user models.User
 		var hash string
+		var email sql.NullString
 		err := db.QueryRow(`
 			SELECT id, username, email, role, auth_provider, password_hash
 			FROM users WHERE username = ? AND auth_provider = 'local'
-		`, req.Username).Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.AuthProvider, &hash)
+		`, req.Username).Scan(&user.ID, &user.Username, &email, &user.Role, &user.AuthProvider, &hash)
+
+		if email.Valid {
+			user.Email = email.String
+		}
 
 		if err != nil || !authSvc.CheckPassword(hash, req.Password) {
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
