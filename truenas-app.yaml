@@ -20,7 +20,7 @@ services:
       # STOA_OAUTH_ISSUER_URL: ""
       # STOA_OAUTH_REDIRECT_URL: ""
     volumes:
-      - /mnt/tna01-fassdpool/container_data/stoa/db:/data/db
+      - /mnt/pool/path/stoa/db:/data/db
     networks:
       - stoa-net
     healthcheck:
