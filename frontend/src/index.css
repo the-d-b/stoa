@@ -1,32 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  body {
-    @apply bg-gray-950 text-gray-100 antialiased;
+  :root {
+    --bg:        #0c0c0f;
+    --surface:   #13131a;
+    --surface2:  #1a1a24;
+    --border:    #ffffff0f;
+    --border2:   #ffffff18;
+    --text:      #e8e8f0;
+    --text-muted:#6b6b80;
+    --text-dim:  #3a3a50;
+    --accent:    #7c6fff;
+    --accent2:   #a594ff;
+    --accent-bg: #7c6fff12;
+    --green:     #4ade80;
+    --red:       #f87171;
+    --amber:     #fbbf24;
   }
+
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  ::selection { background: var(--accent); color: white; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
 }
 
 @layer components {
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; font-weight: 500; border-radius: 8px;
+    transition: all 0.15s; cursor: pointer; user-select: none;
+    font-size: 13.5px; padding: 7px 16px; letter-spacing: 0.01em;
+    font-family: inherit; border: none;
+  }
   .btn-primary {
-    @apply bg-stoa-500 hover:bg-stoa-600 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+    background: var(--accent); color: white;
   }
+  .btn-primary:hover:not(:disabled) { background: var(--accent2); box-shadow: 0 0 24px var(--accent-bg); }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
   .btn-secondary {
-    @apply bg-gray-800 hover:bg-gray-700 text-gray-100 font-medium px-4 py-2 rounded-lg transition-colors duration-150;
+    background: var(--surface2); color: var(--text-muted);
+    border: 1px solid var(--border) !important;
   }
-  .btn-danger {
-    @apply bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-lg transition-colors duration-150;
-  }
+  .btn-secondary:hover { background: var(--surface); color: var(--text); border-color: var(--border2) !important; }
+
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-ghost:hover { background: var(--surface2); color: var(--text); }
+
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid transparent !important; font-size: 12px; padding: 4px 10px; }
+  .btn-danger:hover { background: #f8717112; border-color: #f8717130 !important; }
+
   .input {
-    @apply bg-gray-800 border border-gray-700 text-gray-100 rounded-lg px-3 py-2 w-full
-           focus:outline-none focus:ring-2 focus:ring-stoa-500 focus:border-transparent
-           placeholder-gray-500;
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 9px 13px;
+    font-size: 14px; font-family: inherit; outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
   }
-  .card {
-    @apply bg-gray-900 border border-gray-800 rounded-xl p-6;
+  .input::placeholder { color: var(--text-dim); }
+  .input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 24px; }
+  .card-sm { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+  .card-row {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between;
+    transition: border-color 0.15s;
   }
+  .card-row:hover { border-color: var(--border2); }
+
   .label {
-    @apply block text-sm font-medium text-gray-400 mb-1;
+    display: block; font-size: 11px; font-weight: 500;
+    color: var(--text-muted); margin-bottom: 6px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+  }
+
+  .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 100px; }
+  .badge-admin { background: var(--accent-bg); color: var(--accent2); border: 1px solid #7c6fff22; }
+  .badge-user  { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+
+  .divider { display: flex; align-items: center; gap: 12px; color: var(--text-dim); font-size: 12px; }
+  .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .mono { font-family: 'DM Mono', monospace; }
+
+  .section-title {
+    font-size: 11px; font-weight: 500; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;
   }
 }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp 0.3s ease both; }
+.fade-up-1 { animation: fadeUp 0.3s 0.05s ease both; }
+.fade-up-2 { animation: fadeUp 0.3s 0.10s ease both; }
+.fade-up-3 { animation: fadeUp 0.3s 0.15s ease both; }
+.fade-up-4 { animation: fadeUp 0.3s 0.20s ease both; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }

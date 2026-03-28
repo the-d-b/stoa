@@ -19,9 +19,7 @@ function AppRoutes() {
       .catch(() => setNeedsSetup(false))
   }, [])
 
-  if (loading || needsSetup === null) {
-    return <LoadingScreen />
-  }
+  if (loading || needsSetup === null) return <LoadingScreen />
 
   if (needsSetup) {
     return (
@@ -55,10 +53,10 @@ function AppRoutes() {
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <div className="flex flex-col items-center gap-4">
-        <StoaLogo size={48} />
-        <div className="w-6 h-6 border-2 border-stoa-500 border-t-transparent rounded-full animate-spin" />
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <StoaLogo size={40} />
+        <div className="spinner" />
       </div>
     </div>
   )
@@ -67,12 +65,12 @@ function LoadingScreen() {
 export function StoaLogo({ size = 32 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="24" width="28" height="3" rx="1.5" fill="#6366f1" />
-      <rect x="4" y="8" width="3" height="16" rx="1.5" fill="#6366f1" />
-      <rect x="10" y="8" width="3" height="16" rx="1.5" fill="#6366f1" />
-      <rect x="19" y="8" width="3" height="16" rx="1.5" fill="#6366f1" />
-      <rect x="25" y="8" width="3" height="16" rx="1.5" fill="#6366f1" />
-      <rect x="2" y="5" width="28" height="3" rx="1.5" fill="#818cf8" />
+      <rect x="2" y="24" width="28" height="3" rx="1.5" fill="var(--accent)" />
+      <rect x="4" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.7" />
+      <rect x="10" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.85" />
+      <rect x="19" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.85" />
+      <rect x="25" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.7" />
+      <rect x="2" y="5" width="28" height="3" rx="1.5" fill="var(--accent2)" />
     </svg>
   )
 }

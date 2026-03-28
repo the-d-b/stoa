@@ -5,91 +5,80 @@ import { useAuth } from '../../context/AuthContext'
 export default function UsersPanel() {
   const [users, setUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
-  const { user: currentUser } = useAuth()
+  const { user: me } = useAuth()
 
-  const load = () => {
-    usersApi.list()
-      .then((res) => setUsers(res.data))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [])
+  const load = () => usersApi.list().then(r => setUsers(r.data)).finally(() => setLoading(false))
+  useEffect(() => { load() }, [])
 
   const toggleRole = async (u: User) => {
-    const newRole: Role = u.role === 'admin' ? 'user' : 'admin'
-    await usersApi.updateRole(u.id, newRole)
+    await usersApi.updateRole(u.id, u.role === 'admin' ? 'user' : 'admin')
     load()
   }
 
-  const deleteUser = async (u: User) => {
+  const remove = async (u: User) => {
     if (!confirm(`Remove ${u.username}?`)) return
     await usersApi.delete(u.id)
     load()
   }
 
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>
+  if (loading) return <Loading />
 
   return (
     <div>
-      <p className="text-sm text-gray-500 mb-6">
-        Users are created automatically on first OAuth login. Local admin accounts cannot be deleted.
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 0, marginBottom: 24, lineHeight: 1.7 }}>
+        Users are created automatically on first OAuth login. Local admin accounts cannot be removed.
       </p>
 
-      <div className="space-y-2">
-        {users.map((u) => (
-          <div key={u.id} className="flex items-center justify-between bg-gray-900 border border-gray-800 rounded-lg px-4 py-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-stoa-500/20 flex items-center justify-center text-stoa-400 text-sm font-medium">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {users.map(u => (
+          <div key={u.id} className="card-row">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* Avatar */}
+              <div style={{
+                width: 34, height: 34, borderRadius: 8,
+                background: 'var(--accent-bg)', border: '1px solid #7c6fff22',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 13, fontWeight: 600, color: 'var(--accent2)',
+                flexShrink: 0,
+              }}>
                 {u.username[0].toUpperCase()}
               </div>
               <div>
-                <div className="text-sm font-medium text-gray-200 flex items-center gap-2">
+                <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
                   {u.username}
-                  {u.id === currentUser?.id && (
-                    <span className="text-xs text-gray-600">(you)</span>
-                  )}
+                  {u.id === me?.id && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>you</span>}
                 </div>
-                <div className="text-xs text-gray-600">
-                  {u.email || u.authProvider} · {u.lastLogin ? `last login ${new Date(u.lastLogin).toLocaleDateString()}` : 'never logged in'}
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                  {u.email || u.authProvider}
+                  {u.lastLogin && ` · ${new Date(u.lastLogin).toLocaleDateString()}`}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                u.role === 'admin'
-                  ? 'bg-stoa-500/15 text-stoa-400'
-                  : 'bg-gray-800 text-gray-500'
-              }`}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span className={u.role === 'admin' ? 'badge badge-admin' : 'badge badge-user'}>
                 {u.role}
               </span>
-
-              {u.id !== currentUser?.id && (
+              {u.id !== me?.id && (
                 <>
-                  <button
-                    onClick={() => toggleRole(u)}
-                    className="text-xs text-gray-500 hover:text-gray-300 px-2 py-1 rounded hover:bg-gray-800 transition-colors"
-                  >
+                  <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={() => toggleRole(u)}>
                     {u.role === 'admin' ? 'Demote' : 'Promote'}
                   </button>
                   {u.authProvider !== 'local' && (
-                    <button
-                      onClick={() => deleteUser(u)}
-                      className="text-xs text-red-600 hover:text-red-400 px-2 py-1 rounded hover:bg-gray-800 transition-colors"
-                    >
-                      Remove
-                    </button>
+                    <button className="btn btn-danger" onClick={() => remove(u)}>Remove</button>
                   )}
                 </>
               )}
             </div>
           </div>
         ))}
-
-        {users.length === 0 && (
-          <p className="text-sm text-gray-600">No users yet.</p>
-        )}
+        {users.length === 0 && <Empty message="No users yet." />}
       </div>
     </div>
   )
+}
+
+function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
+function Empty({ message }: { message: string }) {
+  return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
 }

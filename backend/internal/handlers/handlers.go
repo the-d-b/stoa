@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/the-d-b/stoa/internal/auth"
 	"github.com/the-d-b/stoa/internal/config"
+	"github.com/the-d-b/stoa/internal/logger"
 	"github.com/the-d-b/stoa/internal/models"
 )
 
@@ -36,15 +38,12 @@ func SetupStatus(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var count int
 		db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
-		writeJSON(w, http.StatusOK, map[string]bool{
-			"needsSetup": count == 0,
-		})
+		writeJSON(w, http.StatusOK, map[string]bool{"needsSetup": count == 0})
 	}
 }
 
 func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Only allowed if no users exist
 		var count int
 		db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
 		if count > 0 {
@@ -57,7 +56,6 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-
 		if req.AdminUsername == "" || req.AdminPassword == "" {
 			writeError(w, http.StatusBadRequest, "username and password required")
 			return
@@ -66,11 +64,11 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		authSvc := auth.New(cfg, db)
 		hash, err := authSvc.HashPassword(req.AdminPassword)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to hash password")
+			log.Printf("[SETUP] failed to hash password: %v", err)
+			writeError(w, http.StatusInternalServerError, "setup failed")
 			return
 		}
 
-		// Generate session secret if not provided
 		sessionSecret := req.SessionSecret
 		if sessionSecret == "" {
 			b := make([]byte, 32)
@@ -79,8 +77,6 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		}
 
 		tx, _ := db.Begin()
-
-		// Create admin user
 		userID := generateID()
 		_, err = tx.Exec(`
 			INSERT INTO users (id, username, role, auth_provider, password_hash, last_login)
@@ -88,11 +84,11 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		`, userID, req.AdminUsername, hash)
 		if err != nil {
 			tx.Rollback()
-			writeError(w, http.StatusInternalServerError, "failed to create admin user")
+			log.Printf("[SETUP] failed to create admin user: %v", err)
+			writeError(w, http.StatusInternalServerError, "setup failed")
 			return
 		}
 
-		// Save config
 		configs := map[string]string{
 			"session_secret": sessionSecret,
 			"app_url":        req.AppURL,
@@ -107,10 +103,12 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to commit setup")
+			log.Printf("[SETUP] failed to commit: %v", err)
+			writeError(w, http.StatusInternalServerError, "setup failed")
 			return
 		}
 
+		logger.SetupComplete(req.AdminUsername)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -138,7 +136,9 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		`, req.Username).Scan(&user.ID, &user.Username, &email, &user.Role, &user.AuthProvider, &hash)
 
 		if err != nil {
-			writeError(w, http.StatusUnauthorized, "user not found: "+err.Error())
+			log.Printf("[AUTH] local login: user not found: %q err=%v ip=%s", req.Username, err, r.RemoteAddr)
+			logger.LoginFailure(r, req.Username, "user_not_found")
+			writeError(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
 
@@ -147,7 +147,9 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		}
 
 		if !authSvc.CheckPassword(hash, req.Password) {
-			writeError(w, http.StatusUnauthorized, "password mismatch")
+			log.Printf("[AUTH] local login: password mismatch user=%q ip=%s", req.Username, r.RemoteAddr)
+			logger.LoginFailure(r, req.Username, "invalid_password")
+			writeError(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
 
@@ -155,20 +157,22 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 
 		token, err := authSvc.GenerateToken(&user)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to generate token")
+			log.Printf("[AUTH] failed to generate token: %v", err)
+			writeError(w, http.StatusInternalServerError, "authentication error")
 			return
 		}
 
-		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"token": token,
-			"user":  user,
-		})
+		logger.LoginSuccess(r, user.Username, "local")
+		writeJSON(w, http.StatusOK, map[string]interface{}{"token": token, "user": user})
 	}
 }
 
 func Logout(authSvc *auth.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// JWT is stateless — client just drops the token
+		claims, _ := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if claims != nil {
+			logger.Logout(r, claims.Username)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -177,11 +181,11 @@ func OAuthLogin(authSvc *auth.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		url, state, err := authSvc.GetOAuthLoginURL(r.Context())
 		if err != nil {
+			log.Printf("[AUTH] oauth login init failed: %v ip=%s", err, r.RemoteAddr)
 			writeError(w, http.StatusServiceUnavailable, "OAuth not configured")
 			return
 		}
 
-		// Store state in a short-lived cookie
 		http.SetCookie(w, &http.Cookie{
 			Name:     "oauth_state",
 			Value:    state,
@@ -190,38 +194,43 @@ func OAuthLogin(authSvc *auth.Service) http.HandlerFunc {
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
-
 		http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 	}
 }
 
 func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Validate state
 		cookie, err := r.Cookie("oauth_state")
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "state cookie missing: "+err.Error())
+			log.Printf("[AUTH] oauth callback: state cookie missing ip=%s", r.RemoteAddr)
+			logger.OAuthFailure(r, "state_validation", "cookie_missing")
+			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 		if cookie.Value != r.URL.Query().Get("state") {
-			writeError(w, http.StatusBadRequest, "state mismatch: got "+r.URL.Query().Get("state")+" want "+cookie.Value)
+			log.Printf("[AUTH] oauth callback: state mismatch ip=%s", r.RemoteAddr)
+			logger.OAuthFailure(r, "state_validation", "state_mismatch")
+			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 
 		code := r.URL.Query().Get("code")
-		user, _, err := authSvc.HandleOAuthCallback(r.Context(), code)
+		user, isNew, err := authSvc.HandleOAuthCallback(r.Context(), code)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "OAuth callback failed: "+err.Error())
+			log.Printf("[AUTH] oauth callback failed: %v ip=%s", err, r.RemoteAddr)
+			logger.OAuthFailure(r, "token_exchange", err.Error())
+			writeError(w, http.StatusInternalServerError, "authentication error")
 			return
 		}
 
 		token, err := authSvc.GenerateToken(user)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to generate token")
+			log.Printf("[AUTH] oauth: failed to generate token: %v", err)
+			writeError(w, http.StatusInternalServerError, "authentication error")
 			return
 		}
 
-		// Redirect to frontend with token
+		logger.OAuthSuccess(r, user.Username, isNew)
 		http.Redirect(w, r, "/?token="+token, http.StatusTemporaryRedirect)
 	}
 }
@@ -246,6 +255,7 @@ func Me(authSvc *auth.Service) http.HandlerFunc {
 			&user.Role, &user.AuthProvider, &user.CreatedAt, &lastLogin,
 		)
 		if err != nil {
+			log.Printf("[AUTH] me: user not found id=%s err=%v", claims.UserID, err)
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
@@ -256,7 +266,6 @@ func Me(authSvc *auth.Service) http.HandlerFunc {
 		if lastLogin.Valid {
 			user.LastLogin = &lastLogin.Time
 		}
-
 		writeJSON(w, http.StatusOK, user)
 	}
 }
@@ -270,6 +279,7 @@ func ListUsers(db *sql.DB) http.HandlerFunc {
 			FROM users ORDER BY created_at ASC
 		`)
 		if err != nil {
+			log.Printf("[API] list_users error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to query users")
 			return
 		}
@@ -279,10 +289,10 @@ func ListUsers(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var u models.User
 			var lastLogin sql.NullTime
-			rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.AuthProvider, &u.CreatedAt, &lastLogin)
-			if lastLogin.Valid {
-				u.LastLogin = &lastLogin.Time
-			}
+			var email sql.NullString
+			rows.Scan(&u.ID, &u.Username, &email, &u.Role, &u.AuthProvider, &u.CreatedAt, &lastLogin)
+			if email.Valid { u.Email = email.String }
+			if lastLogin.Valid { u.LastLogin = &lastLogin.Time }
 			users = append(users, u)
 		}
 		writeJSON(w, http.StatusOK, users)
@@ -294,17 +304,17 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 		id := mux.Vars(r)["id"]
 		var u models.User
 		var lastLogin sql.NullTime
+		var email sql.NullString
 		err := db.QueryRow(`
 			SELECT id, username, email, role, auth_provider, created_at, last_login
 			FROM users WHERE id = ?
-		`, id).Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.AuthProvider, &u.CreatedAt, &lastLogin)
+		`, id).Scan(&u.ID, &u.Username, &email, &u.Role, &u.AuthProvider, &u.CreatedAt, &lastLogin)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
-		if lastLogin.Valid {
-			u.LastLogin = &lastLogin.Time
-		}
+		if email.Valid { u.Email = email.String }
+		if lastLogin.Valid { u.LastLogin = &lastLogin.Time }
 		writeJSON(w, http.StatusOK, u)
 	}
 }
@@ -312,9 +322,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
-		var req struct {
-			Role models.Role `json:"role"`
-		}
+		var req struct{ Role models.Role `json:"role"` }
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
@@ -324,6 +332,7 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		db.Exec("UPDATE users SET role = ? WHERE id = ?", req.Role, id)
+		log.Printf("[ADMIN] role_update user_id=%s new_role=%s", id, req.Role)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -332,6 +341,7 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
 		db.Exec("DELETE FROM users WHERE id = ? AND auth_provider != 'local'", id)
+		log.Printf("[ADMIN] user_deleted user_id=%s", id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -346,7 +356,6 @@ func ListGroups(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		defer rows.Close()
-
 		groups := []models.Group{}
 		for rows.Next() {
 			var g models.Group
@@ -368,17 +377,12 @@ func CreateGroup(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		id := generateID()
-		_, err := db.Exec(
-			"INSERT INTO groups (id, name, description) VALUES (?, ?, ?)",
-			id, req.Name, req.Description,
-		)
+		_, err := db.Exec("INSERT INTO groups (id, name, description) VALUES (?, ?, ?)", id, req.Name, req.Description)
 		if err != nil {
 			writeError(w, http.StatusConflict, "group already exists")
 			return
 		}
-		writeJSON(w, http.StatusCreated, models.Group{
-			ID: id, Name: req.Name, Description: req.Description, CreatedAt: time.Now(),
-		})
+		writeJSON(w, http.StatusCreated, models.Group{ID: id, Name: req.Name, Description: req.Description, CreatedAt: time.Now()})
 	}
 }
 
@@ -386,40 +390,33 @@ func GetGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
 		var g models.Group
-		err := db.QueryRow(
-			"SELECT id, name, description, created_at FROM groups WHERE id = ?", id,
-		).Scan(&g.ID, &g.Name, &g.Description, &g.CreatedAt)
+		err := db.QueryRow("SELECT id, name, description, created_at FROM groups WHERE id = ?", id).
+			Scan(&g.ID, &g.Name, &g.Description, &g.CreatedAt)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "group not found")
 			return
 		}
 
-		// Load users
 		rows, _ := db.Query(`
 			SELECT u.id, u.username, u.email, u.role, u.auth_provider
-			FROM users u JOIN user_groups ug ON u.id = ug.user_id
-			WHERE ug.group_id = ?
-		`, id)
+			FROM users u JOIN user_groups ug ON u.id = ug.user_id WHERE ug.group_id = ?`, id)
 		defer rows.Close()
 		for rows.Next() {
 			var u models.User
-			rows.Scan(&u.ID, &u.Username, &u.Email, &u.Role, &u.AuthProvider)
+			var email sql.NullString
+			rows.Scan(&u.ID, &u.Username, &email, &u.Role, &u.AuthProvider)
+			if email.Valid { u.Email = email.String }
 			g.Users = append(g.Users, u)
 		}
 
-		// Load tags
 		tagRows, _ := db.Query(`
-			SELECT t.id, t.name, t.color
-			FROM tags t JOIN group_tags gt ON t.id = gt.tag_id
-			WHERE gt.group_id = ?
-		`, id)
+			SELECT t.id, t.name, t.color FROM tags t JOIN group_tags gt ON t.id = gt.tag_id WHERE gt.group_id = ?`, id)
 		defer tagRows.Close()
 		for tagRows.Next() {
 			var t models.Tag
 			tagRows.Scan(&t.ID, &t.Name, &t.Color)
 			g.Tags = append(g.Tags, t)
 		}
-
 		writeJSON(w, http.StatusOK, g)
 	}
 }
@@ -435,9 +432,7 @@ func DeleteGroup(db *sql.DB) http.HandlerFunc {
 func AddUserToGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		groupID := mux.Vars(r)["id"]
-		var req struct {
-			UserID string `json:"userId"`
-		}
+		var req struct{ UserID string `json:"userId"` }
 		json.NewDecoder(r.Body).Decode(&req)
 		db.Exec("INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)", req.UserID, groupID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -455,9 +450,7 @@ func RemoveUserFromGroup(db *sql.DB) http.HandlerFunc {
 func AddTagToGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		groupID := mux.Vars(r)["id"]
-		var req struct {
-			TagID string `json:"tagId"`
-		}
+		var req struct{ TagID string `json:"tagId"` }
 		json.NewDecoder(r.Body).Decode(&req)
 		db.Exec("INSERT OR IGNORE INTO group_tags (group_id, tag_id) VALUES (?, ?)", groupID, req.TagID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -502,21 +495,14 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "name required")
 			return
 		}
-		if req.Color == "" {
-			req.Color = "#6366f1"
-		}
+		if req.Color == "" { req.Color = "#6366f1" }
 		id := generateID()
-		_, err := db.Exec(
-			"INSERT INTO tags (id, name, color) VALUES (?, ?, ?)",
-			id, req.Name, req.Color,
-		)
+		_, err := db.Exec("INSERT INTO tags (id, name, color) VALUES (?, ?, ?)", id, req.Name, req.Color)
 		if err != nil {
 			writeError(w, http.StatusConflict, "tag already exists")
 			return
 		}
-		writeJSON(w, http.StatusCreated, models.Tag{
-			ID: id, Name: req.Name, Color: req.Color, CreatedAt: time.Now(),
-		})
+		writeJSON(w, http.StatusCreated, models.Tag{ID: id, Name: req.Name, Color: req.Color, CreatedAt: time.Now()})
 	}
 }
 
@@ -536,7 +522,6 @@ func GetOAuthConfig(db *sql.DB) http.HandlerFunc {
 		db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_client_id'").Scan(&cfg.ClientID)
 		db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_issuer_url'").Scan(&cfg.IssuerURL)
 		db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_redirect_url'").Scan(&cfg.RedirectURL)
-		// Never return the secret
 		writeJSON(w, http.StatusOK, cfg)
 	}
 }
@@ -548,21 +533,19 @@ func SaveOAuthConfig(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-
 		upsert := func(key, value string) {
 			db.Exec(`
 				INSERT INTO app_config (key, value) VALUES (?, ?)
 				ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP
 			`, key, value)
 		}
-
 		upsert("oauth_client_id", req.ClientID)
 		upsert("oauth_issuer_url", req.IssuerURL)
 		upsert("oauth_redirect_url", req.RedirectURL)
 		if req.ClientSecret != "" {
 			upsert("oauth_client_secret", req.ClientSecret)
 		}
-
+		log.Printf("[ADMIN] oauth_config_updated")
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

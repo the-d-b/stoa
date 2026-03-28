@@ -5,46 +5,60 @@ import GroupsPanel from '../components/admin/GroupsPanel'
 import TagsPanel from '../components/admin/TagsPanel'
 
 const tabs = [
-  { path: '/admin/oauth', label: 'OAuth' },
-  { path: '/admin/users', label: 'Users' },
-  { path: '/admin/groups', label: 'Groups' },
-  { path: '/admin/tags', label: 'Tags' },
+  { path: '/admin/oauth',  label: 'OAuth',  icon: '⬡' },
+  { path: '/admin/users',  label: 'Users',  icon: '○' },
+  { path: '/admin/groups', label: 'Groups', icon: '◈' },
+  { path: '/admin/tags',   label: 'Tags',   icon: '◇' },
 ]
 
 export default function AdminPage() {
   const location = useLocation()
 
   return (
-    <div>
-      <h1 className="text-xl font-semibold text-gray-100 mb-6">Administration</h1>
+    <div className="fade-up">
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+          Administration
+        </h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+          Manage OAuth, users, groups, and tags
+        </p>
+      </div>
 
       {/* Tab nav */}
-      <nav className="flex gap-1 mb-6 border-b border-gray-800 pb-0">
-        {tabs.map((tab) => {
+      <nav style={{
+        display: 'flex', gap: 4, marginBottom: 28,
+        borderBottom: '1px solid var(--border)', paddingBottom: 0,
+      }}>
+        {tabs.map(tab => {
           const active = location.pathname === tab.path
           return (
             <Link
               key={tab.path}
               to={tab.path}
-              className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
-                active
-                  ? 'text-stoa-400 border-stoa-500 bg-stoa-500/5'
-                  : 'text-gray-500 border-transparent hover:text-gray-300 hover:border-gray-700'
-              }`}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                padding: '8px 14px', fontSize: 13, fontWeight: 500,
+                textDecoration: 'none', borderRadius: '8px 8px 0 0',
+                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+                color: active ? 'var(--accent2)' : 'var(--text-muted)',
+                background: active ? 'var(--accent-bg)' : 'transparent',
+                transition: 'all 0.15s', marginBottom: -1,
+              }}
             >
+              <span style={{ fontSize: 11 }}>{tab.icon}</span>
               {tab.label}
             </Link>
           )
         })}
       </nav>
 
-      {/* Tab content */}
       <Routes>
         <Route path="/" element={<Navigate to="/admin/oauth" replace />} />
-        <Route path="/oauth" element={<OAuthConfigPanel />} />
-        <Route path="/users" element={<UsersPanel />} />
+        <Route path="/oauth"  element={<OAuthConfigPanel />} />
+        <Route path="/users"  element={<UsersPanel />} />
         <Route path="/groups" element={<GroupsPanel />} />
-        <Route path="/tags" element={<TagsPanel />} />
+        <Route path="/tags"   element={<TagsPanel />} />
       </Routes>
     </div>
   )

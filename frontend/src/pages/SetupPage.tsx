@@ -3,11 +3,10 @@ import { authApi, SetupRequest } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 
-interface Props {
-  onComplete: () => void
-}
-
+interface Props { onComplete: () => void }
 type Step = 'welcome' | 'admin' | 'app' | 'done'
+
+const STEPS: Step[] = ['welcome', 'admin', 'app', 'done']
 
 export default function SetupPage({ onComplete }: Props) {
   const [step, setStep] = useState<Step>('welcome')
@@ -21,196 +20,160 @@ export default function SetupPage({ onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
-  const update = (k: keyof SetupRequest, v: string) =>
-    setForm((f) => ({ ...f, [k]: v }))
+  const update = (k: keyof SetupRequest, v: string) => setForm(f => ({ ...f, [k]: v }))
+  const stepIndex = STEPS.indexOf(step)
 
-  const handleSubmit = async () => {
+  const validateAdmin = () => {
+    if (!form.adminUsername) return 'Username is required'
+    if (!form.adminPassword) return 'Password is required'
+    if (form.adminPassword.length < 8) return 'Password must be at least 8 characters'
+    if (form.adminPassword !== confirmPassword) return 'Passwords do not match'
+    return ''
+  }
+
+  const handleFinish = async () => {
     setError('')
-    if (form.adminPassword !== confirmPassword) {
-      setError('Passwords do not match')
-      return
-    }
-    if (form.adminPassword.length < 8) {
-      setError('Password must be at least 8 characters')
-      return
-    }
-
     setLoading(true)
     try {
       await authApi.setupInit(form)
-      // Auto-login after setup
       const res = await authApi.login(form.adminUsername, form.adminPassword)
       login(res.data.token, res.data.user)
       setStep('done')
-      setTimeout(onComplete, 1500)
+      setTimeout(onComplete, 1200)
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Setup failed')
+      setError(e.response?.data?.error || 'Setup failed — check the logs')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="flex flex-col items-center mb-8">
-          <StoaLogo size={48} />
-          <h1 className="mt-3 text-2xl font-semibold text-gray-100">stoa</h1>
-          <p className="text-sm text-gray-500 mt-1">first-run setup</p>
+    <div style={{
+      minHeight: '100vh', background: 'var(--bg)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+      backgroundImage: 'radial-gradient(ellipse 60% 40% at 50% 0%, #7c6fff14, transparent)',
+    }}>
+      <div style={{ width: '100%', maxWidth: 440 }}>
+
+        {/* Header */}
+        <div className="fade-up" style={{ textAlign: 'center', marginBottom: 36 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <StoaLogo size={32} />
+            <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.02em' }}>stoa</span>
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>first-run setup</div>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 mb-8">
+        {/* Step dots */}
+        <div className="fade-up-1" style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 28 }}>
           {(['welcome', 'admin', 'app'] as Step[]).map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full transition-colors ${
-                step === s ? 'bg-stoa-500' :
-                stepIndex(step) > i ? 'bg-stoa-700' : 'bg-gray-700'
-              }`} />
-            </div>
+            <div key={s} style={{
+              width: step === s ? 20 : 6, height: 6, borderRadius: 3,
+              background: stepIndex > i ? 'var(--accent)' : step === s ? 'var(--accent)' : 'var(--surface2)',
+              transition: 'all 0.3s ease',
+            }} />
           ))}
         </div>
 
-        <div className="card">
+        <div className="card fade-up-2" style={{ padding: 32 }}>
+
+          {/* ── Welcome ── */}
           {step === 'welcome' && (
             <div>
-              <h2 className="text-lg font-semibold text-gray-100 mb-2">Welcome to Stoa</h2>
-              <p className="text-sm text-gray-400 mb-6">
-                Let's get you set up. This wizard runs once to create your admin account
-                and configure the basics. You can change everything later from the admin panel.
+              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 10, marginTop: 0 }}>Welcome</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 28, lineHeight: 1.7 }}>
+                This wizard runs once to create your admin account and configure the basics.
+                Everything can be changed later from the admin panel.
               </p>
-              <button className="btn-primary w-full" onClick={() => setStep('admin')}>
+              <button className="btn btn-primary" style={{ width: '100%' }} onClick={() => setStep('admin')}>
                 Get started →
               </button>
             </div>
           )}
 
+          {/* ── Admin account ── */}
           {step === 'admin' && (
             <div>
-              <h2 className="text-lg font-semibold text-gray-100 mb-1">Admin account</h2>
-              <p className="text-sm text-gray-500 mb-6">
-                This local account is your permanent fallback — it always works even if OAuth is misconfigured.
+              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>Admin account</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+                This local account is your permanent fallback — it works even when OAuth is misconfigured.
               </p>
-
-              <div className="space-y-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
                 <div>
                   <label className="label">Username</label>
-                  <input
-                    className="input"
-                    value={form.adminUsername}
-                    onChange={(e) => update('adminUsername', e.target.value)}
-                    placeholder="admin"
-                    autoFocus
-                  />
+                  <input className="input" value={form.adminUsername} onChange={e => update('adminUsername', e.target.value)} placeholder="admin" autoFocus />
                 </div>
                 <div>
                   <label className="label">Password</label>
-                  <input
-                    type="password"
-                    className="input"
-                    value={form.adminPassword}
-                    onChange={(e) => update('adminPassword', e.target.value)}
-                    placeholder="min 8 characters"
-                  />
+                  <input type="password" className="input" value={form.adminPassword} onChange={e => update('adminPassword', e.target.value)} placeholder="min 8 characters" />
                 </div>
                 <div>
                   <label className="label">Confirm password</label>
-                  <input
-                    type="password"
-                    className="input"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="confirm password"
-                  />
+                  <input type="password" className="input" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="confirm password" />
                 </div>
               </div>
-
-              {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
-
-              <div className="flex gap-3 mt-6">
-                <button className="btn-secondary flex-1" onClick={() => setStep('welcome')}>
-                  Back
-                </button>
-                <button
-                  className="btn-primary flex-1"
-                  onClick={() => {
-                    if (!form.adminUsername || !form.adminPassword) {
-                      setError('Username and password are required')
-                      return
-                    }
-                    if (form.adminPassword !== confirmPassword) {
-                      setError('Passwords do not match')
-                      return
-                    }
-                    if (form.adminPassword.length < 8) {
-                      setError('Password must be at least 8 characters')
-                      return
-                    }
-                    setError('')
-                    setStep('app')
-                  }}
-                >
-                  Next →
-                </button>
+              {error && <ErrorBox message={error} />}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setError(''); setStep('welcome') }}>Back</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
+                  const e = validateAdmin()
+                  if (e) { setError(e); return }
+                  setError(''); setStep('app')
+                }}>Next →</button>
               </div>
             </div>
           )}
 
+          {/* ── App settings ── */}
           {step === 'app' && (
             <div>
-              <h2 className="text-lg font-semibold text-gray-100 mb-1">App settings</h2>
-              <p className="text-sm text-gray-500 mb-6">
-                The URL Stoa is reachable at. Used to build OAuth callback URLs.
+              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>App settings</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 24, lineHeight: 1.6 }}>
+                The URL Stoa is reachable at — used to build OAuth callback URLs.
               </p>
-
-              <div>
+              <div style={{ marginBottom: 24 }}>
                 <label className="label">App URL</label>
-                <input
-                  className="input"
-                  value={form.appUrl}
-                  onChange={(e) => update('appUrl', e.target.value)}
-                  placeholder="https://stoa.yourdomain.home"
-                />
-                <p className="text-xs text-gray-600 mt-1">
-                  OAuth redirect will be: {form.appUrl}/api/auth/oauth/callback
-                </p>
+                <input className="input" value={form.appUrl} onChange={e => update('appUrl', e.target.value)} placeholder="https://stoa.yourdomain.home" />
+                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6, fontFamily: 'DM Mono, monospace' }}>
+                  callback → {form.appUrl}/api/auth/oauth/callback
+                </div>
               </div>
-
-              {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
-
-              <div className="flex gap-3 mt-6">
-                <button className="btn-secondary flex-1" onClick={() => setStep('admin')}>
-                  Back
-                </button>
-                <button
-                  className="btn-primary flex-1"
-                  onClick={handleSubmit}
-                  disabled={loading}
-                >
-                  {loading ? 'Setting up...' : 'Finish setup'}
+              {error && <ErrorBox message={error} />}
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setError(''); setStep('admin') }}>Back</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleFinish} disabled={loading}>
+                  {loading ? <span className="spinner" /> : 'Finish setup'}
                 </button>
               </div>
             </div>
           )}
 
+          {/* ── Done ── */}
           {step === 'done' && (
-            <div className="text-center py-4">
-              <div className="text-4xl mb-3">✓</div>
-              <h2 className="text-lg font-semibold text-gray-100 mb-1">Setup complete</h2>
-              <p className="text-sm text-gray-500">Signing you in...</p>
+            <div style={{ textAlign: 'center', padding: '16px 0' }}>
+              <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
+              <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 8px' }}>Setup complete</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>Signing you in...</p>
             </div>
           )}
         </div>
 
-        <p className="text-center text-xs text-gray-700 mt-6">
-          OAuth can be configured after setup from the admin panel.
-        </p>
+        <div className="fade-up-3" style={{ textAlign: 'center', marginTop: 20, fontSize: 12, color: 'var(--text-dim)' }}>
+          OAuth can be configured after setup from the admin panel
+        </div>
       </div>
     </div>
   )
 }
 
-function stepIndex(step: Step): number {
-  return ['welcome', 'admin', 'app', 'done'].indexOf(step)
+function ErrorBox({ message }: { message: string }) {
+  return (
+    <div style={{
+      background: '#f8717110', border: '1px solid #f8717130',
+      color: 'var(--red)', borderRadius: 8, padding: '8px 12px',
+      fontSize: 13, marginBottom: 16,
+    }}>
+      {message}
+    </div>
+  )
 }
