@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { usersApi, User, Role } from '../../api'
+import { usersApi, User } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 
 export default function UsersPanel() {
