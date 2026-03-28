@@ -10,6 +10,7 @@ import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
 import Layout from './components/layout/Layout'
 import ThemeSwitcher from './components/layout/ThemeSwitcher'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -43,7 +44,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
         {user.role === 'admin' && (
           <Route path="/admin/*" element={<AdminPage />} />
         )}

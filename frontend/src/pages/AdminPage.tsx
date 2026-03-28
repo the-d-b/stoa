@@ -1,4 +1,5 @@
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import ErrorBoundary from '../components/ErrorBoundary'
 import OAuthConfigPanel from '../components/admin/OAuthConfigPanel'
 import UsersPanel from '../components/admin/UsersPanel'
 import GroupsPanel from '../components/admin/GroupsPanel'
@@ -53,15 +54,17 @@ export default function AdminPage() {
         })}
       </nav>
 
-      <Routes>
-        <Route index element={<Navigate to="bookmarks" replace />} />
-        <Route path="bookmarks" element={<BookmarksPanel />} />
-        <Route path="panels"    element={<PanelsAdminPanel />} />
-        <Route path="oauth"     element={<OAuthConfigPanel />} />
-        <Route path="users"     element={<UsersPanel />} />
-        <Route path="groups"    element={<GroupsPanel />} />
-        <Route path="tags"      element={<TagsPanel />} />
-      </Routes>
+      <ErrorBoundary>
+        <Routes>
+          <Route index element={<Navigate to="bookmarks" replace />} />
+          <Route path="bookmarks" element={<BookmarksPanel />} />
+          <Route path="panels"    element={<PanelsAdminPanel />} />
+          <Route path="oauth"     element={<OAuthConfigPanel />} />
+          <Route path="users"     element={<UsersPanel />} />
+          <Route path="groups"    element={<GroupsPanel />} />
+          <Route path="tags"      element={<TagsPanel />} />
+        </Routes>
+      </ErrorBoundary>
     </div>
   )
 }
