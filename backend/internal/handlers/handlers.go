@@ -199,15 +199,19 @@ func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Validate state
 		cookie, err := r.Cookie("oauth_state")
-		if err != nil || cookie.Value != r.URL.Query().Get("state") {
-			writeError(w, http.StatusBadRequest, "invalid state")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "state cookie missing: "+err.Error())
+			return
+		}
+		if cookie.Value != r.URL.Query().Get("state") {
+			writeError(w, http.StatusBadRequest, "state mismatch: got "+r.URL.Query().Get("state")+" want "+cookie.Value)
 			return
 		}
 
 		code := r.URL.Query().Get("code")
 		user, _, err := authSvc.HandleOAuthCallback(r.Context(), code)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "OAuth callback failed")
+			writeError(w, http.StatusInternalServerError, "OAuth callback failed: "+err.Error())
 			return
 		}
 
