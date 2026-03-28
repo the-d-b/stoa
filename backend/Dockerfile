@@ -21,8 +21,13 @@ WORKDIR /app
 
 COPY --from=builder /app/stoa .
 
-RUN mkdir -p /data/db
+RUN mkdir -p /data/db /usr/local/share/ca-certificates
+
+# Copy custom CA certs from mounted volume at runtime via entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8080
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["./stoa"]
