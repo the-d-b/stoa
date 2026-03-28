@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -506,6 +507,19 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func UpdateTag(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		var req models.UpdateTagRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Color == "" {
+			writeError(w, http.StatusBadRequest, "color required")
+			return
+		}
+		db.Exec("UPDATE tags SET color=? WHERE id=?", req.Color, id)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
 func DeleteTag(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
@@ -515,6 +529,57 @@ func DeleteTag(db *sql.DB) http.HandlerFunc {
 }
 
 // ── OAuth Config ──────────────────────────────────────────────────────────────
+
+func TestOAuthConfig(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			IssuerURL string `json:"issuerUrl"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(\&req); err != nil || req.IssuerURL == "" {
+			// Try loading from DB
+			db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_issuer_url'").Scan(\&req.IssuerURL)
+		}
+		if req.IssuerURL == "" {
+			writeError(w, http.StatusBadRequest, "issuer URL required")
+			return
+		}
+
+		discoveryURL := strings.TrimRight(req.IssuerURL, "/") + "/.well-known/openid-configuration"
+		client := \&http.Client{Timeout: 5 * time.Second}
+		resp, err := client.Get(discoveryURL)
+		if err != nil {
+			writeJSON(w, http.StatusOK, map[string]interface{}{
+				"ok":    false,
+				"error": "Cannot reach issuer: " + err.Error(),
+			})
+			return
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			writeJSON(w, http.StatusOK, map[string]interface{}{
+				"ok":    false,
+				"error": "Issuer returned HTTP " + http.StatusText(resp.StatusCode),
+			})
+			return
+		}
+
+		var discovery map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(\&discovery); err != nil {
+			writeJSON(w, http.StatusOK, map[string]interface{}{
+				"ok":    false,
+				"error": "Response is not valid OIDC discovery document",
+			})
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"ok":      true,
+			"issuer":  discovery["issuer"],
+			"authURL": discovery["authorization_endpoint"],
+		})
+	}
+}
 
 func GetOAuthConfig(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

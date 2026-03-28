@@ -3,18 +3,30 @@ package models
 import "time"
 
 type Role string
-
 const (
 	RoleAdmin Role = "admin"
 	RoleUser  Role = "user"
 )
 
 type AuthProvider string
-
 const (
 	AuthProviderLocal AuthProvider = "local"
 	AuthProviderOAuth AuthProvider = "oauth"
 )
+
+type NodeType string
+const (
+	NodeSection  NodeType = "section"
+	NodeBookmark NodeType = "bookmark"
+)
+
+type Scope string
+const (
+	ScopeShared   Scope = "shared"
+	ScopePersonal Scope = "personal"
+)
+
+// ── Users ─────────────────────────────────────────────────────────────────────
 
 type User struct {
 	ID           string       `json:"id"`
@@ -25,6 +37,15 @@ type User struct {
 	CreatedAt    time.Time    `json:"createdAt"`
 	LastLogin    *time.Time   `json:"lastLogin,omitempty"`
 }
+
+type UserPreferences struct {
+	UserID     string `json:"userId"`
+	Theme      string `json:"theme"`
+	DateFormat string `json:"dateFormat"`
+	AvatarURL  string `json:"avatarUrl,omitempty"`
+}
+
+// ── Groups / Tags ─────────────────────────────────────────────────────────────
 
 type Group struct {
 	ID          string    `json:"id"`
@@ -41,6 +62,78 @@ type Tag struct {
 	Color     string    `json:"color"`
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+// ── Bookmark tree ─────────────────────────────────────────────────────────────
+
+type BookmarkNode struct {
+	ID        string          `json:"id"`
+	ParentID  string          `json:"parentId,omitempty"`
+	Path      string          `json:"path"`
+	Name      string          `json:"name"`
+	Type      NodeType        `json:"type"`
+	URL       string          `json:"url,omitempty"`
+	IconURL   string          `json:"iconUrl,omitempty"`
+	SortOrder int             `json:"sortOrder"`
+	Scope     Scope           `json:"scope"`
+	CreatedBy string          `json:"createdBy,omitempty"`
+	CreatedAt time.Time       `json:"createdAt"`
+	Children  []*BookmarkNode `json:"children,omitempty"`
+}
+
+type CreateNodeRequest struct {
+	ParentID string   `json:"parentId"`
+	Name     string   `json:"name"`
+	Type     NodeType `json:"type"`
+	URL      string   `json:"url"`
+	IconURL  string   `json:"iconUrl"`
+}
+
+type UpdateNodeRequest struct {
+	Name      string `json:"name"`
+	URL       string `json:"url"`
+	IconURL   string `json:"iconUrl"`
+	SortOrder int    `json:"sortOrder"`
+}
+
+// ── Panels ────────────────────────────────────────────────────────────────────
+
+type Panel struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	Title     string    `json:"title"`
+	Config    string    `json:"config"`
+	Scope     Scope     `json:"scope"`
+	CreatedBy string    `json:"createdBy,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	Tags      []Tag     `json:"tags,omitempty"`
+	Position  int       `json:"position,omitempty"`
+}
+
+type CreatePanelRequest struct {
+	Type   string `json:"type"`
+	Title  string `json:"title"`
+	Config string `json:"config"`
+}
+
+// ── Walls ─────────────────────────────────────────────────────────────────────
+
+type Wall struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"userId"`
+	Name      string    `json:"name"`
+	IsDefault bool      `json:"isDefault"`
+	CreatedAt time.Time `json:"createdAt"`
+	Tags      []WallTag `json:"tags,omitempty"`
+}
+
+type WallTag struct {
+	TagID  string `json:"tagId"`
+	Name   string `json:"name"`
+	Color  string `json:"color"`
+	Active bool   `json:"active"`
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
 
 type AppConfig struct {
 	Key       string    `json:"key"`
@@ -66,4 +159,8 @@ type Claims struct {
 	UserID   string `json:"userId"`
 	Username string `json:"username"`
 	Role     Role   `json:"role"`
+}
+
+type UpdateTagRequest struct {
+	Color string `json:"color"`
 }

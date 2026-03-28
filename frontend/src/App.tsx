@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { authApi } from './api'
 
 import SetupPage from './pages/SetupPage'
@@ -8,6 +9,7 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
 import Layout from './components/layout/Layout'
+import ThemeSwitcher from './components/layout/ThemeSwitcher'
 
 function AppRoutes() {
   const { user, loading } = useAuth()
@@ -78,9 +80,12 @@ export function StoaLogo({ size = 32 }: { size?: number }) {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+          <ThemeSwitcher />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   )
 }

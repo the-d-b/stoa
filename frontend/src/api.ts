@@ -121,6 +121,7 @@ export const groupsApi = {
 export const tagsApi = {
   list: () => api.get<Tag[]>('/tags'),
   create: (name: string, color?: string) => api.post<Tag>('/tags', { name, color }),
+  updateColor: (id: string, color: string) => api.put(`/tags/${id}`, { color }),
   delete: (id: string) => api.delete(`/tags/${id}`),
 }
 
@@ -129,4 +130,102 @@ export const tagsApi = {
 export const configApi = {
   getOAuth: () => api.get<OAuthConfig>('/config/oauth'),
   saveOAuth: (data: OAuthConfig) => api.put('/config/oauth', data),
+}
+
+// ── Bookmarks ─────────────────────────────────────────────────────────────────
+
+export interface BookmarkNode {
+  id: string
+  parentId?: string
+  path: string
+  name: string
+  type: 'section' | 'bookmark'
+  url?: string
+  iconUrl?: string
+  sortOrder: number
+  scope: 'shared' | 'personal'
+  createdAt: string
+  children?: BookmarkNode[]
+}
+
+export const bookmarksApi = {
+  tree: () => api.get<BookmarkNode[]>('/bookmarks'),
+  subtree: (id: string) => api.get<BookmarkNode>(`/bookmarks/${id}/subtree`),
+  create: (data: { parentId?: string; name: string; type: 'section' | 'bookmark'; url?: string; iconUrl?: string }) =>
+    api.post<BookmarkNode>('/bookmarks', data),
+  update: (id: string, data: { name: string; url?: string; iconUrl?: string; sortOrder?: number }) =>
+    api.put(`/bookmarks/${id}`, data),
+  delete: (id: string) => api.delete(`/bookmarks/${id}`),
+  scrapeFavicon: (url: string) => api.get<{ iconUrl: string }>(`/bookmarks/favicon?url=${encodeURIComponent(url)}`),
+}
+
+// ── Panels ────────────────────────────────────────────────────────────────────
+
+export interface Panel {
+  id: string
+  type: string
+  title: string
+  config: string
+  scope: 'shared' | 'personal'
+  tags: Tag[]
+  position: number
+  createdAt: string
+}
+
+export const panelsApi = {
+  list: () => api.get<Panel[]>('/panels'),
+  create: (data: { type: string; title: string; config: string }) => api.post<Panel>('/panels', data),
+  update: (id: string, data: { title: string; config: string }) => api.put(`/panels/${id}`, data),
+  delete: (id: string) => api.delete(`/panels/${id}`),
+  addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
+  removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
+  updateOrder: (order: { panelId: string; position: number }[]) => api.put('/panels/order', order),
+}
+
+// ── Walls ─────────────────────────────────────────────────────────────────────
+
+export interface WallTag {
+  tagId: string
+  name: string
+  color: string
+  active: boolean
+}
+
+export interface Wall {
+  id: string
+  userId: string
+  name: string
+  isDefault: boolean
+  createdAt: string
+  tags: WallTag[]
+}
+
+export const wallsApi = {
+  list: () => api.get<Wall[]>('/walls'),
+  create: (name: string, isDefault?: boolean) => api.post<Wall>('/walls', { name, isDefault }),
+  delete: (id: string) => api.delete(`/walls/${id}`),
+  setTagActive: (wallId: string, tagId: string, active: boolean) =>
+    api.put(`/walls/${wallId}/tags/${tagId}`, { active }),
+}
+
+// ── Preferences ───────────────────────────────────────────────────────────────
+
+export interface UserPreferences {
+  userId: string
+  theme: string
+  dateFormat: string
+  avatarUrl?: string
+}
+
+export const prefsApi = {
+  get: () => api.get<UserPreferences>('/preferences'),
+  save: (data: Partial<UserPreferences>) => api.put('/preferences', data),
+}
+
+// ── OAuth test ────────────────────────────────────────────────────────────────
+
+export const oauthTestApi = {
+  test: (issuerUrl: string) => api.post<{ ok: boolean; error?: string; issuer?: string; authURL?: string }>(
+    '/auth/oauth/test', { issuerUrl }
+  ),
 }

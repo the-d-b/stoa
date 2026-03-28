@@ -3,12 +3,16 @@ import OAuthConfigPanel from '../components/admin/OAuthConfigPanel'
 import UsersPanel from '../components/admin/UsersPanel'
 import GroupsPanel from '../components/admin/GroupsPanel'
 import TagsPanel from '../components/admin/TagsPanel'
+import BookmarksPanel from '../components/admin/BookmarksPanel'
+import PanelsAdminPanel from '../components/admin/PanelsAdminPanel'
 
 const tabs = [
-  { path: '/admin/oauth',  label: 'OAuth',  icon: '⬡' },
-  { path: '/admin/users',  label: 'Users',  icon: '○' },
-  { path: '/admin/groups', label: 'Groups', icon: '◈' },
-  { path: '/admin/tags',   label: 'Tags',   icon: '◇' },
+  { path: '/admin/bookmarks', label: 'Bookmarks', icon: '↗' },
+  { path: '/admin/panels',    label: 'Panels',    icon: '▤' },
+  { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
+  { path: '/admin/users',     label: 'Users',     icon: '○' },
+  { path: '/admin/groups',    label: 'Groups',    icon: '◈' },
+  { path: '/admin/tags',      label: 'Tags',      icon: '◇' },
 ]
 
 export default function AdminPage() {
@@ -21,31 +25,27 @@ export default function AdminPage() {
           Administration
         </h1>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-          Manage OAuth, users, groups, and tags
+          Manage bookmarks, panels, OAuth, users, groups, and tags
         </p>
       </div>
 
-      {/* Tab nav */}
       <nav style={{
         display: 'flex', gap: 4, marginBottom: 28,
         borderBottom: '1px solid var(--border)', paddingBottom: 0,
+        overflowX: 'auto',
       }}>
         {tabs.map(tab => {
           const active = location.pathname === tab.path
           return (
-            <Link
-              key={tab.path}
-              to={tab.path}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', fontSize: 13, fontWeight: 500,
-                textDecoration: 'none', borderRadius: '8px 8px 0 0',
-                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                color: active ? 'var(--accent2)' : 'var(--text-muted)',
-                background: active ? 'var(--accent-bg)' : 'transparent',
-                transition: 'all 0.15s', marginBottom: -1,
-              }}
-            >
+            <Link key={tab.path} to={tab.path} style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '8px 14px', fontSize: 13, fontWeight: 500,
+              textDecoration: 'none', borderRadius: '8px 8px 0 0',
+              borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+              color: active ? 'var(--accent2)' : 'var(--text-muted)',
+              background: active ? 'var(--accent-bg)' : 'transparent',
+              transition: 'all 0.15s', marginBottom: -1, whiteSpace: 'nowrap',
+            }}>
               <span style={{ fontSize: 11 }}>{tab.icon}</span>
               {tab.label}
             </Link>
@@ -54,11 +54,13 @@ export default function AdminPage() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Navigate to="/admin/oauth" replace />} />
-        <Route path="/oauth"  element={<OAuthConfigPanel />} />
-        <Route path="/users"  element={<UsersPanel />} />
-        <Route path="/groups" element={<GroupsPanel />} />
-        <Route path="/tags"   element={<TagsPanel />} />
+        <Route path="/" element={<Navigate to="/admin/bookmarks" replace />} />
+        <Route path="/bookmarks" element={<BookmarksPanel />} />
+        <Route path="/panels"    element={<PanelsAdminPanel />} />
+        <Route path="/oauth"     element={<OAuthConfigPanel />} />
+        <Route path="/users"     element={<UsersPanel />} />
+        <Route path="/groups"    element={<GroupsPanel />} />
+        <Route path="/tags"      element={<TagsPanel />} />
       </Routes>
     </div>
   )
