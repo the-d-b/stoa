@@ -54,13 +54,13 @@ export default function AdminPage() {
       </nav>
 
       <Routes>
-        <Route path="/" element={<Navigate to="/admin/bookmarks" replace />} />
-        <Route path="/bookmarks" element={<BookmarksPanel />} />
-        <Route path="/panels"    element={<PanelsAdminPanel />} />
-        <Route path="/oauth"     element={<OAuthConfigPanel />} />
-        <Route path="/users"     element={<UsersPanel />} />
-        <Route path="/groups"    element={<GroupsPanel />} />
-        <Route path="/tags"      element={<TagsPanel />} />
+        <Route index element={<Navigate to="bookmarks" replace />} />
+        <Route path="bookmarks" element={<BookmarksPanel />} />
+        <Route path="panels"    element={<PanelsAdminPanel />} />
+        <Route path="oauth"     element={<OAuthConfigPanel />} />
+        <Route path="users"     element={<UsersPanel />} />
+        <Route path="groups"    element={<GroupsPanel />} />
+        <Route path="tags"      element={<TagsPanel />} />
       </Routes>
     </div>
   )
