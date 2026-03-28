@@ -19,12 +19,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Handle OAuth callback token in URL
     const params = new URLSearchParams(window.location.search)
     const urlToken = params.get('token')
+
     if (urlToken) {
+      // Token freshly issued by backend — store it then fetch user profile
       localStorage.setItem('stoa_token', urlToken)
       window.history.replaceState({}, '', '/')
+
+      // Fetch user profile using the new token explicitly
+      authApi.meWithToken(urlToken)
+        .then((res) => setUser(res.data))
+        .catch(() => localStorage.removeItem('stoa_token'))
+        .finally(() => setLoading(false))
+      return
     }
 
-    // Try to restore session
+    // Try to restore existing session
     const token = localStorage.getItem('stoa_token')
     if (!token) {
       setLoading(false)

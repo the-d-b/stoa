@@ -13,11 +13,14 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Redirect to login on 401
+// Redirect to login on 401 — but only for protected API calls, not auth/me itself
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    const url = err.config?.url || ''
+    const is401 = err.response?.status === 401
+    const isAuthMe = url.includes('/auth/me')
+    if (is401 && !isAuthMe) {
       localStorage.removeItem('stoa_token')
       window.location.href = '/login'
     }
@@ -80,6 +83,9 @@ export const authApi = {
     api.post<{ token: string; user: User }>('/auth/login', { username, password }),
   logout: () => api.post('/auth/logout'),
   me: () => api.get<User>('/auth/me'),
+  meWithToken: (token: string) => api.get<User>('/auth/me', {
+    headers: { Authorization: `Bearer ${token}` }
+  }),
   oauthLoginUrl: () => '/api/auth/oauth/login',
 }
 
