@@ -137,12 +137,17 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 			FROM users WHERE username = ? AND auth_provider = 'local'
 		`, req.Username).Scan(&user.ID, &user.Username, &email, &user.Role, &user.AuthProvider, &hash)
 
+		if err != nil {
+			writeError(w, http.StatusUnauthorized, "user not found: "+err.Error())
+			return
+		}
+
 		if email.Valid {
 			user.Email = email.String
 		}
 
-		if err != nil || !authSvc.CheckPassword(hash, req.Password) {
-			writeError(w, http.StatusUnauthorized, "invalid credentials")
+		if !authSvc.CheckPassword(hash, req.Password) {
+			writeError(w, http.StatusUnauthorized, "password mismatch")
 			return
 		}
 
