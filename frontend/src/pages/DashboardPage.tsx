@@ -1,10 +1,10 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, wallsApi, bookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
 
 export default function DashboardPage() {
-  const { user, isAdmin } = useAuth()
+  const { isAdmin } = useAuth()
   const [panels, setPanels] = useState<Panel[]>([])
   const [walls, setWalls] = useState<Wall[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
