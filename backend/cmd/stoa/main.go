@@ -54,11 +54,12 @@ func main() {
 	api.HandleFunc("/auth/logout", handlers.Logout(authService)).Methods("POST")
 	api.HandleFunc("/auth/oauth/login", handlers.OAuthLogin(authService)).Methods("GET")
 	api.HandleFunc("/auth/oauth/callback", handlers.OAuthCallback(authService, database)).Methods("GET")
-	api.HandleFunc("/auth/me", handlers.Me(authService)).Methods("GET")
-
 	// Protected routes - require authentication
 	protected := api.PathPrefix("").Subrouter()
 	protected.Use(authService.Middleware)
+
+	// Auth - me requires a valid token
+	protected.HandleFunc("/auth/me", handlers.Me(authService)).Methods("GET")
 
 	// User routes
 	protected.HandleFunc("/users", handlers.ListUsers(database)).Methods("GET")

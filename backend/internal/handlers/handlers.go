@@ -237,11 +237,12 @@ func Me(authSvc *auth.Service) http.HandlerFunc {
 		db := authSvc.DB()
 		var user models.User
 		var lastLogin sql.NullTime
+		var email sql.NullString
 		err := db.QueryRow(`
 			SELECT id, username, email, role, auth_provider, created_at, last_login
 			FROM users WHERE id = ?
 		`, claims.UserID).Scan(
-			&user.ID, &user.Username, &user.Email,
+			&user.ID, &user.Username, &email,
 			&user.Role, &user.AuthProvider, &user.CreatedAt, &lastLogin,
 		)
 		if err != nil {
@@ -249,6 +250,9 @@ func Me(authSvc *auth.Service) http.HandlerFunc {
 			return
 		}
 
+		if email.Valid {
+			user.Email = email.String
+		}
 		if lastLogin.Valid {
 			user.LastLogin = &lastLogin.Time
 		}
