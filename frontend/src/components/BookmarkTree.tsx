@@ -16,7 +16,7 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props)
   return (
     <div>
       {/* Expand/collapse all */}
-      {nodes.some(n => n.children && n.children.length > 0) && (
+      {nodes.some((n: BookmarkNode) => n.children && n.children.length > 0) && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
           <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px' }}
             onClick={() => setAllExpanded(true)}>Expand all</button>
@@ -93,7 +93,7 @@ function TreeDisplayNode({ node, depth, forceExpanded }: {
         {node.name}
         {hasChildren && (
           <span style={{ fontSize: 10, opacity: 0.4, marginLeft: 'auto' }}>
-            {node.children!.length}
+            {node.children?.length ?? 0}
           </span>
         )}
       </button>

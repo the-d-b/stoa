@@ -7,7 +7,7 @@ export default function BookmarksPanel() {
   const [adding, setAdding] = useState<{ parentId?: string; type: 'section' | 'bookmark' } | null>(null)
 
   const load = () => bookmarksApi.tree()
-    .then(r => setTree(r.data))
+    .then(r => setTree(r.data || []))
     .finally(() => setLoading(false))
 
   useEffect(() => { load() }, [])
@@ -179,7 +179,7 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
       )}
 
       {/* Children */}
-      {expanded && node.children && node.children.map((child: BookmarkNode) => (
+      {expanded && (node.children || []).map((child: BookmarkNode) => (
         <TreeNode key={child.id} node={child} depth={depth + 1}
           onRefresh={onRefresh} adding={adding} setAdding={setAdding} />
       ))}

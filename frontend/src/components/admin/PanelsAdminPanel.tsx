@@ -13,7 +13,7 @@ export default function PanelsAdminPanel() {
 
   const load = async () => {
     const [p, t, b] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree()])
-    setPanels(p.data); setTags(t.data); setBookmarkRoots(b.data)
+    setPanels(p.data || []); setTags(t.data || []); setBookmarkRoots(b.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
