@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -46,15 +47,19 @@ func (s *Service) initOAuth(ctx context.Context) error {
 		// Try loading from DB
 		var val string
 		err := s.db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_issuer_url'").Scan(&val)
-		if err != nil || val == "" {
-			return fmt.Errorf("OAuth not configured")
+		if err != nil {
+			return fmt.Errorf("OAuth not configured: db error: %w", err)
+		}
+		if val == "" {
+			return fmt.Errorf("OAuth not configured: issuer_url is empty in db")
 		}
 		issuerURL = val
 	}
 
+	log.Printf("Initializing OIDC provider with issuer: %s", issuerURL)
 	provider, err := oidc.NewProvider(ctx, issuerURL)
 	if err != nil {
-		return fmt.Errorf("failed to init OIDC provider: %w", err)
+		return fmt.Errorf("failed to init OIDC provider at %s: %w", issuerURL, err)
 	}
 
 	clientID := s.cfg.OAuthClientID
