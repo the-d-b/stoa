@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { BookmarkNode } from '../../api'
+import { BookmarkNode } from '../api'
 
 interface Props {
   nodes: BookmarkNode[]
@@ -98,7 +98,7 @@ function TreeDisplayNode({ node, depth, forceExpanded }: {
         )}
       </button>
 
-      {expanded && node.children && node.children.map(child => (
+      {expanded && node.children && node.children.map((child: BookmarkNode) => (
         <TreeDisplayNode key={child.id} node={child} depth={depth + 1} forceExpanded={forceExpanded} />
       ))}
     </div>

@@ -179,7 +179,7 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
       )}
 
       {/* Children */}
-      {expanded && node.children && node.children.map(child => (
+      {expanded && node.children && node.children.map((child: BookmarkNode) => (
         <TreeNode key={child.id} node={child} depth={depth + 1}
           onRefresh={onRefresh} adding={adding} setAdding={setAdding} />
       ))}
