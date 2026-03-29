@@ -1,101 +1,186 @@
 import { useEffect, useState } from 'react'
-import {
-  DndContext, DragEndEvent, DragOverlay, DragStartEvent,
-  PointerSensor, useSensor, useSensors, useDroppable, useDraggable,
-} from '@dnd-kit/core'
-import { restrictToWindowEdges } from '@dnd-kit/modifiers'
 import { bookmarksApi, BookmarkNode } from '../../api'
 
 export default function BookmarksPanel() {
   const [tree, setTree] = useState<BookmarkNode[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState<{ parentId?: string; type: 'section' | 'bookmark' } | null>(null)
-  const [activeNode, setActiveNode] = useState<BookmarkNode | null>(null)
-  const [moving, setMoving] = useState(false)
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const [movingId, setMovingId] = useState<string | null>(null)
 
   const load = () => bookmarksApi.tree().then(r => setTree(r.data || [])).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
 
-  const findNode = (nodes: BookmarkNode[], id: string): BookmarkNode | null => {
-    for (const n of nodes) {
-      if (n.id === id) return n
-      if (n.children) { const f = findNode(n.children, id); if (f) return f }
+  const flatSections = (nodes: BookmarkNode[], excludeId?: string): BookmarkNode[] => {
+    const result: BookmarkNode[] = []
+    const walk = (ns: BookmarkNode[]) => {
+      for (const n of ns) {
+        // Exclude the node being moved and its descendants
+        if (excludeId && (n.id === excludeId || n.path.startsWith(
+          nodes.find(r => r.id === excludeId)?.path + '/' || '____'
+        ))) continue
+        if (n.type === 'section') result.push(n)
+        if (n.children) walk(n.children)
+      }
     }
-    return null
+    walk(nodes)
+    return result
   }
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveNode(findNode(tree, event.active.id as string))
-  }
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveNode(null)
-    if (!over || active.id === over.id) return
-    const dragged = findNode(tree, active.id as string)
-    const target = findNode(tree, over.id as string)
-    if (!dragged || !target) return
-    const newParentId = target.type === 'section' ? target.id : (target.parentId || null)
-    if (newParentId === dragged.parentId) return
-    setMoving(true)
+  const handleMove = async (nodeId: string, newParentId: string | null) => {
     try {
-      await bookmarksApi.move(dragged.id, newParentId)
+      await bookmarksApi.move(nodeId, newParentId)
+      setMovingId(null)
       await load()
-    } catch (e: any) { alert(e.response?.data?.error || 'Failed to move node') }
-    finally { setMoving(false) }
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to move node')
+    }
   }
 
   if (loading) return <Loading />
 
+  const movingNode = movingId ? findNode(tree, movingId) : null
+  const sections = movingId ? flatSections(tree, movingId) : []
+
   return (
-    <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-            Drag nodes to reparent them. Sections sort before bookmarks.
-            {moving && <span style={{ color: 'var(--accent2)', marginLeft: 8 }}>Moving...</span>}
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setAdding({ type: 'section' })}>+ Section</button>
-            <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => setAdding({ type: 'bookmark' })}>+ Bookmark</button>
-          </div>
-        </div>
-
-        {adding && !adding.parentId && (
-          <AddNodeForm type={adding.type}
-            onSave={async (name, url) => { await bookmarksApi.create({ name, type: adding.type, url }); setAdding(null); load() }}
-            onCancel={() => setAdding(null)} />
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {tree.length === 0 && <Empty message="No bookmarks yet. Add a section to get started." />}
-          {tree.map(node => (
-            <TreeNode key={node.id} node={node} depth={0} onRefresh={load} adding={adding} setAdding={setAdding} />
-          ))}
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
+          Sections sort before bookmarks alphabetically at every level. Use ↕ to move a node to a new parent.
+        </p>
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setAdding({ type: 'section' })}>+ Section</button>
+          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => setAdding({ type: 'bookmark' })}>+ Bookmark</button>
         </div>
       </div>
 
-      <DragOverlay modifiers={[restrictToWindowEdges]} dropAnimation={null}>
-        {activeNode && (
-          <div style={{
-            padding: '6px 12px', borderRadius: 8, fontSize: 13,
-            background: 'var(--accent-bg)', border: '1px solid var(--accent)',
-            color: 'var(--accent2)', opacity: 0.9, cursor: 'grabbing',
-          }}>
-            {activeNode.type === 'section' ? '▤' : '↗'} {activeNode.name}
-          </div>
-        )}
-      </DragOverlay>
-    </DndContext>
+      {adding && !adding.parentId && (
+        <AddNodeForm type={adding.type}
+          onSave={async (name, url) => { await bookmarksApi.create({ name, type: adding.type, url }); setAdding(null); load() }}
+          onCancel={() => setAdding(null)} />
+      )}
+
+      {/* Move picker overlay */}
+      {movingId && movingNode && (
+        <MovePicker
+          node={movingNode}
+          sections={sections}
+          onMove={handleMove}
+          onCancel={() => setMovingId(null)}
+        />
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {tree.length === 0 && <Empty message="No bookmarks yet. Add a section to get started." />}
+        {tree.map(node => (
+          <TreeNode key={node.id} node={node} depth={0}
+            onRefresh={load} adding={adding} setAdding={setAdding}
+            onMove={(id) => setMovingId(id)} />
+        ))}
+      </div>
+    </div>
   )
 }
 
-function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
+// ── Move picker ───────────────────────────────────────────────────────────────
+
+function MovePicker({ node, sections, onMove, onCancel }: {
+  node: BookmarkNode
+  sections: BookmarkNode[]
+  onMove: (nodeId: string, newParentId: string | null) => void
+  onCancel: () => void
+}) {
+  const [selected, setSelected] = useState<string>('__root__')
+  const [moving, setMoving] = useState(false)
+
+  const handleConfirm = async () => {
+    setMoving(true)
+    await onMove(node.id, selected === '__root__' ? null : selected)
+    setMoving(false)
+  }
+
+  return (
+    <div style={{
+      marginBottom: 16, padding: 16, borderRadius: 10,
+      background: 'var(--surface2)', border: '1px solid var(--accent)',
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
+        Move <span style={{ color: 'var(--accent2)' }}>"{node.name}"</span> to:
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14, maxHeight: 240, overflowY: 'auto' }}>
+        {/* Root option */}
+        <ParentOption
+          id="__root__"
+          label="/ (root — top level)"
+          depth={0}
+          selected={selected === '__root__'}
+          onSelect={setSelected}
+          current={!node.parentId}
+        />
+        {/* All sections */}
+        {sections.map(s => (
+          <ParentOption
+            key={s.id}
+            id={s.id}
+            label={s.name}
+            depth={s.path.split('/').length - 2}
+            selected={selected === s.id}
+            onSelect={setSelected}
+            current={node.parentId === s.id}
+          />
+        ))}
+        {sections.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', padding: '4px 0' }}>
+            No other sections available
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-primary" onClick={handleConfirm} disabled={moving ||
+          (selected === '__root__' && !node.parentId) ||
+          (selected === node.parentId)
+        }>
+          {moving ? <span className="spinner" /> : 'Move here'}
+        </button>
+        <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+function ParentOption({ id, label, depth, selected, onSelect, current }: {
+  id: string; label: string; depth: number
+  selected: boolean; onSelect: (id: string) => void; current: boolean
+}) {
+  return (
+    <button
+      onClick={() => !current && onSelect(id)}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '6px 10px', paddingLeft: 10 + depth * 16 + 'px',
+        borderRadius: 6, border: 'none', cursor: current ? 'default' : 'pointer',
+        background: selected ? 'var(--accent-bg)' : 'transparent',
+        color: current ? 'var(--text-dim)' : selected ? 'var(--accent2)' : 'var(--text)',
+        fontSize: 13, textAlign: 'left', width: '100%',
+        transition: 'all 0.1s',
+        outline: selected ? '1px solid var(--accent)' : 'none',
+      }}
+    >
+      <span style={{ fontSize: 10, opacity: 0.5 }}>{depth === 0 && id === '__root__' ? '/' : '▤'}</span>
+      {label}
+      {current && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 'auto' }}>current</span>}
+    </button>
+  )
+}
+
+// ── Tree node ─────────────────────────────────────────────────────────────────
+
+function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove }: {
   node: BookmarkNode; depth: number; onRefresh: () => void
   adding: { parentId?: string; type: 'section' | 'bookmark' } | null
   setAdding: (v: any) => void
+  onMove: (id: string) => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -108,9 +193,6 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
 
   const hasChildren = (node.children || []).length > 0
   const isAddingHere = adding?.parentId === node.id
-
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: node.id })
-  const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id: node.id })
 
   const handleDelete = async () => {
     if (!confirm(hasChildren ? `Delete "${node.name}" and all contents?` : `Delete "${node.name}"?`)) return
@@ -133,16 +215,13 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
   }
 
   return (
-    <div style={{ marginLeft: depth > 0 ? 20 : 0, opacity: isDragging ? 0.4 : 1 }}>
-      <div ref={setDropRef} style={{
+    <div style={{ marginLeft: depth > 0 ? 20 : 0 }}>
+      <div style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
-        borderRadius: 8, marginBottom: 2, transition: 'all 0.1s',
-        background: isOver ? 'var(--accent-bg)' : 'var(--surface)',
-        border: `1px solid ${isOver ? 'var(--accent)' : 'var(--border)'}`,
+        borderRadius: 8, marginBottom: 2,
+        background: 'var(--surface)', border: '1px solid var(--border)',
       }}>
-        <span ref={setDragRef} {...listeners} {...attributes} title="Drag to reparent"
-          style={{ cursor: 'grab', color: 'var(--text-dim)', fontSize: 11, padding: '0 2px', userSelect: 'none', touchAction: 'none' }}>⠿</span>
-
+        {/* Expand toggle */}
         {node.type === 'section' ? (
           <button onClick={() => setExpanded(e => !e)} style={{
             background: 'none', border: 'none', cursor: hasChildren ? 'pointer' : 'default',
@@ -151,11 +230,15 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
           }}>{expanded ? '▼' : '▶'}</button>
         ) : <span style={{ width: 16 }} />}
 
-        {(editing ? { ...node, iconUrl: editIcon } : node).iconUrl
-          ? <img src={(editing ? editIcon : node.iconUrl)} style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0 }} onError={e => (e.currentTarget.style.display = 'none')} />
-          : <span style={{ fontSize: 12, color: node.type === 'section' ? 'var(--text-dim)' : 'var(--accent)', flexShrink: 0 }}>{node.type === 'section' ? '▤' : '↗'}</span>
+        {/* Icon */}
+        {editIcon && editing
+          ? <img src={editIcon} style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0 }} onError={e => (e.currentTarget.style.display = 'none')} />
+          : node.iconUrl
+            ? <img src={node.iconUrl} style={{ width: 16, height: 16, borderRadius: 3, flexShrink: 0 }} onError={e => (e.currentTarget.style.display = 'none')} />
+            : <span style={{ fontSize: 12, color: node.type === 'section' ? 'var(--text-dim)' : 'var(--accent)', flexShrink: 0 }}>{node.type === 'section' ? '▤' : '↗'}</span>
         }
 
+        {/* Name / edit */}
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: 1 }}>
             <div style={{ display: 'flex', gap: 6 }}>
@@ -192,84 +275,130 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
         ) : (
           <span style={{ flex: 1, fontSize: 13, color: 'var(--text)' }}>
             {node.name}
-            {node.url && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8, fontFamily: 'DM Mono, monospace' }}>
-              {node.url.length > 40 ? node.url.substring(0, 40) + '…' : node.url}
-            </span>}
+            {node.url && (
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8, fontFamily: 'DM Mono, monospace' }}>
+                {node.url.length > 40 ? node.url.substring(0, 40) + '…' : node.url}
+              </span>
+            )}
           </span>
         )}
 
-        {!editing && <>
-          <span style={{
-            fontSize: 10, padding: '1px 6px', borderRadius: 4, flexShrink: 0,
-            background: node.type === 'section' ? 'var(--surface2)' : 'var(--accent-bg)',
-            color: node.type === 'section' ? 'var(--text-dim)' : 'var(--accent2)',
-            border: '1px solid var(--border)',
-          }}>{node.type}</span>
-          <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
-            {node.type === 'section' && depth < 4 && <>
-              <ActionBtn label="+ §" title="Add section here" onClick={() => setAdding({ parentId: node.id, type: 'section' })} />
-              <ActionBtn label="+ ↗" title="Add bookmark here" onClick={() => setAdding({ parentId: node.id, type: 'bookmark' })} />
-            </>}
-            <ActionBtn label="✎" title="Edit" onClick={() => setEditing(true)} />
-            <ActionBtn label="✕" title="Delete" danger onClick={handleDelete} />
-          </div>
-        </>}
+        {/* Type badge + actions */}
+        {!editing && (
+          <>
+            <span style={{
+              fontSize: 10, padding: '1px 6px', borderRadius: 4, flexShrink: 0,
+              background: node.type === 'section' ? 'var(--surface2)' : 'var(--accent-bg)',
+              color: node.type === 'section' ? 'var(--text-dim)' : 'var(--accent2)',
+              border: '1px solid var(--border)',
+            }}>{node.type}</span>
+
+            <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
+              {node.type === 'section' && depth < 4 && (
+                <>
+                  <ActionBtn label="+ §" title="Add section here" onClick={() => setAdding({ parentId: node.id, type: 'section' })} />
+                  <ActionBtn label="+ ↗" title="Add bookmark here" onClick={() => setAdding({ parentId: node.id, type: 'bookmark' })} />
+                </>
+              )}
+              <ActionBtn label="↕" title="Move to different parent" onClick={() => onMove(node.id)} />
+              <ActionBtn label="✎" title="Edit" onClick={() => setEditing(true)} />
+              <ActionBtn label="✕" title="Delete" danger onClick={handleDelete} />
+            </div>
+          </>
+        )}
       </div>
 
+      {/* Inline add form */}
       {isAddingHere && (
         <div style={{ marginLeft: 36, marginBottom: 4 }}>
           <AddNodeForm type={adding!.type}
-            onSave={async (name, url) => { await bookmarksApi.create({ parentId: node.id, name, type: adding!.type, url }); setAdding(null); onRefresh() }}
+            onSave={async (name, url) => {
+              await bookmarksApi.create({ parentId: node.id, name, type: adding!.type, url })
+              setAdding(null); onRefresh()
+            }}
             onCancel={() => setAdding(null)} />
         </div>
       )}
 
+      {/* Children */}
       {expanded && (node.children || []).map((child: BookmarkNode) => (
-        <TreeNode key={child.id} node={child} depth={depth + 1} onRefresh={onRefresh} adding={adding} setAdding={setAdding} />
+        <TreeNode key={child.id} node={child} depth={depth + 1}
+          onRefresh={onRefresh} adding={adding} setAdding={setAdding} onMove={onMove} />
       ))}
     </div>
   )
 }
 
+// ── Add form ──────────────────────────────────────────────────────────────────
+
 function AddNodeForm({ type, onSave, onCancel }: {
-  type: 'section' | 'bookmark'; onSave: (name: string, url?: string) => Promise<void>; onCancel: () => void
+  type: 'section' | 'bookmark'
+  onSave: (name: string, url?: string) => Promise<void>
+  onCancel: () => void
 }) {
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
   const [saving, setSaving] = useState(false)
+
   const handleSave = async () => {
     if (!name.trim() || (type === 'bookmark' && !url.trim())) return
-    setSaving(true); await onSave(name.trim(), url.trim() || undefined); setSaving(false)
+    setSaving(true)
+    await onSave(name.trim(), url.trim() || undefined)
+    setSaving(false)
   }
+
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '8px 10px', borderRadius: 8, marginBottom: 2, background: 'var(--surface2)', border: '1px dashed var(--border2)' }}>
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'center', padding: '8px 10px',
+      borderRadius: 8, marginBottom: 2, background: 'var(--surface2)',
+      border: '1px dashed var(--border2)',
+    }}>
       <input className="input" value={name} onChange={e => setName(e.target.value)}
         placeholder={type === 'section' ? 'Section name' : 'Bookmark name'}
-        style={{ padding: '4px 10px', fontSize: 13 }} autoFocus onKeyDown={e => e.key === 'Enter' && handleSave()} />
+        style={{ padding: '4px 10px', fontSize: 13 }} autoFocus
+        onKeyDown={e => e.key === 'Enter' && handleSave()} />
       {type === 'bookmark' && (
         <input className="input" value={url} onChange={e => setUrl(e.target.value)}
           placeholder="https://..." style={{ padding: '4px 10px', fontSize: 13 }}
           onKeyDown={e => e.key === 'Enter' && handleSave()} />
       )}
-      <button className="btn btn-primary" style={{ fontSize: 12, padding: '4px 12px' }} onClick={handleSave} disabled={saving}>
+      <button className="btn btn-primary" style={{ fontSize: 12, padding: '4px 12px' }}
+        onClick={handleSave} disabled={saving}>
         {saving ? <span className="spinner" /> : 'Add'}
       </button>
-      <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }} onClick={onCancel}>Cancel</button>
+      <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}
+        onClick={onCancel}>Cancel</button>
     </div>
   )
 }
 
-function ActionBtn({ label, title, onClick, danger = false }: { label: string; title: string; onClick: () => void; danger?: boolean }) {
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function findNode(nodes: BookmarkNode[], id: string): BookmarkNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    if (n.children) { const f = findNode(n.children, id); if (f) return f }
+  }
+  return null
+}
+
+function ActionBtn({ label, title, onClick, danger = false }: {
+  label: string; title: string; onClick: () => void; danger?: boolean
+}) {
   return (
     <button title={title} onClick={onClick} style={{
       background: 'none', border: 'none', cursor: 'pointer', fontSize: 11,
-      color: danger ? 'var(--red)' : 'var(--text-dim)', padding: '2px 5px', borderRadius: 4,
-      opacity: 0.6, transition: 'opacity 0.15s',
-    }} onMouseOver={e => e.currentTarget.style.opacity = '1'} onMouseOut={e => e.currentTarget.style.opacity = '0.6'}>
+      color: danger ? 'var(--red)' : 'var(--text-dim)', padding: '2px 5px',
+      borderRadius: 4, opacity: 0.6, transition: 'opacity 0.15s',
+    }}
+      onMouseOver={e => e.currentTarget.style.opacity = '1'}
+      onMouseOut={e => e.currentTarget.style.opacity = '0.6'}>
       {label}
     </button>
   )
 }
 
 function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
-function Empty({ message }: { message: string }) { return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div> }
+function Empty({ message }: { message: string }) {
+  return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
+}
