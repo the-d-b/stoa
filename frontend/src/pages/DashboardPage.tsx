@@ -93,8 +93,9 @@ export default function DashboardPage() {
   }
 
   const visiblePanels = panels.filter(panel => {
-    if (isAdmin) return true
+    // Untagged panels are always visible to everyone
     if (!panel.tags || panel.tags.length === 0) return true
+    // Apply the user's active tag filter (view preference — applies to all roles)
     return panel.tags.some(t => activeTags.includes(t.id))
   }).sort((a, b) => a.position - b.position)
 

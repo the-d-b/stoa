@@ -3,6 +3,7 @@ import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, useSensor, useSensors, useDroppable, useDraggable,
 } from '@dnd-kit/core'
+import { restrictToWindowEdges } from '@dnd-kit/modifiers'
 import { bookmarksApi, BookmarkNode } from '../../api'
 
 export default function BookmarksPanel() {
@@ -76,7 +77,7 @@ export default function BookmarksPanel() {
         </div>
       </div>
 
-      <DragOverlay>
+      <DragOverlay modifiers={[restrictToWindowEdges]} dropAnimation={null}>
         {activeNode && (
           <div style={{
             padding: '6px 12px', borderRadius: 8, fontSize: 13,
