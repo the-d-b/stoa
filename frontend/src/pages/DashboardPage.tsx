@@ -10,7 +10,7 @@ export default function DashboardPage() {
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [subtrees, setSubtrees] = useState<Record<string, BookmarkNode>>({})
   const [activeWallId, setActiveWallId] = useState<string>('home')
-  const [activeTags, setActiveTags] = useState<string[]>([])
+  const [activeTags, setActiveTags] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [savingWall, setSavingWall] = useState(false)
   const [newWallName, setNewWallName] = useState('')
@@ -53,12 +53,13 @@ export default function DashboardPage() {
   }, [])
 
   // Use array of strings — simple equality, always triggers re-render
-  const isTagActive = useCallback((tagId: string) => activeTags.includes(tagId), [activeTags])
+  const isTagActive = useCallback((tagId: string) => activeTags?.includes(tagId) ?? true, [activeTags])
 
   const toggleTag = (tagId: string) => {
-    setActiveTags(prev =>
-      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
-    )
+    setActiveTags(prev => {
+      const current = prev ?? allTags.map(t => t.id)
+      return current.includes(tagId) ? current.filter(id => id !== tagId) : [...current, tagId]
+    })
     setActiveWallId('') // mark as unsaved custom filter
   }
 
@@ -92,12 +93,12 @@ export default function DashboardPage() {
     }
   }
 
-  const visiblePanels = panels.filter(panel => {
+  const visiblePanels = (activeTags === null ? panels : panels.filter(panel => {
     // Untagged panels are always visible to everyone
     if (!panel.tags || panel.tags.length === 0) return true
     // Apply the user's active tag filter (view preference — applies to all roles)
     return panel.tags.some(t => activeTags.includes(t.id))
-  }).sort((a, b) => a.position - b.position)
+  })).sort((a, b) => a.position - b.position)
 
   const isUnsaved = activeWallId === '' || (!['home'].includes(activeWallId) && !walls.find(w => w.id === activeWallId))
 
@@ -110,6 +111,11 @@ export default function DashboardPage() {
   }
 
   if (panels.length === 0) return <EmptyState isAdmin={isAdmin} />
+  if (activeTags === null) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
+      <div className="spinner" />
+    </div>
+  )
 
   return (
     <div style={{ display: 'flex', gap: 20 }}>
@@ -183,7 +189,7 @@ export default function DashboardPage() {
           {/* Tag pills */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {allTags.map(tag => {
-              const on = isTagActive(tag.id)
+              const on = activeTags === null || activeTags.includes(tag.id)
               return (
                 <button key={tag.id} onClick={() => toggleTag(tag.id)} style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,

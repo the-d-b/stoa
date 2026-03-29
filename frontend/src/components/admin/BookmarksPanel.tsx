@@ -38,9 +38,6 @@ export default function BookmarksPanel() {
 
   if (loading) return <Loading />
 
-  const movingNode = movingId ? findNode(tree, movingId) : null
-  const sections = movingId ? flatSections(tree, movingId) : []
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
@@ -59,22 +56,18 @@ export default function BookmarksPanel() {
           onCancel={() => setAdding(null)} />
       )}
 
-      {/* Move picker overlay */}
-      {movingId && movingNode && (
-        <MovePicker
-          node={movingNode}
-          sections={sections}
-          onMove={handleMove}
-          onCancel={() => setMovingId(null)}
-        />
-      )}
+
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {tree.length === 0 && <Empty message="No bookmarks yet. Add a section to get started." />}
         {tree.map(node => (
           <TreeNode key={node.id} node={node} depth={0}
             onRefresh={load} adding={adding} setAdding={setAdding}
-            onMove={(id) => setMovingId(id)} />
+            onMove={(id) => setMovingId(id)}
+            movingId={movingId}
+            allTree={tree}
+            onMoveConfirm={handleMove}
+            onMoveCancel={() => setMovingId(null)} />
         ))}
       </div>
     </div>
@@ -176,11 +169,15 @@ function ParentOption({ id, label, depth, selected, onSelect, current }: {
 
 // ── Tree node ─────────────────────────────────────────────────────────────────
 
-function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove }: {
+function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId, allTree, onMoveConfirm, onMoveCancel }: {
   node: BookmarkNode; depth: number; onRefresh: () => void
   adding: { parentId?: string; type: 'section' | 'bookmark' } | null
   setAdding: (v: any) => void
   onMove: (id: string) => void
+  movingId: string | null
+  allTree: BookmarkNode[]
+  onMoveConfirm: (nodeId: string, newParentId: string | null) => void
+  onMoveCancel: () => void
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -308,6 +305,18 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove }: {
         )}
       </div>
 
+      {/* Inline move picker — appears directly under this node */}
+      {movingId === node.id && (
+        <div style={{ marginLeft: 36, marginBottom: 4 }}>
+          <MovePicker
+            node={node}
+            sections={flatSections(allTree, node.id)}
+            onMove={onMoveConfirm}
+            onCancel={onMoveCancel}
+          />
+        </div>
+      )}
+
       {/* Inline add form */}
       {isAddingHere && (
         <div style={{ marginLeft: 36, marginBottom: 4 }}>
@@ -323,7 +332,9 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove }: {
       {/* Children */}
       {expanded && (node.children || []).map((child: BookmarkNode) => (
         <TreeNode key={child.id} node={child} depth={depth + 1}
-          onRefresh={onRefresh} adding={adding} setAdding={setAdding} onMove={onMove} />
+          onRefresh={onRefresh} adding={adding} setAdding={setAdding} onMove={onMove}
+          movingId={movingId} allTree={allTree}
+          onMoveConfirm={onMoveConfirm} onMoveCancel={onMoveCancel} />
       ))}
     </div>
   )
