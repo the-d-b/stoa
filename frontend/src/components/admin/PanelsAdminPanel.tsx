@@ -18,11 +18,13 @@ export default function PanelsAdminPanel() {
   }
   useEffect(() => { load() }, [])
 
+  const [newType, setNewType] = useState('bookmarks')
+
   const create = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
     const config = newRootId ? JSON.stringify({ rootNodeId: newRootId }) : '{}'
-    await panelsApi.create({ type: 'bookmarks', title: newTitle.trim(), config })
+    await panelsApi.create({ type: newType, title: newTitle.trim(), config })
     setNewTitle(''); setNewRootId(''); setShowForm(false)
     await load(); setCreating(false)
   }
@@ -62,6 +64,12 @@ export default function PanelsAdminPanel() {
               <label className="label">Panel title</label>
               <input className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)}
                 placeholder="e.g. Media Links" autoFocus />
+            </div>
+            <div style={{ flex: 0.5 }}>
+              <label className="label">Panel type</label>
+              <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
+                <option value="bookmarks">Bookmarks</option>
+              </select>
             </div>
             <div style={{ flex: 1 }}>
               <label className="label">Bookmark root (optional)</label>

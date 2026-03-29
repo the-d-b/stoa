@@ -157,6 +157,10 @@ export const bookmarksApi = {
     api.put(`/bookmarks/${id}`, data),
   delete: (id: string) => api.delete(`/bookmarks/${id}`),
   scrapeFavicon: (url: string) => api.get<{ iconUrl: string }>(`/bookmarks/favicon?url=${encodeURIComponent(url)}`),
+  move: (id: string, newParentId: string | null) =>
+    api.put(`/bookmarks/${id}/move`, { newParentId: newParentId || '' }),
+  cacheIcon: (url: string) =>
+    api.post<{ iconUrl: string }>('/bookmarks/cache-icon', { url }),
 }
 
 // ── Panels ────────────────────────────────────────────────────────────────────

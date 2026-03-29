@@ -1,6 +1,4 @@
 # Stoa - TrueNAS Custom App deployment
-# Deploy via: Apps > Custom App > paste this config
-
 version: "3.8"
 
 services:
@@ -11,16 +9,14 @@ services:
     restart: unless-stopped
     environment:
       STOA_DB_PATH: /data/db/stoa.db
+      STOA_ICONS_DIR: /data/icons
       STOA_PORT: "8080"
-      STOA_FRONTEND_PATH: /dev/null   # frontend handled by nginx container
+      STOA_FRONTEND_PATH: /dev/null
       STOA_ALLOWED_ORIGINS: "http://localhost,https://stoa.rose.home"
-      # Optional: override OAuth via env instead of admin UI
-      # STOA_OAUTH_CLIENT_ID: ""
-      # STOA_OAUTH_CLIENT_SECRET: ""
-      # STOA_OAUTH_ISSUER_URL: ""
-      # STOA_OAUTH_REDIRECT_URL: ""
     volumes:
       - /mnt/pool/path/stoa/db:/data/db
+      - /mnt/pool/path/stoa/icons:/data/icons
+      - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
     networks:
       - stoa-net
     healthcheck:
@@ -34,7 +30,7 @@ services:
     container_name: stoa-frontend
     restart: unless-stopped
     ports:
-      - "30080:80"   # change 30080 to any free port on your TrueNAS host
+      - "30080:80"
     depends_on:
       - stoa-backend
     networks:

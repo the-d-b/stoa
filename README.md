@@ -39,8 +39,8 @@ See `truenas-app.yaml` for TrueNAS Custom App deployment.
 ### Datasets required
 
 ```
-tna01-fassdpool/
-  container_data/
+pool/
+  path/
     stoa/
       db/        ← SQLite database
       icons/     ← custom icons (v0.0.3+)

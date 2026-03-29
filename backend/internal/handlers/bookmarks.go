@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -20,11 +22,11 @@ import (
 
 func ListBookmarkTree(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Get all nodes
 		rows, err := db.Query(`
 			SELECT id, COALESCE(parent_id,''), path, name, type,
 			       COALESCE(url,''), COALESCE(icon_url,''), sort_order, scope, created_at
-			FROM bookmark_nodes ORDER BY path ASC
+			FROM bookmark_nodes
+			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
 		`)
 		if err != nil {
 			log.Printf("[BOOKMARKS] list error: %v", err)
@@ -34,17 +36,20 @@ func ListBookmarkTree(db *sql.DB) http.HandlerFunc {
 		defer rows.Close()
 
 		nodeMap := map[string]*models.BookmarkNode{}
-		var roots []*models.BookmarkNode
+		var orderedIDs []string
 
 		for rows.Next() {
 			n := &models.BookmarkNode{Children: []*models.BookmarkNode{}}
 			rows.Scan(&n.ID, &n.ParentID, &n.Path, &n.Name, &n.Type,
 				&n.URL, &n.IconURL, &n.SortOrder, &n.Scope, &n.CreatedAt)
 			nodeMap[n.ID] = n
+			orderedIDs = append(orderedIDs, n.ID)
 		}
 
-		// Build tree
-		for _, n := range nodeMap {
+		// Build tree preserving query order
+		var roots []*models.BookmarkNode
+		for _, id := range orderedIDs {
+			n := nodeMap[id]
 			if n.ParentID == "" {
 				roots = append(roots, n)
 			} else if parent, ok := nodeMap[n.ParentID]; ok {
@@ -92,7 +97,6 @@ func CreateBookmarkNode(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Determine path and depth
 		var parentPath string
 		var depth int
 		if req.ParentID != "" {
@@ -115,11 +119,8 @@ func CreateBookmarkNode(db *sql.DB) http.HandlerFunc {
 		} else {
 			path = parentPath + "/" + slug
 		}
-
-		// Ensure unique path
 		path = uniquePath(db, path)
 
-		// Scrape favicon if bookmark and no icon provided
 		iconURL := req.IconURL
 		if req.Type == models.NodeBookmark && iconURL == "" && req.URL != "" {
 			iconURL = scrapeFavicon(req.URL)
@@ -158,7 +159,6 @@ func UpdateBookmarkNode(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-
 		_, err := db.Exec(`
 			UPDATE bookmark_nodes SET name=?, url=?, icon_url=?, sort_order=?
 			WHERE id=?
@@ -174,10 +174,121 @@ func UpdateBookmarkNode(db *sql.DB) http.HandlerFunc {
 func DeleteBookmarkNode(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
-		// ON DELETE CASCADE handles children
 		db.Exec("DELETE FROM bookmark_nodes WHERE id = ?", id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
+}
+
+// MoveBookmarkNode — reparent a node, recalculating all descendant paths
+func MoveBookmarkNode(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+
+		var req struct {
+			NewParentID string `json:"newParentId"` // empty = move to root
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+
+		// Get current node
+		var node models.BookmarkNode
+		err := db.QueryRow(
+			"SELECT id, COALESCE(parent_id,''), path, name FROM bookmark_nodes WHERE id=?", id,
+		).Scan(&node.ID, &node.ParentID, &node.Path, &node.Name)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "node not found")
+			return
+		}
+
+		// Get new parent path
+		var newParentPath string
+		if req.NewParentID != "" {
+			// Prevent moving a node into its own subtree
+			var newParentFullPath string
+			err := db.QueryRow("SELECT path FROM bookmark_nodes WHERE id=?", req.NewParentID).Scan(&newParentFullPath)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "new parent not found")
+				return
+			}
+			if strings.HasPrefix(newParentFullPath, node.Path+"/") || newParentFullPath == node.Path {
+				writeError(w, http.StatusBadRequest, "cannot move a node into its own subtree")
+				return
+			}
+			// Check depth
+			depth := strings.Count(newParentFullPath, "/")
+			if depth >= 5 {
+				writeError(w, http.StatusBadRequest, "maximum tree depth of 5 reached")
+				return
+			}
+			newParentPath = newParentFullPath
+		}
+
+		// Calculate new path for this node
+		slug := slugify(node.Name)
+		var newPath string
+		if newParentPath == "" {
+			newPath = "/" + slug
+		} else {
+			newPath = newParentPath + "/" + slug
+		}
+		newPath = uniquePathExcluding(db, newPath, id)
+
+		// Update this node and all descendants
+		oldPrefix := node.Path
+		err = updatePathsRecursively(db, id, oldPrefix, newPath)
+		if err != nil {
+			log.Printf("[BOOKMARKS] move error: %v", err)
+			writeError(w, http.StatusInternalServerError, "failed to move node")
+			return
+		}
+
+		// Update parent_id
+		var newParentIDVal interface{}
+		if req.NewParentID != "" {
+			newParentIDVal = req.NewParentID
+		}
+		db.Exec("UPDATE bookmark_nodes SET parent_id=? WHERE id=?", newParentIDVal, id)
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "newPath": newPath})
+	}
+}
+
+func updatePathsRecursively(db *sql.DB, nodeID, oldPath, newPath string) error {
+	// Get all descendants
+	rows, err := db.Query(
+		"SELECT id, path FROM bookmark_nodes WHERE path = ? OR path LIKE ?",
+		oldPath, oldPath+"/%",
+	)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type pathUpdate struct {
+		id      string
+		oldPath string
+	}
+	var updates []pathUpdate
+	for rows.Next() {
+		var u pathUpdate
+		rows.Scan(&u.id, &u.oldPath)
+		updates = append(updates, u)
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, u := range updates {
+		updated := newPath + u.oldPath[len(oldPath):]
+		if _, err := tx.Exec("UPDATE bookmark_nodes SET path=? WHERE id=?", updated, u.id); err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func GetSubtree(db *sql.DB) http.HandlerFunc {
@@ -196,7 +307,7 @@ func GetSubtree(db *sql.DB) http.HandlerFunc {
 			       COALESCE(url,''), COALESCE(icon_url,''), sort_order, scope, created_at
 			FROM bookmark_nodes
 			WHERE path = ? OR path LIKE ?
-			ORDER BY path ASC
+			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
 		`, rootPath, rootPath+"/%")
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to query subtree")
@@ -205,20 +316,21 @@ func GetSubtree(db *sql.DB) http.HandlerFunc {
 		defer rows.Close()
 
 		nodeMap := map[string]*models.BookmarkNode{}
-		var root *models.BookmarkNode
+		var orderedIDs []string
 
 		for rows.Next() {
 			n := &models.BookmarkNode{Children: []*models.BookmarkNode{}}
 			rows.Scan(&n.ID, &n.ParentID, &n.Path, &n.Name, &n.Type,
 				&n.URL, &n.IconURL, &n.SortOrder, &n.Scope, &n.CreatedAt)
 			nodeMap[n.ID] = n
-			if n.ID == id {
-				root = n
-			}
+			orderedIDs = append(orderedIDs, n.ID)
 		}
 
-		for _, n := range nodeMap {
+		var root *models.BookmarkNode
+		for _, oid := range orderedIDs {
+			n := nodeMap[oid]
 			if n.ID == id {
+				root = n
 				continue
 			}
 			if parent, ok := nodeMap[n.ParentID]; ok {
@@ -242,6 +354,33 @@ func ScrapeFaviconHandler() http.HandlerFunc {
 	}
 }
 
+// CacheIcon — download a remote icon and serve it locally
+func CacheIcon(iconsDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			URL string `json:"url"`
+			ID  string `json:"id"` // bookmark node id to update
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
+			writeError(w, http.StatusBadRequest, "url required")
+			return
+		}
+
+		localURL, err := downloadAndCacheIcon(req.URL, iconsDir)
+		if err != nil {
+			log.Printf("[ICONS] cache error: %v", err)
+			writeError(w, http.StatusInternalServerError, "failed to cache icon")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"iconUrl": localURL})
+	}
+}
+
+func ServeIcon(iconsDir string) http.HandlerFunc {
+	return http.StripPrefix("/api/icons/", http.FileServer(http.Dir(iconsDir))).ServeHTTP
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 func slugify(s string) string {
@@ -257,14 +396,18 @@ func slugify(s string) string {
 }
 
 func uniquePath(db *sql.DB, path string) string {
+	return uniquePathExcluding(db, path, "")
+}
+
+func uniquePathExcluding(db *sql.DB, path string, excludeID string) string {
 	var count int
-	db.QueryRow("SELECT COUNT(*) FROM bookmark_nodes WHERE path = ?", path).Scan(&count)
+	db.QueryRow("SELECT COUNT(*) FROM bookmark_nodes WHERE path = ? AND id != ?", path, excludeID).Scan(&count)
 	if count == 0 {
 		return path
 	}
 	for i := 2; i < 100; i++ {
 		candidate := fmt.Sprintf("%s-%d", path, i)
-		db.QueryRow("SELECT COUNT(*) FROM bookmark_nodes WHERE path = ?", candidate).Scan(&count)
+		db.QueryRow("SELECT COUNT(*) FROM bookmark_nodes WHERE path = ? AND id != ?", candidate, excludeID).Scan(&count)
 		if count == 0 {
 			return candidate
 		}
@@ -300,14 +443,56 @@ func scrapeFavicon(rawURL string) string {
 		return tryGoogleFavicon(parsed.Host)
 	}
 
-	// Check it looks like an image
 	if strings.Contains(contentType, "image") || strings.Contains(contentType, "icon") {
 		return faviconURL
 	}
-
 	return tryGoogleFavicon(parsed.Host)
 }
 
 func tryGoogleFavicon(host string) string {
 	return fmt.Sprintf("https://www.google.com/s2/favicons?domain=%s&sz=64", host)
+}
+
+func downloadAndCacheIcon(iconURL, iconsDir string) (string, error) {
+	if err := os.MkdirAll(iconsDir, 0755); err != nil {
+		return "", err
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(iconURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode)
+	}
+
+	// Determine extension from content type
+	ct := resp.Header.Get("Content-Type")
+	ext := ".png"
+	if strings.Contains(ct, "svg") {
+		ext = ".svg"
+	} else if strings.Contains(ct, "ico") {
+		ext = ".ico"
+	} else if strings.Contains(ct, "jpeg") || strings.Contains(ct, "jpg") {
+		ext = ".jpg"
+	} else if strings.Contains(ct, "webp") {
+		ext = ".webp"
+	}
+
+	filename := generateID() + ext
+	dest := filepath.Join(iconsDir, filename)
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 512*1024)) // 512KB max
+	if err != nil {
+		return "", err
+	}
+
+	if err := os.WriteFile(dest, body, 0644); err != nil {
+		return "", err
+	}
+
+	return "/api/icons/" + filename, nil
 }

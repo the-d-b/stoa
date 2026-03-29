@@ -34,6 +34,8 @@ func main() {
 
 	authService := auth.New(cfg, database)
 
+	iconsDir := cfg.IconsDir
+
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api").Subrouter()
 
@@ -46,6 +48,9 @@ func main() {
 	api.HandleFunc("/auth/oauth/callback", handlers.OAuthCallback(authService, database)).Methods("GET")
 	api.HandleFunc("/auth/oauth/test", handlers.TestOAuthConfig(database)).Methods("POST")
 
+	// Icon serving (public — icons are not sensitive)
+	api.PathPrefix("/icons/").HandlerFunc(handlers.ServeIcon(iconsDir))
+
 	// ── Protected (any authenticated user) ───────────────
 	protected := api.PathPrefix("").Subrouter()
 	protected.Use(authService.Middleware)
@@ -54,9 +59,9 @@ func main() {
 
 	// Bookmarks (read)
 	protected.HandleFunc("/bookmarks", handlers.ListBookmarkTree(database)).Methods("GET")
+	protected.HandleFunc("/bookmarks/favicon", handlers.ScrapeFaviconHandler()).Methods("GET")
 	protected.HandleFunc("/bookmarks/{id}", handlers.GetBookmarkNode(database)).Methods("GET")
 	protected.HandleFunc("/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
-	protected.HandleFunc("/bookmarks/favicon", handlers.ScrapeFaviconHandler()).Methods("GET")
 
 	// Panels (read + reorder)
 	protected.HandleFunc("/panels", handlers.ListPanels(database)).Methods("GET")
@@ -72,7 +77,7 @@ func main() {
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
 
-	// Users (read own)
+	// Users (read)
 	protected.HandleFunc("/users", handlers.ListUsers(database)).Methods("GET")
 	protected.HandleFunc("/users/{id}", handlers.GetUser(database)).Methods("GET")
 
@@ -104,6 +109,8 @@ func main() {
 	admin.HandleFunc("/bookmarks", handlers.CreateBookmarkNode(database)).Methods("POST")
 	admin.HandleFunc("/bookmarks/{id}", handlers.UpdateBookmarkNode(database)).Methods("PUT")
 	admin.HandleFunc("/bookmarks/{id}", handlers.DeleteBookmarkNode(database)).Methods("DELETE")
+	admin.HandleFunc("/bookmarks/{id}/move", handlers.MoveBookmarkNode(database)).Methods("PUT")
+	admin.HandleFunc("/bookmarks/cache-icon", handlers.CacheIcon(iconsDir)).Methods("POST")
 
 	// Panels (write)
 	admin.HandleFunc("/panels", handlers.CreatePanel(database)).Methods("POST")

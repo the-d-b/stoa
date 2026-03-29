@@ -9,10 +9,10 @@ type Config struct {
 	DBPath         string
 	Port           string
 	FrontendPath   string
+	IconsDir       string
 	SessionSecret  string
 	AllowedOrigins []string
 
-	// OAuth - loaded from DB at runtime, env vars as fallback
 	OAuthClientID     string
 	OAuthClientSecret string
 	OAuthIssuerURL    string
@@ -24,6 +24,7 @@ func Load() *Config {
 		DBPath:       getEnv("STOA_DB_PATH", "/data/db/stoa.db"),
 		Port:         getEnv("STOA_PORT", "8080"),
 		FrontendPath: getEnv("STOA_FRONTEND_PATH", "/app/frontend/dist"),
+		IconsDir:     getEnv("STOA_ICONS_DIR", "/data/icons"),
 		SessionSecret: getEnv("STOA_SESSION_SECRET", ""),
 		AllowedOrigins: strings.Split(
 			getEnv("STOA_ALLOWED_ORIGINS", "http://localhost:3000"),
