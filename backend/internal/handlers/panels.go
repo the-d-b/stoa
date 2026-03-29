@@ -25,6 +25,8 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		var rows *sql.Rows
 		var err error
 
+		log.Printf("[PANELS] list request user=%s role=%s", claims.UserID, claims.Role)
+
 		if claims.Role == models.RoleAdmin {
 			rows, err = db.Query(`
 				SELECT id, type, title, config, scope, COALESCE(created_by,''), created_at
@@ -61,9 +63,11 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		defer rows.Close()
 
 		panels := []models.Panel{}
+		panelCount := 0
 		for rows.Next() {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
+			panelCount++
 			// Load tags
 			p.Tags = loadPanelTags(db, p.ID)
 			// Load user position
@@ -71,6 +75,7 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 				claims.UserID, p.ID).Scan(&p.Position)
 			panels = append(panels, p)
 		}
+		log.Printf("[PANELS] returning %d panels for user=%s role=%s", panelCount, claims.UserID, claims.Role)
 		writeJSON(w, http.StatusOK, panels)
 	}
 }
