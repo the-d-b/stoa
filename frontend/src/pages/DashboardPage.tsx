@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, wallsApi, bookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
@@ -9,8 +9,8 @@ export default function DashboardPage() {
   const [walls, setWalls] = useState<Wall[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [subtrees, setSubtrees] = useState<Record<string, BookmarkNode>>({})
-  const [activeWallId, setActiveWallId] = useState<string | null>(null)
-  const [activeTags, setActiveTags] = useState<Set<string>>(new Set())
+  const [activeWallId, setActiveWallId] = useState<string>('home')
+  const [activeTags, setActiveTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [savingWall, setSavingWall] = useState(false)
   const [newWallName, setNewWallName] = useState('')
@@ -25,12 +25,9 @@ export default function DashboardPage() {
         setPanels(panelData)
         setWalls(wallData)
         setAllTags(tagData)
+        // Home = all tags active
+        setActiveTags(tagData.map((tag: Tag) => tag.id))
 
-        // Default: all tags active (Home)
-        setActiveTags(new Set(tagData.map((t: Tag) => t.id)))
-        setActiveWallId('home')
-
-        // Load subtrees
         const map: Record<string, BookmarkNode> = {}
         for (const panel of panelData) {
           if (panel.type === 'bookmarks') {
@@ -55,44 +52,35 @@ export default function DashboardPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  const visiblePanels = panels.filter(panel => {
-    if (isAdmin) return true
-    if (!panel.tags || panel.tags.length === 0) return true
-    return panel.tags.some(t => activeTags.has(t.id))
-  }).sort((a, b) => a.position - b.position)
+  // Use array of strings — simple equality, always triggers re-render
+  const isTagActive = useCallback((tagId: string) => activeTags.includes(tagId), [activeTags])
 
-  const handleSelectWall = (wall: Wall | 'home') => {
+  const toggleTag = (tagId: string) => {
+    setActiveTags(prev =>
+      prev.includes(tagId) ? prev.filter(id => id !== tagId) : [...prev, tagId]
+    )
+    setActiveWallId('') // mark as unsaved custom filter
+  }
+
+  const selectWall = (wall: Wall | 'home') => {
     if (wall === 'home') {
       setActiveWallId('home')
-      setActiveTags(new Set(allTags.map(t => t.id)))
+      setActiveTags(allTags.map(t => t.id))
     } else {
       setActiveWallId(wall.id)
-      const active = new Set(
-        (wall.tags || []).filter(t => t.active).map(t => t.tagId)
-      )
+      const active = (wall.tags || []).filter(t => t.active).map(t => t.tagId)
       setActiveTags(active)
     }
   }
 
-  const handleTagToggle = (tagId: string) => {
-    setActiveTags(prev => {
-      const next = new Set(prev)
-      if (next.has(tagId)) next.delete(tagId)
-      else next.add(tagId)
-      return next
-    })
-    setActiveWallId(null) // unsaved filter state
-  }
-
-  const handleSaveWall = async () => {
+  const saveWall = async () => {
     if (!newWallName.trim()) return
     setSavingWall(true)
     try {
       const res = await wallsApi.create(newWallName.trim(), false)
       const wall = res.data
-      // Save current active tags to the wall
       for (const tag of allTags) {
-        await wallsApi.setTagActive(wall.id, tag.id, activeTags.has(tag.id))
+        await wallsApi.setTagActive(wall.id, tag.id, activeTags.includes(tag.id))
       }
       const updated = await wallsApi.list()
       setWalls(updated.data)
@@ -104,9 +92,13 @@ export default function DashboardPage() {
     }
   }
 
-  const isHomeActive = activeWallId === 'home'
-  const allTagsOn = allTags.every(t => activeTags.has(t.id))
-  const hasUnsavedFilter = !isHomeActive && walls.every(w => w.id !== activeWallId)
+  const visiblePanels = panels.filter(panel => {
+    if (isAdmin) return true
+    if (!panel.tags || panel.tags.length === 0) return true
+    return panel.tags.some(t => activeTags.includes(t.id))
+  }).sort((a, b) => a.position - b.position)
+
+  const isUnsaved = activeWallId === '' || (!['home'].includes(activeWallId) && !walls.find(w => w.id === activeWallId))
 
   if (loading) {
     return (
@@ -119,76 +111,53 @@ export default function DashboardPage() {
   if (panels.length === 0) return <EmptyState isAdmin={isAdmin} />
 
   return (
-    <div style={{ display: 'flex', gap: 16 }}>
-      {/* Main content */}
+    <div style={{ display: 'flex', gap: 20 }}>
+      {/* Main */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Wall tabs */}
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 4, marginBottom: 16,
-          borderBottom: '1px solid var(--border)', paddingBottom: 0,
-          flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', gap: 2, marginBottom: 20,
+          borderBottom: '1px solid var(--border)', flexWrap: 'wrap',
         }}>
-          {/* Home tab */}
-          <WallTab
-            label="Home"
-            active={isHomeActive || (allTagsOn && !walls.find(w => w.id === activeWallId))}
-            onClick={() => handleSelectWall('home')}
-          />
+          <WallTab label="Home" active={activeWallId === 'home'} onClick={() => selectWall('home')} />
           {walls.map(wall => (
-            <WallTab
-              key={wall.id}
-              label={wall.name}
-              active={activeWallId === wall.id}
-              onClick={() => handleSelectWall(wall)}
+            <WallTab key={wall.id} label={wall.name} active={activeWallId === wall.id}
+              onClick={() => selectWall(wall)}
               onDelete={async () => {
                 await wallsApi.delete(wall.id)
                 const updated = await wallsApi.list()
                 setWalls(updated.data)
-                setActiveWallId('home')
-                setActiveTags(new Set(allTags.map(t => t.id)))
+                selectWall('home')
               }}
             />
           ))}
 
-          {hasUnsavedFilter && (
-            <>
-              {showSaveWall ? (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
-                  <input
-                    className="input"
-                    value={newWallName}
-                    onChange={e => setNewWallName(e.target.value)}
-                    placeholder="Wall name"
-                    style={{ padding: '3px 8px', fontSize: 12, width: 140 }}
-                    autoFocus
-                    onKeyDown={e => e.key === 'Enter' && handleSaveWall()}
-                  />
-                  <button className="btn btn-primary" style={{ fontSize: 11, padding: '3px 10px' }}
-                    onClick={handleSaveWall} disabled={savingWall}>
-                    {savingWall ? <span className="spinner" /> : 'Save'}
-                  </button>
-                  <button className="btn btn-ghost" style={{ fontSize: 11, padding: '3px 8px' }}
-                    onClick={() => setShowSaveWall(false)}>Cancel</button>
-                </div>
-              ) : (
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 11, padding: '4px 10px', marginLeft: 8, marginBottom: -1 }}
-                  onClick={() => setShowSaveWall(true)}
-                >
-                  + Save as wall
+          <div style={{ flex: 1 }} />
+
+          {isUnsaved && (
+            showSaveWall ? (
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 4 }}>
+                <input className="input" value={newWallName} onChange={e => setNewWallName(e.target.value)}
+                  placeholder="Wall name" style={{ padding: '3px 8px', fontSize: 12, width: 140 }}
+                  autoFocus onKeyDown={e => e.key === 'Enter' && saveWall()} />
+                <button className="btn btn-primary" style={{ fontSize: 11, padding: '3px 10px' }}
+                  onClick={saveWall} disabled={savingWall}>
+                  {savingWall ? <span className="spinner" /> : 'Save'}
                 </button>
-              )}
-            </>
+                <button className="btn btn-ghost" style={{ fontSize: 11, padding: '3px 8px' }}
+                  onClick={() => setShowSaveWall(false)}>Cancel</button>
+              </div>
+            ) : (
+              <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', marginBottom: 4 }}
+                onClick={() => setShowSaveWall(true)}>
+                + Save as wall
+              </button>
+            )
           )}
         </div>
 
-        {/* Panels grid */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-          gap: 16,
-        }}>
+        {/* Panels */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {visiblePanels.map(panel => (
             <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
           ))}
@@ -204,48 +173,45 @@ export default function DashboardPage() {
       {/* Tag sidebar */}
       {allTags.length > 0 && (
         <div style={{
-          width: 180, flexShrink: 0,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 10, padding: 14, height: 'fit-content',
-          position: 'sticky', top: 72,
+          width: 180, flexShrink: 0, background: 'var(--surface)',
+          border: '1px solid var(--border)', borderRadius: 10,
+          padding: 14, height: 'fit-content', position: 'sticky', top: 72,
         }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>Filter tags</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div className="section-title" style={{ marginBottom: 12 }}>Filter</div>
+
+          {/* Tag pills */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {allTags.map(tag => {
-              const on = activeTags.has(tag.id)
+              const on = isTagActive(tag.id)
               return (
-                <label key={tag.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  cursor: 'pointer', padding: '4px 0',
+                <button key={tag.id} onClick={() => toggleTag(tag.id)} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+                  background: on ? tag.color + '20' : 'var(--surface2)',
+                  border: `1px solid ${on ? tag.color + '50' : 'var(--border)'}`,
+                  color: on ? tag.color : 'var(--text-muted)',
+                  fontSize: 12, fontWeight: on ? 500 : 400,
+                  transition: 'all 0.15s',
                 }}>
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => handleTagToggle(tag.id)}
-                    style={{ accentColor: tag.color, width: 13, height: 13 }}
-                  />
                   <span style={{
-                    width: 7, height: 7, borderRadius: 2,
+                    width: 6, height: 6, borderRadius: 2, flexShrink: 0,
                     background: on ? tag.color : 'var(--text-dim)',
-                    flexShrink: 0, transition: 'background 0.15s',
+                    transition: 'background 0.15s',
                   }} />
-                  <span style={{
-                    fontSize: 13, color: on ? 'var(--text)' : 'var(--text-muted)',
-                    transition: 'color 0.15s',
-                  }}>{tag.name}</span>
-                </label>
+                  {tag.name}
+                </button>
               )
             })}
           </div>
 
-          {/* Select all / none */}
+          {/* All / None */}
           <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
             <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px', flex: 1 }}
-              onClick={() => setActiveTags(new Set(allTags.map(t => t.id)))}>
+              onClick={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}>
               All
             </button>
             <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px', flex: 1 }}
-              onClick={() => setActiveTags(new Set())}>
+              onClick={() => { setActiveTags([]); setActiveWallId('') }}>
               None
             </button>
           </div>
@@ -259,26 +225,24 @@ function WallTab({ label, active, onClick, onDelete }: {
   label: string; active: boolean; onClick: () => void; onDelete?: () => void
 }) {
   return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 4, marginBottom: -1,
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: -1 }}>
       <button onClick={onClick} style={{
         background: active ? 'var(--accent-bg)' : 'transparent',
         color: active ? 'var(--accent2)' : 'var(--text-muted)',
         border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
         padding: '7px 12px', fontSize: 13, fontWeight: active ? 500 : 400,
-        cursor: 'pointer', borderRadius: '6px 6px 0 0',
-        transition: 'all 0.15s',
+        cursor: 'pointer', borderRadius: '6px 6px 0 0', transition: 'all 0.15s',
       }}>
         {label}
       </button>
       {onDelete && (
         <button onClick={onDelete} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--text-dim)', fontSize: 10, padding: '0 4px',
-          opacity: 0.5,
-        }} onMouseOver={e => e.currentTarget.style.opacity = '1'}
-          onMouseOut={e => e.currentTarget.style.opacity = '0.5'}
+          color: 'var(--text-dim)', fontSize: 10, padding: '0 2px',
+          opacity: 0.4, lineHeight: 1,
+        }}
+          onMouseOver={e => e.currentTarget.style.opacity = '1'}
+          onMouseOut={e => e.currentTarget.style.opacity = '0.4'}
           title="Delete wall">✕</button>
       )}
     </div>
@@ -307,9 +271,7 @@ function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode })
       </div>
       <div style={{ padding: '10px 14px', maxHeight: 400, overflowY: 'auto' }}>
         {panel.type === 'bookmarks' && subtree && (
-          <BookmarkTree nodes={
-            subtree.id === 'root' ? (subtree.children || []) : [subtree]
-          } />
+          <BookmarkTree nodes={subtree.id === 'root' ? (subtree.children || []) : [subtree]} />
         )}
         {panel.type === 'bookmarks' && !subtree && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>

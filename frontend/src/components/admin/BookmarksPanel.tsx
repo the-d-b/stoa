@@ -111,8 +111,6 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: node.id })
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({ id: node.id })
 
-  const setRef = (el: HTMLElement | null) => { setDropRef(el); setDragRef(el) }
-
   const handleDelete = async () => {
     if (!confirm(hasChildren ? `Delete "${node.name}" and all contents?` : `Delete "${node.name}"?`)) return
     await bookmarksApi.delete(node.id); onRefresh()
@@ -135,14 +133,14 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding }: {
 
   return (
     <div style={{ marginLeft: depth > 0 ? 20 : 0, opacity: isDragging ? 0.4 : 1 }}>
-      <div ref={setRef} {...attributes} style={{
+      <div ref={setDropRef} style={{
         display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
         borderRadius: 8, marginBottom: 2, transition: 'all 0.1s',
         background: isOver ? 'var(--accent-bg)' : 'var(--surface)',
         border: `1px solid ${isOver ? 'var(--accent)' : 'var(--border)'}`,
       }}>
-        <span {...listeners} title="Drag to reparent"
-          style={{ cursor: 'grab', color: 'var(--text-dim)', fontSize: 11, padding: '0 2px', userSelect: 'none' }}>⠿</span>
+        <span ref={setDragRef} {...listeners} {...attributes} title="Drag to reparent"
+          style={{ cursor: 'grab', color: 'var(--text-dim)', fontSize: 11, padding: '0 2px', userSelect: 'none', touchAction: 'none' }}>⠿</span>
 
         {node.type === 'section' ? (
           <button onClick={() => setExpanded(e => !e)} style={{
