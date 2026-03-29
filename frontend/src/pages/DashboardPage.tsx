@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, wallsApi, bookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
@@ -53,8 +53,6 @@ export default function DashboardPage() {
   }, [])
 
   // Use array of strings — simple equality, always triggers re-render
-  const isTagActive = useCallback((tagId: string) => activeTags?.includes(tagId) ?? true, [activeTags])
-
   const toggleTag = (tagId: string) => {
     setActiveTags(prev => {
       const current = prev ?? allTags.map(t => t.id)
@@ -81,7 +79,7 @@ export default function DashboardPage() {
       const res = await wallsApi.create(newWallName.trim(), false)
       const wall = res.data
       for (const tag of allTags) {
-        await wallsApi.setTagActive(wall.id, tag.id, activeTags.includes(tag.id))
+        await wallsApi.setTagActive(wall.id, tag.id, activeTags?.includes(tag.id) ?? true)
       }
       const updated = await wallsApi.list()
       setWalls(updated.data)
@@ -97,7 +95,7 @@ export default function DashboardPage() {
     // Untagged panels are always visible to everyone
     if (!panel.tags || panel.tags.length === 0) return true
     // Apply the user's active tag filter (view preference — applies to all roles)
-    return panel.tags.some(t => activeTags.includes(t.id))
+    return panel.tags.some(t => activeTags!.includes(t.id))
   })).sort((a, b) => a.position - b.position)
 
   const isUnsaved = activeWallId === '' || (!['home'].includes(activeWallId) && !walls.find(w => w.id === activeWallId))

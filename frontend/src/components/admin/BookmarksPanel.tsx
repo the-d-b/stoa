@@ -1,6 +1,29 @@
 import { useEffect, useState } from 'react'
 import { bookmarksApi, BookmarkNode } from '../../api'
 
+function flatSections(nodes: BookmarkNode[], excludeId?: string): BookmarkNode[] {
+  const result: BookmarkNode[] = []
+  const excludedNode = excludeId ? findNodeInTree(nodes, excludeId) : null
+  const walk = (ns: BookmarkNode[]) => {
+    for (const n of ns) {
+      if (excludeId && (n.id === excludeId ||
+        (excludedNode && n.path.startsWith(excludedNode.path + '/')))) continue
+      if (n.type === 'section') result.push(n)
+      if (n.children) walk(n.children)
+    }
+  }
+  walk(nodes)
+  return result
+}
+
+function findNodeInTree(nodes: BookmarkNode[], id: string): BookmarkNode | null {
+  for (const n of nodes) {
+    if (n.id === id) return n
+    if (n.children) { const f = findNodeInTree(n.children, id); if (f) return f }
+  }
+  return null
+}
+
 export default function BookmarksPanel() {
   const [tree, setTree] = useState<BookmarkNode[]>([])
   const [loading, setLoading] = useState(true)
@@ -10,21 +33,6 @@ export default function BookmarksPanel() {
   const load = () => bookmarksApi.tree().then(r => setTree(r.data || [])).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
 
-  const flatSections = (nodes: BookmarkNode[], excludeId?: string): BookmarkNode[] => {
-    const result: BookmarkNode[] = []
-    const walk = (ns: BookmarkNode[]) => {
-      for (const n of ns) {
-        // Exclude the node being moved and its descendants
-        if (excludeId && (n.id === excludeId || n.path.startsWith(
-          nodes.find(r => r.id === excludeId)?.path + '/' || '____'
-        ))) continue
-        if (n.type === 'section') result.push(n)
-        if (n.children) walk(n.children)
-      }
-    }
-    walk(nodes)
-    return result
-  }
 
   const handleMove = async (nodeId: string, newParentId: string | null) => {
     try {
@@ -385,13 +393,7 @@ function AddNodeForm({ type, onSave, onCancel }: {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function findNode(nodes: BookmarkNode[], id: string): BookmarkNode | null {
-  for (const n of nodes) {
-    if (n.id === id) return n
-    if (n.children) { const f = findNode(n.children, id); if (f) return f }
-  }
-  return null
-}
+
 
 function ActionBtn({ label, title, onClick, danger = false }: {
   label: string; title: string; onClick: () => void; danger?: boolean
