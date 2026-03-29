@@ -31,14 +31,25 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 				FROM panels ORDER BY created_at ASC
 			`)
 		} else {
+			// A panel is visible to a user if:
+			// 1. It has no tags (untagged = public), OR
+			// 2. At least one of its tags is accessible via the user's groups
 			rows, err = db.Query(`
 				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
-				LEFT JOIN panel_tags pt ON p.id = pt.panel_id
-				LEFT JOIN group_tags gt ON pt.tag_id = gt.tag_id
-				LEFT JOIN user_groups ug ON gt.group_id = ug.group_id AND ug.user_id = ?
-				WHERE pt.panel_id IS NULL OR ug.user_id IS NOT NULL
+				WHERE
+					-- Untagged panels: no entries in panel_tags
+					(SELECT COUNT(*) FROM panel_tags WHERE panel_id = p.id) = 0
+					OR
+					-- Tagged panels: user's groups grant access to at least one of the panel's tags
+					EXISTS (
+						SELECT 1
+						FROM panel_tags pt
+						JOIN group_tags gt ON pt.tag_id = gt.tag_id
+						JOIN user_groups ug ON gt.group_id = ug.group_id
+						WHERE pt.panel_id = p.id AND ug.user_id = ?
+					)
 				ORDER BY p.created_at ASC
 			`, claims.UserID)
 		}
