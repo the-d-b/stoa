@@ -110,6 +110,35 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		// Create initial tags
+		tagNameToID := map[string]string{}
+		for _, t := range req.InitialTags {
+			tagID := generateID()
+			color := t.Color
+			if color == "" {
+				color = "#6366f1"
+			}
+			db.Exec(`INSERT OR IGNORE INTO tags (id, name, color) VALUES (?, ?, ?)`, tagID, t.Name, color)
+			tagNameToID[t.Name] = tagID
+		}
+
+		// Create initial groups and assign tags
+		for _, g := range req.InitialGroups {
+			groupID := generateID()
+			db.Exec(`INSERT OR IGNORE INTO groups (id, name) VALUES (?, ?)`, groupID, g.Name)
+			for _, tagName := range g.TagNames {
+				if tagID, ok := tagNameToID[tagName]; ok {
+					db.Exec(`INSERT OR IGNORE INTO group_tags (group_id, tag_id) VALUES (?, ?)`, groupID, tagID)
+				}
+			}
+		}
+
+		// Save default group name
+		if req.DefaultGroupName != "" {
+			db.Exec(`INSERT INTO app_config (key, value) VALUES (?, ?)
+				ON CONFLICT(key) DO UPDATE SET value=excluded.value`, "default_group", req.DefaultGroupName)
+		}
+
 		logger.SetupComplete(req.AdminUsername)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

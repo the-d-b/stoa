@@ -276,6 +276,17 @@ func (s *Service) findOrCreateOAuthUser(sub, email, name string) (*models.User, 
 		AuthProvider: models.AuthProviderOAuth,
 	}
 
+	// Assign default group if configured
+	var defaultGroupName string
+	s.db.QueryRow("SELECT value FROM app_config WHERE key = 'default_group'").Scan(&defaultGroupName)
+	if defaultGroupName != "" {
+		var groupID string
+		err := s.db.QueryRow("SELECT id FROM groups WHERE name = ?", defaultGroupName).Scan(&groupID)
+		if err == nil && groupID != "" {
+			s.db.Exec("INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)", id, groupID)
+		}
+	}
+
 	return &user, true, nil
 }
 

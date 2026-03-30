@@ -99,8 +99,8 @@ func main() {
 	admin.HandleFunc("/groups/{id}/tags", handlers.AddTagToGroup(database)).Methods("POST")
 	admin.HandleFunc("/groups/{id}/tags/{tagId}", handlers.RemoveTagFromGroup(database)).Methods("DELETE")
 
-	// Tags
-	admin.HandleFunc("/tags", handlers.ListTags(database)).Methods("GET")
+	// Tags - list is public to all authenticated users, write ops are admin only
+	protected.HandleFunc("/tags", handlers.ListTags(database)).Methods("GET")
 	admin.HandleFunc("/tags", handlers.CreateTag(database)).Methods("POST")
 	admin.HandleFunc("/tags/{id}", handlers.UpdateTag(database)).Methods("PUT")
 	admin.HandleFunc("/tags/{id}", handlers.DeleteTag(database)).Methods("DELETE")

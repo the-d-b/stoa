@@ -118,3 +118,12 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; display: inline-block; }
+
+/* ── Responsive helpers ──────────────────────────────────────────────────── */
+.mobile-only  { display: none; }
+.desktop-only { display: block; }
+
+@media (max-width: 640px) {
+  .mobile-only  { display: block; }
+  .desktop-only { display: none !important; }
+}

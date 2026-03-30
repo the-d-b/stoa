@@ -72,6 +72,9 @@ export interface SetupRequest {
   adminUsername: string
   adminPassword: string
   appUrl: string
+  initialTags?: { name: string; color: string }[]
+  initialGroups?: { name: string; tagNames: string[] }[]
+  defaultGroupName?: string
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────

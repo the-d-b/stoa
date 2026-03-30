@@ -1,10 +1,11 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { StoaLogo } from '../../App'
 import Clock from './Clock'
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
+  const navigate = useNavigate()
   const location = useLocation()
   const onAdmin = location.pathname.startsWith('/admin')
 
@@ -35,9 +36,22 @@ export default function Layout() {
 
           {/* Right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 13, color: 'var(--text-dim)', marginRight: 8 }}>
-              {user?.username}
-            </span>
+            <button
+              onClick={() => navigate('/profile')}
+              title="Profile"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 30, height: 30, borderRadius: 8, border: 'none',
+                background: 'var(--accent-bg)', color: 'var(--accent2)',
+                fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                marginRight: 4, transition: 'all 0.15s',
+                flexShrink: 0,
+              }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--accent)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--accent-bg)'}
+            >
+              {user?.username?.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?'}
+            </button>
 
             {isAdmin && (
               <Link
@@ -93,7 +107,7 @@ export default function Layout() {
           maxWidth: 1100, margin: '0 auto',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.1</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.2</span>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             {user?.role === 'admin' ? '⬡ admin' : '○ user'}
           </span>

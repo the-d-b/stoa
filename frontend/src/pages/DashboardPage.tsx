@@ -12,22 +12,33 @@ export default function DashboardPage() {
   const [activeWallId, setActiveWallId] = useState<string>('home')
   const [activeTags, setActiveTags] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [savingWall, setSavingWall] = useState(false)
   const [newWallName, setNewWallName] = useState('')
   const [showSaveWall, setShowSaveWall] = useState(false)
+  const [showTagFilter, setShowTagFilter] = useState(false) // mobile toggle
 
   useEffect(() => {
-    Promise.all([panelsApi.list(), wallsApi.list(), tagsApi.list()])
-      .then(async ([p, w, t]) => {
-        const panelData = p.data || []
-        const wallData = w.data || []
-        const tagData = t.data || []
+    const load = async () => {
+      try {
+        console.log('[Dashboard] loading panels, walls, tags...')
+        const [p, w, t] = await Promise.all([
+          panelsApi.list(),
+          wallsApi.list(),
+          tagsApi.list(),
+        ])
+        console.log(`[Dashboard] panels=${p.data?.length} walls=${w.data?.length} tags=${t.data?.length}`)
+
+        const panelData: Panel[] = p.data || []
+        const wallData: Wall[] = w.data || []
+        const tagData: Tag[] = t.data || []
+
         setPanels(panelData)
         setWalls(wallData)
         setAllTags(tagData)
-        // Home = all tags active
         setActiveTags(tagData.map((tag: Tag) => tag.id))
 
+        // Load subtrees for bookmark panels
         const map: Record<string, BookmarkNode> = {}
         for (const panel of panelData) {
           if (panel.type === 'bookmarks') {
@@ -44,21 +55,34 @@ export default function DashboardPage() {
                   children: res.data || [],
                 }
               }
-            } catch {}
+            } catch (e) {
+              console.warn(`[Dashboard] failed to load subtree for panel ${panel.id}:`, e)
+            }
           }
         }
         setSubtrees(map)
-      })
-      .finally(() => setLoading(false))
+      } catch (e: any) {
+        const msg = e.response?.data?.error || e.message || 'Unknown error'
+        console.error('[Dashboard] load failed:', e)
+        setLoadError(msg)
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
   }, [])
 
-  // Use array of strings — simple equality, always triggers re-render
+  const visiblePanels = (activeTags === null ? panels : panels.filter(panel => {
+    if (!panel.tags || panel.tags.length === 0) return true
+    return panel.tags.some(t => activeTags.includes(t.id))
+  })).sort((a, b) => a.position - b.position)
+
   const toggleTag = (tagId: string) => {
     setActiveTags(prev => {
       const current = prev ?? allTags.map(t => t.id)
       return current.includes(tagId) ? current.filter(id => id !== tagId) : [...current, tagId]
     })
-    setActiveWallId('') // mark as unsaved custom filter
+    setActiveWallId('')
   }
 
   const selectWall = (wall: Wall | 'home') => {
@@ -67,8 +91,7 @@ export default function DashboardPage() {
       setActiveTags(allTags.map(t => t.id))
     } else {
       setActiveWallId(wall.id)
-      const active = (wall.tags || []).filter(t => t.active).map(t => t.tagId)
-      setActiveTags(active)
+      setActiveTags((wall.tags || []).filter(t => t.active).map(t => t.tagId))
     }
   }
 
@@ -91,13 +114,6 @@ export default function DashboardPage() {
     }
   }
 
-  const visiblePanels = (activeTags === null ? panels : panels.filter(panel => {
-    // Untagged panels are always visible to everyone
-    if (!panel.tags || panel.tags.length === 0) return true
-    // Apply the user's active tag filter (view preference — applies to all roles)
-    return panel.tags.some(t => activeTags!.includes(t.id))
-  })).sort((a, b) => a.position - b.position)
-
   const isUnsaved = activeWallId === '' || (!['home'].includes(activeWallId) && !walls.find(w => w.id === activeWallId))
 
   if (loading) {
@@ -108,17 +124,55 @@ export default function DashboardPage() {
     )
   }
 
+  if (loadError) {
+    return (
+      <div style={{
+        margin: '40px auto', maxWidth: 500, padding: 24, borderRadius: 10,
+        background: '#f8717110', border: '1px solid #f8717140', color: 'var(--red)',
+      }}>
+        <div style={{ fontWeight: 600, marginBottom: 8 }}>Failed to load dashboard</div>
+        <div style={{ fontSize: 13, fontFamily: 'DM Mono, monospace' }}>{loadError}</div>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+          Check browser console and backend logs for details.
+        </div>
+      </div>
+    )
+  }
+
   if (panels.length === 0) return <EmptyState isAdmin={isAdmin} />
-  if (activeTags === null) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '50vh' }}>
-      <div className="spinner" />
-    </div>
-  )
 
   return (
-    <div style={{ display: 'flex', gap: 20 }}>
-      {/* Main */}
+    <div style={{ display: 'flex', gap: 20, position: 'relative' }}>
+      {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
+
+        {/* Mobile filter toggle */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }} className="mobile-only">
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12, padding: '4px 10px' }}
+            onClick={() => setShowTagFilter(s => !s)}
+          >
+            {showTagFilter ? '✕ Hide filters' : '◇ Filter'}
+          </button>
+        </div>
+
+        {/* Mobile tag filter (collapsible) */}
+        {showTagFilter && allTags.length > 0 && (
+          <div className="mobile-only" style={{
+            marginBottom: 12, padding: 12, background: 'var(--surface)',
+            border: '1px solid var(--border)', borderRadius: 10,
+          }}>
+            <TagFilter
+              allTags={allTags}
+              activeTags={activeTags}
+              onToggle={toggleTag}
+              onAll={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}
+              onNone={() => { setActiveTags([]); setActiveWallId('') }}
+            />
+          </div>
+        )}
+
         {/* Wall tabs */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 2, marginBottom: 20,
@@ -136,9 +190,7 @@ export default function DashboardPage() {
               }}
             />
           ))}
-
           <div style={{ flex: 1 }} />
-
           {isUnsaved && (
             showSaveWall ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 4 }}>
@@ -154,75 +206,87 @@ export default function DashboardPage() {
               </div>
             ) : (
               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', marginBottom: 4 }}
-                onClick={() => setShowSaveWall(true)}>
-                + Save as wall
-              </button>
+                onClick={() => setShowSaveWall(true)}>+ Save as wall</button>
             )
           )}
         </div>
 
-        {/* Panels */}
+        {/* Panels grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {visiblePanels.map(panel => (
             <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
           ))}
         </div>
 
-        {visiblePanels.length === 0 && (
+        {visiblePanels.length === 0 && activeTags !== null && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 14 }}>
             No panels visible with current tag filters.
+            {allTags.length > 0 && (
+              <button className="btn btn-ghost" style={{ marginLeft: 12, fontSize: 13 }}
+                onClick={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}>
+                Show all
+              </button>
+            )}
           </div>
         )}
       </div>
 
-      {/* Tag sidebar */}
+      {/* Tag sidebar — desktop only */}
       {allTags.length > 0 && (
-        <div style={{
+        <div className="desktop-only" style={{
           width: 180, flexShrink: 0, background: 'var(--surface)',
           border: '1px solid var(--border)', borderRadius: 10,
           padding: 14, height: 'fit-content', position: 'sticky', top: 72,
         }}>
           <div className="section-title" style={{ marginBottom: 12 }}>Filter</div>
-
-          {/* Tag pills */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {allTags.map(tag => {
-              const on = activeTags === null || activeTags.includes(tag.id)
-              return (
-                <button key={tag.id} onClick={() => toggleTag(tag.id)} style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                  padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
-                  background: on ? tag.color + '20' : 'var(--surface2)',
-                  border: `1px solid ${on ? tag.color + '50' : 'var(--border)'}`,
-                  color: on ? tag.color : 'var(--text-muted)',
-                  fontSize: 12, fontWeight: on ? 500 : 400,
-                  transition: 'all 0.15s',
-                }}>
-                  <span style={{
-                    width: 6, height: 6, borderRadius: 2, flexShrink: 0,
-                    background: on ? tag.color : 'var(--text-dim)',
-                    transition: 'background 0.15s',
-                  }} />
-                  {tag.name}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* All / None */}
-          <div style={{ marginTop: 12, display: 'flex', gap: 6 }}>
-            <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px', flex: 1 }}
-              onClick={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}>
-              All
-            </button>
-            <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px', flex: 1 }}
-              onClick={() => { setActiveTags([]); setActiveWallId('') }}>
-              None
-            </button>
-          </div>
+          <TagFilter
+            allTags={allTags}
+            activeTags={activeTags}
+            onToggle={toggleTag}
+            onAll={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}
+            onNone={() => { setActiveTags([]); setActiveWallId('') }}
+          />
         </div>
       )}
     </div>
+  )
+}
+
+function TagFilter({ allTags, activeTags, onToggle, onAll, onNone }: {
+  allTags: Tag[]
+  activeTags: string[] | null
+  onToggle: (id: string) => void
+  onAll: () => void
+  onNone: () => void
+}) {
+  return (
+    <>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {allTags.map(tag => {
+          const on = activeTags === null || activeTags.includes(tag.id)
+          return (
+            <button key={tag.id} onClick={() => onToggle(tag.id)} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '4px 10px', borderRadius: 8, cursor: 'pointer',
+              background: on ? tag.color + '20' : 'var(--surface2)',
+              border: `1px solid ${on ? tag.color + '50' : 'var(--border)'}`,
+              color: on ? tag.color : 'var(--text-muted)',
+              fontSize: 12, fontWeight: on ? 500 : 400, transition: 'all 0.15s',
+            }}>
+              <span style={{
+                width: 6, height: 6, borderRadius: 2, flexShrink: 0,
+                background: on ? tag.color : 'var(--text-dim)', transition: 'background 0.15s',
+              }} />
+              {tag.name}
+            </button>
+          )
+        })}
+      </div>
+      <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
+        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px', flex: 1 }} onClick={onAll}>All</button>
+        <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 8px', flex: 1 }} onClick={onNone}>None</button>
+      </div>
+    </>
   )
 }
 
@@ -237,14 +301,11 @@ function WallTab({ label, active, onClick, onDelete }: {
         border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
         padding: '7px 12px', fontSize: 13, fontWeight: active ? 500 : 400,
         cursor: 'pointer', borderRadius: '6px 6px 0 0', transition: 'all 0.15s',
-      }}>
-        {label}
-      </button>
+      }}>{label}</button>
       {onDelete && (
         <button onClick={onDelete} style={{
           background: 'none', border: 'none', cursor: 'pointer',
-          color: 'var(--text-dim)', fontSize: 10, padding: '0 2px',
-          opacity: 0.4, lineHeight: 1,
+          color: 'var(--text-dim)', fontSize: 10, padding: '0 2px', opacity: 0.4,
         }}
           onMouseOver={e => e.currentTarget.style.opacity = '1'}
           onMouseOut={e => e.currentTarget.style.opacity = '0.4'}

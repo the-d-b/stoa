@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext'
 import { authApi } from './api'
 
 import SetupPage from './pages/SetupPage'
+import ProfilePage from './pages/ProfilePage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
@@ -45,6 +46,7 @@ function AppRoutes() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+        <Route path="/profile" element={<ProfilePage />} />
         {user.role === 'admin' && (
           <Route path="/admin/*" element={<AdminPage />} />
         )}

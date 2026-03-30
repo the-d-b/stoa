@@ -149,10 +149,23 @@ type OAuthConfig struct {
 }
 
 type SetupRequest struct {
-	AdminUsername string `json:"adminUsername"`
-	AdminPassword string `json:"adminPassword"`
-	AppURL        string `json:"appUrl"`
-	SessionSecret string `json:"sessionSecret,omitempty"`
+	AdminUsername    string `json:"adminUsername"`
+	AdminPassword    string `json:"adminPassword"`
+	AppURL           string `json:"appUrl"`
+	SessionSecret    string `json:"sessionSecret,omitempty"`
+	InitialTags      []SetupTag   `json:"initialTags,omitempty"`
+	InitialGroups    []SetupGroup `json:"initialGroups,omitempty"`
+	DefaultGroupName string `json:"defaultGroupName,omitempty"`
+}
+
+type SetupTag struct {
+	Name  string `json:"name"`
+	Color string `json:"color"`
+}
+
+type SetupGroup struct {
+	Name    string   `json:"name"`
+	TagNames []string `json:"tagNames"`
 }
 
 type Claims struct {
