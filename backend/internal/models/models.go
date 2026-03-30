@@ -113,6 +113,7 @@ type CreatePanelRequest struct {
 	Type   string `json:"type"`
 	Title  string `json:"title"`
 	Config string `json:"config"`
+	Scope  string `json:"scope"`
 }
 
 // ── Walls ─────────────────────────────────────────────────────────────────────

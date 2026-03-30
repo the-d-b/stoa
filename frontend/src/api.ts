@@ -166,6 +166,28 @@ export const bookmarksApi = {
     api.post<{ iconUrl: string }>('/bookmarks/cache-icon', { url }),
 }
 
+// ── Personal Bookmarks ───────────────────────────────────────────────────────
+
+export const myBookmarksApi = {
+  tree: () => api.get<BookmarkNode[]>('/my/bookmarks'),
+  create: (data: { parentId?: string; name: string; type: 'section' | 'bookmark'; url?: string }) =>
+    api.post<BookmarkNode>('/my/bookmarks', data),
+  update: (id: string, data: { name: string; url?: string; iconUrl?: string; sortOrder?: number }) =>
+    api.put(`/my/bookmarks/${id}`, data),
+  delete: (id: string) => api.delete(`/my/bookmarks/${id}`),
+  move: (id: string, newParentId: string | null) =>
+    api.put(`/my/bookmarks/${id}/move`, { newParentId: newParentId || '' }),
+  subtree: (id: string) => api.get<BookmarkNode>(`/my/bookmarks/${id}/subtree`),
+}
+
+export const myPanelsApi = {
+  create: (data: { type: string; title: string; config: string }) =>
+    api.post<Panel>('/my/panels', { ...data, scope: 'personal' }),
+  delete: (id: string) => api.delete(`/my/panels/${id}`),
+  update: (id: string, data: { title: string; config: string }) =>
+    api.put(`/my/panels/${id}`, data),
+}
+
 // ── Panels ────────────────────────────────────────────────────────────────────
 
 export interface Panel {
@@ -180,13 +202,14 @@ export interface Panel {
 }
 
 export const panelsApi = {
-  list: () => api.get<Panel[]>('/panels'),
+  list: (wallId?: string) => api.get<Panel[]>('/panels' + (wallId ? `?wall_id=${wallId}` : '')),  
   create: (data: { type: string; title: string; config: string }) => api.post<Panel>('/panels', data),
   update: (id: string, data: { title: string; config: string }) => api.put(`/panels/${id}`, data),
   delete: (id: string) => api.delete(`/panels/${id}`),
   addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
   removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
-  updateOrder: (order: { panelId: string; position: number }[]) => api.put('/panels/order', order),
+  updateOrder: (wallId: string | null, order: { panelId: string; position: number }[]) =>
+    api.put('/panels/order', { wallId: wallId || '', order }),
 }
 
 // ── Walls ─────────────────────────────────────────────────────────────────────

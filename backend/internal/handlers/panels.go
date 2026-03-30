@@ -18,43 +18,48 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
-		// Admins see all panels
-		// Regular users see panels where:
-		//   - panel has no tags (untagged = public)
-		//   - panel has a tag matching one of the user's group tags
+		// Optional wall_id query param for per-wall ordering
+		wallID := r.URL.Query().Get("wall_id")
+
+		log.Printf("[PANELS] list request user=%s role=%s wall=%s", claims.UserID, claims.Role, wallID)
+
 		var rows *sql.Rows
 		var err error
 
-		log.Printf("[PANELS] list request user=%s role=%s", claims.UserID, claims.Role)
-
 		if claims.Role == models.RoleAdmin {
 			rows, err = db.Query(`
-				SELECT id, type, title, config, scope, COALESCE(created_by,''), created_at
-				FROM panels ORDER BY created_at ASC
-			`)
+				SELECT p.id, p.type, p.title, p.config, p.scope,
+				       COALESCE(p.created_by,''), p.created_at
+				FROM panels p
+				WHERE p.scope = 'shared'
+				   OR (p.scope = 'personal' AND p.created_by = ?)
+				ORDER BY p.created_at ASC
+			`, claims.UserID)
 		} else {
-			// A panel is visible to a user if:
-			// 1. It has no tags (untagged = public), OR
-			// 2. At least one of its tags is accessible via the user's groups
 			rows, err = db.Query(`
 				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
 				WHERE
-					-- Untagged panels: no entries in panel_tags
-					(SELECT COUNT(*) FROM panel_tags WHERE panel_id = p.id) = 0
+					-- Personal panels owned by this user
+					(p.scope = 'personal' AND p.created_by = ?)
 					OR
-					-- Tagged panels: user's groups grant access to at least one of the panel's tags
-					EXISTS (
+					-- Shared untagged panels
+					(p.scope = 'shared' AND
+					 (SELECT COUNT(*) FROM panel_tags WHERE panel_id = p.id) = 0)
+					OR
+					-- Shared tagged panels the user has group access to
+					(p.scope = 'shared' AND EXISTS (
 						SELECT 1
 						FROM panel_tags pt
 						JOIN group_tags gt ON pt.tag_id = gt.tag_id
 						JOIN user_groups ug ON gt.group_id = ug.group_id
 						WHERE pt.panel_id = p.id AND ug.user_id = ?
-					)
+					))
 				ORDER BY p.created_at ASC
-			`, claims.UserID)
+			`, claims.UserID, claims.UserID)
 		}
+
 		if err != nil {
 			log.Printf("[PANELS] list error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to query panels")
@@ -67,14 +72,22 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
-			panelCount++
-			// Load tags
 			p.Tags = loadPanelTags(db, p.ID)
-			// Load user position
-			db.QueryRow("SELECT position FROM user_panel_order WHERE user_id=? AND panel_id=?",
-				claims.UserID, p.ID).Scan(&p.Position)
+
+			// Load user position for this wall
+			var wallIDVal interface{}
+			if wallID != "" {
+				wallIDVal = wallID
+			}
+			db.QueryRow(`
+				SELECT position FROM user_panel_order_v2
+				WHERE user_id=? AND panel_id=? AND COALESCE(wall_id,'') = COALESCE(?,'')
+			`, claims.UserID, p.ID, wallIDVal).Scan(&p.Position)
+
 			panels = append(panels, p)
+			panelCount++
 		}
+
 		log.Printf("[PANELS] returning %d panels for user=%s role=%s", panelCount, claims.UserID, claims.Role)
 		writeJSON(w, http.StatusOK, panels)
 	}
@@ -96,11 +109,17 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 			req.Config = "{}"
 		}
 
+		// Scope: admins can create shared or personal, regular users only personal
+		scope := "shared"
+		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
+			scope = "personal"
+		}
+
 		id := generateID()
 		_, err := db.Exec(`
 			INSERT INTO panels (id, type, title, config, scope, created_by)
-			VALUES (?, ?, ?, ?, 'shared', ?)
-		`, id, req.Type, req.Title, req.Config, claims.UserID)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`, id, req.Type, req.Title, req.Config, scope, claims.UserID)
 		if err != nil {
 			log.Printf("[PANELS] create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create panel")
@@ -109,7 +128,8 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 
 		writeJSON(w, http.StatusCreated, models.Panel{
 			ID: id, Type: req.Type, Title: req.Title,
-			Config: req.Config, Scope: models.ScopeShared, CreatedAt: time.Now(),
+			Config: req.Config, Scope: models.Scope(scope),
+			CreatedBy: claims.UserID, CreatedAt: time.Now(),
 		})
 	}
 }
@@ -132,8 +152,14 @@ func UpdatePanel(db *sql.DB) http.HandlerFunc {
 
 func DeletePanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
-		db.Exec("DELETE FROM panels WHERE id=?", id)
+		// Admins can delete shared panels; users can only delete their own personal panels
+		if claims.Role == models.RoleAdmin {
+			db.Exec("DELETE FROM panels WHERE id=?", id)
+		} else {
+			db.Exec("DELETE FROM panels WHERE id=? AND created_by=? AND scope='personal'", id, claims.UserID)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -141,7 +167,9 @@ func DeletePanel(db *sql.DB) http.HandlerFunc {
 func AddTagToPanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panelID := mux.Vars(r)["id"]
-		var req struct{ TagID string `json:"tagId"` }
+		var req struct {
+			TagID string `json:"tagId"`
+		}
 		json.NewDecoder(r.Body).Decode(&req)
 		db.Exec("INSERT OR IGNORE INTO panel_tags (panel_id, tag_id) VALUES (?,?)", panelID, req.TagID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -159,21 +187,32 @@ func RemoveTagFromPanel(db *sql.DB) http.HandlerFunc {
 func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		var req []struct {
-			PanelID  string `json:"panelId"`
-			Position int    `json:"position"`
+
+		var req struct {
+			WallID string `json:"wallId"` // empty = Home order
+			Order  []struct {
+				PanelID  string `json:"panelId"`
+				Position int    `json:"position"`
+			} `json:"order"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 
+		var wallIDVal interface{}
+		if req.WallID != "" {
+			wallIDVal = req.WallID
+		}
+
 		tx, _ := db.Begin()
-		for _, item := range req {
+		for _, item := range req.Order {
+			id := claims.UserID + "-" + item.PanelID + "-" + req.WallID
 			tx.Exec(`
-				INSERT INTO user_panel_order (user_id, panel_id, position) VALUES (?,?,?)
-				ON CONFLICT(user_id, panel_id) DO UPDATE SET position=excluded.position
-			`, claims.UserID, item.PanelID, item.Position)
+				INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
+				VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(id) DO UPDATE SET position=excluded.position
+			`, id, claims.UserID, item.PanelID, wallIDVal, item.Position)
 		}
 		tx.Commit()
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

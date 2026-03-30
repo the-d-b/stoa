@@ -146,7 +146,8 @@ export default function DashboardPage() {
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
 
-        {/* Mobile filter toggle */}
+        {/* Mobile filter toggle - only on Home or unsaved */}
+        {(activeWallId === 'home' || activeWallId === '') && (
         <div className="mobile-only" style={{ justifyContent: 'flex-end', marginBottom: 8 }}>
           <button
             className="btn btn-ghost"
@@ -157,6 +158,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        )}
         {/* Mobile tag filter (collapsible) */}
         {showTagFilter && allTags.length > 0 && (
           <div className="mobile-only" style={{
@@ -231,8 +233,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Tag sidebar — desktop only */}
-      {allTags.length > 0 && (
+      {/* Tag sidebar — desktop only, hidden on named walls */}
+      {allTags.length > 0 && (activeWallId === 'home' || activeWallId === '') && (
         <div className="desktop-only" style={{
           width: 180, flexShrink: 0, background: 'var(--surface)',
           border: '1px solid var(--border)', borderRadius: 10,

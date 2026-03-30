@@ -63,6 +63,17 @@ func main() {
 	protected.HandleFunc("/bookmarks/{id}", handlers.GetBookmarkNode(database)).Methods("GET")
 	protected.HandleFunc("/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
 
+	// Personal bookmarks (any authenticated user)
+	protected.HandleFunc("/my/bookmarks", handlers.ListPersonalBookmarkTree(database)).Methods("GET")
+	protected.HandleFunc("/my/bookmarks", handlers.CreatePersonalBookmarkNode(database, iconsDir)).Methods("POST")
+	protected.HandleFunc("/my/bookmarks/{id}", handlers.UpdateBookmarkNode(database)).Methods("PUT")
+	protected.HandleFunc("/my/bookmarks/{id}", handlers.DeleteBookmarkNode(database)).Methods("DELETE")
+	protected.HandleFunc("/my/bookmarks/{id}/move", handlers.MoveBookmarkNode(database)).Methods("PUT")
+	protected.HandleFunc("/my/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
+	protected.HandleFunc("/my/panels", handlers.CreatePanel(database)).Methods("POST")
+	protected.HandleFunc("/my/panels/{id}", handlers.DeletePanel(database)).Methods("DELETE")
+	protected.HandleFunc("/my/panels/{id}", handlers.UpdatePanel(database)).Methods("PUT")
+
 	// Panels (read + reorder)
 	protected.HandleFunc("/panels", handlers.ListPanels(database)).Methods("GET")
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
@@ -106,7 +117,7 @@ func main() {
 	admin.HandleFunc("/tags/{id}", handlers.DeleteTag(database)).Methods("DELETE")
 
 	// Bookmarks (write)
-	admin.HandleFunc("/bookmarks", handlers.CreateBookmarkNode(database)).Methods("POST")
+	admin.HandleFunc("/bookmarks", handlers.CreateBookmarkNode(database, iconsDir)).Methods("POST")
 	admin.HandleFunc("/bookmarks/{id}", handlers.UpdateBookmarkNode(database)).Methods("PUT")
 	admin.HandleFunc("/bookmarks/{id}", handlers.DeleteBookmarkNode(database)).Methods("DELETE")
 	admin.HandleFunc("/bookmarks/{id}/move", handlers.MoveBookmarkNode(database)).Methods("PUT")

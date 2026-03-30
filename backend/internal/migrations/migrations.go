@@ -131,6 +131,27 @@ var migrations = []migration{
 			);
 		`,
 	},
+	{
+		version: 3,
+		name:    "panel_order_per_wall",
+		up: `
+			-- Per-wall panel ordering: drop old table, create new with wall_id
+			DROP TABLE IF EXISTS user_panel_order_v2;
+			CREATE TABLE IF NOT EXISTS user_panel_order_v2 (
+				id       TEXT PRIMARY KEY,
+				user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				wall_id  TEXT REFERENCES walls(id) ON DELETE CASCADE,
+				position INTEGER NOT NULL DEFAULT 0
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_order
+				ON user_panel_order_v2(user_id, panel_id, COALESCE(wall_id, ''));
+			-- Migrate existing data
+			INSERT OR IGNORE INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
+			SELECT (user_id || '-' || panel_id), user_id, panel_id, NULL, position
+			FROM user_panel_order;
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

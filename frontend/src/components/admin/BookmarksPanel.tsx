@@ -24,19 +24,25 @@ function findNodeInTree(nodes: BookmarkNode[], id: string): BookmarkNode | null 
   return null
 }
 
-export default function BookmarksPanel() {
+interface BookmarksPanelProps {
+  personalMode?: boolean
+  apiOverride?: any
+}
+
+export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}) {
+  const api = apiOverride || bookmarksApi
   const [tree, setTree] = useState<BookmarkNode[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState<{ parentId?: string; type: 'section' | 'bookmark' } | null>(null)
   const [movingId, setMovingId] = useState<string | null>(null)
 
-  const load = () => bookmarksApi.tree().then(r => setTree(r.data || [])).finally(() => setLoading(false))
+  const load = () => api.tree().then((r: any) => setTree(r.data || [])).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
 
 
   const handleMove = async (nodeId: string, newParentId: string | null) => {
     try {
-      await bookmarksApi.move(nodeId, newParentId)
+      await api.move(nodeId, newParentId)
       setMovingId(null)
       await load()
     } catch (e: any) {
@@ -60,7 +66,7 @@ export default function BookmarksPanel() {
 
       {adding && !adding.parentId && (
         <AddNodeForm type={adding.type}
-          onSave={async (name, url) => { await bookmarksApi.create({ name, type: adding.type, url }); setAdding(null); load() }}
+          onSave={async (name, url) => { await api.create({ name, type: adding.type, url }); setAdding(null); load() }}
           onCancel={() => setAdding(null)} />
       )}
 
@@ -75,7 +81,8 @@ export default function BookmarksPanel() {
             movingId={movingId}
             allTree={tree}
             onMoveConfirm={handleMove}
-            onMoveCancel={() => setMovingId(null)} />
+            onMoveCancel={() => setMovingId(null)}
+            bookmarkApi={api} />
         ))}
       </div>
     </div>
@@ -177,7 +184,7 @@ function ParentOption({ id, label, depth, selected, onSelect, current }: {
 
 // ── Tree node ─────────────────────────────────────────────────────────────────
 
-function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId, allTree, onMoveConfirm, onMoveCancel }: {
+function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId, allTree, onMoveConfirm, onMoveCancel, bookmarkApi }: {
   node: BookmarkNode; depth: number; onRefresh: () => void
   adding: { parentId?: string; type: 'section' | 'bookmark' } | null
   setAdding: (v: any) => void
@@ -186,6 +193,7 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
   allTree: BookmarkNode[]
   onMoveConfirm: (nodeId: string, newParentId: string | null) => void
   onMoveCancel: () => void
+  bookmarkApi: any
 }) {
   const [expanded, setExpanded] = useState(true)
   const [editing, setEditing] = useState(false)
@@ -201,11 +209,11 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
 
   const handleDelete = async () => {
     if (!confirm(hasChildren ? `Delete "${node.name}" and all contents?` : `Delete "${node.name}"?`)) return
-    await bookmarksApi.delete(node.id); onRefresh()
+    await bookmarkApi.delete(node.id); onRefresh()
   }
 
   const handleSaveEdit = async () => {
-    await bookmarksApi.update(node.id, { name: editName, url: editUrl, iconUrl: editIcon })
+    await bookmarkApi.update(node.id, { name: editName, url: editUrl, iconUrl: editIcon })
     setEditing(false); onRefresh()
   }
 
@@ -213,7 +221,7 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
     if (!iconUrlInput.trim()) return
     setCachingIcon(true)
     try {
-      const res = await bookmarksApi.cacheIcon(iconUrlInput.trim())
+      const res = await bookmarkApi.cacheIcon(iconUrlInput.trim())
       setEditIcon(res.data.iconUrl); setShowIconInput(false); setIconUrlInput('')
     } catch { alert('Failed to fetch icon') }
     finally { setCachingIcon(false) }
@@ -330,7 +338,7 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
         <div style={{ marginLeft: 36, marginBottom: 4 }}>
           <AddNodeForm type={adding!.type}
             onSave={async (name, url) => {
-              await bookmarksApi.create({ parentId: node.id, name, type: adding!.type, url })
+              await bookmarkApi.create({ parentId: node.id, name, type: adding!.type, url })
               setAdding(null); onRefresh()
             }}
             onCancel={() => setAdding(null)} />
@@ -342,7 +350,8 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
         <TreeNode key={child.id} node={child} depth={depth + 1}
           onRefresh={onRefresh} adding={adding} setAdding={setAdding} onMove={onMove}
           movingId={movingId} allTree={allTree}
-          onMoveConfirm={onMoveConfirm} onMoveCancel={onMoveCancel} />
+          onMoveConfirm={onMoveConfirm} onMoveCancel={onMoveCancel}
+          bookmarkApi={bookmarkApi} />
       ))}
     </div>
   )

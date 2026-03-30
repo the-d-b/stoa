@@ -79,7 +79,7 @@ func GetBookmarkNode(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func CreateBookmarkNode(db *sql.DB) http.HandlerFunc {
+func CreateBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
@@ -123,7 +123,18 @@ func CreateBookmarkNode(db *sql.DB) http.HandlerFunc {
 
 		iconURL := req.IconURL
 		if req.Type == models.NodeBookmark && iconURL == "" && req.URL != "" {
-			iconURL = scrapeFavicon(req.URL)
+			remoteIcon := scrapeFavicon(req.URL)
+			if remoteIcon != "" && iconsDir != "" {
+				// Try to cache locally; fall back to remote URL on failure
+				if localURL, err := downloadAndCacheIcon(remoteIcon, iconsDir); err == nil {
+					iconURL = localURL
+				} else {
+					log.Printf("[ICONS] cache failed, using remote: %v", err)
+					iconURL = remoteIcon
+				}
+			} else {
+				iconURL = remoteIcon
+			}
 		}
 
 		id := generateID()
@@ -495,4 +506,132 @@ func downloadAndCacheIcon(iconURL, iconsDir string) (string, error) {
 	}
 
 	return "/api/icons/" + filename, nil
+}
+
+// ── Personal Bookmark Tree ────────────────────────────────────────────────────
+
+func ListPersonalBookmarkTree(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
+		rows, err := db.Query(`
+			SELECT id, COALESCE(parent_id,''), path, name, type,
+			       COALESCE(url,''), COALESCE(icon_url,''), sort_order, scope, created_at
+			FROM bookmark_nodes
+			WHERE scope = 'personal' AND created_by = ?
+			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
+		`, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query personal bookmarks")
+			return
+		}
+		defer rows.Close()
+
+		nodeMap := map[string]*models.BookmarkNode{}
+		var orderedIDs []string
+
+		for rows.Next() {
+			n := &models.BookmarkNode{Children: []*models.BookmarkNode{}}
+			rows.Scan(&n.ID, &n.ParentID, &n.Path, &n.Name, &n.Type,
+				&n.URL, &n.IconURL, &n.SortOrder, &n.Scope, &n.CreatedAt)
+			nodeMap[n.ID] = n
+			orderedIDs = append(orderedIDs, n.ID)
+		}
+
+		var roots []*models.BookmarkNode
+		for _, id := range orderedIDs {
+			n := nodeMap[id]
+			if n.ParentID == "" {
+				roots = append(roots, n)
+			} else if parent, ok := nodeMap[n.ParentID]; ok {
+				parent.Children = append(parent.Children, n)
+			}
+		}
+
+		writeJSON(w, http.StatusOK, roots)
+	}
+}
+
+func CreatePersonalBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
+		var req models.CreateNodeRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			writeError(w, http.StatusBadRequest, "name required")
+			return
+		}
+		if req.Type != models.NodeSection && req.Type != models.NodeBookmark {
+			writeError(w, http.StatusBadRequest, "type must be section or bookmark")
+			return
+		}
+		if req.Type == models.NodeBookmark && req.URL == "" {
+			writeError(w, http.StatusBadRequest, "url required for bookmark")
+			return
+		}
+
+		// Personal paths are prefixed with user ID to avoid collisions
+		var parentPath string
+		if req.ParentID != "" {
+			err := db.QueryRow(
+				"SELECT path FROM bookmark_nodes WHERE id = ? AND created_by = ? AND scope = 'personal'",
+				req.ParentID, claims.UserID,
+			).Scan(&parentPath)
+			if err != nil {
+				writeError(w, http.StatusBadRequest, "parent not found")
+				return
+			}
+			depth := strings.Count(parentPath, "/")
+			if depth >= 5 {
+				writeError(w, http.StatusBadRequest, "maximum tree depth of 5 reached")
+				return
+			}
+		}
+
+		personalRoot := "/personal-" + claims.UserID[:8]
+		slug := slugify(req.Name)
+		var path string
+		if parentPath == "" {
+			path = personalRoot + "/" + slug
+		} else {
+			path = parentPath + "/" + slug
+		}
+		path = uniquePath(db, path)
+
+		iconURL := req.IconURL
+		if req.Type == models.NodeBookmark && iconURL == "" && req.URL != "" {
+			remoteIcon := scrapeFavicon(req.URL)
+			if remoteIcon != "" && iconsDir != "" {
+				if localURL, err := downloadAndCacheIcon(remoteIcon, iconsDir); err == nil {
+					iconURL = localURL
+				} else {
+					iconURL = remoteIcon
+				}
+			} else {
+				iconURL = remoteIcon
+			}
+		}
+
+		id := generateID()
+		var parentIDVal interface{}
+		if req.ParentID != "" {
+			parentIDVal = req.ParentID
+		}
+
+		_, err := db.Exec(`
+			INSERT INTO bookmark_nodes (id, parent_id, path, name, type, url, icon_url, sort_order, scope, created_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'personal', ?)
+		`, id, parentIDVal, path, req.Name, req.Type, nullStr(req.URL), nullStr(iconURL), claims.UserID)
+		if err != nil {
+			log.Printf("[BOOKMARKS] create personal error: %v", err)
+			writeError(w, http.StatusInternalServerError, "failed to create node")
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, models.BookmarkNode{
+			ID: id, ParentID: req.ParentID, Path: path,
+			Name: req.Name, Type: req.Type, URL: req.URL,
+			IconURL: iconURL, Scope: models.ScopePersonal, CreatedAt: time.Now(),
+		})
+	}
 }
