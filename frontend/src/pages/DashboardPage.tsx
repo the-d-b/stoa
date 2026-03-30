@@ -147,7 +147,7 @@ export default function DashboardPage() {
       <div style={{ flex: 1, minWidth: 0 }}>
 
         {/* Mobile filter toggle */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }} className="mobile-only">
+        <div className="mobile-only" style={{ justifyContent: 'flex-end', marginBottom: 8 }}>
           <button
             className="btn btn-ghost"
             style={{ fontSize: 12, padding: '4px 10px' }}

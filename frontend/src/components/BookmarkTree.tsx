@@ -7,7 +7,9 @@ interface Props {
 }
 
 export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props) {
-  const [globalExpanded, setGlobalExpanded] = useState<boolean | null>(null)
+  // generation + state: when user clicks +/-, we bump generation so nodes
+  // know to reset their local state. After that, local clicks are independent.
+  const [globalState, setGlobalState] = useState<{ gen: number; expanded: boolean } | null>(null)
 
   const hasAnySections = nodes.some(n => n.type === 'section' && (n.children || []).length > 0)
 
@@ -21,7 +23,7 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props)
       {hasAnySections && (
         <div style={{ display: 'flex', gap: 4, marginBottom: 8, justifyContent: 'flex-end' }}>
           <button
-            onClick={() => setGlobalExpanded(true)}
+            onClick={() => setGlobalState(s => ({ gen: (s?.gen ?? 0) + 1, expanded: true }))}
             title="Expand all"
             style={{
               width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
@@ -33,7 +35,7 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props)
             onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
           >+</button>
           <button
-            onClick={() => setGlobalExpanded(false)}
+            onClick={() => setGlobalState(s => ({ gen: (s?.gen ?? 0) + 1, expanded: false }))}
             title="Collapse all"
             style={{
               width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
@@ -53,7 +55,7 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props)
             key={node.id}
             node={node}
             depth={0}
-            globalExpanded={globalExpanded}
+            globalState={globalState}
             defaultExpanded={initiallyExpanded}
           />
         ))}
@@ -62,17 +64,35 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props)
   )
 }
 
-function TreeDisplayNode({ node, depth, globalExpanded, defaultExpanded }: {
+function TreeDisplayNode({ node, depth, globalState, defaultExpanded }: {
   node: BookmarkNode
   depth: number
-  globalExpanded: boolean | null
+  globalState: { gen: number; expanded: boolean } | null
   defaultExpanded: boolean
 }) {
   const [localExpanded, setLocalExpanded] = useState(defaultExpanded)
+  const [lastSeenGen, setLastSeenGen] = useState<number | null>(null)
   const hasChildren = (node.children || []).length > 0
 
-  // globalExpanded overrides local when not null
-  const expanded = globalExpanded !== null ? globalExpanded : localExpanded
+  // If globalState changed (new generation), sync local state to it
+  const currentGen = globalState?.gen ?? null
+  if (currentGen !== null && currentGen !== lastSeenGen) {
+    // Can't call setState during render, but we can derive display state
+  }
+  const expanded = (currentGen !== null && currentGen !== lastSeenGen)
+    ? globalState!.expanded
+    : localExpanded
+
+  const handleToggle = () => {
+    // After user clicks locally, mark that we've consumed the global state
+    if (currentGen !== null && currentGen !== lastSeenGen) {
+      setLastSeenGen(currentGen)
+      // Toggle from the global state
+      setLocalExpanded(!globalState!.expanded)
+    } else {
+      setLocalExpanded(e => !e)
+    }
+  }
 
   if (node.type === 'bookmark') {
     return (
@@ -105,7 +125,7 @@ function TreeDisplayNode({ node, depth, globalExpanded, defaultExpanded }: {
   return (
     <div>
       <button
-        onClick={() => setLocalExpanded(e => !e)}
+        onClick={handleToggle}
         style={{
           display: 'flex', alignItems: 'center', gap: 6, width: '100%',
           padding: '5px 8px',
@@ -138,7 +158,7 @@ function TreeDisplayNode({ node, depth, globalExpanded, defaultExpanded }: {
           key={child.id}
           node={child}
           depth={depth + 1}
-          globalExpanded={globalExpanded}
+          globalState={globalState}
           defaultExpanded={defaultExpanded}
         />
       ))}

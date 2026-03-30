@@ -601,7 +601,30 @@ func RemoveTagFromGroup(db *sql.DB) http.HandlerFunc {
 
 func ListTags(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query("SELECT id, name, color, created_at FROM tags ORDER BY name ASC")
+		claims, ok := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "unauthorized")
+			return
+		}
+
+		var rows *sql.Rows
+		var err error
+
+		if claims.Role == models.RoleAdmin {
+			// Admins see all tags
+			rows, err = db.Query("SELECT id, name, color, created_at FROM tags ORDER BY name ASC")
+		} else {
+			// Regular users only see tags their groups grant access to
+			rows, err = db.Query(`
+				SELECT DISTINCT t.id, t.name, t.color, t.created_at
+				FROM tags t
+				JOIN group_tags gt ON t.id = gt.tag_id
+				JOIN user_groups ug ON gt.group_id = ug.group_id
+				WHERE ug.user_id = ?
+				ORDER BY t.name ASC
+			`, claims.UserID)
+		}
+
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to query tags")
 			return

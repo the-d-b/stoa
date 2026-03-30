@@ -147,20 +147,25 @@ export default function GroupsPanel() {
                     {tags.length === 0
                       ? <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>No tags yet. Create some in the Tags tab.</p>
                       : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                           {tags.map(t => {
                             const inGroup = g.tags?.some(gt => gt.id === t.id) ?? false
                             return (
-                              <label key={t.id} style={{
-                                display: 'flex', alignItems: 'center', gap: 8,
-                                cursor: 'pointer', padding: '4px 0',
-                              }}>
-                                <input type="checkbox" checked={inGroup}
-                                  onChange={() => toggleTag(g.id, t.id, inGroup)}
-                                  style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                                <span style={{ width: 8, height: 8, borderRadius: 3, background: t.color, flexShrink: 0 }} />
-                                <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{t.name}</span>
-                              </label>
+                              <button key={t.id}
+                                onClick={() => toggleTag(g.id, t.id, inGroup)}
+                                style={{
+                                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                                  padding: '3px 10px', borderRadius: 8, cursor: 'pointer',
+                                  background: inGroup ? t.color + '18' : 'var(--surface)',
+                                  border: `1px solid ${inGroup ? t.color + '50' : 'var(--border)'}`,
+                                  color: inGroup ? t.color : 'var(--text-muted)',
+                                  fontSize: 12, fontWeight: inGroup ? 500 : 400,
+                                  transition: 'all 0.15s',
+                                }}>
+                                <span style={{ width: 6, height: 6, borderRadius: 2, flexShrink: 0,
+                                  background: inGroup ? t.color : 'var(--text-dim)' }} />
+                                {t.name}
+                              </button>
                             )
                           })}
                         </div>
