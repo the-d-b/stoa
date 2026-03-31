@@ -107,7 +107,7 @@ export default function Layout() {
           maxWidth: 1100, margin: '0 auto',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.3</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.4</span>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             {user?.role === 'admin' ? '⬡ admin' : '○ user'}
           </span>

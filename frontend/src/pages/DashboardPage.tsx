@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, wallsApi, bookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { panelsApi, wallsApi, bookmarksApi, myBookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
 
 export default function DashboardPage() {
@@ -44,7 +44,17 @@ export default function DashboardPage() {
           if (panel.type === 'bookmarks') {
             try {
               const config = JSON.parse(panel.config || '{}')
-              if (config.rootNodeId) {
+              const isPersonal = panel.scope === 'personal' || config.scope === 'personal'
+
+              if (isPersonal) {
+                // Load from personal bookmark tree
+                const res = await myBookmarksApi.tree()
+                map[panel.id] = {
+                  id: 'personal-root', name: 'My Bookmarks', path: '/', type: 'section',
+                  sortOrder: 0, scope: 'personal', createdAt: '',
+                  children: res.data || [],
+                }
+              } else if (config.rootNodeId) {
                 const res = await bookmarksApi.subtree(config.rootNodeId)
                 map[panel.id] = res.data
               } else {
@@ -73,6 +83,8 @@ export default function DashboardPage() {
   }, [])
 
   const visiblePanels = (activeTags === null ? panels : panels.filter(panel => {
+    // Personal panels only show on Home or unsaved walls
+    if (panel.scope === 'personal' && activeWallId !== 'home' && activeWallId !== '') return false
     if (!panel.tags || panel.tags.length === 0) return true
     return panel.tags.some(t => activeTags.includes(t.id))
   })).sort((a, b) => a.position - b.position)
@@ -318,6 +330,8 @@ function WallTab({ label, active, onClick, onDelete }: {
 }
 
 function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode }) {
+  const [panelExpanded, setPanelExpanded] = useState<boolean | null>(null)
+
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
@@ -327,19 +341,33 @@ function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode })
       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
     >
       <div style={{
-        padding: '10px 14px', borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '8px 14px', borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 8,
       }}>
-        <span style={{ fontSize: 13, fontWeight: 500 }}>{panel.title}</span>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{panel.title}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           {(panel.tags || []).map(t => (
             <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
           ))}
+          <button onClick={() => setPanelExpanded(s => s === true ? null : true)} title="Expand all"
+            style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+              background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+              fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, padding: 0 }}>+</button>
+          <button onClick={() => setPanelExpanded(s => s === false ? null : false)} title="Collapse all"
+            style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+              background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+              fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              lineHeight: 1, padding: 0 }}>−</button>
         </div>
       </div>
       <div style={{ padding: '10px 14px', maxHeight: 400, overflowY: 'auto' }}>
         {panel.type === 'bookmarks' && subtree && (
-          <BookmarkTree nodes={subtree.id === 'root' ? (subtree.children || []) : [subtree]} />
+          <BookmarkTree
+            nodes={subtree.id === 'root' || subtree.id === 'personal-root'
+              ? (subtree.children || []) : [subtree]}
+            externalExpanded={panelExpanded}
+          />
         )}
         {panel.type === 'bookmarks' && !subtree && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>

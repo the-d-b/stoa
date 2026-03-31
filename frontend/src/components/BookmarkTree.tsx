@@ -4,12 +4,23 @@ import { BookmarkNode } from '../api'
 interface Props {
   nodes: BookmarkNode[]
   initiallyExpanded?: boolean
+  externalExpanded?: boolean | null  // controlled from panel header +/-
 }
 
-export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props) {
-  // generation + state: when user clicks +/-, we bump generation so nodes
-  // know to reset their local state. After that, local clicks are independent.
+export default function BookmarkTree({ nodes, initiallyExpanded = true, externalExpanded }: Props) {
   const [globalState, setGlobalState] = useState<{ gen: number; expanded: boolean } | null>(null)
+
+  // Sync external control from panel header into globalState
+  // Using a ref to track previous value avoids infinite loops
+  const prevExternalRef = useState<boolean | null | undefined>(undefined)
+  if (externalExpanded !== prevExternalRef[0] && externalExpanded !== undefined) {
+    prevExternalRef[1](externalExpanded)
+    if (externalExpanded !== null) {
+      setGlobalState(s => ({ gen: (s?.gen ?? 0) + 1, expanded: externalExpanded as boolean }))
+    }
+  }
+
+  const effectiveGlobal = globalState
 
   const hasAnySections = nodes.some(n => n.type === 'section' && (n.children || []).length > 0)
 
@@ -55,7 +66,7 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true }: Props)
             key={node.id}
             node={node}
             depth={0}
-            globalState={globalState}
+            globalState={effectiveGlobal}
             defaultExpanded={initiallyExpanded}
           />
         ))}
