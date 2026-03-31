@@ -26,6 +26,7 @@ func ListBookmarkTree(db *sql.DB) http.HandlerFunc {
 			SELECT id, COALESCE(parent_id,''), path, name, type,
 			       COALESCE(url,''), COALESCE(icon_url,''), sort_order, scope, created_at
 			FROM bookmark_nodes
+			WHERE scope = 'shared'
 			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
 		`)
 		if err != nil {
@@ -115,7 +116,7 @@ func CreateBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 		slug := slugify(req.Name)
 		var path string
 		if parentPath == "" {
-			path = "/" + slug
+			path = "/shared/" + slug
 		} else {
 			path = parentPath + "/" + slug
 		}
@@ -212,6 +213,10 @@ func MoveBookmarkNode(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusNotFound, "node not found")
 			return
 		}
+
+		// Verify scopes match - can't move between shared and personal trees
+		var nodeScope string
+		db.QueryRow("SELECT scope FROM bookmark_nodes WHERE id=?", id).Scan(&nodeScope)
 
 		// Get new parent path
 		var newParentPath string
@@ -317,7 +322,8 @@ func GetSubtree(db *sql.DB) http.HandlerFunc {
 			SELECT id, COALESCE(parent_id,''), path, name, type,
 			       COALESCE(url,''), COALESCE(icon_url,''), sort_order, scope, created_at
 			FROM bookmark_nodes
-			WHERE path = ? OR path LIKE ?
+			WHERE (path = ? OR path LIKE ?)
+			  AND scope = 'shared'
 			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
 		`, rootPath, rootPath+"/%")
 		if err != nil {
@@ -518,9 +524,11 @@ func ListPersonalBookmarkTree(db *sql.DB) http.HandlerFunc {
 			SELECT id, COALESCE(parent_id,''), path, name, type,
 			       COALESCE(url,''), COALESCE(icon_url,''), sort_order, scope, created_at
 			FROM bookmark_nodes
-			WHERE scope = 'personal' AND created_by = ?
+			WHERE scope = 'personal'
+			  AND created_by = ?
+			  AND (path LIKE '/' || ? || '/%' OR path = '/' || ?)
 			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
-		`, claims.UserID)
+		`, claims.UserID, claims.UserID, claims.UserID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to query personal bookmarks")
 			return
@@ -588,7 +596,7 @@ func CreatePersonalBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 			}
 		}
 
-		personalRoot := "/personal-" + claims.UserID[:8]
+		personalRoot := "/" + claims.UserID
 		slug := slugify(req.Name)
 		var path string
 		if parentPath == "" {

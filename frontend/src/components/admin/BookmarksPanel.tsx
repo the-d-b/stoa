@@ -36,6 +36,7 @@ export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}
   const [adding, setAdding] = useState<{ parentId?: string; type: 'section' | 'bookmark' } | null>(null)
   const [movingId, setMovingId] = useState<string | null>(null)
 
+  // api.tree() returns shared nodes only (scope=shared), rooted under /shared/
   const load = () => api.tree().then((r: any) => setTree(r.data || [])).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
 

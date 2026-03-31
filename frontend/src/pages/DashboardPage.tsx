@@ -60,7 +60,7 @@ export default function DashboardPage() {
               } else {
                 const res = await bookmarksApi.tree()
                 map[panel.id] = {
-                  id: 'root', name: 'root', path: '/', type: 'section',
+                  id: 'root', name: 'root', path: '/shared', type: 'section',
                   sortOrder: 0, scope: 'shared', createdAt: '',
                   children: res.data || [],
                 }
@@ -364,7 +364,7 @@ function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode })
       <div style={{ padding: '10px 14px', maxHeight: 400, overflowY: 'auto' }}>
         {panel.type === 'bookmarks' && subtree && (
           <BookmarkTree
-            nodes={subtree.id === 'root' || subtree.id === 'personal-root'
+            nodes={['root', 'personal-root', 'shared-root'].includes(subtree.id)
               ? (subtree.children || []) : [subtree]}
             externalExpanded={panelExpanded}
           />
