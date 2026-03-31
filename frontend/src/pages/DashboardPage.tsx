@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, wallsApi, bookmarksApi, myBookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
+import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
   const { isAdmin } = useAuth()
@@ -127,6 +128,17 @@ export default function DashboardPage() {
   }
 
   const isUnsaved = activeWallId === '' || (!['home'].includes(activeWallId) && !walls.find(w => w.id === activeWallId))
+
+  // Flatten all visible panel bookmark nodes for search
+  const searchNodes: BookmarkNode[] = []
+  for (const panel of visiblePanels) {
+    const sub = subtrees[panel.id]
+    if (sub) {
+      const nodes = ['root', 'personal-root', 'shared-root'].includes(sub.id)
+        ? (sub.children || []) : [sub]
+      searchNodes.push(...nodes)
+    }
+  }
 
   if (loading) {
     return (
@@ -262,6 +274,7 @@ export default function DashboardPage() {
           />
         </div>
       )}
+    <SearchModal allNodes={searchNodes} />
     </div>
   )
 }

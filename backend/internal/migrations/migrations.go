@@ -155,17 +155,12 @@ var migrations = []migration{
 	{
 		version: 4,
 		name:    "enforce_path_prefixes",
-		up: \`
-			-- Add /shared/ prefix to all shared bookmark nodes that don't have it yet
+		up: `
 			UPDATE bookmark_nodes
 			SET path = '/shared' || path
 			WHERE scope = 'shared'
 			  AND path NOT LIKE '/shared/%';
 
-			-- Rewrite personal node paths from /personal-XXXXXXXX/...
-			-- to /<full_user_id>/...
-			-- INSTR(path, '/', 2) finds the position of the second slash
-			-- e.g. '/personal-abc12345/section' -> position of '/' before 'section'
 			UPDATE bookmark_nodes
 			SET path = '/' || created_by ||
 			           CASE
@@ -176,7 +171,7 @@ var migrations = []migration{
 			WHERE scope = 'personal'
 			  AND path LIKE '/personal-%'
 			  AND created_by IS NOT NULL;
-		\`,
+		`,
 	},
 
 }

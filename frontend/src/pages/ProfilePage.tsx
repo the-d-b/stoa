@@ -141,9 +141,24 @@ function PanelsOrderTab() {
 
   const loadPanels = async (wallId?: string) => {
     const res = await panelsApi.list(wallId && wallId !== 'home' ? wallId : undefined)
-    const sorted = (res.data || []).sort((a: Panel, b: Panel) => a.position - b.position)
+    let sorted = (res.data || []).sort((a: Panel, b: Panel) => a.position - b.position)
+
+    // When a named wall is selected, only show panels visible on that wall
+    // (panels whose tags intersect the wall's active tags, or untagged panels)
+    if (wallId && wallId !== 'home') {
+      const wall = walls.find(w => w.id === wallId)
+      if (wall) {
+        const wallTagIds = new Set((wall.tags || []).filter(t => t.active).map(t => t.tagId))
+        sorted = sorted.filter((p: Panel) => {
+          if (p.scope === 'personal') return false // personal panels only on Home
+          if (!p.tags || p.tags.length === 0) return true // untagged always visible
+          return p.tags.some((t: any) => wallTagIds.has(t.id))
+        })
+      }
+    }
+
     setPanels(sorted)
-    setHasPersonalPanel(sorted.some((p: Panel) => p.scope === 'personal'))
+    setHasPersonalPanel((res.data || []).some((p: Panel) => p.scope === 'personal'))
   }
 
   useEffect(() => {

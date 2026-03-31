@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = (token: string, user: User) => {
     localStorage.setItem('stoa_token', token)
     setUser(user)
+    setLoading(false)
   }
 
   const logout = async () => {

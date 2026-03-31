@@ -22,7 +22,6 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true, external
 
   const effectiveGlobal = globalState
 
-  const hasAnySections = nodes.some(n => n.type === 'section' && (n.children || []).length > 0)
 
   if (!nodes || nodes.length === 0) {
     return <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '8px 0' }}>No bookmarks</div>
@@ -31,34 +30,7 @@ export default function BookmarkTree({ nodes, initiallyExpanded = true, external
   return (
     <div>
       {/* Expand/collapse all — only show if there are expandable sections */}
-      {hasAnySections && (
-        <div style={{ display: 'flex', gap: 4, marginBottom: 8, justifyContent: 'flex-end' }}>
-          <button
-            onClick={() => setGlobalState(s => ({ gen: (s?.gen ?? 0) + 1, expanded: true }))}
-            title="Expand all"
-            style={{
-              width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
-              background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
-              fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.15s', lineHeight: 1,
-            }}
-            onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--text)' }}
-            onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
-          >+</button>
-          <button
-            onClick={() => setGlobalState(s => ({ gen: (s?.gen ?? 0) + 1, expanded: false }))}
-            title="Collapse all"
-            style={{
-              width: 22, height: 22, borderRadius: 5, border: '1px solid var(--border)',
-              background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
-              fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.15s', lineHeight: 1,
-            }}
-            onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--border2)'; e.currentTarget.style.color = 'var(--text)' }}
-            onMouseOut={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)' }}
-          >−</button>
-        </div>
-      )}
+
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {nodes.map(node => (
