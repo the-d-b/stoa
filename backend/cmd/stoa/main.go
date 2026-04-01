@@ -80,9 +80,12 @@ func main() {
 
 	// Walls (per-user)
 	protected.HandleFunc("/walls", handlers.ListWalls(database)).Methods("GET")
+	protected.HandleFunc("/walls/order", handlers.UpdateWallOrder(database)).Methods("PUT")
 	protected.HandleFunc("/walls", handlers.CreateWall(database)).Methods("POST")
 	protected.HandleFunc("/walls/{id}", handlers.DeleteWall(database)).Methods("DELETE")
 	protected.HandleFunc("/walls/{id}/tags/{tagId}", handlers.SetWallTagActive(database)).Methods("PUT")
+	protected.HandleFunc("/panels/{id}/walls", handlers.GetPersonalPanelWalls(database)).Methods("GET")
+	protected.HandleFunc("/panels/{id}/walls", handlers.SetPersonalPanelWalls(database)).Methods("PUT")
 
 	// Preferences (per-user)
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")

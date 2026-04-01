@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 
 interface Props { onComplete: () => void }
-type Step = 'welcome' | 'admin' | 'app' | 'tags' | 'groups' | 'done'
+type Step = 'welcome' | 'admin' | 'app' | 'oauth' | 'tags' | 'groups' | 'done'
 
 const PRESET_COLORS = ['#7c6fff','#a78bfa','#ec4899','#f87171','#fb923c','#fbbf24','#4ade80','#2dd4bf','#38bdf8','#64748b']
 
@@ -22,11 +22,14 @@ export default function SetupPage({ onComplete }: Props) {
   const [newTagColor, setNewTagColor] = useState(PRESET_COLORS[0])
   const [groups, setGroups] = useState<GroupEntry[]>([])
   const [newGroupName, setNewGroupName] = useState('')
+  const [oauthIssuer, setOauthIssuer] = useState('')
+  const [oauthClientId, setOauthClientId] = useState('')
+  const [oauthClientSecret, setOauthClientSecret] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
-  const steps: Step[] = ['welcome', 'admin', 'app', 'tags', 'groups', 'done']
+  const steps: Step[] = ['welcome', 'admin', 'app', 'oauth', 'tags', 'groups', 'done']
   const stepIndex = steps.indexOf(step)
 
   const validateAdmin = () => {
@@ -83,6 +86,20 @@ export default function SetupPage({ onComplete }: Props) {
         initialGroups: groups.map(g => ({ name: g.name, tagNames: g.tagNames })),
         defaultGroupName: defaultGroup?.name || '',
       })
+      // Save OAuth config if provided
+      if (oauthIssuer && oauthClientId) {
+        try {
+          const { configApi } = await import('../api')
+          await configApi.saveOAuth({
+            issuerUrl: oauthIssuer,
+            clientId: oauthClientId,
+            clientSecret: oauthClientSecret,
+            redirectUrl: appUrl + '/api/auth/oauth/callback',
+          })
+        } catch (e) {
+          console.warn('OAuth config save failed - configure from admin panel:', e)
+        }
+      }
       const res = await authApi.login(adminUsername, adminPassword)
       login(res.data.token, res.data.user)
       setStep('done')
@@ -111,7 +128,7 @@ export default function SetupPage({ onComplete }: Props) {
 
         {/* Step dots */}
         <div className="fade-up-1" style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 28 }}>
-          {(['welcome','admin','app','tags','groups'] as Step[]).map((s, i) => (
+          {(['welcome','admin','app','oauth','tags','groups'] as Step[]).map((s, i) => (
             <div key={s} style={{
               width: step === s ? 20 : 6, height: 6, borderRadius: 3,
               background: stepIndex > i ? 'var(--accent)' : step === s ? 'var(--accent)' : 'var(--surface2)',
@@ -178,6 +195,40 @@ export default function SetupPage({ onComplete }: Props) {
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('admin')}>Back</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('oauth')}>Next →</button>
+              </div>
+            </div>
+          )}
+
+          {/* OAuth */}
+          {step === 'oauth' && (
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>OAuth / SSO <span style={{ color: 'var(--text-dim)', fontSize: 14, fontWeight: 400 }}>(optional)</span></h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                Configure single sign-on. You can skip this and configure OAuth from the admin panel later.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+                <div>
+                  <label className="label">Issuer URL</label>
+                  <input className="input" value={oauthIssuer} onChange={e => setOauthIssuer(e.target.value)}
+                    placeholder="https://authentik.example.com/application/o/stoa/" />
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, fontFamily: 'DM Mono, monospace' }}>
+                    callback → {appUrl}/api/auth/oauth/callback
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Client ID</label>
+                  <input className="input" value={oauthClientId} onChange={e => setOauthClientId(e.target.value)}
+                    placeholder="your-client-id" />
+                </div>
+                <div>
+                  <label className="label">Client Secret</label>
+                  <input type="password" className="input" value={oauthClientSecret} onChange={e => setOauthClientSecret(e.target.value)}
+                    placeholder="your-client-secret" />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('app')}>Back</button>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('tags')}>Next →</button>
               </div>
             </div>
@@ -228,7 +279,7 @@ export default function SetupPage({ onComplete }: Props) {
               </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('app')}>Back</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('oauth')}>Back</button>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('groups')}>Next →</button>
               </div>
             </div>

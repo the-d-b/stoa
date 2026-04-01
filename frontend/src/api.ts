@@ -212,6 +212,13 @@ export const panelsApi = {
     api.put('/panels/order', { wallId: wallId || '', order }),
 }
 
+// ── Personal Panel Walls ─────────────────────────────────────────────────────
+
+export const personalPanelWallsApi = {
+  get: (panelId: string) => api.get<string[]>(`/panels/${panelId}/walls`),
+  set: (panelId: string, wallIds: string[]) => api.put(`/panels/${panelId}/walls`, { wallIds }),
+}
+
 // ── Walls ─────────────────────────────────────────────────────────────────────
 
 export interface WallTag {
@@ -234,6 +241,7 @@ export const wallsApi = {
   list: () => api.get<Wall[]>('/walls'),
   create: (name: string, isDefault?: boolean) => api.post<Wall>('/walls', { name, isDefault }),
   delete: (id: string) => api.delete(`/walls/${id}`),
+  updateOrder: (order: { wallId: string; position: number }[]) => api.put('/walls/order', order),
   setTagActive: (wallId: string, tagId: string, active: boolean) =>
     api.put(`/walls/${wallId}/tags/${tagId}`, { active }),
 }

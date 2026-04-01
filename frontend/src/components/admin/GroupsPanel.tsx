@@ -19,9 +19,15 @@ export default function GroupsPanel() {
   useEffect(() => { load() }, [])
 
   const loadGroup = async (id: string) => {
-    const r = await groupsApi.get(id)
-    setGroups(gs => gs.map(g => g.id === id ? r.data : g))
-    setExpanded(id)
+    try {
+      const r = await groupsApi.get(id)
+      setGroups(gs => gs.map(g => g.id === id ? r.data : g))
+      setExpanded(id)
+    } catch (e) {
+      console.error('[Groups] failed to load group:', id, e)
+      // Still expand to show the empty state
+      setExpanded(id)
+    }
   }
 
   const create = async () => {

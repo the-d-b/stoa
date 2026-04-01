@@ -83,12 +83,21 @@ export default function DashboardPage() {
     load()
   }, [])
 
-  const visiblePanels = (activeTags === null ? panels : panels.filter(panel => {
-    // Personal panels only show on Home or unsaved walls
-    if (panel.scope === 'personal' && activeWallId !== 'home' && activeWallId !== '') return false
+  // Backend returns panels pre-sorted by saved position
+  // We only filter here, do NOT re-sort (would override saved order)
+  const visiblePanels = activeTags === null ? panels : panels.filter(panel => {
+    // Personal panels: check wall assignment
+    if (panel.scope === 'personal') {
+      if (activeWallId === 'home' || activeWallId === '') return true
+      // Check if user has assigned this personal panel to this wall
+      // We use panel config to store wall assignments for simplicity
+      const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+      const assignedWalls: string[] = config.assignedWalls || []
+      return assignedWalls.includes(activeWallId)
+    }
     if (!panel.tags || panel.tags.length === 0) return true
     return panel.tags.some(t => activeTags.includes(t.id))
-  })).sort((a, b) => a.position - b.position)
+  })
 
   const toggleTag = (tagId: string) => {
     setActiveTags(prev => {

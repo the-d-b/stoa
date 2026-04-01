@@ -47,11 +47,12 @@ export default function SearchModal({ allNodes }: Props) {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'Escape') { setOpen(false); setQuery(''); return }
 
-      // Open on any printable character
+      // Open on any printable character - don't set query here,
+      // the input will receive the character naturally via the keydown event
       if (e.key.length === 1) {
         setOpen(true)
-        setQuery(e.key)
         setSelected(0)
+        // Don't set query - let the input field receive the character naturally
       }
     }
     window.addEventListener('keydown', handler)

@@ -19,7 +19,7 @@ func ListWalls(db *sql.DB) http.HandlerFunc {
 
 		rows, err := db.Query(`
 			SELECT id, user_id, name, is_default, created_at
-			FROM walls WHERE user_id = ? ORDER BY is_default DESC, created_at ASC
+			FROM walls WHERE user_id = ? ORDER BY is_default DESC, sort_order ASC, created_at ASC
 		`, claims.UserID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to query walls")
@@ -183,4 +183,76 @@ func boolToInt(b bool) int {
 		return 1
 	}
 	return 0
+}
+
+// ── Personal Panel Walls ─────────────────────────────────────────────────────
+
+func GetPersonalPanelWalls(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		panelID := mux.Vars(r)["id"]
+		rows, err := db.Query(`
+			SELECT wall_id FROM personal_panel_walls WHERE panel_id = ?
+		`, panelID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query")
+			return
+		}
+		defer rows.Close()
+		wallIDs := []string{}
+		for rows.Next() {
+			var id string
+			rows.Scan(&id)
+			wallIDs = append(wallIDs, id)
+		}
+		writeJSON(w, http.StatusOK, wallIDs)
+	}
+}
+
+func SetPersonalPanelWalls(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		panelID := mux.Vars(r)["id"]
+
+		// Verify user owns this panel
+		var ownerID string
+		err := db.QueryRow("SELECT created_by FROM panels WHERE id=? AND scope='personal'", panelID).Scan(&ownerID)
+		if err != nil || ownerID != claims.UserID {
+			writeError(w, http.StatusForbidden, "not your panel")
+			return
+		}
+
+		var req struct {
+			WallIDs []string `json:"wallIds"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+
+		tx, _ := db.Begin()
+		tx.Exec("DELETE FROM personal_panel_walls WHERE panel_id=?", panelID)
+		for _, wid := range req.WallIDs {
+			tx.Exec("INSERT OR IGNORE INTO personal_panel_walls (panel_id, wall_id) VALUES (?,?)", panelID, wid)
+		}
+		tx.Commit()
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func UpdateWallOrder(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var req []struct {
+			WallID   string `json:"wallId"`
+			Position int    `json:"position"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		tx, _ := db.Begin()
+		for _, item := range req {
+			tx.Exec("UPDATE walls SET sort_order=? WHERE id=? AND user_id=?",
+				item.Position, item.WallID, claims.UserID)
+		}
+		tx.Commit()
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }

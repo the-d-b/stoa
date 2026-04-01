@@ -12,8 +12,9 @@ export default function PanelsAdminPanel() {
   const [creating, setCreating] = useState(false)
 
   const load = async () => {
+    // Admin panel only shows shared panels - personal panels managed in profile
     const [p, t, b] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree()])
-    setPanels(p.data || []); setTags(t.data || []); setBookmarkRoots(b.data || [])
+    setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal')); setTags(t.data || []); setBookmarkRoots(b.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -78,7 +79,7 @@ export default function PanelsAdminPanel() {
                 <option value="">— All bookmarks —</option>
                 {flatNodes.map(n => (
                   <option key={n.id} value={n.id}>
-                    {n.path.replace(/\//g, ' / ')}
+                    {n.path.replace(/^\/shared/, '').replace(/\//g, ' / ').replace(/^ \/ /, '') || '(root)'}
                   </option>
                 ))}
               </select>
@@ -104,7 +105,7 @@ export default function PanelsAdminPanel() {
                 <div>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{p.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', marginTop: 2 }}>
-                    {rootNode ? rootNode.path : '/bookmarks (all)'}
+                    {rootNode ? rootNode.path.replace(/^\/shared/, '') || '/' : '/ (all shared)'}
                   </div>
                 </div>
                 <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>

@@ -17,8 +17,6 @@ import (
 func ListPanels(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-
-		// Optional wall_id query param for per-wall ordering
 		wallID := r.URL.Query().Get("wall_id")
 
 		log.Printf("[PANELS] list request user=%s role=%s wall=%s", claims.UserID, claims.Role, wallID)
@@ -41,14 +39,11 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
 				WHERE
-					-- Personal panels owned by this user
 					(p.scope = 'personal' AND p.created_by = ?)
 					OR
-					-- Shared untagged panels
 					(p.scope = 'shared' AND
 					 (SELECT COUNT(*) FROM panel_tags WHERE panel_id = p.id) = 0)
 					OR
-					-- Shared tagged panels the user has group access to
 					(p.scope = 'shared' AND EXISTS (
 						SELECT 1
 						FROM panel_tags pt
@@ -74,22 +69,54 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
 			p.Tags = loadPanelTags(db, p.ID)
 
-			// Load user position for this wall
-			var wallIDVal interface{}
+			// Load saved position for this user + wall combination
+			// NULL wall_id = Home order
 			if wallID != "" {
-				wallIDVal = wallID
+				db.QueryRow(`
+					SELECT position FROM user_panel_order_v2
+					WHERE user_id = ? AND panel_id = ? AND wall_id = ?
+				`, claims.UserID, p.ID, wallID).Scan(&p.Position)
+			} else {
+				// Home wall: wall_id IS NULL
+				db.QueryRow(`
+					SELECT position FROM user_panel_order_v2
+					WHERE user_id = ? AND panel_id = ? AND wall_id IS NULL
+				`, claims.UserID, p.ID).Scan(&p.Position)
 			}
-			db.QueryRow(`
-				SELECT position FROM user_panel_order_v2
-				WHERE user_id=? AND panel_id=? AND COALESCE(wall_id,'') = COALESCE(?,'')
-			`, claims.UserID, p.ID, wallIDVal).Scan(&p.Position)
 
 			panels = append(panels, p)
 			panelCount++
 		}
 
+		// Sort by saved position — panels with no saved position (0) go to end
+		// Use stable sort: panels with position > 0 sorted first by position,
+		// then remaining panels in creation order
+		ordered := make([]models.Panel, 0, len(panels))
+		positioned := []models.Panel{}
+		unpositioned := []models.Panel{}
+
+		for _, p := range panels {
+			if p.Position > 0 {
+				positioned = append(positioned, p)
+			} else {
+				unpositioned = append(unpositioned, p)
+			}
+		}
+
+		// Sort positioned panels
+		for i := 0; i < len(positioned)-1; i++ {
+			for j := i + 1; j < len(positioned); j++ {
+				if positioned[j].Position < positioned[i].Position {
+					positioned[i], positioned[j] = positioned[j], positioned[i]
+				}
+			}
+		}
+
+		ordered = append(ordered, positioned...)
+		ordered = append(ordered, unpositioned...)
+
 		log.Printf("[PANELS] returning %d panels for user=%s role=%s", panelCount, claims.UserID, claims.Role)
-		writeJSON(w, http.StatusOK, panels)
+		writeJSON(w, http.StatusOK, ordered)
 	}
 }
 
@@ -109,7 +136,6 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 			req.Config = "{}"
 		}
 
-		// Scope: admins can create shared or personal, regular users only personal
 		scope := "shared"
 		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
 			scope = "personal"
@@ -154,7 +180,6 @@ func DeletePanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
-		// Admins can delete shared panels; users can only delete their own personal panels
 		if claims.Role == models.RoleAdmin {
 			db.Exec("DELETE FROM panels WHERE id=?", id)
 		} else {
@@ -189,7 +214,7 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
 		var req struct {
-			WallID string `json:"wallId"` // empty = Home order
+			WallID string `json:"wallId"`
 			Order  []struct {
 				PanelID  string `json:"panelId"`
 				Position int    `json:"position"`
@@ -200,21 +225,42 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		var wallIDVal interface{}
-		if req.WallID != "" {
-			wallIDVal = req.WallID
+		tx, err := db.Begin()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to begin transaction")
+			return
 		}
 
-		tx, _ := db.Begin()
 		for _, item := range req.Order {
-			id := claims.UserID + "-" + item.PanelID + "-" + req.WallID
-			tx.Exec(`
-				INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
-				VALUES (?, ?, ?, ?, ?)
-				ON CONFLICT(id) DO UPDATE SET position=excluded.position
-			`, id, claims.UserID, item.PanelID, wallIDVal, item.Position)
+			if req.WallID != "" {
+				// Named wall — wall_id = wallID string
+				tx.Exec(`
+					INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
+					VALUES (?, ?, ?, ?, ?)
+					ON CONFLICT(id) DO UPDATE SET position = excluded.position
+				`, claims.UserID+"-"+item.PanelID+"-"+req.WallID,
+					claims.UserID, item.PanelID, req.WallID, item.Position)
+			} else {
+				// Home wall — wall_id IS NULL
+				// Delete existing then insert to avoid NULL comparison issues
+				tx.Exec(`
+					DELETE FROM user_panel_order_v2
+					WHERE user_id = ? AND panel_id = ? AND wall_id IS NULL
+				`, claims.UserID, item.PanelID)
+				tx.Exec(`
+					INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
+					VALUES (?, ?, ?, NULL, ?)
+				`, claims.UserID+"-"+item.PanelID+"-home",
+					claims.UserID, item.PanelID, item.Position)
+			}
 		}
-		tx.Commit()
+
+		if err := tx.Commit(); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save order")
+			return
+		}
+
+		log.Printf("[PANELS] order saved user=%s wall=%s panels=%d", claims.UserID, req.WallID, len(req.Order))
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

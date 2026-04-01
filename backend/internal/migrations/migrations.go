@@ -174,6 +174,22 @@ var migrations = []migration{
 		`,
 	},
 
+	{
+		version: 5,
+		name:    "personal_panel_walls",
+		up: `
+			-- Track which walls a personal panel appears on
+			CREATE TABLE IF NOT EXISTS personal_panel_walls (
+				panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				wall_id  TEXT NOT NULL REFERENCES walls(id) ON DELETE CASCADE,
+				PRIMARY KEY (panel_id, wall_id)
+			);
+
+			-- Wall sort order for user-defined wall ordering
+			ALTER TABLE walls ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+		`,
+	},
+
 }
 
 func Run(db *sql.DB) error {
