@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { authApi } from '../api'
+import { authApi, configApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 
@@ -89,7 +89,6 @@ export default function SetupPage({ onComplete }: Props) {
       // Save OAuth config if provided
       if (oauthIssuer && oauthClientId) {
         try {
-          const { configApi } = await import('../api')
           await configApi.saveOAuth({
             issuerUrl: oauthIssuer,
             clientId: oauthClientId,

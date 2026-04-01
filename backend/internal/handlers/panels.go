@@ -20,6 +20,20 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		wallID := r.URL.Query().Get("wall_id")
 
 		log.Printf("[PANELS] list request user=%s role=%s wall=%s", claims.UserID, claims.Role, wallID)
+		// Debug: log all saved positions for this user
+		debugRows, _ := db.Query(`
+			SELECT panel_id, COALESCE(wall_id,'NULL'), position
+			FROM user_panel_order_v2 WHERE user_id = ? ORDER BY COALESCE(wall_id,''), position
+		`, claims.UserID)
+		if debugRows != nil {
+			defer debugRows.Close()
+			for debugRows.Next() {
+				var pid, wid string
+				var pos int
+				debugRows.Scan(&pid, &wid, &pos)
+				log.Printf("[PANELS]   saved order: panel=%s wall=%s pos=%d", pid, wid, pos)
+			}
+		}
 
 		var rows *sql.Rows
 		var err error
@@ -70,19 +84,18 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			p.Tags = loadPanelTags(db, p.ID)
 
 			// Load saved position for this user + wall combination
-			// NULL wall_id = Home order
 			if wallID != "" {
 				db.QueryRow(`
 					SELECT position FROM user_panel_order_v2
 					WHERE user_id = ? AND panel_id = ? AND wall_id = ?
 				`, claims.UserID, p.ID, wallID).Scan(&p.Position)
 			} else {
-				// Home wall: wall_id IS NULL
 				db.QueryRow(`
 					SELECT position FROM user_panel_order_v2
 					WHERE user_id = ? AND panel_id = ? AND wall_id IS NULL
 				`, claims.UserID, p.ID).Scan(&p.Position)
 			}
+			log.Printf("[PANELS]   panel %s %q pos=%d scope=%s", p.ID, p.Title, p.Position, p.Scope)
 
 			panels = append(panels, p)
 			panelCount++
@@ -214,7 +227,7 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
 		var req struct {
-			WallID string `json:"wallId"`
+			WallID *string `json:"wallId"` // null = Home, string = named wall
 			Order  []struct {
 				PanelID  string `json:"panelId"`
 				Position int    `json:"position"`
@@ -225,6 +238,15 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		isHome := req.WallID == nil || *req.WallID == ""
+		wallIDStr := ""
+		if !isHome {
+			wallIDStr = *req.WallID
+		}
+
+		log.Printf("[PANELS] UpdateOrder user=%s wallId=%v isHome=%v panels=%d",
+			claims.UserID, req.WallID, isHome, len(req.Order))
+
 		tx, err := db.Begin()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to begin transaction")
@@ -232,17 +254,17 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 		}
 
 		for _, item := range req.Order {
-			if req.WallID != "" {
-				// Named wall — wall_id = wallID string
+			if !isHome {
+				// Named wall
+				rowID := claims.UserID + "-" + item.PanelID + "-" + wallIDStr
 				tx.Exec(`
 					INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
 					VALUES (?, ?, ?, ?, ?)
 					ON CONFLICT(id) DO UPDATE SET position = excluded.position
-				`, claims.UserID+"-"+item.PanelID+"-"+req.WallID,
-					claims.UserID, item.PanelID, req.WallID, item.Position)
+				`, rowID, claims.UserID, item.PanelID, wallIDStr, item.Position)
 			} else {
-				// Home wall — wall_id IS NULL
-				// Delete existing then insert to avoid NULL comparison issues
+				// Home wall — wall_id IS NULL, use DELETE+INSERT to avoid NULL issues
+				rowID := claims.UserID + "-" + item.PanelID + "-home"
 				tx.Exec(`
 					DELETE FROM user_panel_order_v2
 					WHERE user_id = ? AND panel_id = ? AND wall_id IS NULL
@@ -250,8 +272,7 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 				tx.Exec(`
 					INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
 					VALUES (?, ?, ?, NULL, ?)
-				`, claims.UserID+"-"+item.PanelID+"-home",
-					claims.UserID, item.PanelID, item.Position)
+				`, rowID, claims.UserID, item.PanelID, item.Position)
 			}
 		}
 
@@ -260,7 +281,10 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[PANELS] order saved user=%s wall=%s panels=%d", claims.UserID, req.WallID, len(req.Order))
+		for _, item := range req.Order {
+			log.Printf("[PANELS] saved panelId=%s position=%d wallId=%q isHome=%v", item.PanelID, item.Position, wallIDStr, isHome)
+		}
+		log.Printf("[PANELS] order saved user=%s wallId=%q isHome=%v panels=%d", claims.UserID, wallIDStr, isHome, len(req.Order))
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

@@ -209,7 +209,7 @@ export const panelsApi = {
   addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
   removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
   updateOrder: (wallId: string | null, order: { panelId: string; position: number }[]) =>
-    api.put('/panels/order', { wallId: wallId || '', order }),
+    api.put('/panels/order', { wallId: wallId ?? null, order }),
 }
 
 // ── Personal Panel Walls ─────────────────────────────────────────────────────

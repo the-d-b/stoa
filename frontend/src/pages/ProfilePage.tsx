@@ -149,12 +149,17 @@ function PanelsOrderTab() {
       if (wall) {
         const wallTagIds = new Set((wall.tags || []).filter(t => t.active).map(t => t.tagId))
         sorted = sorted.filter((p: Panel) => {
-          if (p.scope === 'personal') return false
+          // Personal panels always included in ordering list
+          if (p.scope === 'personal') return true
           if (!p.tags || p.tags.length === 0) return true
           return p.tags.some((t: any) => wallTagIds.has(t.id))
         })
       }
     }
+    // Personal panels always appear in Home ordering
+    console.log('[ProfilePage] loadPanels wall=' + wallId + ' panels=' + sorted.length +
+      ' (' + sorted.filter((p: Panel) => p.scope === 'personal').length + ' personal)')
+    sorted.forEach((p: Panel) => console.log('  panel:', p.id, p.title, 'pos=' + p.position, 'scope=' + p.scope))
     setPanels(sorted)
     const personal = (res.data || []).find((p: Panel) => p.scope === 'personal')
     setHasPersonalPanel(!!personal)
@@ -170,6 +175,7 @@ function PanelsOrderTab() {
 
   useEffect(() => {
     Promise.all([panelsApi.list(), wallsApi.list()]).then(([p, w]) => {
+      console.log('[Profile] loaded panels:', p.data?.length, p.data?.map((x: Panel) => `${x.title}(${x.scope})`))
       const sorted = [...(p.data || [])]
       setPanels(sorted)
       setWalls(w.data || [])
@@ -210,8 +216,11 @@ function PanelsOrderTab() {
     setSaving(true)
     try {
       const wallId = selectedWall !== 'home' ? selectedWall : null
-      const order = panels.map((p, i) => ({ panelId: p.id, position: i + 1 })) // 1-based positions
+      const order = panels.map((p, i) => ({ panelId: p.id, position: i + 1 }))
+      console.log('[ProfilePage] saving order wall=' + wallId)
+      order.forEach(o => console.log('  panelId=' + o.panelId + ' position=' + o.position))
       await panelsApi.updateOrder(wallId, order)
+      console.log('[ProfilePage] order saved successfully')
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
   }

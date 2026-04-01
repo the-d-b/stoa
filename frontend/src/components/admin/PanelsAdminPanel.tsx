@@ -9,6 +9,14 @@ export default function PanelsAdminPanel() {
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newRootId, setNewRootId] = useState('')
+  const [loadingTree, setLoadingTree] = useState(false)
+
+  const refreshBookmarkTree = async () => {
+    setLoadingTree(true)
+    const b = await bookmarksApi.tree()
+    setBookmarkRoots(b.data || [])
+    setLoadingTree(false)
+  }
   const [creating, setCreating] = useState(false)
 
   const load = async () => {
@@ -53,7 +61,7 @@ export default function PanelsAdminPanel() {
           Assign tags to control who can see each panel.
         </p>
         <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
-          onClick={() => setShowForm(!showForm)}>
+          onClick={() => { setShowForm(f => !f); if (!showForm) refreshBookmarkTree() }}>
           + New panel
         </button>
       </div>
@@ -77,7 +85,8 @@ export default function PanelsAdminPanel() {
               <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
                 style={{ cursor: 'pointer' }}>
                 <option value="">— All bookmarks —</option>
-                {flatNodes.map(n => (
+                {loadingTree && <option disabled>Loading...</option>}
+              {!loadingTree && flatNodes.map(n => (
                   <option key={n.id} value={n.id}>
                     {n.path.replace(/^\/shared/, '').replace(/\//g, ' / ').replace(/^ \/ /, '') || '(root)'}
                   </option>
