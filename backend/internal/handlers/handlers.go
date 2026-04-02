@@ -709,7 +709,7 @@ func UpdateProfile(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func UploadAvatar(iconsDir string) http.HandlerFunc {
+func UploadAvatar(db *sql.DB, iconsDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
