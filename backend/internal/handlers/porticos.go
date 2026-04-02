@@ -343,3 +343,36 @@ func encryptSecret(plaintext string) (string, error) {
 	// when we have the session secret available to handlers
 	return "enc:" + plaintext, nil
 }
+
+// ── Preferences ───────────────────────────────────────────────────────────────
+
+func GetPreferences(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var theme, avatarURL string
+		db.QueryRow(`
+			SELECT COALESCE(theme,''), COALESCE(avatar_url,'')
+			FROM user_preferences WHERE user_id = ?
+		`, claims.UserID).Scan(&theme, &avatarURL)
+		writeJSON(w, http.StatusOK, map[string]string{
+			"theme":     theme,
+			"avatarUrl": avatarURL,
+		})
+	}
+}
+
+func SavePreferences(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var req struct {
+			Theme string `json:"theme"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		db.Exec(`
+			INSERT INTO user_preferences (user_id, theme)
+			VALUES (?, ?)
+			ON CONFLICT(user_id) DO UPDATE SET theme = excluded.theme
+		`, claims.UserID, req.Theme)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}

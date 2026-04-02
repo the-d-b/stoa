@@ -90,12 +90,11 @@ func main() {
 	protected.HandleFunc("/panels/{id}/porticos", handlers.GetPersonalPanelPorticos(database)).Methods("GET")
 	protected.HandleFunc("/panels/{id}/porticos", handlers.SetPersonalPanelPorticos(database)).Methods("PUT")
 
-	// Secrets
+	// Secrets (any authenticated user can manage their own)
 	protected.HandleFunc("/secrets", handlers.ListSecrets(database)).Methods("GET")
 	protected.HandleFunc("/secrets", handlers.CreateSecret(database)).Methods("POST")
 	protected.HandleFunc("/secrets/{id}", handlers.UpdateSecret(database)).Methods("PUT")
 	protected.HandleFunc("/secrets/{id}", handlers.DeleteSecret(database)).Methods("DELETE")
-	admin.HandleFunc("/secrets/{id}/groups", handlers.SetSecretGroups(database)).Methods("PUT")
 
 	// Preferences (per-user)
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")
@@ -108,6 +107,9 @@ func main() {
 	// ── Admin only ────────────────────────────────────────
 	admin := protected.PathPrefix("").Subrouter()
 	admin.Use(authService.AdminMiddleware)
+
+	// Secrets (admin only: group assignment)
+	admin.HandleFunc("/secrets/{id}/groups", handlers.SetSecretGroups(database)).Methods("PUT")
 
 	// Users admin
 	admin.HandleFunc("/users/{id}/role", handlers.UpdateUserRole(database)).Methods("PUT")
