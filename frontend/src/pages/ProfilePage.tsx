@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, wallsApi, myPanelsApi, myBookmarksApi, Panel, Wall } from '../api'
+import { panelsApi, wallsApi, myPanelsApi, myBookmarksApi, profileApi, Panel, Wall } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
 type Tab = 'overview' | 'bookmarks' | 'panels' | 'walls'
@@ -79,13 +79,115 @@ export default function ProfilePage() {
 // ── Overview ──────────────────────────────────────────────────────────────────
 
 function OverviewTab() {
+  const { user, setUser } = useAuth()
+  const [email, setEmail] = useState(user?.email || '')
+  const [editingEmail, setEditingEmail] = useState(false)
+  const [savingEmail, setSavingEmail] = useState(false)
+  const [emailSaved, setEmailSaved] = useState(false)
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarError, setAvatarError] = useState('')
+
+  useEffect(() => {
+    profileApi.get().then(r => {
+      setEmail(r.data.email || '')
+      setAvatarUrl(r.data.avatarUrl || '')
+    }).catch(() => {})
+  }, [])
+
+  const saveEmail = async () => {
+    setSavingEmail(true)
+    try {
+      await profileApi.update({ email })
+      if (setUser) setUser({ ...user, email } as any)
+      setEditingEmail(false)
+      setEmailSaved(true)
+      setTimeout(() => setEmailSaved(false), 2000)
+    } finally { setSavingEmail(false) }
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setAvatarError('Image must be under 2MB'); return }
+    setAvatarError('')
+    setUploadingAvatar(true)
+    try {
+      const res = await profileApi.uploadAvatar(file)
+      setAvatarUrl(res.data.avatarUrl + '?t=' + Date.now())
+    } catch { setAvatarError('Upload failed') }
+    finally { setUploadingAvatar(false) }
+  }
+
+  const initials = user?.username
+    ? user.username.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
+    : '?'
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+      {/* Avatar */}
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Profile picture</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+          <div style={{ position: 'relative' }}>
+            {avatarUrl
+              ? <img src={avatarUrl} style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', border: '2px solid var(--border)' }}
+                  onError={() => setAvatarUrl('')} />
+              : <div style={{
+                  width: 64, height: 64, borderRadius: 12,
+                  background: 'var(--accent-bg)', border: '2px solid var(--accent)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 22, fontWeight: 600, color: 'var(--accent2)',
+                }}>{initials}</div>
+            }
+          </div>
+          <div>
+            <label style={{
+              display: 'inline-block', cursor: 'pointer',
+              padding: '6px 14px', borderRadius: 8, fontSize: 12,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              color: 'var(--text)', transition: 'all 0.15s',
+            }}>
+              {uploadingAvatar ? <span className="spinner" /> : 'Upload image'}
+              <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleAvatarChange} />
+            </label>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 6 }}>JPG, PNG, GIF, WebP · max 2MB</div>
+            {avatarError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{avatarError}</div>}
+          </div>
+        </div>
+      </div>
+
+      {/* Email */}
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Email address</div>
+        {editingEmail ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input className="input" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="you@example.com" style={{ flex: 1 }}
+              onKeyDown={e => e.key === 'Enter' && saveEmail()} autoFocus />
+            <button className="btn btn-primary" onClick={saveEmail} disabled={savingEmail}>
+              {savingEmail ? <span className="spinner" /> : 'Save'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => { setEditingEmail(false); setEmail(user?.email || '') }}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: email ? 'var(--text)' : 'var(--text-dim)' }}>
+              {email || 'No email set'}
+              {emailSaved && <span style={{ color: 'var(--green)', marginLeft: 8, fontSize: 12 }}>✓ saved</span>}
+            </span>
+            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingEmail(true)}>Edit</button>
+          </div>
+        )}
+      </div>
+
+      {/* Coming soon items */}
       {[
-        { title: 'Theme',           desc: 'CSS download/upload for custom themes — use color wheel for now' },
-        { title: 'Email address',   desc: 'Update your email address' },
-        { title: 'Profile picture', desc: 'Upload a custom avatar' },
-        { title: 'Date & time',     desc: 'Customize how dates and times are displayed' },
+        { title: 'Theme',       desc: 'CSS download/upload for custom themes — use color wheel for now' },
+        { title: 'Date & time', desc: 'Customize how dates and times are displayed' },
       ].map(item => (
         <div key={item.title} style={{
           padding: '12px 16px', borderRadius: 10,
@@ -99,7 +201,8 @@ function OverviewTab() {
           <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>coming soon</span>
         </div>
       ))}
-      <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
         <StoaLogo size={14} />stoa v0.0.4
       </div>
     </div>
@@ -149,8 +252,12 @@ function PanelsOrderTab() {
       if (wall) {
         const wallTagIds = new Set((wall.tags || []).filter(t => t.active).map(t => t.tagId))
         sorted = sorted.filter((p: Panel) => {
-          // Personal panels always included in ordering list
-          if (p.scope === 'personal') return true
+          // Personal panels only show on walls they're assigned to
+          if (p.scope === 'personal') {
+            const config = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+            const assigned: string[] = config.assignedWalls || []
+            return assigned.includes(wallId)
+          }
           if (!p.tags || p.tags.length === 0) return true
           return p.tags.some((t: any) => wallTagIds.has(t.id))
         })

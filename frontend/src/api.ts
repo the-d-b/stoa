@@ -166,6 +166,23 @@ export const bookmarksApi = {
     api.post<{ iconUrl: string }>('/bookmarks/cache-icon', { url }),
 }
 
+// ── Profile ──────────────────────────────────────────────────────────────────
+
+export const profileApi = {
+  get: () => api.get<{
+    id: string; username: string; email: string;
+    role: string; authProvider: string; avatarUrl: string
+  }>('/profile'),
+  update: (data: { email: string }) => api.put('/profile', data),
+  uploadAvatar: (file: File) => {
+    const form = new FormData()
+    form.append('avatar', file)
+    return api.post<{ avatarUrl: string }>('/profile/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
+}
+
 // ── Personal Bookmarks ───────────────────────────────────────────────────────
 
 export const myBookmarksApi = {

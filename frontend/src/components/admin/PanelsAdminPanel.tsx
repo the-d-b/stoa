@@ -97,7 +97,7 @@ export default function PanelsAdminPanel() {
                 {loadingTree && <option disabled>Loading...</option>}
               {!loadingTree && flatNodes.map(n => (
                   <option key={n.id} value={n.id}>
-                    {n.path.replace(/^\/shared/, '').replace(/\//g, ' / ').replace(/^ \/ /, '') || '(root)'}
+                    {n.name}
                   </option>
                 ))}
               </select>
@@ -123,9 +123,7 @@ export default function PanelsAdminPanel() {
                 <div>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{p.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', marginTop: 2 }}>
-                    {rootNode
-                      ? (rootNode.path.replace(/^\/shared/, '') || '/') + ' — ' + rootNode.name
-                      : '/ (all shared)'}
+                    {rootNode ? rootNode.name : '/ (all shared)'}
                   </div>
                 </div>
                 <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>

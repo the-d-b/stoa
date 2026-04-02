@@ -56,6 +56,9 @@ func main() {
 	protected.Use(authService.Middleware)
 
 	protected.HandleFunc("/auth/me", handlers.Me(authService)).Methods("GET")
+	protected.HandleFunc("/profile", handlers.GetProfile(database)).Methods("GET")
+	protected.HandleFunc("/profile", handlers.UpdateProfile(database)).Methods("PUT")
+	protected.HandleFunc("/profile/avatar", handlers.UploadAvatar(iconsDir)).Methods("POST")
 
 	// Bookmarks (read)
 	protected.HandleFunc("/bookmarks", handlers.ListBookmarkTree(database)).Methods("GET")

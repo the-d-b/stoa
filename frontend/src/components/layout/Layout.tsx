@@ -1,11 +1,20 @@
+import { useState, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
 import Clock from './Clock'
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
+  const [avatarUrl, setAvatarUrl] = useState('')
+
+  useEffect(() => {
+    if (user) {
+      profileApi.get().then((r: any) => setAvatarUrl(r.data.avatarUrl || '')).catch(() => {})
+    }
+  }, [user?.id])
   const location = useLocation()
   const onAdmin = location.pathname.startsWith('/admin')
 
@@ -50,7 +59,11 @@ export default function Layout() {
               onMouseOver={e => e.currentTarget.style.background = 'var(--accent)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--accent-bg)'}
             >
-              {user?.username?.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?'}
+              {avatarUrl
+                ? <img src={avatarUrl} style={{ width: 28, height: 28, borderRadius: 7, objectFit: 'cover' }}
+                    onError={() => setAvatarUrl('')} />
+                : (user?.username?.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?')
+              }
             </button>
 
             {isAdmin && (

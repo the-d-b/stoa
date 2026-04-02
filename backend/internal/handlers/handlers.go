@@ -683,3 +683,116 @@ func DeleteTag(db *sql.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+func UpdateProfile(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
+		var req struct {
+			Email string `json:"email"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+
+		_, err := db.Exec("UPDATE users SET email=? WHERE id=?", req.Email, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update profile")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func UploadAvatar(iconsDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
+		r.ParseMultipartForm(2 << 20) // 2MB max
+		file, header, err := r.FormFile("avatar")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "no file provided")
+			return
+		}
+		defer file.Close()
+
+		// Validate content type
+		ct := header.Header.Get("Content-Type")
+		ext := ".png"
+		switch ct {
+		case "image/jpeg":
+			ext = ".jpg"
+		case "image/png":
+			ext = ".png"
+		case "image/gif":
+			ext = ".gif"
+		case "image/webp":
+			ext = ".webp"
+		default:
+			writeError(w, http.StatusBadRequest, "unsupported image type")
+			return
+		}
+
+		avatarDir := iconsDir + "/avatars"
+		if err := os.MkdirAll(avatarDir, 0755); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to create avatar dir")
+			return
+		}
+
+		filename := "avatar-" + claims.UserID + ext
+		dest := avatarDir + "/" + filename
+
+		data, err := io.ReadAll(io.LimitReader(file, 2<<20))
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read file")
+			return
+		}
+		if err := os.WriteFile(dest, data, 0644); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save avatar")
+			return
+		}
+
+		avatarURL := "/api/icons/avatars/" + filename
+
+		// Save to user_preferences
+		db.Exec(`
+			INSERT INTO user_preferences (user_id, avatar_url)
+			VALUES (?, ?)
+			ON CONFLICT(user_id) DO UPDATE SET avatar_url = excluded.avatar_url
+		`, claims.UserID, avatarURL)
+
+		writeJSON(w, http.StatusOK, map[string]string{"avatarUrl": avatarURL})
+	}
+}
+
+func GetProfile(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
+		var user models.User
+		err := db.QueryRow(
+			"SELECT id, username, COALESCE(email,''), role, auth_provider FROM users WHERE id=?",
+			claims.UserID,
+		).Scan(&user.ID, &user.Username, &user.Email, &user.Role, &user.AuthProvider)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "user not found")
+			return
+		}
+
+		// Load avatar from preferences
+		var avatarURL string
+		db.QueryRow("SELECT COALESCE(avatar_url,'') FROM user_preferences WHERE user_id=?", claims.UserID).Scan(&avatarURL)
+
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"id":           user.ID,
+			"username":     user.Username,
+			"email":        user.Email,
+			"role":         user.Role,
+			"authProvider": user.AuthProvider,
+			"avatarUrl":    avatarURL,
+		})
+	}
+}
