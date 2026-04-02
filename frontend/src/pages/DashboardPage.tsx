@@ -142,16 +142,32 @@ export default function DashboardPage() {
     if (!newWallName.trim()) return
     setSavingWall(true)
     try {
+      // Create the portico
       const res = await porticosApi.create(newWallName.trim(), false)
       const wall = res.data
+
+      // Save current active tags to this portico
+      const currentActive = activeTags ?? allTags.map(t => t.id)
       for (const tag of allTags) {
-        await porticosApi.setTagActive(wall.id, tag.id, activeTags?.includes(tag.id) ?? true)
+        await porticosApi.setTagActive(wall.id, tag.id, currentActive.includes(tag.id))
       }
+
+      // Reload portico list then switch to the new one
       const updated = await porticosApi.list()
       setWalls(updated.data)
+
+      // Apply the new portico's filter (same as current active tags)
       setActiveWallId(wall.id)
+      setActiveTags(currentActive)
       setShowSaveWall(false)
       setNewWallName('')
+
+      // Reload panels with new portico ordering context
+      const panels = await panelsApi.list(wall.id)
+      setPanels(panels.data || [])
+    } catch (e) {
+      console.error('[Dashboard] failed to save portico:', e)
+      alert('Failed to save portico. Check console for details.')
     } finally {
       setSavingWall(false)
     }

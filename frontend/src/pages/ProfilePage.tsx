@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, Panel, Wall } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, secretsApi, Secret, Panel, Wall } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos'
+type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -27,7 +27,9 @@ export default function ProfilePage() {
     { id: 'overview',  label: 'Overview',    icon: '○' },
     { id: 'bookmarks', label: 'My Bookmarks', icon: '↗' },
     { id: 'panels',    label: 'Panel Order',  icon: '▤' },
-    { id: 'porticos',     label: 'Porticos',        icon: '◧' },
+    { id: 'porticos',  label: 'Porticos',     icon: '◧' },
+    { id: 'secrets',   label: 'Secrets',      icon: '🔑' },
+    { id: 'glyphs',    label: 'Glyphs',       icon: '◈' },
   ]
 
   return (
@@ -71,7 +73,9 @@ export default function ProfilePage() {
       {tab === 'overview'  && <OverviewTab />}
       {tab === 'bookmarks' && <BookmarksTab />}
       {tab === 'panels'    && <PanelsOrderTab />}
-      {tab === 'porticos'     && <WallsTab />}
+      {tab === 'porticos'  && <WallsTab />}
+      {tab === 'secrets'   && <SecretsTab />}
+      {tab === 'glyphs'    && <GlyphsTab />}
     </div>
   )
 }
@@ -638,6 +642,177 @@ function WallsTab() {
             No saved porticos yet. Create one from the dashboard by filtering tags and clicking "+ Save as wall".
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── Secrets ───────────────────────────────────────────────────────────────────
+
+function SecretsTab() {
+  const [shared, setShared] = useState<Secret[]>([])
+  const [personal, setPersonal] = useState<Secret[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newValue, setNewValue] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [editing, setEditing] = useState<{ id: string; name: string; value: string } | null>(null)
+
+  const load = async () => {
+    const res = await secretsApi.list()
+    setShared((res.data || []).filter((s: Secret) => s.scope === 'shared'))
+    setPersonal((res.data || []).filter((s: Secret) => s.scope === 'personal'))
+    setLoading(false)
+  }
+
+  useEffect(() => { load() }, [])
+
+  const create = async () => {
+    if (!newName.trim() || !newValue.trim()) return
+    setCreating(true)
+    try {
+      await secretsApi.create({ name: newName.trim(), value: newValue.trim(), scope: 'personal' })
+      setNewName(''); setNewValue(''); setShowForm(false)
+      await load()
+    } finally { setCreating(false) }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`Delete secret "${name}"?`)) return
+    await secretsApi.delete(id); await load()
+  }
+
+  const saveEdit = async () => {
+    if (!editing) return
+    await secretsApi.update(editing.id, { name: editing.name, value: editing.value || undefined })
+    setEditing(null); await load()
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+
+  return (
+    <div>
+      {/* Shared secrets accessible to this user — read-only view */}
+      {shared.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          <div className="section-title" style={{ marginBottom: 10 }}>Shared secrets you can use</div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 0, marginBottom: 12, lineHeight: 1.6 }}>
+            These are managed by your admin and shared with your groups. Values are not visible.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {shared.map(s => (
+              <div key={s.id} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 14px', borderRadius: 8,
+                background: 'var(--surface)', border: '1px solid var(--border)',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 12 }}>🔑</span>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
+                </div>
+                <span style={{
+                  fontFamily: 'DM Mono, monospace', fontSize: 12,
+                  color: 'var(--text-dim)', letterSpacing: '0.15em',
+                }}>••••••••</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Personal secrets */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div>
+          <div className="section-title">My personal secrets</div>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0', lineHeight: 1.5 }}>
+            Only visible to you. Use these in your personal glyphs and tickers.
+          </p>
+        </div>
+        <button className="btn btn-primary" style={{ fontSize: 12, flexShrink: 0, marginLeft: 16 }}
+          onClick={() => setShowForm(f => !f)}>+ New</button>
+      </div>
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div>
+              <label className="label">Name</label>
+              <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder="e.g. My Alpha Vantage Key" autoFocus />
+            </div>
+            <div>
+              <label className="label">Value</label>
+              <input type="password" className="input" value={newValue}
+                onChange={e => setNewValue(e.target.value)} placeholder="Paste your API key"
+                onKeyDown={e => e.key === 'Enter' && create()} />
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={create} disabled={creating}>
+                {creating ? <span className="spinner" /> : 'Create'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {personal.map(s => (
+          <div key={s.id} style={{
+            background: 'var(--surface)', border: `1px solid ${editing?.id === s.id ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 8, padding: '10px 14px',
+          }}>
+            {editing?.id === s.id ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <input className="input" value={editing.name}
+                  onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : null)}
+                  style={{ fontSize: 13 }} autoFocus />
+                <input type="password" className="input" value={editing.value}
+                  onChange={e => setEditing(ed => ed ? { ...ed, value: e.target.value } : null)}
+                  placeholder="New value (blank = keep current)" style={{ fontSize: 13 }} />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={saveEdit}>Save</button>
+                  <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setEditing(null)}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: 12 }}>🔑</span>
+                  <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.15em' }}>••••••••</span>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-ghost" style={{ fontSize: 11 }}
+                    onClick={() => setEditing({ id: s.id, name: s.name, value: '' })}>Edit</button>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                    onClick={() => remove(s.id, s.name)}>Delete</button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+        {personal.length === 0 && !showForm && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '16px 0' }}>
+            No personal secrets yet.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── Glyphs ────────────────────────────────────────────────────────────────────
+
+function GlyphsTab() {
+  return (
+    <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
+      <div style={{ fontSize: 36, marginBottom: 16, opacity: 0.3 }}>◈</div>
+      <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>Glyphs</div>
+      <div style={{ fontSize: 13, maxWidth: 320, margin: '0 auto', lineHeight: 1.7 }}>
+        Glyphs are mini-panels that appear in the header and footer — clocks, weather, status indicators, and more.
+        Coming in v0.0.6.
       </div>
     </div>
   )
