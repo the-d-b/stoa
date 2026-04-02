@@ -21,11 +21,20 @@ export default function PanelsAdminPanel() {
 
   const load = async () => {
     // Admin panel only shows shared panels - personal panels managed in profile
+    // Always reload bookmark tree to pick up renames
     const [p, t, b] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree()])
-    setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal')); setTags(t.data || []); setBookmarkRoots(b.data || [])
+    setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
+    setTags(t.data || [])
+    setBookmarkRoots(b.data || [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    // Reload when window regains focus (user comes back from bookmarks tab)
+    const onFocus = () => { bookmarksApi.tree().then(b => setBookmarkRoots(b.data || [])) }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const [newType, setNewType] = useState('bookmarks')
 
@@ -114,7 +123,9 @@ export default function PanelsAdminPanel() {
                 <div>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{p.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', marginTop: 2 }}>
-                    {rootNode ? rootNode.path.replace(/^\/shared/, '') || '/' : '/ (all shared)'}
+                    {rootNode
+                      ? (rootNode.path.replace(/^\/shared/, '') || '/') + ' — ' + rootNode.name
+                      : '/ (all shared)'}
                   </div>
                 </div>
                 <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>

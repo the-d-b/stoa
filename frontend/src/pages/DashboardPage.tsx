@@ -29,6 +29,13 @@ export default function DashboardPage() {
           tagsApi.list(),
         ])
         console.log(`[Dashboard] panels=${p.data?.length} walls=${w.data?.length} tags=${t.data?.length}`)
+        if (p.data) {
+          p.data.forEach((panel: Panel) => {
+            console.log(`[Dashboard] panel=${panel.id} title="${panel.title}" position=${panel.position} scope=${panel.scope}`)
+          })
+        }
+        console.log('[Dashboard] panel order from API:')
+        ;(p.data || []).forEach((panel: any) => console.log(`  panel: ${panel.id} "${panel.title}" pos=${panel.position} scope=${panel.scope}`))
 
         const panelData: Panel[] = p.data || []
         const wallData: Wall[] = w.data || []
@@ -107,13 +114,27 @@ export default function DashboardPage() {
     setActiveWallId('')
   }
 
-  const selectWall = (wall: Wall | 'home') => {
+  const selectWall = async (wall: Wall | 'home') => {
     if (wall === 'home') {
       setActiveWallId('home')
       setActiveTags(allTags.map(t => t.id))
+      // Reload panels with Home ordering (no wall_id)
+      try {
+        const res = await panelsApi.list()
+        console.log('[Dashboard] reloaded panels for Home, count=', res.data?.length)
+        if (res.data) res.data.forEach((p: Panel) => console.log(`[Dashboard] panel="${p.title}" pos=${p.position}`))
+        setPanels(res.data || [])
+      } catch (e) { console.error('[Dashboard] reload failed:', e) }
     } else {
       setActiveWallId(wall.id)
       setActiveTags((wall.tags || []).filter(t => t.active).map(t => t.tagId))
+      // Reload panels with this wall's ordering
+      try {
+        const res = await panelsApi.list(wall.id)
+        console.log('[Dashboard] reloaded panels for wall=' + wall.id + ' count=', res.data?.length)
+        if (res.data) res.data.forEach((p: Panel) => console.log(`[Dashboard] panel="${p.title}" pos=${p.position}`))
+        setPanels(res.data || [])
+      } catch (e) { console.error('[Dashboard] reload failed:', e) }
     }
   }
 
