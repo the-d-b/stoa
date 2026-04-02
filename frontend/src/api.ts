@@ -281,8 +281,8 @@ export const porticosApi = {
   create: (name: string, isDefault?: boolean) => api.post<Wall>('/porticos', { name, isDefault }),
   delete: (id: string) => api.delete(`/porticos/${id}`),
   updateOrder: (order: { porticoId: string; position: number }[]) => api.put('/porticos/order', order),
-  setTagActive: (wallId: string, tagId: string, active: boolean) =>
-    api.put(`/walls/${wallId}/tags/${tagId}`, { active }),
+  setTagActive: (porticoId: string, tagId: string, active: boolean) =>
+    api.put(`/porticos/${porticoId}/tags/${tagId}`, { active }),
 }
 
 // ── Preferences ───────────────────────────────────────────────────────────────
