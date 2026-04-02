@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { groupsApi, usersApi, tagsApi, secretsApi, Group, User, Tag, Secret } from '../../api'
+import { groupsApi, usersApi, tagsApi, Group, User, Tag } from '../../api'
 
 export default function GroupsPanel() {
   const [groups, setGroups] = useState<Group[]>([])
   const [users, setUsers] = useState<User[]>([])
   const [tags, setTags] = useState<Tag[]>([])
-  const [secrets, setSecrets] = useState<Secret[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -14,10 +13,8 @@ export default function GroupsPanel() {
   const [showForm, setShowForm] = useState(false)
 
   const load = async () => {
-    const [g, u, t, s] = await Promise.all([groupsApi.list(), usersApi.list(), tagsApi.list(), secretsApi.list()])
-    setGroups(g.data); setUsers(u.data); setTags(t.data)
-    setSecrets((s.data || []).filter((x: Secret) => x.scope === 'shared'))
-    setLoading(false)
+    const [g, u, t] = await Promise.all([groupsApi.list(), usersApi.list(), tagsApi.list()])
+    setGroups(g.data); setUsers(u.data); setTags(t.data); setLoading(false)
   }
   useEffect(() => { load() }, [])
 
@@ -171,38 +168,6 @@ export default function GroupsPanel() {
                                   fontSize: 12, fontWeight: inGroup ? 500 : 400,
                                   transition: 'all 0.15s',
                                 }}>
-                    {/* Secret access */}
-                    {secrets.length > 0 && (
-                      <div style={{ marginTop: 14 }}>
-                        <div className="section-title" style={{ marginBottom: 8 }}>Secret access</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {secrets.map(s => {
-                            const hasAccess = s.groups.includes(g.id)
-                            return (
-                              <button key={s.id}
-                                onClick={async () => {
-                                  const next = hasAccess
-                                    ? s.groups.filter((id: string) => id !== g.id)
-                                    : [...s.groups, g.id]
-                                  await secretsApi.setGroups(s.id, next)
-                                  const upd = await secretsApi.list()
-                                  setSecrets((upd.data || []).filter((x: Secret) => x.scope === 'shared'))
-                                }}
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                                  padding: '3px 10px', borderRadius: 8, cursor: 'pointer',
-                                  background: hasAccess ? 'var(--accent-bg)' : 'var(--surface)',
-                                  border: `1px solid ${hasAccess ? '#7c6fff30' : 'var(--border)'}`,
-                                  color: hasAccess ? 'var(--accent2)' : 'var(--text-muted)',
-                                  fontSize: 12, transition: 'all 0.15s',
-                                }}>
-                                <span style={{ fontSize: 10 }}>🔑</span> {s.name}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
                                 <span style={{ width: 6, height: 6, borderRadius: 2, flexShrink: 0,
                                   background: inGroup ? t.color : 'var(--text-dim)' }} />
                                 {t.name}
