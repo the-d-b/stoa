@@ -60,7 +60,7 @@ export default function PanelsAdminPanel() {
 
   if (loading) return <Loading />
 
-  const flatNodes = flattenTree(bookmarkRoots)
+  const flatNodes = flattenTree(bookmarkRoots)  // FlatNode[]
 
   return (
     <div>
@@ -95,11 +95,9 @@ export default function PanelsAdminPanel() {
                 style={{ cursor: 'pointer' }}>
                 <option value="">— All bookmarks —</option>
                 {loadingTree && <option disabled>Loading...</option>}
-              {!loadingTree && flatNodes.map(n => (
-                  <option key={n.id} value={n.id}>
-                    {n.name}
-                  </option>
-                ))}
+              {!loadingTree && flatNodes.map(({ node, label }) => (
+                <option key={node.id} value={node.id}>{label}</option>
+              ))}
               </select>
             </div>
             <button className="btn btn-primary" onClick={create} disabled={creating}>
@@ -114,7 +112,7 @@ export default function PanelsAdminPanel() {
         {panels.map(p => {
           const config = safeParseConfig(p.config)
           const rootNode = config.rootNodeId
-            ? flatNodes.find(n => n.id === config.rootNodeId)
+            ? flatNodes.find(({ node }) => node.id === config.rootNodeId)?.node
             : null
 
           return (
@@ -172,10 +170,18 @@ export default function PanelsAdminPanel() {
   )
 }
 
-function flattenTree(nodes: BookmarkNode[], result: BookmarkNode[] = []): BookmarkNode[] {
+interface FlatNode {
+  node: BookmarkNode
+  depth: number
+  label: string
+}
+
+function flattenTree(nodes: BookmarkNode[], result: FlatNode[] = [], depth = 0): FlatNode[] {
   for (const n of nodes) {
-    result.push(n)
-    if (n.children) flattenTree(n.children, result)
+    const indent = '    '.repeat(depth)  // non-breaking spaces for indent
+    const icon = n.type === 'section' ? '▤ ' : '↗ '  // ▤ or ↗
+    result.push({ node: n, depth, label: indent + icon + n.name })
+    if (n.children && n.children.length > 0) flattenTree(n.children, result, depth + 1)
   }
   return result
 }
