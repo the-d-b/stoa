@@ -82,13 +82,20 @@ func main() {
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
 
 	// Walls (per-user)
-	protected.HandleFunc("/walls", handlers.ListWalls(database)).Methods("GET")
-	protected.HandleFunc("/walls/order", handlers.UpdateWallOrder(database)).Methods("PUT")
-	protected.HandleFunc("/walls", handlers.CreateWall(database)).Methods("POST")
-	protected.HandleFunc("/walls/{id}", handlers.DeleteWall(database)).Methods("DELETE")
-	protected.HandleFunc("/walls/{id}/tags/{tagId}", handlers.SetWallTagActive(database)).Methods("PUT")
-	protected.HandleFunc("/panels/{id}/walls", handlers.GetPersonalPanelWalls(database)).Methods("GET")
-	protected.HandleFunc("/panels/{id}/walls", handlers.SetPersonalPanelWalls(database)).Methods("PUT")
+	protected.HandleFunc("/porticos", handlers.ListPorticos(database)).Methods("GET")
+	protected.HandleFunc("/porticos/order", handlers.UpdatePorticoOrder(database)).Methods("PUT")
+	protected.HandleFunc("/porticos", handlers.CreatePortico(database)).Methods("POST")
+	protected.HandleFunc("/porticos/{id}", handlers.DeletePortico(database)).Methods("DELETE")
+	protected.HandleFunc("/porticos/{id}/tags/{tagId}", handlers.SetPorticoTagActive(database)).Methods("PUT")
+	protected.HandleFunc("/panels/{id}/porticos", handlers.GetPersonalPanelPorticos(database)).Methods("GET")
+	protected.HandleFunc("/panels/{id}/porticos", handlers.SetPersonalPanelPorticos(database)).Methods("PUT")
+
+	// Secrets
+	protected.HandleFunc("/secrets", handlers.ListSecrets(database)).Methods("GET")
+	protected.HandleFunc("/secrets", handlers.CreateSecret(database)).Methods("POST")
+	protected.HandleFunc("/secrets/{id}", handlers.UpdateSecret(database)).Methods("PUT")
+	protected.HandleFunc("/secrets/{id}", handlers.DeleteSecret(database)).Methods("DELETE")
+	admin.HandleFunc("/secrets/{id}/groups", handlers.SetSecretGroups(database)).Methods("PUT")
 
 	// Preferences (per-user)
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")

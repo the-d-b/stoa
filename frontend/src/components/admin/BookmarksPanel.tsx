@@ -25,7 +25,6 @@ function findNodeInTree(nodes: BookmarkNode[], id: string): BookmarkNode | null 
 }
 
 interface BookmarksPanelProps {
-  personalMode?: boolean
   apiOverride?: any
 }
 

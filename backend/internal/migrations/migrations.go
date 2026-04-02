@@ -190,6 +190,73 @@ var migrations = []migration{
 		`,
 	},
 
+	{
+		version: 6,
+		name:    "porticos_and_secrets",
+		up: `
+			-- Drop old unused panel order table
+			DROP TABLE IF EXISTS user_panel_order;
+
+			-- Rename walls to porticos
+			ALTER TABLE walls RENAME TO porticos;
+			ALTER TABLE wall_tags RENAME TO portico_tags;
+			ALTER TABLE personal_panel_walls RENAME TO personal_panel_porticos;
+
+			-- Rename columns in portico_tags
+			CREATE TABLE portico_tags_new (
+				portico_id TEXT NOT NULL REFERENCES porticos(id) ON DELETE CASCADE,
+				tag_id     TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+				active     INTEGER NOT NULL DEFAULT 1,
+				PRIMARY KEY (portico_id, tag_id)
+			);
+			INSERT INTO portico_tags_new SELECT wall_id, tag_id, active FROM portico_tags;
+			DROP TABLE portico_tags;
+			ALTER TABLE portico_tags_new RENAME TO portico_tags;
+
+			-- Rename columns in personal_panel_porticos
+			CREATE TABLE personal_panel_porticos_new (
+				panel_id   TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				portico_id TEXT NOT NULL REFERENCES porticos(id) ON DELETE CASCADE,
+				PRIMARY KEY (panel_id, portico_id)
+			);
+			INSERT INTO personal_panel_porticos_new SELECT panel_id, wall_id FROM personal_panel_porticos;
+			DROP TABLE personal_panel_porticos;
+			ALTER TABLE personal_panel_porticos_new RENAME TO personal_panel_porticos;
+
+			-- Rename user_id column reference in porticos (it was user_id, stays user_id)
+			-- Rename user_panel_order_v2 wall_id column
+			CREATE TABLE user_panel_order_v3 (
+				id         TEXT PRIMARY KEY,
+				user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				panel_id   TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				portico_id TEXT REFERENCES porticos(id) ON DELETE CASCADE,
+				position   INTEGER NOT NULL DEFAULT 0
+			);
+			CREATE UNIQUE INDEX IF NOT EXISTS idx_panel_order_v3
+				ON user_panel_order_v3(user_id, panel_id, COALESCE(portico_id, ''));
+			INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position)
+				SELECT id, user_id, panel_id, wall_id, position FROM user_panel_order_v2;
+			DROP TABLE user_panel_order_v2;
+
+			-- Secrets table
+			CREATE TABLE IF NOT EXISTS secrets (
+				id          TEXT PRIMARY KEY,
+				name        TEXT NOT NULL,
+				value       TEXT NOT NULL,
+				scope       TEXT NOT NULL DEFAULT 'shared',
+				created_by  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+
+			-- Secret group access (shared secrets granted to groups)
+			CREATE TABLE IF NOT EXISTS secret_groups (
+				secret_id TEXT NOT NULL REFERENCES secrets(id) ON DELETE CASCADE,
+				group_id  TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+				PRIMARY KEY (secret_id, group_id)
+			);
+		`,
+	},
+
 }
 
 func Run(db *sql.DB) error {

@@ -183,6 +183,28 @@ export const profileApi = {
   },
 }
 
+// ── Secrets ──────────────────────────────────────────────────────────────────
+
+export interface Secret {
+  id: string
+  name: string
+  scope: 'shared' | 'personal'
+  createdBy: string
+  createdAt: string
+  groups: string[]
+}
+
+export const secretsApi = {
+  list: () => api.get<Secret[]>('/secrets'),
+  create: (data: { name: string; value: string; scope: 'shared' | 'personal' }) =>
+    api.post<{ id: string; name: string; scope: string }>('/secrets', data),
+  update: (id: string, data: { name: string; value?: string }) =>
+    api.put(`/secrets/${id}`, data),
+  delete: (id: string) => api.delete(`/secrets/${id}`),
+  setGroups: (id: string, groupIds: string[]) =>
+    api.put(`/secrets/${id}/groups`, { groupIds }),
+}
+
 // ── Personal Bookmarks ───────────────────────────────────────────────────────
 
 export const myBookmarksApi = {
@@ -226,17 +248,17 @@ export const panelsApi = {
   addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
   removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
   updateOrder: (wallId: string | null, order: { panelId: string; position: number }[]) =>
-    api.put('/panels/order', { wallId: wallId ?? null, order }),
+    api.put('/panels/order', { porticoId: wallId ?? null, order }),
 }
 
 // ── Personal Panel Walls ─────────────────────────────────────────────────────
 
-export const personalPanelWallsApi = {
-  get: (panelId: string) => api.get<string[]>(`/panels/${panelId}/walls`),
-  set: (panelId: string, wallIds: string[]) => api.put(`/panels/${panelId}/walls`, { wallIds }),
+export const personalPanelPorticosApi = {
+  get: (panelId: string) => api.get<string[]>(`/panels/${panelId}/porticos`),
+  set: (panelId: string, porticoIds: string[]) => api.put(`/panels/${panelId}/porticos`, { porticoIds }),
 }
 
-// ── Walls ─────────────────────────────────────────────────────────────────────
+// ── Porticos ───────────────────────────────────────────────────────────────────
 
 export interface WallTag {
   tagId: string
@@ -254,11 +276,11 @@ export interface Wall {
   tags: WallTag[]
 }
 
-export const wallsApi = {
-  list: () => api.get<Wall[]>('/walls'),
-  create: (name: string, isDefault?: boolean) => api.post<Wall>('/walls', { name, isDefault }),
-  delete: (id: string) => api.delete(`/walls/${id}`),
-  updateOrder: (order: { wallId: string; position: number }[]) => api.put('/walls/order', order),
+export const porticosApi = {
+  list: () => api.get<Wall[]>('/porticos'),
+  create: (name: string, isDefault?: boolean) => api.post<Wall>('/porticos', { name, isDefault }),
+  delete: (id: string) => api.delete(`/porticos/${id}`),
+  updateOrder: (order: { porticoId: string; position: number }[]) => api.put('/porticos/order', order),
   setTagActive: (wallId: string, tagId: string, active: boolean) =>
     api.put(`/walls/${wallId}/tags/${tagId}`, { active }),
 }

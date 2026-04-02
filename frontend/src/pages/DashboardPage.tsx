@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, wallsApi, bookmarksApi, myBookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
 import SearchModal from '../components/SearchModal'
 
@@ -25,7 +25,7 @@ export default function DashboardPage() {
         console.log('[Dashboard] loading panels, walls, tags...')
         const [p, w, t] = await Promise.all([
           panelsApi.list(),
-          wallsApi.list(),
+          porticosApi.list(),
           tagsApi.list(),
         ])
         console.log(`[Dashboard] panels=${p.data?.length} walls=${w.data?.length} tags=${t.data?.length}`)
@@ -142,12 +142,12 @@ export default function DashboardPage() {
     if (!newWallName.trim()) return
     setSavingWall(true)
     try {
-      const res = await wallsApi.create(newWallName.trim(), false)
+      const res = await porticosApi.create(newWallName.trim(), false)
       const wall = res.data
       for (const tag of allTags) {
-        await wallsApi.setTagActive(wall.id, tag.id, activeTags?.includes(tag.id) ?? true)
+        await porticosApi.setTagActive(wall.id, tag.id, activeTags?.includes(tag.id) ?? true)
       }
-      const updated = await wallsApi.list()
+      const updated = await porticosApi.list()
       setWalls(updated.data)
       setActiveWallId(wall.id)
       setShowSaveWall(false)
@@ -239,8 +239,8 @@ export default function DashboardPage() {
             <WallTab key={wall.id} label={wall.name} active={activeWallId === wall.id}
               onClick={() => selectWall(wall)}
               onDelete={async () => {
-                await wallsApi.delete(wall.id)
-                const updated = await wallsApi.list()
+                await porticosApi.delete(wall.id)
+                const updated = await porticosApi.list()
                 setWalls(updated.data)
                 selectWall('home')
               }}
@@ -251,7 +251,7 @@ export default function DashboardPage() {
             showSaveWall ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 4 }}>
                 <input className="input" value={newWallName} onChange={e => setNewWallName(e.target.value)}
-                  placeholder="Wall name" style={{ padding: '3px 8px', fontSize: 12, width: 140 }}
+                  placeholder="Portico name" style={{ padding: '3px 8px', fontSize: 12, width: 140 }}
                   autoFocus onKeyDown={e => e.key === 'Enter' && saveWall()} />
                 <button className="btn btn-primary" style={{ fontSize: 11, padding: '3px 10px' }}
                   onClick={saveWall} disabled={savingWall}>
@@ -262,7 +262,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', marginBottom: 4 }}
-                onClick={() => setShowSaveWall(true)}>+ Save as wall</button>
+                onClick={() => setShowSaveWall(true)}>+ Save as portico</button>
             )
           )}
         </div>
@@ -366,7 +366,7 @@ function WallTab({ label, active, onClick, onDelete }: {
         }}
           onMouseOver={e => e.currentTarget.style.opacity = '1'}
           onMouseOut={e => e.currentTarget.style.opacity = '0.4'}
-          title="Delete wall">✕</button>
+          title="Delete portico">✕</button>
       )}
     </div>
   )

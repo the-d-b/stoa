@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, wallsApi, myPanelsApi, myBookmarksApi, profileApi, Panel, Wall } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, Panel, Wall } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'bookmarks' | 'panels' | 'walls'
+type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -20,14 +20,14 @@ export default function ProfilePage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const t = params.get('tab') as Tab
-    if (t && ['overview', 'bookmarks', 'panels', 'walls'].includes(t)) setTab(t)
+    if (t && ['overview', 'bookmarks', 'panels', 'porticos'].includes(t)) setTab(t)
   }, [location.search])
 
   const tabs: { id: Tab; label: string; icon: string }[] = [
     { id: 'overview',  label: 'Overview',    icon: '○' },
     { id: 'bookmarks', label: 'My Bookmarks', icon: '↗' },
     { id: 'panels',    label: 'Panel Order',  icon: '▤' },
-    { id: 'walls',     label: 'Walls',        icon: '◧' },
+    { id: 'porticos',     label: 'Porticos',        icon: '◧' },
   ]
 
   return (
@@ -71,7 +71,7 @@ export default function ProfilePage() {
       {tab === 'overview'  && <OverviewTab />}
       {tab === 'bookmarks' && <BookmarksTab />}
       {tab === 'panels'    && <PanelsOrderTab />}
-      {tab === 'walls'     && <WallsTab />}
+      {tab === 'porticos'     && <WallsTab />}
     </div>
   )
 }
@@ -203,7 +203,7 @@ function OverviewTab() {
       ))}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
-        <StoaLogo size={14} />stoa v0.0.4
+        <StoaLogo size={14} />stoa v0.0.5
       </div>
     </div>
   )
@@ -215,7 +215,7 @@ function BookmarksTab() {
   return (
     <div>
       <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 0, marginBottom: 20, lineHeight: 1.7 }}>
-        Your personal bookmarks — only visible to you. They appear on your Home wall via your personal bookmark panel.
+        Your personal bookmarks — only visible to you. They appear on your Home portico via your personal bookmark panel.
       </p>
       <BookmarksPanel apiOverride={myBookmarksApi} />
     </div>
@@ -237,7 +237,7 @@ function PanelsOrderTab() {
   const [showCreatePanel, setShowCreatePanel] = useState(false)
   const [newPanelTitle, setNewPanelTitle] = useState('')
   const [newPanelType] = useState('bookmarks')
-  // Personal panel wall assignment
+  // Personal panel portico assignment
   const [personalPanelId, setPersonalPanelId] = useState<string | null>(null)
   const [assignedWalls, setAssignedWalls] = useState<string[]>([])
   const [savingAssignment, setSavingAssignment] = useState(false)
@@ -272,7 +272,7 @@ function PanelsOrderTab() {
     setHasPersonalPanel(!!personal)
     if (personal) {
       setPersonalPanelId(personal.id)
-      // Load wall assignments from panel config
+      // Load portico assignments from panel config
       try {
         const config = JSON.parse(personal.config || '{}')
         setAssignedWalls(config.assignedWalls || [])
@@ -281,7 +281,7 @@ function PanelsOrderTab() {
   }
 
   useEffect(() => {
-    Promise.all([panelsApi.list(), wallsApi.list()]).then(([p, w]) => {
+    Promise.all([panelsApi.list(), porticosApi.list()]).then(([p, w]) => {
       console.log('[Profile] loaded panels:', p.data?.length, p.data?.map((x: Panel) => `${x.title}(${x.scope})`))
       const sorted = [...(p.data || [])]
       setPanels(sorted)
@@ -336,7 +336,7 @@ function PanelsOrderTab() {
     if (!personalPanelId) return
     setSavingAssignment(true)
     try {
-      // Store wall assignments in panel config
+      // Store portico assignments in panel config
       const currentConfig = (() => {
         try { return JSON.parse(panels.find(p => p.id === personalPanelId)?.config || '{}') } catch { return {} }
       })()
@@ -365,7 +365,7 @@ function PanelsOrderTab() {
     <div>
       {/* Wall selector */}
       <div style={{ marginBottom: 20 }}>
-        <div className="section-title" style={{ marginBottom: 10 }}>Ordering for wall</div>
+        <div className="section-title" style={{ marginBottom: 10 }}>Ordering for portico</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {(['home', ...walls.map(w => w.id)] as string[]).map(wid => {
             const label = wid === 'home' ? 'Home' : walls.find(w => w.id === wid)?.name || wid
@@ -384,14 +384,14 @@ function PanelsOrderTab() {
         </div>
       </div>
 
-      {/* Personal panel wall assignment */}
+      {/* Personal panel portico assignment */}
       {hasPersonalPanel && personalPanelId && walls.length > 0 && (
         <div className="card" style={{ marginBottom: 20, padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>
-            Personal panel — wall visibility
+            Personal panel — portico visibility
           </div>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
-            Your personal panel always shows on Home. Select additional walls to show it on:
+            Your personal panel always shows on Home. Select additional porticos to show it on:
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
             {walls.map(wall => {
@@ -413,7 +413,7 @@ function PanelsOrderTab() {
           </div>
           <button className="btn btn-secondary" style={{ fontSize: 12 }}
             onClick={saveWallAssignment} disabled={savingAssignment}>
-            {savingAssignment ? <span className="spinner" /> : 'Save wall assignment'}
+            {savingAssignment ? <span className="spinner" /> : 'Save portico assignment'}
           </button>
         </div>
       )}
@@ -531,7 +531,7 @@ function WallsTab() {
   const [dragOver, setDragOver] = useState<number | null>(null)
 
   useEffect(() => {
-    wallsApi.list().then(r => setWalls(r.data || [])).finally(() => setLoading(false))
+    porticosApi.list().then(r => setWalls(r.data || [])).finally(() => setLoading(false))
   }, [])
 
   const handleDragStart = (i: number) => setDragging(i)
@@ -551,14 +551,14 @@ function WallsTab() {
   const saveOrder = async () => {
     setSaving(true)
     try {
-      await wallsApi.updateOrder(walls.map((w, i) => ({ wallId: w.id, position: i + 1 })))
+      await porticosApi.updateOrder(walls.map((w, i) => ({ porticoId: w.id, position: i + 1 })))
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
   }
 
   const deleteWall = async (wall: Wall) => {
-    if (!confirm(`Delete wall "${wall.name}"?`)) return
-    await wallsApi.delete(wall.id)
+    if (!confirm(`Delete portico "${wall.name}"?`)) return
+    await porticosApi.delete(wall.id)
     setWalls(w => w.filter(x => x.id !== wall.id))
   }
 
@@ -568,7 +568,7 @@ function WallsTab() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7 }}>
-          Drag or use arrows to reorder your walls. The Home wall always appears first.
+          Drag or use arrows to reorder your porticos. The Home portico always appears first.
         </p>
         <button className="btn btn-primary" style={{ fontSize: 12, flexShrink: 0, marginLeft: 16 }}
           onClick={saveOrder} disabled={saving}>
@@ -576,7 +576,7 @@ function WallsTab() {
         </button>
       </div>
 
-      {/* Home wall - always first, not draggable */}
+      {/* Home portico - always first, not draggable */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 10,
         padding: '10px 14px', borderRadius: 8, marginBottom: 4,
@@ -635,7 +635,7 @@ function WallsTab() {
         ))}
         {walls.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>
-            No saved walls yet. Create one from the dashboard by filtering tags and clicking "+ Save as wall".
+            No saved porticos yet. Create one from the dashboard by filtering tags and clicking "+ Save as wall".
           </div>
         )}
       </div>

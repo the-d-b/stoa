@@ -6,10 +6,12 @@ import GroupsPanel from '../components/admin/GroupsPanel'
 import TagsPanel from '../components/admin/TagsPanel'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 import PanelsAdminPanel from '../components/admin/PanelsAdminPanel'
+import SecretsPanel from '../components/admin/SecretsPanel'
 
 const tabs = [
   { path: '/admin/bookmarks', label: 'Bookmarks', icon: '↗' },
   { path: '/admin/panels',    label: 'Panels',    icon: '▤' },
+  { path: '/admin/secrets',   label: 'Secrets',   icon: '🔑' },
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
   { path: '/admin/groups',    label: 'Groups',    icon: '◈' },
@@ -59,6 +61,7 @@ export default function AdminPage() {
           <Route index element={<Navigate to="bookmarks" replace />} />
           <Route path="bookmarks" element={<BookmarksPanel />} />
           <Route path="panels"    element={<PanelsAdminPanel />} />
+          <Route path="secrets"   element={<SecretsPanel />} />
           <Route path="oauth"     element={<OAuthConfigPanel />} />
           <Route path="users"     element={<UsersPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />

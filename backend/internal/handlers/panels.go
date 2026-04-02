@@ -19,21 +19,7 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		wallID := r.URL.Query().Get("wall_id")
 
-		log.Printf("[PANELS] list request user=%s role=%s wall=%s", claims.UserID, claims.Role, wallID)
-		// Debug: log all saved positions for this user
-		debugRows, _ := db.Query(`
-			SELECT panel_id, COALESCE(wall_id,'NULL'), position
-			FROM user_panel_order_v2 WHERE user_id = ? ORDER BY COALESCE(wall_id,''), position
-		`, claims.UserID)
-		if debugRows != nil {
-			defer debugRows.Close()
-			for debugRows.Next() {
-				var pid, wid string
-				var pos int
-				debugRows.Scan(&pid, &wid, &pos)
-				log.Printf("[PANELS]   saved order: panel=%s wall=%s pos=%d", pid, wid, pos)
-			}
-		}
+		log.Printf("[PANELS] list request user=%s role=%s portico=%s", claims.UserID, claims.Role, wallID)
 
 		var rows *sql.Rows
 		var err error
@@ -86,13 +72,13 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			// Load saved position for this user + wall combination
 			if wallID != "" {
 				db.QueryRow(`
-					SELECT position FROM user_panel_order_v2
-					WHERE user_id = ? AND panel_id = ? AND wall_id = ?
+					SELECT position FROM user_panel_order_v3
+					WHERE user_id = ? AND panel_id = ? AND portico_id = ?
 				`, claims.UserID, p.ID, wallID).Scan(&p.Position)
 			} else {
 				db.QueryRow(`
-					SELECT position FROM user_panel_order_v2
-					WHERE user_id = ? AND panel_id = ? AND wall_id IS NULL
+					SELECT position FROM user_panel_order_v3
+					WHERE user_id = ? AND panel_id = ? AND portico_id IS NULL
 				`, claims.UserID, p.ID).Scan(&p.Position)
 			}
 			log.Printf("[PANELS]   panel %s %q pos=%d scope=%s", p.ID, p.Title, p.Position, p.Scope)
@@ -227,7 +213,7 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
 		var req struct {
-			WallID *string `json:"wallId"` // null = Home, string = named wall
+			PorticoID *string `json:"porticoId"` // null = Home, string = named wall
 			Order  []struct {
 				PanelID  string `json:"panelId"`
 				Position int    `json:"position"`
@@ -238,14 +224,14 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		isHome := req.WallID == nil || *req.WallID == ""
-		wallIDStr := ""
+		isHome := req.PorticoID == nil || *req.PorticoID == ""
+		porticoIDStr := ""
 		if !isHome {
-			wallIDStr = *req.WallID
+			porticoIDStr = *req.PorticoID
 		}
 
-		log.Printf("[PANELS] UpdateOrder user=%s wallId=%v isHome=%v panels=%d",
-			claims.UserID, req.WallID, isHome, len(req.Order))
+		log.Printf("[PANELS] UpdateOrder user=%s porticoId=%v isHome=%v panels=%d",
+			claims.UserID, req.PorticoID, isHome, len(req.Order))
 
 		tx, err := db.Begin()
 		if err != nil {
@@ -256,21 +242,21 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 		for _, item := range req.Order {
 			if !isHome {
 				// Named wall
-				rowID := claims.UserID + "-" + item.PanelID + "-" + wallIDStr
+				rowID := claims.UserID + "-" + item.PanelID + "-" + porticoIDStr
 				tx.Exec(`
-					INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
+					INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position)
 					VALUES (?, ?, ?, ?, ?)
 					ON CONFLICT(id) DO UPDATE SET position = excluded.position
-				`, rowID, claims.UserID, item.PanelID, wallIDStr, item.Position)
+				`, rowID, claims.UserID, item.PanelID, porticoIDStr, item.Position)
 			} else {
-				// Home wall — wall_id IS NULL, use DELETE+INSERT to avoid NULL issues
+				// Home wall — portico_id IS NULL, use DELETE+INSERT to avoid NULL issues
 				rowID := claims.UserID + "-" + item.PanelID + "-home"
 				tx.Exec(`
-					DELETE FROM user_panel_order_v2
-					WHERE user_id = ? AND panel_id = ? AND wall_id IS NULL
+					DELETE FROM user_panel_order_v3
+					WHERE user_id = ? AND panel_id = ? AND portico_id IS NULL
 				`, claims.UserID, item.PanelID)
 				tx.Exec(`
-					INSERT INTO user_panel_order_v2 (id, user_id, panel_id, wall_id, position)
+					INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position)
 					VALUES (?, ?, ?, NULL, ?)
 				`, rowID, claims.UserID, item.PanelID, item.Position)
 			}
@@ -282,9 +268,9 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 		}
 
 		for _, item := range req.Order {
-			log.Printf("[PANELS] saved panelId=%s position=%d wallId=%q isHome=%v", item.PanelID, item.Position, wallIDStr, isHome)
+			log.Printf("[PANELS] saved panelId=%s position=%d porticoId=%q isHome=%v", item.PanelID, item.Position, porticoIDStr, isHome)
 		}
-		log.Printf("[PANELS] order saved user=%s wallId=%q isHome=%v panels=%d", claims.UserID, wallIDStr, isHome, len(req.Order))
+		log.Printf("[PANELS] order saved user=%s porticoId=%q isHome=%v panels=%d", claims.UserID, porticoIDStr, isHome, len(req.Order))
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
