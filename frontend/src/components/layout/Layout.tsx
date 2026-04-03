@@ -12,21 +12,26 @@ export default function Layout() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
 
+  const location = useLocation()
+
   useEffect(() => {
     if (!user) return
-
-    const loadData = () => {
-      profileApi.get().then((r: any) => setAvatarUrl(r.data.avatarUrl || '')).catch(() => {})
-      glyphsApi.list().then(r => setGlyphs(r.data || [])).catch(() => {})
-    }
-
-    loadData()
-
-    // Reload glyphs when window regains focus (user returns from profile tab)
-    window.addEventListener('focus', loadData)
-    return () => window.removeEventListener('focus', loadData)
+    profileApi.get().then((r: any) => setAvatarUrl(r.data.avatarUrl || '')).catch(() => {})
   }, [user?.id])
-  const location = useLocation()
+
+  // Reload glyphs on every route change so navigating from /profile -> / shows updates immediately
+  useEffect(() => {
+    if (!user) return
+    const loadGlyphs = () => {
+      glyphsApi.list().then(r => {
+        console.log('[Layout] glyphs loaded:', r.data?.length)
+        setGlyphs(r.data || [])
+      }).catch(() => {})
+    }
+    loadGlyphs()
+    window.addEventListener('focus', loadGlyphs)
+    return () => window.removeEventListener('focus', loadGlyphs)
+  }, [user?.id, location.pathname])
   const onAdmin = location.pathname.startsWith('/admin')
 
   return (
