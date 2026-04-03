@@ -423,16 +423,16 @@ function PanelGrid({ panels, subtrees, portico, density }: {
 
   if (layout === 'flow') {
     // Flow: auto-fill columns by min width, panels wrap naturally
+    // Each card uses grid-row: span N so rows don't overlap
     return (
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}px, 1fr))`,
         gridAutoRows: `${ROW_UNIT}px`,
         gap: 16,
-        alignItems: 'start',
       }}>
         {panels.map(panel => (
-          <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+          <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} flowMode />
         ))}
       </div>
     )
@@ -462,17 +462,19 @@ function PanelGrid({ panels, subtrees, portico, density }: {
     colFill[best] += height
   }
 
+  // In column mode, density influences effective min width check for readability
+  // but column count is explicitly set on the portico
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+      gridTemplateColumns: `repeat(${colCount}, minmax(${minColWidth}px, 1fr))`,
       gap: 16,
       alignItems: 'start',
     }}>
       {columns.map((col, ci) => (
         <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {col.map(panel => (
-            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} flowMode={false} />
           ))}
         </div>
       ))}
@@ -489,53 +491,85 @@ function getPanelHeight(panel: Panel): number {
 
 // ── Panel card ────────────────────────────────────────────────────────────────
 
-function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode }) {
-  const [panelExpanded, setPanelExpanded] = useState<boolean | null>(null)
+function PanelCard({ panel, subtree, flowMode = false }: {
+  panel: Panel; subtree?: BookmarkNode; flowMode?: boolean
+}) {
+  const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
+  const [collapsed, setCollapsed] = useState(false)
   const heightUnits = getPanelHeight(panel)
-  const cardHeight = heightUnits * ROW_UNIT - 16 // subtract gap
+  const cardHeight = heightUnits * ROW_UNIT - 16
+
+  // Strip root section — if rootNodeId points to a section, show its children directly
+  const displayNodes = (() => {
+    if (!subtree) return []
+    if (['root', 'personal-root', 'shared-root'].includes(subtree.id)) return subtree.children || []
+    if (subtree.type === 'section') return subtree.children || []
+    return [subtree]
+  })()
 
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
-      height: cardHeight, display: 'flex', flexDirection: 'column',
+      display: 'flex', flexDirection: 'column',
+      height: collapsed ? 'auto' : `${cardHeight}px`,
+      ...(flowMode ? { gridRow: `span ${heightUnits}` } : {}),
     }}
       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
     >
+      {/* Header */}
       <div style={{
-        padding: '8px 14px', borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '8px 14px',
+        borderBottom: collapsed ? 'none' : '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
       }}>
+        <button onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand' : 'Collapse'}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+            color: 'var(--text-dim)', fontSize: 9, opacity: 0.5, lineHeight: 1,
+            transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+          }}
+          onMouseOver={e => e.currentTarget.style.opacity = '1'}
+          onMouseOut={e => e.currentTarget.style.opacity = '0.5'}
+        >▼</button>
+
         <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{panel.title}</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          {(panel.tags || []).map(t => (
-            <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
-          ))}
-          <button onClick={() => setPanelExpanded(s => s === true ? null : true)} title="Expand all"
-            style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
-              background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
-              fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1, padding: 0 }}>+</button>
-          <button onClick={() => setPanelExpanded(s => s === false ? null : false)} title="Collapse all"
-            style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
-              background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
-              fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              lineHeight: 1, padding: 0 }}>−</button>
+
+        {!collapsed && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            {(panel.tags || []).map(t => (
+              <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
+            ))}
+            <button onClick={() => setTreeExpanded(s => s === true ? null : true)} title="Expand all"
+              style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+                background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+                fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1, padding: 0 }}>+</button>
+            <button onClick={() => setTreeExpanded(s => s === false ? null : false)} title="Collapse all"
+              style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+                background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+                fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1, padding: 0 }}>−</button>
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      {!collapsed && (
+        <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+          {panel.type === 'bookmarks' && subtree && (
+            <BookmarkTree nodes={displayNodes} externalExpanded={treeExpanded} />
+          )}
+          {panel.type === 'bookmarks' && !subtree && (
+            <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
+          )}
+          {panel.type === 'bookmarks' && subtree && displayNodes.length === 0 && (
+            <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>No bookmarks</div>
+          )}
         </div>
-      </div>
-      <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
-        {panel.type === 'bookmarks' && subtree && (
-          <BookmarkTree
-            nodes={['root', 'personal-root', 'shared-root'].includes(subtree.id)
-              ? (subtree.children || []) : [subtree]}
-            externalExpanded={panelExpanded}
-          />
-        )}
-        {panel.type === 'bookmarks' && !subtree && (
-          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
-        )}
-      </div>
+      )}
     </div>
   )
 }
