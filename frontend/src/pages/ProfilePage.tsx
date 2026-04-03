@@ -878,7 +878,7 @@ function GlyphsTab() {
     setCreating(true)
     try {
       const defaultConfig = newType === 'clock'
-        ? JSON.stringify({ format: '12h', showSeconds: false, showDate: true })
+        ? JSON.stringify({ format: '12h', showSeconds: false, showDate: true, timezone: '', label: '' })
         : JSON.stringify({ zip: '', country: 'US', units: 'imperial', refreshSecs: 1800, secretId: '' })
       await glyphsApi.create({ type: newType, zone: newZone, config: defaultConfig })
       setShowForm(false); await load()
@@ -1035,6 +1035,26 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
                       <option value="yes">Yes</option>
                       <option value="no">No</option>
                     </select>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">Timezone</label>
+                    <input className="input" value={localConfig.timezone || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, timezone: e.target.value }))}
+                      placeholder="e.g. America/New_York (blank = local)" />
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3 }}>
+                      IANA format: America/Chicago · Europe/London · Asia/Tokyo · UTC
+                    </div>
+                  </div>
+                  <div style={{ flex: 0.4 }}>
+                    <label className="label">Label (optional)</label>
+                    <input className="input" value={localConfig.label || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
+                      placeholder="e.g. NYC" />
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3 }}>
+                      Shown above the time
+                    </div>
                   </div>
                 </div>
               </>

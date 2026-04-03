@@ -11,6 +11,7 @@ export default function PanelsAdminPanel() {
   const [newRootId, setNewRootId] = useState('')
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
+  const [showCalConfig, setShowCalConfig] = useState(false)
   const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
@@ -77,6 +78,24 @@ export default function PanelsAdminPanel() {
         </button>
       </div>
 
+      {/* Calendar config modal */}
+      {showCalConfig && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 1000,
+          background: 'rgba(0,0,0,0.5)', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+        }} onClick={() => setShowCalConfig(false)}>
+          <div className="card" style={{ padding: 28, maxWidth: 400, width: '90%' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Calendar configuration</div>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, marginTop: 0 }}>
+              Configuration options (week start, data sources, etc.) are coming soon.
+            </p>
+            <button className="btn btn-primary" onClick={() => setShowCalConfig(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
       {showForm && (
         <div className="card" style={{ marginBottom: 20, padding: 20 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
@@ -92,17 +111,26 @@ export default function PanelsAdminPanel() {
                 <option value="calendar">Calendar</option>
               </select>
             </div>
-            <div style={{ flex: 1 }}>
-              <label className="label">Bookmark root (optional)</label>
-              <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
-                style={{ cursor: 'pointer' }}>
-                <option value="">— All bookmarks —</option>
-                {loadingTree && <option disabled>Loading...</option>}
-              {!loadingTree && flatNodes.map(({ node, label }) => (
-                <option key={node.id} value={node.id}>{label}</option>
-              ))}
-              </select>
-            </div>
+            {newType === 'bookmarks' && (
+              <div style={{ flex: 1 }}>
+                <label className="label">Bookmark root (optional)</label>
+                <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
+                  style={{ cursor: 'pointer' }}>
+                  <option value="">— All bookmarks —</option>
+                  {loadingTree && <option disabled>Loading...</option>}
+                  {!loadingTree && flatNodes.map(({ node, label }) => (
+                    <option key={node.id} value={node.id}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {newType === 'calendar' && (
+              <div style={{ flex: 1 }}>
+                <label className="label">Configuration</label>
+                <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                  onClick={() => setShowCalConfig(true)}>Configure ↗</button>
+              </div>
+            )}
             <div style={{ flex: 0.4 }}>
               <label className="label">Height</label>
               <select className="input" value={newHeight}

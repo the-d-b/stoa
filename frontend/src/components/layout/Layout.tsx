@@ -43,7 +43,10 @@ export default function Layout() {
             <span style={{ fontWeight: 600, fontSize: 15, letterSpacing: '-0.01em' }}>stoa</span>
           </Link>
 
-          {/* Clock */}
+          {/* Header glyphs left */}
+          <GlyphZone glyphs={glyphs} zone="header-left" />
+
+          {/* Header glyphs right */}
           <GlyphZone glyphs={glyphs} zone="header-right" />
 
           {/* Right */}
@@ -117,16 +120,18 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      {/* Footer */}
-      <footer style={{ borderTop: '1px solid var(--border)', padding: '10px 24px' }}>
+      {/* Footer — only render if there are footer glyphs or always show minimal */}
+      <footer style={{ borderTop: '1px solid var(--border)', padding: '8px 24px' }}>
         <div style={{
           maxWidth: 1100, margin: '0 auto',
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
         }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.4</span>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-            {user?.role === 'admin' ? '⬡ admin' : '○ user'}
-          </span>
+          <GlyphZone glyphs={glyphs} zone="footer-left" />
+          <GlyphZone glyphs={glyphs} zone="footer-center" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <GlyphZone glyphs={glyphs} zone="footer-right" />
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.6</span>
+          </div>
         </div>
       </footer>
     </div>
