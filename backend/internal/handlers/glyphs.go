@@ -93,17 +93,29 @@ func UpdateGlyph(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
+
+		// Use pointers so we can detect which fields were sent
 		var req struct {
-			Zone     string `json:"zone"`
-			Position int    `json:"position"`
-			Config   string `json:"config"`
-			Enabled  bool   `json:"enabled"`
+			Zone     *string `json:"zone"`
+			Position *int    `json:"position"`
+			Config   *string `json:"config"`
+			Enabled  *bool   `json:"enabled"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
-		db.Exec(`
-			UPDATE glyphs SET zone=?, position=?, config=?, enabled=?
-			WHERE id=? AND user_id=?
-		`, req.Zone, req.Position, req.Config, boolToInt(req.Enabled), id, claims.UserID)
+
+		// Only update fields that were included in the request
+		if req.Zone != nil {
+			db.Exec("UPDATE glyphs SET zone=? WHERE id=? AND user_id=?", *req.Zone, id, claims.UserID)
+		}
+		if req.Position != nil {
+			db.Exec("UPDATE glyphs SET position=? WHERE id=? AND user_id=?", *req.Position, id, claims.UserID)
+		}
+		if req.Config != nil {
+			db.Exec("UPDATE glyphs SET config=? WHERE id=? AND user_id=?", *req.Config, id, claims.UserID)
+		}
+		if req.Enabled != nil {
+			db.Exec("UPDATE glyphs SET enabled=? WHERE id=? AND user_id=?", boolToInt(*req.Enabled), id, claims.UserID)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

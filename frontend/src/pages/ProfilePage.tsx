@@ -941,11 +941,11 @@ function GlyphsTab() {
             onToggle={() => toggleEnabled(g)}
             onDelete={() => remove(g.id)}
             onSave={async (config) => {
-              await glyphsApi.update(g.id, { config, zone: g.zone })
+              await glyphsApi.update(g.id, { config })
               setEditId(null); await load()
             }}
             onZoneChange={async (zone) => {
-              await glyphsApi.update(g.id, { zone, config: g.config })
+              await glyphsApi.update(g.id, { zone })
               await load()
             }}
           />
@@ -965,10 +965,15 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: (config: string) => void; onZoneChange: (zone: string) => void
 }) {
-  const config = (() => { try { return JSON.parse(glyph.config) } catch { return {} } })()
-  const [localConfig, setLocalConfig] = useState(config)
   const typeDef = GLYPH_TYPES.find(t => t.id === glyph.type)
   const zoneDef = ZONES.find(z => z.id === glyph.zone)
+  const [localConfig, setLocalConfig] = useState(() => {
+    try { return JSON.parse(glyph.config) } catch { return {} }
+  })
+  // Sync when glyph prop changes (after save/reload)
+  useEffect(() => {
+    try { setLocalConfig(JSON.parse(glyph.config)) } catch { setLocalConfig({}) }
+  }, [glyph.config])
 
   return (
     <div style={{
