@@ -11,11 +11,19 @@ interface Quote {
 interface TickerStripProps {
   tickers: Ticker[]
   zone: 'header' | 'footer'
+  activePorticoId?: string
 }
 
-export default function TickerStrip({ tickers, zone }: TickerStripProps) {
+export default function TickerStrip({ tickers, zone, activePorticoId = 'home' }: TickerStripProps) {
   const zoneTickers = tickers
-    .filter(t => t.enabled && t.zone === zone)
+    .filter(t => {
+      if (!t.enabled || t.zone !== zone) return false
+      // Check portico assignment — empty array means show on all porticos
+      const config = (() => { try { return JSON.parse(t.config) } catch { return {} } })()
+      const assignedPorticos: string[] = config.porticos || []
+      if (assignedPorticos.length === 0) return true // show everywhere
+      return assignedPorticos.includes(activePorticoId)
+    })
     .sort((a, b) => a.position - b.position)
 
   if (zoneTickers.length === 0) return null

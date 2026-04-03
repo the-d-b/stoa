@@ -1214,10 +1214,12 @@ function TickersTab() {
   const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
+  const [porticos, setPorticos] = useState<Wall[]>([])
   const load = async () => {
-    const [t, s] = await Promise.all([tickersApi.list(), secretsApi.list()])
+    const [t, s, p] = await Promise.all([tickersApi.list(), secretsApi.list(), porticosApi.list()])
     setTickers(t.data || [])
     setSecrets(s.data || [])
+    setPorticos(p.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1282,7 +1284,7 @@ function TickersTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {tickers.map(t => (
-          <TickerRow key={t.id} ticker={t} secrets={secrets}
+          <TickerRow key={t.id} ticker={t} secrets={secrets} porticos={porticos}
             editing={editId === t.id}
             onEdit={() => setEditId(editId === t.id ? null : t.id)}
             onToggle={() => toggleEnabled(t)}
@@ -1300,8 +1302,8 @@ function TickersTab() {
   )
 }
 
-function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSave }: {
-  ticker: Ticker; secrets: any[]; editing: boolean
+function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave }: {
+  ticker: Ticker; secrets: any[]; porticos: Wall[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: () => void  // called after save to reload
 }) {
@@ -1313,6 +1315,9 @@ function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSav
   const [localRefresh, setLocalRefresh] = useState(config.refreshSecs || 300)
   const [localSymbols, setLocalSymbols] = useState(symbolsArr.join(', '))
   const [localZone, setLocalZone] = useState(ticker.zone)
+  const [localPorticos, setLocalPorticos] = useState<string[]>(() => {
+    try { return JSON.parse(ticker.config).porticos || [] } catch { return [] }
+  })
 
   useEffect(() => {
     const c = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
@@ -1321,6 +1326,7 @@ function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSav
     setLocalRefresh(c.refreshSecs || 300)
     setLocalSymbols((() => { try { return JSON.parse(ticker.symbols).join(', ') } catch { return '' } })())
     setLocalZone(ticker.zone)
+    try { setLocalPorticos(JSON.parse(ticker.config).porticos || []) } catch { setLocalPorticos([]) }
   }, [ticker.config, ticker.symbols, ticker.zone])
 
   const typeDef = TICKER_TYPES.find(t => t.id === ticker.type)
@@ -1334,6 +1340,7 @@ function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSav
       secretId: localSecretId,
       mode: localMode,
       refreshSecs: localRefresh,
+      porticos: localPorticos,  // empty = show on all porticos
     })
     // Send each changed field independently — never send enabled (would reset it)
     if (localZone !== ticker.zone) {
@@ -1424,6 +1431,32 @@ function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSav
                 {ticker.type === 'stocks' ? 'Use standard NYSE/NASDAQ ticker symbols' : 'Use CoinMarketCap symbol codes'}
               </div>
             </div>
+
+            {/* Portico assignment */}
+            {porticos.length > 0 && (
+              <div>
+                <label className="label">Show on porticos (leave all unselected = show everywhere)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                  {porticos.map(p => {
+                    const on = localPorticos.includes(p.id)
+                    return (
+                      <button key={p.id} onClick={() => setLocalPorticos(prev =>
+                        on ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                      )} style={{
+                        padding: '3px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                        background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                        color: on ? 'var(--accent2)' : 'var(--text-muted)',
+                        border: `1px solid ${on ? '#7c6fff30' : 'var(--border)'}`,
+                        transition: 'all 0.15s',
+                      }}>{p.name}</button>
+                    )
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  {localPorticos.length === 0 ? 'Showing on all porticos (including Home)' : `Showing on ${localPorticos.length} portico${localPorticos.length !== 1 ? 's' : ''}`}
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={handleSave}>Save</button>

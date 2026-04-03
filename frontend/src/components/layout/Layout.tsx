@@ -129,26 +129,23 @@ export default function Layout() {
             </button>
           </div>
         </div>
+        {/* Header ticker strip — inside sticky header, sticks with it */}
+        <TickerStrip tickers={tickers} zone="header" activePorticoId={sessionStorage.getItem("active_portico") || "home"} />
       </header>
-
-      {/* Header tickers */}
-      <TickerStrip tickers={tickers} zone="header" />
 
       {/* Main */}
       <main style={{ flex: 1, maxWidth: 1100, margin: '0 auto', width: '100%', padding: '32px 24px' }}>
         <Outlet />
       </main>
 
-      {/* Footer tickers */}
-      <TickerStrip tickers={tickers} zone="footer" />
-
-      {/* Footer — sticky at bottom of viewport */}
-      <footer style={{
-        borderTop: '1px solid var(--border)', padding: '8px 24px',
-        position: 'sticky', bottom: 0, zIndex: 40,
-        background: 'var(--surface)',
-        backdropFilter: 'blur(12px)',
-      }}>
+      {/* Footer + ticker — sticky unit at bottom of viewport */}
+      <div style={{ position: 'sticky', bottom: 0, zIndex: 40 }}>
+        <TickerStrip tickers={tickers} zone="footer" activePorticoId={sessionStorage.getItem("active_portico") || "home"} />
+        <footer style={{
+          borderTop: '1px solid var(--border)', padding: '8px 24px',
+          background: 'var(--surface)',
+          backdropFilter: 'blur(12px)',
+        }}>
         <div style={{
           maxWidth: 1100, margin: '0 auto',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
@@ -160,7 +157,8 @@ export default function Layout() {
             <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.6</span>
           </div>
         </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   )
 }
