@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
@@ -398,6 +398,37 @@ function WallTab({ label, active, onClick, onDelete }: {
   )
 }
 
+// ── Flow slot ────────────────────────────────────────────────────────────────
+// Wrapper that owns the grid-row span; inner card sizes itself freely
+// This lets the card collapse to pill height without fighting the grid slot
+
+function FlowSlot({ heightUnits, children }: { heightUnits: number; children: React.ReactNode }) {
+  const [collapsed, setCollapsed] = React.useState(false)
+  // When collapsed: use gridRowEnd auto + fixed small height to escape gridAutoRows constraint
+  // When expanded: span the full height units
+  const PILL_HEIGHT = 42 // collapsed card header height in px
+  return (
+    <div style={
+      collapsed
+        ? {
+            // Escape gridAutoRows by overriding with explicit pixel height
+            // grid-row: span 1 would still be 136px; instead use auto placement
+            gridRow: 'auto',
+            height: `${PILL_HEIGHT}px`,
+            alignSelf: 'start',
+          }
+        : {
+            gridRow: `span ${heightUnits}`,
+            alignSelf: 'start',
+          }
+    }>
+      {React.cloneElement(children as React.ReactElement, {
+        onCollapseChange: setCollapsed,
+      })}
+    </div>
+  )
+}
+
 // ── Layout engine ────────────────────────────────────────────────────────────
 
 const DENSITY_MIN_WIDTH: Record<string, number> = {
@@ -434,9 +465,14 @@ function PanelGrid({ panels, subtrees, portico, density }: {
         gridAutoRows: `${ROW_UNIT + GRID_GAP}px`,
         gap: `${GRID_GAP}px`,
       }}>
-        {panels.map(panel => (
-          <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} flowMode />
-        ))}
+        {panels.map(panel => {
+          const h = getPanelHeight(panel)
+          return (
+            <FlowSlot key={panel.id} heightUnits={h}>
+              <PanelCard panel={panel} subtree={subtrees[panel.id]} />
+            </FlowSlot>
+          )
+        })}
       </div>
     )
   }
@@ -477,7 +513,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
       {columns.map((col, ci) => (
         <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           {col.map(panel => (
-            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} flowMode={false} />
+            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
           ))}
         </div>
       ))}
@@ -494,8 +530,9 @@ function getPanelHeight(panel: Panel): number {
 
 // ── Panel card ────────────────────────────────────────────────────────────────
 
-function PanelCard({ panel, subtree, flowMode = false }: {
-  panel: Panel; subtree?: BookmarkNode; flowMode?: boolean
+function PanelCard({ panel, subtree, onCollapseChange }: {
+  panel: Panel; subtree?: BookmarkNode
+  onCollapseChange?: (collapsed: boolean) => void
 }) {
   const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
   const [collapsed, setCollapsed] = useState(false)
@@ -516,7 +553,6 @@ function PanelCard({ panel, subtree, flowMode = false }: {
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
       display: 'flex', flexDirection: 'column',
       height: collapsed ? 'auto' : `${cardHeight}px`,
-      ...(flowMode ? { gridRow: collapsed ? 'span 1' : `span ${heightUnits}` } : {}),
     }}
       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
@@ -527,7 +563,11 @@ function PanelCard({ panel, subtree, flowMode = false }: {
         borderBottom: collapsed ? 'none' : '1px solid var(--border)',
         display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
       }}>
-        <button onClick={() => setCollapsed(c => !c)} title={collapsed ? 'Expand' : 'Collapse'}
+        <button onClick={() => {
+            const next = !collapsed
+            setCollapsed(next)
+            onCollapseChange?.(next)
+          }} title={collapsed ? 'Expand' : 'Collapse'}
           style={{
             background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
             color: 'var(--text-dim)', fontSize: 9, opacity: 0.5, lineHeight: 1,
