@@ -13,10 +13,18 @@ export default function Layout() {
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
 
   useEffect(() => {
-    if (user) {
+    if (!user) return
+
+    const loadData = () => {
       profileApi.get().then((r: any) => setAvatarUrl(r.data.avatarUrl || '')).catch(() => {})
       glyphsApi.list().then(r => setGlyphs(r.data || [])).catch(() => {})
     }
+
+    loadData()
+
+    // Reload glyphs when window regains focus (user returns from profile tab)
+    window.addEventListener('focus', loadData)
+    return () => window.removeEventListener('focus', loadData)
   }, [user?.id])
   const location = useLocation()
   const onAdmin = location.pathname.startsWith('/admin')
