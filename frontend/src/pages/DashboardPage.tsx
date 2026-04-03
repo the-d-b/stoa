@@ -407,6 +407,7 @@ const DENSITY_MIN_WIDTH: Record<string, number> = {
 }
 
 const ROW_UNIT = 120 // px per 1x unit
+const GRID_GAP = 16  // gap between panels
 
 function PanelGrid({ panels, subtrees, portico, density }: {
   panels: Panel[]
@@ -415,7 +416,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
   density: string
 }) {
   const layout      = portico?.layout      ?? 'columns'
-  const colCount    = portico?.columnCount  ?? 3
+  const colCount    = portico?.columnCount  ?? 2
   const colHeight   = portico?.columnHeight ?? 8
   const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
 
@@ -424,12 +425,14 @@ function PanelGrid({ panels, subtrees, portico, density }: {
   if (layout === 'flow') {
     // Flow: auto-fill columns by min width, panels wrap naturally
     // Each card uses grid-row: span N so rows don't overlap
+    // gridAutoRows includes the gap so that span N * (ROW_UNIT+GAP) - GAP
+    // gives perfect alignment between e.g. two 4x === one 8x
     return (
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}px, 1fr))`,
-        gridAutoRows: `${ROW_UNIT}px`,
-        gap: 16,
+        gridAutoRows: `${ROW_UNIT + GRID_GAP}px`,
+        gap: `${GRID_GAP}px`,
       }}>
         {panels.map(panel => (
           <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} flowMode />
@@ -497,7 +500,7 @@ function PanelCard({ panel, subtree, flowMode = false }: {
   const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
   const [collapsed, setCollapsed] = useState(false)
   const heightUnits = getPanelHeight(panel)
-  const cardHeight = heightUnits * ROW_UNIT - 16
+  const cardHeight = heightUnits * (ROW_UNIT + GRID_GAP) - GRID_GAP
 
   // Strip root section — if rootNodeId points to a section, show its children directly
   const displayNodes = (() => {
@@ -513,7 +516,7 @@ function PanelCard({ panel, subtree, flowMode = false }: {
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
       display: 'flex', flexDirection: 'column',
       height: collapsed ? 'auto' : `${cardHeight}px`,
-      ...(flowMode ? { gridRow: `span ${heightUnits}` } : {}),
+      ...(flowMode ? { gridRow: collapsed ? 'span 1' : `span ${heightUnits}` } : {}),
     }}
       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}

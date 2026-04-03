@@ -10,6 +10,7 @@ export default function PanelsAdminPanel() {
   const [newTitle, setNewTitle] = useState('')
   const [newRootId, setNewRootId] = useState('')
   const [newHeight, setNewHeight] = useState(2)
+  const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
@@ -138,7 +139,36 @@ export default function PanelsAdminPanel() {
                     {(() => { try { const h = JSON.parse(p.config||'{}').height||2; return `${h}x` } catch { return '2x' } })()}
                   </div>
                 </div>
-                <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  {editingHeight?.id === p.id ? (
+                    <>
+                      <select className="input" style={{ fontSize: 12, padding: '3px 8px', cursor: 'pointer' }}
+                        value={editingHeight.height}
+                        onChange={e => setEditingHeight(eh => eh ? { ...eh, height: Number(e.target.value) } : null)}>
+                        <option value={1}>1x — Compact</option>
+                        <option value={2}>2x — Normal</option>
+                        <option value={4}>4x — Tall</option>
+                        <option value={8}>8x — Full</option>
+                      </select>
+                      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                        const config = safeParseConfig(p.config)
+                        config.height = editingHeight.height
+                        await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(config) })
+                        setEditingHeight(null); load()
+                      }}>Save</button>
+                      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingHeight(null)}>Cancel</button>
+                    </>
+                  ) : (
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={() => {
+                        const h = (() => { try { return JSON.parse(p.config||'{}').height||2 } catch { return 2 } })()
+                        setEditingHeight({ id: p.id, height: h })
+                      }}>
+                      Resize
+                    </button>
+                  )}
+                  <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
+                </div>
               </div>
 
               {/* Tag assignment */}

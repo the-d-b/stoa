@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { authApi, User } from '../api'
+import { authApi, preferencesApi, User } from '../api'
+import { THEMES, ThemeName } from './ThemeContext'
 
 interface AuthContextType {
   user: User | null
@@ -51,6 +52,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('stoa_token', token)
     setUser(user)
     setLoading(false)
+    // Load this user's theme preference
+    preferencesApi.get().then(r => {
+      const t = r.data.theme as ThemeName
+      if (t) {
+        const def = THEMES.find(th => th.name === t)
+        if (def) {
+          localStorage.setItem('stoa_theme', t)
+          const root = document.documentElement
+          Object.entries(def.vars).forEach(([k, v]) => root.style.setProperty(k, v))
+        }
+      }
+    }).catch(() => {})
   }
 
   const logout = async () => {

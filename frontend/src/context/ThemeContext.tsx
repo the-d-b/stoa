@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
+import { preferencesApi } from '../api'
 
 export type ThemeName = 'void' | 'slate' | 'carbon' | 'paper' | 'fog' | 'linen'
 
@@ -75,7 +76,7 @@ export const THEMES: ThemeDef[] = [
 
 interface ThemeContextType {
   theme: ThemeName
-  setTheme: (t: ThemeName) => void
+  setTheme: (t: ThemeName, persist?: boolean) => void
   themeDef: ThemeDef
 }
 
@@ -85,13 +86,36 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeName>('void')
 
   useEffect(() => {
-    const saved = localStorage.getItem('stoa_theme') as ThemeName
-    if (saved) applyTheme(saved)
+    const token = localStorage.getItem('stoa_token')
+    if (token) {
+      // Load theme from user preferences (per-user)
+      preferencesApi.get().then(r => {
+        const serverTheme = r.data.theme as ThemeName
+        if (serverTheme) {
+          localStorage.setItem('stoa_theme', serverTheme)
+          applyTheme(serverTheme)
+        } else {
+          const local = localStorage.getItem('stoa_theme') as ThemeName
+          if (local) applyTheme(local)
+        }
+      }).catch(() => {
+        const local = localStorage.getItem('stoa_theme') as ThemeName
+        if (local) applyTheme(local)
+      })
+    } else {
+      // Not logged in — use localStorage or default dark
+      const saved = localStorage.getItem('stoa_theme') as ThemeName
+      applyTheme(saved || 'void')
+    }
   }, [])
 
-  const setTheme = (t: ThemeName) => {
+  const setTheme = (t: ThemeName, persist = true) => {
     localStorage.setItem('stoa_theme', t)
     applyTheme(t)
+    // Also save to user preferences if logged in
+    if (persist && localStorage.getItem('stoa_token')) {
+      preferencesApi.save({ theme: t }).catch(() => {})
+    }
   }
 
   const applyTheme = (t: ThemeName) => {
