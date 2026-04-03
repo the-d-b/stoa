@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
+import { glyphsApi, Glyph } from '../../api'
+import GlyphZone from '../glyphs/GlyphZone'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
-import Clock from './Clock'
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState('')
+  const [glyphs, setGlyphs] = useState<Glyph[]>([])
 
   useEffect(() => {
     if (user) {
       profileApi.get().then((r: any) => setAvatarUrl(r.data.avatarUrl || '')).catch(() => {})
+      glyphsApi.list().then(r => setGlyphs(r.data || [])).catch(() => {})
     }
   }, [user?.id])
   const location = useLocation()
@@ -41,7 +44,7 @@ export default function Layout() {
           </Link>
 
           {/* Clock */}
-          <Clock />
+          <GlyphZone glyphs={glyphs} zone="header-right" />
 
           {/* Right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

@@ -66,6 +66,19 @@ func main() {
 	protected.HandleFunc("/bookmarks/{id}", handlers.GetBookmarkNode(database)).Methods("GET")
 	protected.HandleFunc("/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
 
+	// Glyphs (per-user)
+	protected.HandleFunc("/glyphs", handlers.ListGlyphs(database)).Methods("GET")
+	protected.HandleFunc("/glyphs", handlers.CreateGlyph(database)).Methods("POST")
+	protected.HandleFunc("/glyphs/{id}", handlers.UpdateGlyph(database)).Methods("PUT")
+	protected.HandleFunc("/glyphs/{id}", handlers.DeleteGlyph(database)).Methods("DELETE")
+	protected.HandleFunc("/glyphs/{id}/data", handlers.GetGlyphData(database)).Methods("GET")
+
+	// Tickers (per-user)
+	protected.HandleFunc("/tickers", handlers.ListTickers(database)).Methods("GET")
+	protected.HandleFunc("/tickers", handlers.CreateTicker(database)).Methods("POST")
+	protected.HandleFunc("/tickers/{id}", handlers.UpdateTicker(database)).Methods("PUT")
+	protected.HandleFunc("/tickers/{id}", handlers.DeleteTicker(database)).Methods("DELETE")
+
 	// Personal bookmarks (any authenticated user)
 	protected.HandleFunc("/my/bookmarks", handlers.ListPersonalBookmarkTree(database)).Methods("GET")
 	protected.HandleFunc("/my/bookmarks", handlers.CreatePersonalBookmarkNode(database, iconsDir)).Methods("POST")

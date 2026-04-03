@@ -166,6 +166,48 @@ export const bookmarksApi = {
     api.post<{ iconUrl: string }>('/bookmarks/cache-icon', { url }),
 }
 
+// ── Glyphs ───────────────────────────────────────────────────────────────────
+
+export interface Glyph {
+  id: string
+  type: string
+  zone: string
+  position: number
+  config: string
+  enabled: boolean
+  createdAt: string
+}
+
+export interface Ticker {
+  id: string
+  type: string
+  zone: string
+  position: number
+  symbols: string
+  config: string
+  enabled: boolean
+  createdAt: string
+}
+
+export const glyphsApi = {
+  list: () => api.get<Glyph[]>('/glyphs'),
+  create: (data: { type: string; zone: string; position?: number; config?: string }) =>
+    api.post<{ id: string }>('/glyphs', data),
+  update: (id: string, data: Partial<{ zone: string; position: number; config: string; enabled: boolean }>) =>
+    api.put(`/glyphs/${id}`, data),
+  delete: (id: string) => api.delete(`/glyphs/${id}`),
+  getData: (id: string) => api.get<any>(`/glyphs/${id}/data`),
+}
+
+export const tickersApi = {
+  list: () => api.get<Ticker[]>('/tickers'),
+  create: (data: { type: string; zone: string; symbols?: string; config?: string }) =>
+    api.post<{ id: string }>('/tickers', data),
+  update: (id: string, data: Partial<{ zone: string; position: number; symbols: string; config: string; enabled: boolean }>) =>
+    api.put(`/tickers/${id}`, data),
+  delete: (id: string) => api.delete(`/tickers/${id}`),
+}
+
 // ── Preferences ──────────────────────────────────────────────────────────────
 
 export const preferencesApi = {
@@ -296,6 +338,30 @@ export const porticosApi = {
   setTagActive: (porticoId: string, tagId: string, active: boolean) =>
     api.put(`/porticos/${porticoId}/tags/${tagId}`, { active }),
 }
+
+// ── Glyphs ───────────────────────────────────────────────────────────────────
+
+export interface Glyph {
+  id: string
+  type: string
+  zone: string
+  position: number
+  config: string
+  enabled: boolean
+  createdAt: string
+}
+
+export interface Ticker {
+  id: string
+  type: string
+  zone: string
+  position: number
+  symbols: string
+  config: string
+  enabled: boolean
+  createdAt: string
+}
+
 
 // ── Preferences ───────────────────────────────────────────────────────────────
 

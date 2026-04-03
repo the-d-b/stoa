@@ -271,6 +271,35 @@ var migrations = []migration{
 		`,
 	},
 
+	{
+		version: 8,
+		name:    "glyphs_tickers_ipanels",
+		up: `
+			CREATE TABLE IF NOT EXISTS glyphs (
+				id         TEXT PRIMARY KEY,
+				user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				type       TEXT NOT NULL,
+				zone       TEXT NOT NULL DEFAULT 'header-right',
+				position   INTEGER NOT NULL DEFAULT 0,
+				config     TEXT NOT NULL DEFAULT '{}',
+				enabled    INTEGER NOT NULL DEFAULT 1,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+
+			CREATE TABLE IF NOT EXISTS tickers (
+				id          TEXT PRIMARY KEY,
+				user_id     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				type        TEXT NOT NULL,
+				zone        TEXT NOT NULL DEFAULT 'footer',
+				position    INTEGER NOT NULL DEFAULT 0,
+				symbols     TEXT NOT NULL DEFAULT '[]',
+				config      TEXT NOT NULL DEFAULT '{}',
+				enabled     INTEGER NOT NULL DEFAULT 1,
+				created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+		`,
+	},
+
 }
 
 func Run(db *sql.DB) error {

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, Secret, Panel, Wall } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, Glyph, Secret, Panel, Wall } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
 type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs'
@@ -843,15 +843,265 @@ function SecretsTab() {
 
 // ── Glyphs ────────────────────────────────────────────────────────────────────
 
+const GLYPH_TYPES = [
+  { id: 'clock',   label: 'Clock',   desc: 'Time and date display',          needsSecret: false },
+  { id: 'weather', label: 'Weather', desc: 'Current conditions (OpenWeatherMap)', needsSecret: true  },
+]
+
+const ZONES = [
+  { id: 'header-left',    label: 'Header left' },
+  { id: 'header-right',   label: 'Header right' },
+  { id: 'footer-left',    label: 'Footer left' },
+  { id: 'footer-center',  label: 'Footer center' },
+  { id: 'footer-right',   label: 'Footer right' },
+]
+
 function GlyphsTab() {
+  const [glyphs, setGlyphs] = useState<Glyph[]>([])
+  const [secrets, setSecrets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newType, setNewType] = useState('clock')
+  const [newZone, setNewZone] = useState('header-right')
+  const [creating, setCreating] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+
+  const load = async () => {
+    const [g, s] = await Promise.all([glyphsApi.list(), secretsApi.list()])
+    setGlyphs(g.data || [])
+    setSecrets(s.data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const create = async () => {
+    setCreating(true)
+    try {
+      const defaultConfig = newType === 'clock'
+        ? JSON.stringify({ format: '12h', showSeconds: false, showDate: true })
+        : JSON.stringify({ zip: '', country: 'US', units: 'imperial', refreshSecs: 1800, secretId: '' })
+      await glyphsApi.create({ type: newType, zone: newZone, config: defaultConfig })
+      setShowForm(false); await load()
+    } finally { setCreating(false) }
+  }
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this glyph?')) return
+    await glyphsApi.delete(id); await load()
+  }
+
+  const toggleEnabled = async (g: Glyph) => {
+    await glyphsApi.update(g.id, { enabled: !g.enabled }); await load()
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+
   return (
-    <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)' }}>
-      <div style={{ fontSize: 36, marginBottom: 16, opacity: 0.3 }}>◈</div>
-      <div style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>Glyphs</div>
-      <div style={{ fontSize: 13, maxWidth: 320, margin: '0 auto', lineHeight: 1.7 }}>
-        Glyphs are mini-panels that appear in the header and footer — clocks, weather, status indicators, and more.
-        Coming in v0.0.6.
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
+          Glyphs appear in the header and footer. Each user configures their own.
+        </p>
+        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+          onClick={() => setShowForm(f => !f)}>+ Add glyph</button>
       </div>
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 20, padding: 16 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div>
+              <label className="label">Type</label>
+              <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
+                {GLYPH_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Zone</label>
+              <select className="input" value={newZone} onChange={e => setNewZone(e.target.value)} style={{ cursor: 'pointer' }}>
+                {ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={create} disabled={creating}>
+              {creating ? <span className="spinner" /> : 'Add'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 10 }}>
+            {GLYPH_TYPES.find(t => t.id === newType)?.desc}
+            {GLYPH_TYPES.find(t => t.id === newType)?.needsSecret && ' · Requires an API key secret'}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {glyphs.map(g => (
+          <GlyphRow key={g.id} glyph={g} secrets={secrets}
+            editing={editId === g.id}
+            onEdit={() => setEditId(editId === g.id ? null : g.id)}
+            onToggle={() => toggleEnabled(g)}
+            onDelete={() => remove(g.id)}
+            onSave={async (config) => {
+              await glyphsApi.update(g.id, { config, zone: g.zone })
+              setEditId(null); await load()
+            }}
+            onZoneChange={async (zone) => {
+              await glyphsApi.update(g.id, { zone, config: g.config })
+              await load()
+            }}
+          />
+        ))}
+        {glyphs.length === 0 && !showForm && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>
+            No glyphs yet. Add a clock to get started.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave, onZoneChange }: {
+  glyph: Glyph; secrets: any[]; editing: boolean
+  onEdit: () => void; onToggle: () => void; onDelete: () => void
+  onSave: (config: string) => void; onZoneChange: (zone: string) => void
+}) {
+  const config = (() => { try { return JSON.parse(glyph.config) } catch { return {} } })()
+  const [localConfig, setLocalConfig] = useState(config)
+  const typeDef = GLYPH_TYPES.find(t => t.id === glyph.type)
+  const zoneDef = ZONES.find(z => z.id === glyph.zone)
+
+  return (
+    <div style={{
+      background: 'var(--surface)', border: `1px solid ${editing ? 'var(--accent)' : 'var(--border)'}`,
+      borderRadius: 10, overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{typeDef?.label ?? glyph.type}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>{zoneDef?.label ?? glyph.zone}</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Enabled toggle */}
+          <button onClick={onToggle} style={{
+            fontSize: 11, padding: '2px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: glyph.enabled ? 'var(--accent-bg)' : 'var(--surface2)',
+            color: glyph.enabled ? 'var(--accent2)' : 'var(--text-dim)',
+          }}>{glyph.enabled ? 'On' : 'Off'}</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onEdit}>Configure</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={onDelete}>Delete</button>
+        </div>
+      </div>
+
+      {editing && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+            {/* Zone picker */}
+            <div>
+              <label className="label">Zone</label>
+              <select className="input" value={glyph.zone}
+                onChange={e => onZoneChange(e.target.value)} style={{ cursor: 'pointer' }}>
+                {ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
+              </select>
+            </div>
+
+            {/* Clock config */}
+            {glyph.type === 'clock' && (
+              <>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">Format</label>
+                    <select className="input" value={localConfig.format || '12h'}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, format: e.target.value }))}
+                      style={{ cursor: 'pointer' }}>
+                      <option value="12h">12-hour</option>
+                      <option value="24h">24-hour</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">Show seconds</label>
+                    <select className="input" value={localConfig.showSeconds ? 'yes' : 'no'}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, showSeconds: e.target.value === 'yes' }))}
+                      style={{ cursor: 'pointer' }}>
+                      <option value="no">No</option>
+                      <option value="yes">Yes</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">Show date</label>
+                    <select className="input" value={localConfig.showDate !== false ? 'yes' : 'no'}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, showDate: e.target.value === 'yes' }))}
+                      style={{ cursor: 'pointer' }}>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Weather config */}
+            {glyph.type === 'weather' && (
+              <>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">ZIP code</label>
+                    <input className="input" value={localConfig.zip || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, zip: e.target.value }))}
+                      placeholder="e.g. 80918" />
+                  </div>
+                  <div>
+                    <label className="label">Country</label>
+                    <input className="input" value={localConfig.country || 'US'}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, country: e.target.value }))}
+                      style={{ width: 80 }} />
+                  </div>
+                  <div>
+                    <label className="label">Units</label>
+                    <select className="input" value={localConfig.units || 'imperial'}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, units: e.target.value }))}
+                      style={{ cursor: 'pointer' }}>
+                      <option value="imperial">°F</option>
+                      <option value="metric">°C</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="label">API key secret</label>
+                  <select className="input" value={localConfig.secretId || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, secretId: e.target.value }))}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="">— Select a secret —</option>
+                    {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  {secrets.length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                      No secrets yet. Add an OpenWeatherMap API key in the Secrets tab.
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="label">Refresh every</label>
+                  <select className="input" value={localConfig.refreshSecs || 1800}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, refreshSecs: Number(e.target.value) }))}
+                    style={{ cursor: 'pointer' }}>
+                    <option value={300}>5 minutes</option>
+                    <option value={900}>15 minutes</option>
+                    <option value={1800}>30 minutes</option>
+                    <option value={3600}>1 hour</option>
+                  </select>
+                </div>
+              </>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" style={{ fontSize: 12 }}
+                onClick={() => onSave(JSON.stringify(localConfig))}>Save</button>
+              <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={onEdit}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

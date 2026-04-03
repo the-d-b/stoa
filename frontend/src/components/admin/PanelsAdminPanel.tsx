@@ -89,6 +89,7 @@ export default function PanelsAdminPanel() {
               <label className="label">Panel type</label>
               <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
                 <option value="bookmarks">Bookmarks</option>
+                <option value="calendar">Calendar</option>
               </select>
             </div>
             <div style={{ flex: 1 }}>
