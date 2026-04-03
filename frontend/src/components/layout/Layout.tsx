@@ -13,6 +13,7 @@ export default function Layout() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
   const [tickers, setTickers] = useState<any[]>([])
+  const [activePorticoId, setActivePorticoId] = useState(() => sessionStorage.getItem('active_portico') || 'home')
 
   const location = useLocation()
 
@@ -35,6 +36,17 @@ export default function Layout() {
     window.addEventListener('focus', loadGlyphs)
     return () => window.removeEventListener('focus', loadGlyphs)
   }, [user?.id, location.pathname])
+  // Listen for portico-change events dispatched by DashboardPage
+  // This is more reliable than polling sessionStorage since it fires immediately on switch
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const id = (e as CustomEvent).detail || 'home'
+      setActivePorticoId(id)
+    }
+    window.addEventListener('portico-change', handler)
+    return () => window.removeEventListener('portico-change', handler)
+  }, [])
+
   const onAdmin = location.pathname.startsWith('/admin')
 
   return (
@@ -130,7 +142,7 @@ export default function Layout() {
           </div>
         </div>
         {/* Header ticker strip — inside sticky header, sticks with it */}
-        <TickerStrip tickers={tickers} zone="header" activePorticoId={sessionStorage.getItem("active_portico") || "home"} />
+        <TickerStrip tickers={tickers} zone="header" activePorticoId={activePorticoId} />
       </header>
 
       {/* Main */}
@@ -140,7 +152,7 @@ export default function Layout() {
 
       {/* Footer + ticker — sticky unit at bottom of viewport */}
       <div style={{ position: 'sticky', bottom: 0, zIndex: 40 }}>
-        <TickerStrip tickers={tickers} zone="footer" activePorticoId={sessionStorage.getItem("active_portico") || "home"} />
+        <TickerStrip tickers={tickers} zone="footer" activePorticoId={activePorticoId} />
         <footer style={{
           borderTop: '1px solid var(--border)', padding: '8px 24px',
           background: 'var(--surface)',

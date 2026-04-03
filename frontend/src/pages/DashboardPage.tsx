@@ -54,6 +54,7 @@ export default function DashboardPage() {
         setAllTags(tagData)
         setActiveTags(tagData.map((tag: Tag) => tag.id))
         sessionStorage.setItem('active_portico', 'home')
+        window.dispatchEvent(new CustomEvent('portico-change', { detail: 'home' }))
 
         // Load subtrees for bookmark panels
         const map: Record<string, BookmarkNode> = {}
@@ -128,6 +129,7 @@ export default function DashboardPage() {
       setActiveWallId('home')
       setActivePortico(null)
       sessionStorage.setItem('active_portico', 'home')
+      window.dispatchEvent(new CustomEvent('portico-change', { detail: 'home' }))
       setActiveTags(allTags.map(t => t.id))
       // Reload panels with Home ordering (no wall_id)
       try {
@@ -140,6 +142,7 @@ export default function DashboardPage() {
       setActiveWallId(wall.id)
       setActivePortico(wall)
       sessionStorage.setItem('active_portico', wall.id)
+      window.dispatchEvent(new CustomEvent('portico-change', { detail: wall.id }))
       setActiveTags((wall.tags || []).filter(t => t.active).map(t => t.tagId))
       // Reload panels with this wall's ordering
       try {
