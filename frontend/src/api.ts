@@ -166,6 +166,13 @@ export const bookmarksApi = {
     api.post<{ iconUrl: string }>('/bookmarks/cache-icon', { url }),
 }
 
+// ── Preferences ──────────────────────────────────────────────────────────────
+
+export const preferencesApi = {
+  get: () => api.get<{ theme: string; avatarUrl: string; density: string }>('/preferences'),
+  save: (data: { theme?: string; density?: string }) => api.put('/preferences', data),
+}
+
 // ── Profile ──────────────────────────────────────────────────────────────────
 
 export const profileApi = {
@@ -272,6 +279,9 @@ export interface Wall {
   userId: string
   name: string
   isDefault: boolean
+  layout: string
+  columnCount: number
+  columnHeight: number
   createdAt: string
   tags: WallTag[]
 }
@@ -281,6 +291,8 @@ export const porticosApi = {
   create: (name: string, isDefault?: boolean) => api.post<Wall>('/porticos', { name, isDefault }),
   delete: (id: string) => api.delete(`/porticos/${id}`),
   updateOrder: (order: { porticoId: string; position: number }[]) => api.put('/porticos/order', order),
+  update: (id: string, data: { layout?: string; columnCount?: number; columnHeight?: number }) =>
+    api.put(`/porticos/${id}`, data),
   setTagActive: (porticoId: string, tagId: string, active: boolean) =>
     api.put(`/porticos/${porticoId}/tags/${tagId}`, { active }),
 }

@@ -119,12 +119,15 @@ type CreatePanelRequest struct {
 // ── Walls ─────────────────────────────────────────────────────────────────────
 
 type Wall struct {
-	ID        string    `json:"id"`
-	UserID    string    `json:"userId"`
-	Name      string    `json:"name"`
-	IsDefault bool      `json:"isDefault"`
-	CreatedAt time.Time `json:"createdAt"`
-	Tags      []WallTag `json:"tags,omitempty"`
+	ID           string    `json:"id"`
+	UserID       string    `json:"userId"`
+	Name         string    `json:"name"`
+	IsDefault    bool      `json:"isDefault"`
+	Layout       string    `json:"layout"`
+	ColumnCount  int       `json:"columnCount"`
+	ColumnHeight int       `json:"columnHeight"`
+	CreatedAt    time.Time `json:"createdAt"`
+	Tags         []WallTag `json:"tags,omitempty"`
 }
 
 type WallTag struct {

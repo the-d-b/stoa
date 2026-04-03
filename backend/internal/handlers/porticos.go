@@ -16,7 +16,9 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		rows, err := db.Query(`
-			SELECT id, user_id, name, is_default, created_at
+			SELECT id, user_id, name, is_default,
+			       COALESCE(layout,'columns'), COALESCE(column_count,3), COALESCE(column_height,8),
+			       created_at
 			FROM porticos WHERE user_id = ?
 			ORDER BY is_default DESC, sort_order ASC, created_at ASC
 		`, claims.UserID)
@@ -29,7 +31,7 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 		porticos := []models.Wall{}
 		for rows.Next() {
 			var p models.Wall
-			rows.Scan(&p.ID, &p.UserID, &p.Name, &p.IsDefault, &p.CreatedAt)
+			rows.Scan(&p.ID, &p.UserID, &p.Name, &p.IsDefault, &p.Layout, &p.ColumnCount, &p.ColumnHeight, &p.CreatedAt)
 			// Load tag states
 			tagRows, _ := db.Query(`
 				SELECT tag_id, active FROM portico_tags WHERE portico_id = ?
@@ -344,19 +346,56 @@ func encryptSecret(plaintext string) (string, error) {
 	return "enc:" + plaintext, nil
 }
 
+func UpdatePortico(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+
+		var req struct {
+			Name         string `json:"name"`
+			Layout       string `json:"layout"`
+			ColumnCount  int    `json:"columnCount"`
+			ColumnHeight int    `json:"columnHeight"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+
+		// Validate
+		if req.Layout != "columns" && req.Layout != "flow" {
+			req.Layout = "columns"
+		}
+		if req.ColumnCount < 2 || req.ColumnCount > 6 {
+			req.ColumnCount = 3
+		}
+		if req.ColumnHeight != 6 && req.ColumnHeight != 8 && req.ColumnHeight != 10 {
+			req.ColumnHeight = 8
+		}
+
+		db.Exec(`
+			UPDATE porticos SET layout=?, column_count=?, column_height=?
+			WHERE id=? AND user_id=?
+		`, req.Layout, req.ColumnCount, req.ColumnHeight, id, claims.UserID)
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
 // ── Preferences ───────────────────────────────────────────────────────────────
 
 func GetPreferences(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		var theme, avatarURL string
+		var theme, avatarURL, density string
 		db.QueryRow(`
-			SELECT COALESCE(theme,''), COALESCE(avatar_url,'')
+			SELECT COALESCE(theme,''), COALESCE(avatar_url,''), COALESCE(density,'normal')
 			FROM user_preferences WHERE user_id = ?
-		`, claims.UserID).Scan(&theme, &avatarURL)
+		`, claims.UserID).Scan(&theme, &avatarURL, &density)
 		writeJSON(w, http.StatusOK, map[string]string{
 			"theme":     theme,
 			"avatarUrl": avatarURL,
+			"density":   density,
 		})
 	}
 }
@@ -365,14 +404,18 @@ func SavePreferences(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		var req struct {
-			Theme string `json:"theme"`
+			Theme   string `json:"theme"`
+			Density string `json:"density"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
+		if req.Density != "compact" && req.Density != "normal" && req.Density != "comfortable" {
+			req.Density = "normal"
+		}
 		db.Exec(`
-			INSERT INTO user_preferences (user_id, theme)
-			VALUES (?, ?)
-			ON CONFLICT(user_id) DO UPDATE SET theme = excluded.theme
-		`, claims.UserID, req.Theme)
+			INSERT INTO user_preferences (user_id, theme, density)
+			VALUES (?, ?, ?)
+			ON CONFLICT(user_id) DO UPDATE SET theme = excluded.theme, density = excluded.density
+		`, claims.UserID, req.Theme, req.Density)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

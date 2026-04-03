@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, secretsApi, Secret, Panel, Wall } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, Secret, Panel, Wall } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
 type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs'
@@ -187,6 +187,9 @@ function OverviewTab() {
           </div>
         )}
       </div>
+
+      {/* Density setting */}
+      <DensityPicker />
 
       {/* Coming soon items */}
       {[
@@ -617,6 +620,41 @@ function WallsTab() {
                 {(wall.tags || []).filter(t => t.active).length} active tag{(wall.tags || []).filter(t => t.active).length !== 1 ? 's' : ''}
               </div>
             </div>
+            {/* Layout controls */}
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <select
+                value={wall.layout || 'columns'}
+                onChange={async e => {
+                  await porticosApi.update(wall.id, { layout: e.target.value })
+                  const updated = await porticosApi.list()
+                  setWalls(updated.data || [])
+                }}
+                style={{
+                  fontSize: 11, padding: '2px 6px', borderRadius: 5,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  color: 'var(--text-muted)', cursor: 'pointer',
+                }}>
+                <option value="columns">Columns</option>
+                <option value="flow">Flow</option>
+              </select>
+              {wall.layout !== 'flow' && (
+                <select
+                  value={wall.columnCount || 3}
+                  onChange={async e => {
+                    await porticosApi.update(wall.id, { columnCount: Number(e.target.value) })
+                    const updated = await porticosApi.list()
+                    setWalls(updated.data || [])
+                  }}
+                  style={{
+                    fontSize: 11, padding: '2px 6px', borderRadius: 5,
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                    color: 'var(--text-muted)', cursor: 'pointer',
+                  }}>
+                  {[2,3,4,5,6].map(n => <option key={n} value={n}>{n} cols</option>)}
+                </select>
+              )}
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
               <button onClick={() => moveUp(i)} disabled={i === 0} style={{
                 background: 'none', border: 'none', cursor: i === 0 ? 'default' : 'pointer',
@@ -813,6 +851,60 @@ function GlyphsTab() {
       <div style={{ fontSize: 13, maxWidth: 320, margin: '0 auto', lineHeight: 1.7 }}>
         Glyphs are mini-panels that appear in the header and footer — clocks, weather, status indicators, and more.
         Coming in v0.0.6.
+      </div>
+    </div>
+  )
+}
+
+// ── Density picker ────────────────────────────────────────────────────────────
+
+function DensityPicker() {
+  const [density, setDensityState] = useState('normal')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    preferencesApi.get().then(r => setDensityState(r.data.density || 'normal')).catch(() => {})
+  }, [])
+
+  const save = async (val: string) => {
+    setDensityState(val)
+    setSaving(true)
+    try {
+      await preferencesApi.save({ density: val })
+      setSaved(true); setTimeout(() => setSaved(false), 1500)
+    } finally { setSaving(false) }
+  }
+
+  const options = [
+    { id: 'compact',     label: 'Compact',     desc: '~6 columns · 180px min' },
+    { id: 'normal',      label: 'Normal',       desc: '~5 columns · 240px min' },
+    { id: 'comfortable', label: 'Comfortable',  desc: '~3 columns · 320px min' },
+  ]
+
+  return (
+    <div className="card" style={{ padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>Panel density</div>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Controls minimum panel width on desktop</div>
+        </div>
+        {saved && <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ saved</span>}
+        {saving && <span className="spinner" />}
+      </div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {options.map(o => (
+          <button key={o.id} onClick={() => save(o.id)} style={{
+            flex: 1, padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+            background: density === o.id ? 'var(--accent-bg)' : 'var(--surface2)',
+            border: `1px solid ${density === o.id ? '#7c6fff50' : 'var(--border)'}`,
+            color: density === o.id ? 'var(--accent2)' : 'var(--text-muted)',
+            transition: 'all 0.15s', textAlign: 'left',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: density === o.id ? 500 : 400 }}>{o.label}</div>
+            <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>{o.desc}</div>
+          </button>
+        ))}
       </div>
     </div>
   )

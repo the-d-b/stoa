@@ -86,6 +86,7 @@ func main() {
 	protected.HandleFunc("/porticos/order", handlers.UpdatePorticoOrder(database)).Methods("PUT")
 	protected.HandleFunc("/porticos", handlers.CreatePortico(database)).Methods("POST")
 	protected.HandleFunc("/porticos/{id}", handlers.DeletePortico(database)).Methods("DELETE")
+	protected.HandleFunc("/porticos/{id}", handlers.UpdatePortico(database)).Methods("PUT")
 	protected.HandleFunc("/porticos/{id}/tags/{tagId}", handlers.SetPorticoTagActive(database)).Methods("PUT")
 	protected.HandleFunc("/panels/{id}/porticos", handlers.GetPersonalPanelPorticos(database)).Methods("GET")
 	protected.HandleFunc("/panels/{id}/porticos", handlers.SetPersonalPanelPorticos(database)).Methods("PUT")

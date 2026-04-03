@@ -257,6 +257,20 @@ var migrations = []migration{
 		`,
 	},
 
+	{
+		version: 7,
+		name:    "layout_system",
+		up: `
+			-- Portico layout settings
+			ALTER TABLE porticos ADD COLUMN layout TEXT NOT NULL DEFAULT 'columns';
+			ALTER TABLE porticos ADD COLUMN column_count INTEGER NOT NULL DEFAULT 3;
+			ALTER TABLE porticos ADD COLUMN column_height INTEGER NOT NULL DEFAULT 8;
+
+			-- User density preference
+			ALTER TABLE user_preferences ADD COLUMN density TEXT NOT NULL DEFAULT 'normal';
+		`,
+	},
+
 }
 
 func Run(db *sql.DB) error {

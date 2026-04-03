@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
 import SearchModal from '../components/SearchModal'
 
@@ -18,6 +18,8 @@ export default function DashboardPage() {
   const [newWallName, setNewWallName] = useState('')
   const [showSaveWall, setShowSaveWall] = useState(false)
   const [showTagFilter, setShowTagFilter] = useState(false) // mobile toggle
+  const [density, setDensity] = useState('normal')
+  const [activePortico, setActivePortico] = useState<Wall | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -29,6 +31,11 @@ export default function DashboardPage() {
           tagsApi.list(),
         ])
         console.log(`[Dashboard] panels=${p.data?.length} walls=${w.data?.length} tags=${t.data?.length}`)
+        // Load user density preference
+        try {
+          const prefs = await preferencesApi.get()
+          setDensity(prefs.data.density || 'normal')
+        } catch {}
         if (p.data) {
           p.data.forEach((panel: Panel) => {
             console.log(`[Dashboard] panel=${panel.id} title="${panel.title}" position=${panel.position} scope=${panel.scope}`)
@@ -117,6 +124,7 @@ export default function DashboardPage() {
   const selectWall = async (wall: Wall | 'home') => {
     if (wall === 'home') {
       setActiveWallId('home')
+      setActivePortico(null)
       setActiveTags(allTags.map(t => t.id))
       // Reload panels with Home ordering (no wall_id)
       try {
@@ -127,6 +135,7 @@ export default function DashboardPage() {
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     } else {
       setActiveWallId(wall.id)
+      setActivePortico(wall)
       setActiveTags((wall.tags || []).filter(t => t.active).map(t => t.tagId))
       // Reload panels with this wall's ordering
       try {
@@ -283,12 +292,13 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Panels grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {visiblePanels.map(panel => (
-            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
-          ))}
-        </div>
+        {/* Panels — layout engine */}
+        <PanelGrid
+          panels={visiblePanels}
+          subtrees={subtrees}
+          portico={activePortico}
+          density={density}
+        />
 
         {visiblePanels.length === 0 && activeTags !== null && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-muted)', fontSize: 14 }}>
@@ -388,13 +398,107 @@ function WallTab({ label, active, onClick, onDelete }: {
   )
 }
 
+// ── Layout engine ────────────────────────────────────────────────────────────
+
+const DENSITY_MIN_WIDTH: Record<string, number> = {
+  compact:     180,
+  normal:      240,
+  comfortable: 320,
+}
+
+const ROW_UNIT = 120 // px per 1x unit
+
+function PanelGrid({ panels, subtrees, portico, density }: {
+  panels: Panel[]
+  subtrees: Record<string, BookmarkNode>
+  portico: Wall | null
+  density: string
+}) {
+  const layout      = portico?.layout      ?? 'columns'
+  const colCount    = portico?.columnCount  ?? 3
+  const colHeight   = portico?.columnHeight ?? 8
+  const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
+
+  if (panels.length === 0) return null
+
+  if (layout === 'flow') {
+    // Flow: auto-fill columns by min width, panels wrap naturally
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}px, 1fr))`,
+        gridAutoRows: `${ROW_UNIT}px`,
+        gap: 16,
+        alignItems: 'start',
+      }}>
+        {panels.map(panel => (
+          <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+        ))}
+      </div>
+    )
+  }
+
+  // Column-first: fixed column count, panels distributed top-to-bottom
+  // Assign panels to columns by filling each column up to colHeight units
+  const columns: Panel[][] = Array.from({ length: colCount }, () => [])
+  const colFill = new Array(colCount).fill(0)
+
+  for (const panel of panels) {
+    const height = getPanelHeight(panel)
+    // Find column with most room that can fit this panel
+    let best = 0
+    let bestFill = Infinity
+    for (let c = 0; c < colCount; c++) {
+      if (colFill[c] + height <= colHeight && colFill[c] < bestFill) {
+        best = c
+        bestFill = colFill[c]
+      }
+    }
+    // If no column fits, start overflow by picking least-full column
+    if (bestFill === Infinity) {
+      best = colFill.indexOf(Math.min(...colFill))
+    }
+    columns[best].push(panel)
+    colFill[best] += height
+  }
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${colCount}, 1fr)`,
+      gap: 16,
+      alignItems: 'start',
+    }}>
+      {columns.map((col, ci) => (
+        <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {col.map(panel => (
+            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function getPanelHeight(panel: Panel): number {
+  try {
+    const config = JSON.parse(panel.config || '{}')
+    return config.height ?? 2
+  } catch { return 2 }
+}
+
+// ── Panel card ────────────────────────────────────────────────────────────────
+
 function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode }) {
   const [panelExpanded, setPanelExpanded] = useState<boolean | null>(null)
+  const heightUnits = getPanelHeight(panel)
+  const cardHeight = heightUnits * ROW_UNIT - 16 // subtract gap
 
   return (
     <div style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
+      height: cardHeight, display: 'flex', flexDirection: 'column',
     }}
       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
@@ -420,7 +524,7 @@ function PanelCard({ panel, subtree }: { panel: Panel; subtree?: BookmarkNode })
               lineHeight: 1, padding: 0 }}>−</button>
         </div>
       </div>
-      <div style={{ padding: '10px 14px', maxHeight: 400, overflowY: 'auto' }}>
+      <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
         {panel.type === 'bookmarks' && subtree && (
           <BookmarkTree
             nodes={['root', 'personal-root', 'shared-root'].includes(subtree.id)

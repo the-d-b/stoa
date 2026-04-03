@@ -9,6 +9,7 @@ export default function PanelsAdminPanel() {
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newRootId, setNewRootId] = useState('')
+  const [newHeight, setNewHeight] = useState(2)
   const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
@@ -41,7 +42,7 @@ export default function PanelsAdminPanel() {
   const create = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
-    const config = newRootId ? JSON.stringify({ rootNodeId: newRootId }) : '{}'
+    const config = JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
     await panelsApi.create({ type: newType, title: newTitle.trim(), config })
     setNewTitle(''); setNewRootId(''); setShowForm(false)
     await load(); setCreating(false)
@@ -100,6 +101,17 @@ export default function PanelsAdminPanel() {
               ))}
               </select>
             </div>
+            <div style={{ flex: 0.4 }}>
+              <label className="label">Height</label>
+              <select className="input" value={newHeight}
+                onChange={e => setNewHeight(Number(e.target.value))}
+                style={{ cursor: 'pointer' }}>
+                <option value={1}>1x — Compact</option>
+                <option value={2}>2x — Normal</option>
+                <option value={4}>4x — Tall</option>
+                <option value={8}>8x — Full</option>
+              </select>
+            </div>
             <button className="btn btn-primary" onClick={create} disabled={creating}>
               {creating ? <span className="spinner" /> : 'Create'}
             </button>
@@ -122,6 +134,8 @@ export default function PanelsAdminPanel() {
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{p.title}</div>
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', marginTop: 2 }}>
                     {rootNode ? rootNode.name : '/ (all shared)'}
+                    {' · '}
+                    {(() => { try { const h = JSON.parse(p.config||'{}').height||2; return `${h}x` } catch { return '2x' } })()}
                   </div>
                 </div>
                 <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
