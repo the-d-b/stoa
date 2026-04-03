@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, Glyph, Secret, Panel, Wall } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, Ticker, Glyph, Secret, Panel, Wall } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs'
+type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -30,6 +30,7 @@ export default function ProfilePage() {
     { id: 'porticos',  label: 'Porticos',     icon: '◧' },
     { id: 'secrets',   label: 'Secrets',      icon: '🔑' },
     { id: 'glyphs',    label: 'Glyphs',       icon: '◈' },
+    { id: 'tickers',   label: 'Tickers',      icon: '▶' },
   ]
 
   return (
@@ -76,6 +77,7 @@ export default function ProfilePage() {
       {tab === 'porticos'  && <WallsTab />}
       {tab === 'secrets'   && <SecretsTab />}
       {tab === 'glyphs'    && <GlyphsTab />}
+      {tab === 'tickers'   && <TickersTab />}
     </div>
   )
 }
@@ -1181,6 +1183,255 @@ function DensityPicker() {
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Tickers ───────────────────────────────────────────────────────────────────
+
+const TICKER_TYPES = [
+  { id: 'stocks', label: 'Stocks', desc: 'Finnhub API — real-time US equity quotes' },
+  { id: 'crypto', label: 'Crypto', desc: 'CoinMarketCap API — cryptocurrency prices' },
+]
+
+const TICKER_ZONES = [
+  { id: 'header', label: 'Header (below nav)' },
+  { id: 'footer', label: 'Footer (above footer bar)' },
+]
+
+const TICKER_MODES = [
+  { id: 'static', label: 'Static with swoosh', desc: 'Tiles refresh with a swoosh animation' },
+  { id: 'scroll', label: 'Scrolling', desc: 'Continuous horizontal scroll' },
+]
+
+function TickersTab() {
+  const [tickers, setTickers] = useState<Ticker[]>([])
+  const [secrets, setSecrets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newType, setNewType] = useState('stocks')
+  const [newZone, setNewZone] = useState('footer')
+  const [creating, setCreating] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+
+  const load = async () => {
+    const [t, s] = await Promise.all([tickersApi.list(), secretsApi.list()])
+    setTickers(t.data || [])
+    setSecrets(s.data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const create = async () => {
+    setCreating(true)
+    try {
+      const defaultConfig = JSON.stringify({
+        mode: 'static', refreshSecs: 300, secretId: '',
+      })
+      await tickersApi.create({ type: newType, zone: newZone, symbols: '[]', config: defaultConfig })
+      setShowForm(false); await load()
+    } finally { setCreating(false) }
+  }
+
+  const remove = async (id: string) => {
+    if (!confirm('Delete this ticker?')) return
+    await tickersApi.delete(id); await load()
+  }
+
+  const toggleEnabled = async (t: Ticker) => {
+    await tickersApi.update(t.id, { enabled: !t.enabled }); await load()
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
+          Tickers display live market data in a strip above the header or above the footer.
+        </p>
+        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+          onClick={() => setShowForm(f => !f)}>+ Add ticker</button>
+      </div>
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 20, padding: 16 }}>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div>
+              <label className="label">Type</label>
+              <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
+                {TICKER_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Zone</label>
+              <select className="input" value={newZone} onChange={e => setNewZone(e.target.value)} style={{ cursor: 'pointer' }}>
+                {TICKER_ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
+              </select>
+            </div>
+            <button className="btn btn-primary" onClick={create} disabled={creating}>
+              {creating ? <span className="spinner" /> : 'Add'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 10 }}>
+            {TICKER_TYPES.find(t => t.id === newType)?.desc}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {tickers.map(t => (
+          <TickerRow key={t.id} ticker={t} secrets={secrets}
+            editing={editId === t.id}
+            onEdit={() => setEditId(editId === t.id ? null : t.id)}
+            onToggle={() => toggleEnabled(t)}
+            onDelete={() => remove(t.id)}
+            onSave={async (symbols, config) => {
+              await tickersApi.update(t.id, { symbols, config })
+              setEditId(null); await load()
+            }}
+          />
+        ))}
+        {tickers.length === 0 && !showForm && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>
+            No tickers yet. Add a stocks or crypto ticker to get started.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSave }: {
+  ticker: Ticker; secrets: any[]; editing: boolean
+  onEdit: () => void; onToggle: () => void; onDelete: () => void
+  onSave: (symbols: string, config: string) => void
+}) {
+  const config = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
+  const symbolsArr: string[] = (() => { try { return JSON.parse(ticker.symbols) } catch { return [] } })()
+
+  const [localSecretId, setLocalSecretId] = useState(config.secretId || '')
+  const [localMode, setLocalMode] = useState(config.mode || 'static')
+  const [localRefresh, setLocalRefresh] = useState(config.refreshSecs || 300)
+  const [localSymbols, setLocalSymbols] = useState(symbolsArr.join(', '))
+  const [localZone, setLocalZone] = useState(ticker.zone)
+
+  useEffect(() => {
+    const c = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
+    setLocalSecretId(c.secretId || '')
+    setLocalMode(c.mode || 'static')
+    setLocalRefresh(c.refreshSecs || 300)
+    setLocalSymbols((() => { try { return JSON.parse(ticker.symbols).join(', ') } catch { return '' } })())
+    setLocalZone(ticker.zone)
+  }, [ticker.config, ticker.symbols, ticker.zone])
+
+  const typeDef = TICKER_TYPES.find(t => t.id === ticker.type)
+  const zoneDef = TICKER_ZONES.find(z => z.id === ticker.zone)
+
+  const handleSave = async () => {
+    const symbols = JSON.stringify(
+      localSymbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+    )
+    const newConfig = JSON.stringify({
+      secretId: localSecretId,
+      mode: localMode,
+      refreshSecs: localRefresh,
+    })
+    // Update zone separately if changed
+    if (localZone !== ticker.zone) {
+      await tickersApi.update(ticker.id, { zone: localZone })
+    }
+    onSave(symbols, newConfig)
+  }
+
+  return (
+    <div style={{
+      background: 'var(--surface)', border: `1px solid ${editing ? 'var(--accent)' : 'var(--border)'}`,
+      borderRadius: 10, overflow: 'hidden',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{typeDef?.label ?? ticker.type}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+            {zoneDef?.label ?? ticker.zone} · {symbolsArr.length} symbol{symbolsArr.length !== 1 ? 's' : ''}
+            {symbolsArr.length > 0 && (
+              <span style={{ fontFamily: 'DM Mono, monospace', marginLeft: 6 }}>
+                {symbolsArr.slice(0, 5).join(' ')}
+                {symbolsArr.length > 5 ? ` +${symbolsArr.length - 5}` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={onToggle} style={{
+            fontSize: 11, padding: '2px 10px', borderRadius: 6, border: 'none', cursor: 'pointer',
+            background: ticker.enabled ? 'var(--accent-bg)' : 'var(--surface2)',
+            color: ticker.enabled ? 'var(--accent2)' : 'var(--text-dim)',
+          }}>{ticker.enabled ? 'On' : 'Off'}</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onEdit}>Configure</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={onDelete}>Delete</button>
+        </div>
+      </div>
+
+      {editing && (
+        <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label className="label">Zone</label>
+                <select className="input" value={localZone} onChange={e => setLocalZone(e.target.value)} style={{ cursor: 'pointer' }}>
+                  {TICKER_ZONES.map(z => <option key={z.id} value={z.id}>{z.label}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="label">Display mode</label>
+                <select className="input" value={localMode} onChange={e => setLocalMode(e.target.value)} style={{ cursor: 'pointer' }}>
+                  {TICKER_MODES.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 0.7 }}>
+                <label className="label">Refresh every</label>
+                <select className="input" value={localRefresh} onChange={e => setLocalRefresh(Number(e.target.value))} style={{ cursor: 'pointer' }}>
+                  <option value={60}>1 minute</option>
+                  <option value={300}>5 minutes</option>
+                  <option value={900}>15 minutes</option>
+                  <option value={1800}>30 minutes</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="label">API key secret</label>
+              <select className="input" value={localSecretId} onChange={e => setLocalSecretId(e.target.value)} style={{ cursor: 'pointer' }}>
+                <option value="">— Select a secret —</option>
+                {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              {secrets.length === 0 && (
+                <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                  No secrets yet — add a Finnhub or CoinMarketCap API key in the Secrets tab.
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="label">Symbols (comma separated)</label>
+              <input className="input" value={localSymbols}
+                onChange={e => setLocalSymbols(e.target.value)}
+                placeholder={ticker.type === 'stocks' ? 'AAPL, MSFT, NVDA, TSLA' : 'BTC, ETH, SOL'} />
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>
+                {ticker.type === 'stocks' ? 'Use standard NYSE/NASDAQ ticker symbols' : 'Use CoinMarketCap symbol codes'}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={handleSave}>Save</button>
+              <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={onEdit}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

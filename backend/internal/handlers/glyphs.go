@@ -343,3 +343,171 @@ func DeleteTicker(db *sql.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
+
+// ── Ticker data ───────────────────────────────────────────────────────────────
+
+func GetTickerData(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+
+		var tickerType, symbolsStr, configStr string
+		err := db.QueryRow(`
+			SELECT type, symbols, config FROM tickers WHERE id=? AND user_id=?
+		`, id, claims.UserID).Scan(&tickerType, &symbolsStr, &configStr)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "ticker not found")
+			return
+		}
+
+		var symbols []string
+		json.Unmarshal([]byte(symbolsStr), &symbols)
+
+		var config map[string]interface{}
+		json.Unmarshal([]byte(configStr), &config)
+
+		secretID := stringVal(config, "secretId")
+		if secretID == "" {
+			writeError(w, http.StatusBadRequest, "API key secret not configured")
+			return
+		}
+
+		var encryptedVal string
+		err = db.QueryRow("SELECT value FROM secrets WHERE id=?", secretID).Scan(&encryptedVal)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "secret not found")
+			return
+		}
+		apiKey := decryptSecret(encryptedVal)
+
+		switch tickerType {
+		case "stocks":
+			data, err := fetchStockQuotes(symbols, apiKey)
+			if err != nil {
+				log.Printf("[TICKERS] stock fetch error: %v", err)
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, data)
+		case "crypto":
+			data, err := fetchCryptoQuotes(symbols, apiKey)
+			if err != nil {
+				log.Printf("[TICKERS] crypto fetch error: %v", err)
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, data)
+		default:
+			writeError(w, http.StatusBadRequest, "unknown ticker type")
+		}
+	}
+}
+
+type Quote struct {
+	Symbol string  `json:"symbol"`
+	Price  float64 `json:"price"`
+	Delta  float64 `json:"delta"`  // absolute change
+	DeltaP float64 `json:"deltaP"` // percent change
+}
+
+func fetchStockQuotes(symbols []string, apiKey string) ([]Quote, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	quotes := []Quote{}
+
+	for _, sym := range symbols {
+		url := fmt.Sprintf("https://finnhub.io/api/v1/quote?symbol=%s&token=%s", sym, apiKey)
+		resp, err := client.Get(url)
+		if err != nil {
+			log.Printf("[TICKERS] finnhub error for %s: %v", sym, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			log.Printf("[TICKERS] finnhub %d for %s", resp.StatusCode, sym)
+			continue
+		}
+
+		var result struct {
+			C float64 `json:"c"` // current price
+			D float64 `json:"d"` // change
+			Dp float64 `json:"dp"` // percent change
+		}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8*1024))
+		json.Unmarshal(body, &result)
+
+		if result.C == 0 {
+			continue // invalid symbol or market closed
+		}
+
+		quotes = append(quotes, Quote{
+			Symbol: sym,
+			Price:  result.C,
+			Delta:  result.D,
+			DeltaP: result.Dp,
+		})
+	}
+	return quotes, nil
+}
+
+func fetchCryptoQuotes(symbols []string, apiKey string) ([]Quote, error) {
+	// CoinMarketCap API - fetch all symbols in one call
+	if len(symbols) == 0 {
+		return []Quote{}, nil
+	}
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	symList := ""
+	for i, s := range symbols {
+		if i > 0 {
+			symList += ","
+		}
+		symList += s
+	}
+
+	url := fmt.Sprintf(
+		"https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=%s&convert=USD",
+		symList,
+	)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("X-CMC_PRO_API_KEY", apiKey)
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("CoinMarketCap unreachable")
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("CoinMarketCap returned %d", resp.StatusCode)
+	}
+
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+
+	var result struct {
+		Data map[string]struct {
+			Quote map[string]struct {
+				Price            float64 `json:"price"`
+				PercentChange24h float64 `json:"percent_change_24h"`
+			} `json:"quote"`
+		} `json:"data"`
+	}
+	json.Unmarshal(body, &result)
+
+	quotes := []Quote{}
+	for _, sym := range symbols {
+		if d, ok := result.Data[sym]; ok {
+			if q, ok := d.Quote["USD"]; ok {
+				delta := q.Price * q.PercentChange24h / 100
+				quotes = append(quotes, Quote{
+					Symbol: sym,
+					Price:  q.Price,
+					Delta:  delta,
+					DeltaP: q.PercentChange24h,
+				})
+			}
+		}
+	}
+	return quotes, nil
+}

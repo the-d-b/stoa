@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { glyphsApi, Glyph } from '../../api'
+import { glyphsApi, tickersApi, Glyph } from '../../api'
 import GlyphZone from '../glyphs/GlyphZone'
+import TickerStrip from '../tickers/TickerStrip'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
@@ -11,6 +12,7 @@ export default function Layout() {
   const navigate = useNavigate()
   const [avatarUrl, setAvatarUrl] = useState('')
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
+  const [tickers, setTickers] = useState<any[]>([])
 
   const location = useLocation()
 
@@ -23,6 +25,7 @@ export default function Layout() {
   useEffect(() => {
     if (!user) return
     const loadGlyphs = () => {
+      tickersApi.list().then(r => setTickers(r.data || [])).catch(() => {})
       glyphsApi.list().then(r => {
         console.log('[Layout] glyphs loaded:', r.data?.length)
         setGlyphs(r.data || [])
@@ -128,13 +131,24 @@ export default function Layout() {
         </div>
       </header>
 
+      {/* Header tickers */}
+      <TickerStrip tickers={tickers} zone="header" />
+
       {/* Main */}
       <main style={{ flex: 1, maxWidth: 1100, margin: '0 auto', width: '100%', padding: '32px 24px' }}>
         <Outlet />
       </main>
 
-      {/* Footer — only render if there are footer glyphs or always show minimal */}
-      <footer style={{ borderTop: '1px solid var(--border)', padding: '8px 24px' }}>
+      {/* Footer tickers */}
+      <TickerStrip tickers={tickers} zone="footer" />
+
+      {/* Footer — sticky at bottom of viewport */}
+      <footer style={{
+        borderTop: '1px solid var(--border)', padding: '8px 24px',
+        position: 'sticky', bottom: 0, zIndex: 40,
+        background: 'var(--surface)',
+        backdropFilter: 'blur(12px)',
+      }}>
         <div style={{
           maxWidth: 1100, margin: '0 auto',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,

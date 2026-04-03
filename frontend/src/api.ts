@@ -206,6 +206,7 @@ export const tickersApi = {
   update: (id: string, data: Partial<{ zone: string; position: number; symbols: string; config: string; enabled: boolean }>) =>
     api.put(`/tickers/${id}`, data),
   delete: (id: string) => api.delete(`/tickers/${id}`),
+  getData: (id: string) => api.get<any[]>(`/tickers/${id}/data`),
 }
 
 // ── Preferences ──────────────────────────────────────────────────────────────
