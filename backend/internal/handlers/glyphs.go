@@ -320,17 +320,28 @@ func UpdateTicker(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		var req struct {
-			Zone     string `json:"zone"`
-			Position int    `json:"position"`
-			Symbols  string `json:"symbols"`
-			Config   string `json:"config"`
-			Enabled  bool   `json:"enabled"`
+			Zone     *string `json:"zone"`
+			Position *int    `json:"position"`
+			Symbols  *string `json:"symbols"`
+			Config   *string `json:"config"`
+			Enabled  *bool   `json:"enabled"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
-		db.Exec(`
-			UPDATE tickers SET zone=?, position=?, symbols=?, config=?, enabled=?
-			WHERE id=? AND user_id=?
-		`, req.Zone, req.Position, req.Symbols, req.Config, boolToInt(req.Enabled), id, claims.UserID)
+		if req.Zone != nil {
+			db.Exec("UPDATE tickers SET zone=? WHERE id=? AND user_id=?", *req.Zone, id, claims.UserID)
+		}
+		if req.Position != nil {
+			db.Exec("UPDATE tickers SET position=? WHERE id=? AND user_id=?", *req.Position, id, claims.UserID)
+		}
+		if req.Symbols != nil {
+			db.Exec("UPDATE tickers SET symbols=? WHERE id=? AND user_id=?", *req.Symbols, id, claims.UserID)
+		}
+		if req.Config != nil {
+			db.Exec("UPDATE tickers SET config=? WHERE id=? AND user_id=?", *req.Config, id, claims.UserID)
+		}
+		if req.Enabled != nil {
+			db.Exec("UPDATE tickers SET enabled=? WHERE id=? AND user_id=?", boolToInt(*req.Enabled), id, claims.UserID)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

@@ -1287,10 +1287,7 @@ function TickersTab() {
             onEdit={() => setEditId(editId === t.id ? null : t.id)}
             onToggle={() => toggleEnabled(t)}
             onDelete={() => remove(t.id)}
-            onSave={async (symbols, config) => {
-              await tickersApi.update(t.id, { symbols, config })
-              setEditId(null); await load()
-            }}
+            onSave={load}
           />
         ))}
         {tickers.length === 0 && !showForm && (
@@ -1306,7 +1303,7 @@ function TickersTab() {
 function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSave }: {
   ticker: Ticker; secrets: any[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
-  onSave: (symbols: string, config: string) => void
+  onSave: () => void  // called after save to reload
 }) {
   const config = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
   const symbolsArr: string[] = (() => { try { return JSON.parse(ticker.symbols) } catch { return [] } })()
@@ -1331,18 +1328,21 @@ function TickerRow({ ticker, secrets, editing, onEdit, onToggle, onDelete, onSav
 
   const handleSave = async () => {
     const symbols = JSON.stringify(
-      localSymbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean)
+      localSymbols.split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean)
     )
     const newConfig = JSON.stringify({
       secretId: localSecretId,
       mode: localMode,
       refreshSecs: localRefresh,
     })
-    // Update zone separately if changed
+    // Send each changed field independently — never send enabled (would reset it)
     if (localZone !== ticker.zone) {
       await tickersApi.update(ticker.id, { zone: localZone })
     }
-    onSave(symbols, newConfig)
+    await tickersApi.update(ticker.id, { symbols })
+    await tickersApi.update(ticker.id, { config: newConfig })
+    onEdit()  // close the edit panel
+    onSave()
   }
 
   return (
