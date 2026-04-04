@@ -362,11 +362,23 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		json.Unmarshal(upcoming, &episodes)
 		log.Printf("[SONARR] upcoming count=%d (start=%s end=%s)", len(episodes), upcStart, upcEnd)
 		for idx, ep := range episodes {
+			// Always check for target episodes regardless of index
+			if ttl, ok := ep["title"].(string); ok {
+				if ttl == "Knick-Knack" || ttl == "Teenage Kix" {
+					ad, _ := ep["airDate"].(string)
+					adu, _ := ep["airDateUtc"].(string)
+					log.Printf("[UPCOMING TARGET] %q airDate=%q airDateUtc=%q", ttl, ad, adu)
+				}
+			}
 			if idx < 5 {
 				title, _ := ep["title"].(string)
 				airDate, _ := ep["airDate"].(string)
 				airDateUtc, _ := ep["airDateUtc"].(string)
-				log.Printf("[SONARR] ep[%d]: title=%q airDate=%q airDateUtc=%q", idx, title, airDate, airDateUtc)
+					log.Printf("[SONARR] ep[%d]: title=%q airDate=%q airDateUtc=%q", idx, title, airDate, airDateUtc)
+				targetEps := map[string]bool{"Knick-Knack": true, "Teenage Kix": true}
+				if targetEps[title] {
+					log.Printf("[UPCOMING DEBUG] FOUND target ep %q airDate=%q airDateUtc=%q", title, airDate, airDateUtc)
+				}
 			}
 			ep := ep // shadow for loop var
 			series, _ := ep["series"].(map[string]interface{})
@@ -447,9 +459,26 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
 				if v, ok := statistics["episodeCount"].(float64); ok { episodeCount = int(v) }
 			}
+			seriesTitle := ""
+			if t, ok := s["title"].(string); ok { seriesTitle = t }
+
+			// Targeted debug for known empty series
+			targetSeries := map[string]bool{
+				"90 Day: The Last Resort": true,
+				"Body of Evidence":        true,
+				"Lucky (2026)":            true,
+				"Spider-Noir":             true,
+				"Warhammer 40,000":        true,
+				"Wuthering Heights (1978)": true,
+			}
+			if targetSeries[seriesTitle] {
+				log.Printf("[ZERO-BYTE DEBUG] %q: episodeFileCount=%d episodeCount=%d",
+					seriesTitle, episodeFileCount, episodeCount)
+			}
+
 			if episodeFileCount == 0 && episodeCount > 0 {
 				ss := SonarrSeries{}
-				if t, ok := s["title"].(string); ok { ss.Title = t }
+				ss.Title = seriesTitle
 				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
 				if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
 				data.ZeroByte = append(data.ZeroByte, ss)
@@ -491,7 +520,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				if cidx < 5 {
 					t, _ := ep["title"].(string)
 					d, _ := ep["airDate"].(string)
-					log.Printf("[CALENDAR] ep[%d]: %q on %q", cidx, t, d)
+						log.Printf("[CALENDAR] ep[%d]: %q on %q", cidx, t, d)
 				}
 				_ = cidx
 			}
