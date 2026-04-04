@@ -8,12 +8,65 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/the-d-b/stoa/internal/auth"
 	"github.com/the-d-b/stoa/internal/models"
 )
+
+// ── Series cache ─────────────────────────────────────────────────────────────
+// The full series list is large (2-3MB for big libraries). Cache it per integration
+// and only refresh every 30 minutes to avoid blocking panel renders.
+
+type seriesCacheEntry struct {
+	data      []map[string]interface{}
+	fetchedAt time.Time
+}
+
+var (
+	seriesCache   = map[string]*seriesCacheEntry{}
+	seriesCacheMu sync.Mutex
+)
+
+const seriesCacheTTL = 30 * time.Minute
+
+func getCachedSeries(apiURL, apiKey string) ([]map[string]interface{}, error) {
+	key := apiURL
+	seriesCacheMu.Lock()
+	entry, ok := seriesCache[key]
+	seriesCacheMu.Unlock()
+
+	if ok && time.Since(entry.fetchedAt) < seriesCacheTTL {
+		log.Printf("[SONARR] series cache hit (age=%s)", time.Since(entry.fetchedAt).Round(time.Second))
+		return entry.data, nil
+	}
+
+	log.Printf("[SONARR] series cache miss — fetching from API")
+	data, err := sonarrGet(apiURL, apiKey, "/api/v3/series")
+	if err != nil {
+		// On error, return stale cache if available
+		if ok {
+			log.Printf("[SONARR] series fetch failed, using stale cache: %v", err)
+			return entry.data, nil
+		}
+		return nil, err
+	}
+
+	var seriesList []map[string]interface{}
+	if umerr := json.Unmarshal(data, &seriesList); umerr != nil {
+		log.Printf("[SONARR] series unmarshal error: %v (len=%d)", umerr, len(data))
+		if ok { return entry.data, nil }
+		return nil, umerr
+	}
+
+	log.Printf("[SONARR] series fetched total=%d (data len=%d)", len(seriesList), len(data))
+	seriesCacheMu.Lock()
+	seriesCache[key] = &seriesCacheEntry{data: seriesList, fetchedAt: time.Now()}
+	seriesCacheMu.Unlock()
+	return seriesList, nil
+}
 
 // ── Integration CRUD ──────────────────────────────────────────────────────────
 
@@ -300,7 +353,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	data := &SonarrPanelData{UIURL: uiURL}
 
 	// Fetch upcoming episodes — use 90 day window to ensure we get next N regardless of gap
-	upcoming, err := sonarrGet(apiURL, apiKey, "/api/v3/calendar?includeSeries=true&unmonitored=false&days=90")
+	upcoming, err := sonarrGet(apiURL, apiKey, "/api/v3/calendar?includeSeries=true&unmonitored=true&days=90")
 	if err == nil {
 		var episodes []map[string]interface{}
 		json.Unmarshal(upcoming, &episodes)
@@ -368,40 +421,29 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		}
 	}
 
-	// Fetch zero-byte series — series added to Sonarr but nothing downloaded yet
-	seriesData, err := sonarrGet(apiURL, apiKey, "/api/v3/series")
-	if err != nil {
-		log.Printf("[SONARR] series fetch error: %v", err)
+	// Fetch zero-byte series via cache — avoids re-fetching 2-3MB on every panel render
+	seriesList, seriesErr := getCachedSeries(apiURL, apiKey)
+	if seriesErr != nil {
+		log.Printf("[SONARR] series fetch error: %v", seriesErr)
 	} else {
-		log.Printf("[SONARR] series raw response (first 200 chars): %s", string(seriesData[:min(200, len(seriesData))]))
-	}
-	if err == nil {
-		var seriesList []map[string]interface{}
-		if umerr := json.Unmarshal(seriesData, &seriesList); umerr != nil {
-			log.Printf("[SONARR] series unmarshal error: %v (data len=%d)", umerr, len(seriesData))
-		}
-		log.Printf("[SONARR] series total=%d (data len=%d)", len(seriesList), len(seriesData))
 		for _, s := range seriesList {
-			// sizeOnDisk may be float64 or int depending on Sonarr version
 			var size float64
-			switch v := s["sizeOnDisk"].(type) {
-			case float64:
-				size = v
-			case int:
-				size = float64(v)
+			if v, ok := s["sizeOnDisk"].(float64); ok { size = v }
+			statistics, _ := s["statistics"].(map[string]interface{})
+			episodeFileCount := 0
+			episodeCount := 0
+			if statistics != nil {
+				if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
+				if v, ok := statistics["episodeCount"].(float64); ok { episodeCount = int(v) }
 			}
-			// Only include monitored series with no files
-			monitored, _ := s["monitored"].(bool)
-			if size == 0 && monitored {
+			if size == 0 && episodeFileCount == 0 && episodeCount > 0 {
 				ss := SonarrSeries{}
 				if t, ok := s["title"].(string); ok { ss.Title = t }
 				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
 				if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
 				data.ZeroByte = append(data.ZeroByte, ss)
-				log.Printf("[SONARR] zero-byte series: %s (%d)", ss.Title, ss.Year)
 			}
 		}
-		log.Printf("[SONARR] zero-byte count=%d", len(data.ZeroByte))
 	}
 
 	return data, nil
@@ -426,7 +468,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			apiURL, _, apiKey, err := resolveIntegration(db, integrationID)
 			if err != nil { continue }
 			upcoming, err := sonarrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=false&days=%d", daysAhead))
+				fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&days=%d", daysAhead))
 			if err != nil { continue }
 			var episodes []map[string]interface{}
 			json.Unmarshal(upcoming, &episodes)
@@ -466,11 +508,6 @@ func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, er
 		}
 	}
 	return
-}
-
-func min(a, b int) int {
-	if a < b { return a }
-	return b
 }
 
 func sonarrGet(apiURL, apiKey, path string) ([]byte, error) {
