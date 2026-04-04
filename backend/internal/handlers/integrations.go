@@ -370,6 +370,11 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 
 	// Fetch zero-byte series — series added to Sonarr but nothing downloaded yet
 	seriesData, err := sonarrGet(apiURL, apiKey, "/api/v3/series")
+	if err != nil {
+		log.Printf("[SONARR] series fetch error: %v", err)
+	} else {
+		log.Printf("[SONARR] series raw response (first 200 chars): %s", string(seriesData[:min(200, len(seriesData))]))
+	}
 	if err == nil {
 		var seriesList []map[string]interface{}
 		json.Unmarshal(seriesData, &seriesList)
@@ -459,6 +464,11 @@ func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, er
 		}
 	}
 	return
+}
+
+func min(a, b int) int {
+	if a < b { return a }
+	return b
 }
 
 func sonarrGet(apiURL, apiKey, path string) ([]byte, error) {
