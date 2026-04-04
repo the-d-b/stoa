@@ -368,21 +368,33 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		}
 	}
 
-	// Fetch zero-byte series
+	// Fetch zero-byte series — series added to Sonarr but nothing downloaded yet
 	seriesData, err := sonarrGet(apiURL, apiKey, "/api/v3/series")
 	if err == nil {
 		var seriesList []map[string]interface{}
 		json.Unmarshal(seriesData, &seriesList)
+		log.Printf("[SONARR] series total=%d", len(seriesList))
 		for _, s := range seriesList {
-			size, _ := s["sizeOnDisk"].(float64)
-			if size == 0 {
+			// sizeOnDisk may be float64 or int depending on Sonarr version
+			var size float64
+			switch v := s["sizeOnDisk"].(type) {
+			case float64:
+				size = v
+			case int:
+				size = float64(v)
+			}
+			// Only include monitored series with no files
+			monitored, _ := s["monitored"].(bool)
+			if size == 0 && monitored {
 				ss := SonarrSeries{}
 				if t, ok := s["title"].(string); ok { ss.Title = t }
 				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
 				if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
 				data.ZeroByte = append(data.ZeroByte, ss)
+				log.Printf("[SONARR] zero-byte series: %s (%d)", ss.Title, ss.Year)
 			}
 		}
+		log.Printf("[SONARR] zero-byte count=%d", len(data.ZeroByte))
 	}
 
 	return data, nil
