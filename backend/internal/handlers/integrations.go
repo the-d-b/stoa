@@ -367,7 +367,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			hasFile := ep["hasFile"] == true
 			e := SonarrEpisode{
 				SeriesTitle: seriesTitle,
-				AirDate:     stringVal(ep, "airDateUtc"),
+				AirDate:     stringVal(ep, "airDate"), // local date, not UTC to avoid day offset
 				HasFile:     hasFile,
 			}
 			if t, ok := ep["title"].(string); ok { e.Title = t }
@@ -444,6 +444,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				data.ZeroByte = append(data.ZeroByte, ss)
 			}
 		}
+		log.Printf("[SONARR] zero-byte count=%d", len(data.ZeroByte))
 	}
 
 	return data, nil
@@ -477,8 +478,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				seriesTitle := ""
 				if series != nil { seriesTitle, _ = series["title"].(string) }
 				epTitle, _ := ep["title"].(string)
-				airDate, _ := ep["airDateUtc"].(string)
-				if airDate == "" { airDate, _ = ep["airDate"].(string) }
+				airDate, _ := ep["airDate"].(string) // local date avoids UTC day offset
 				events = append(events, map[string]interface{}{
 					"source":  "sonarr",
 					"date":    airDate,
