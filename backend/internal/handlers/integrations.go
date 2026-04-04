@@ -297,11 +297,6 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		return nil, err
 	}
 
-	daysAhead := 14
-	if v, ok := config["daysAhead"].(float64); ok {
-		daysAhead = int(v)
-	}
-
 	data := &SonarrPanelData{UIURL: uiURL}
 
 	// Fetch upcoming episodes — use 90 day window to ensure we get next N regardless of gap
