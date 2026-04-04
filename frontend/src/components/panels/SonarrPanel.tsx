@@ -6,7 +6,7 @@ interface SonarrEpisode {
   season: number; episode: number; airDate: string; hasFile: boolean
 }
 interface SonarrHistory {
-  seriesTitle: string; title: string; date: string; quality: string
+  seriesTitle: string; title: string; date: string; season: number; episode: number
 }
 interface SonarrSeries { id: number; title: string; year: number }
 interface SonarrData {
@@ -18,6 +18,28 @@ function formatDate(iso: string) {
   if (!iso) return ''
   const d = new Date(iso)
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+function HistoryRow({ h }: { h: SonarrHistory }) {
+  const ep = h.season > 0
+    ? `S${String(h.season).padStart(2,'0')}E${String(h.episode).padStart(2,'0')}`
+    : ''
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', minWidth: 36, textAlign: 'right', color: 'var(--text-dim)' }}>
+        {formatDate(h.date)}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {h.seriesTitle}
+        </div>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {ep}{ep && h.title ? ' · ' : ''}{h.title}
+        </div>
+      </div>
+      <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
+    </div>
+  )
 }
 
 function formatRelative(iso: string) {
@@ -138,20 +160,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
         )}
         {sectionTitle('Recently downloaded')}
         {(data.history || []).map((h, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', minWidth: 36, textAlign: 'right', color: 'var(--text-dim)' }}>
-              {formatDate(h.date)}
-            </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {h.seriesTitle}
-              </div>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-                {h.title}{h.quality ? ` · ${h.quality}` : ''}
-              </div>
-            </div>
-            <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
-          </div>
+          <HistoryRow key={i} h={h} />
         ))}
         {(data.history || []).length === 0 && (
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
@@ -170,19 +179,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
       )}
 
       {sectionTitle('Recently downloaded')}
-      {(data.history || []).map((h, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', minWidth: 36, textAlign: 'right', color: 'var(--text-dim)' }}>
-            {formatDate(h.date)}
-          </span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {h.seriesTitle}
-            </div>
-            <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>{h.title}{h.quality ? ` · ${h.quality}` : ''}</div>
-          </div>
-        </div>
-      ))}
+      {(data.history || []).map((h, i) => <HistoryRow key={i} h={h} />)}
 
       {(data.zeroByte || []).length > 0 && (
         <>

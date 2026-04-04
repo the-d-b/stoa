@@ -276,7 +276,8 @@ type SonarrHistory struct {
 	SeriesTitle string `json:"seriesTitle"`
 	Title       string `json:"title"`
 	Date        string `json:"date"`
-	Quality     string `json:"quality"`
+	Season      int    `json:"season"`
+	Episode     int    `json:"episode"`
 }
 
 type SonarrSeries struct {
@@ -303,8 +304,8 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 
 	data := &SonarrPanelData{UIURL: uiURL}
 
-	// Fetch upcoming episodes
-	upcoming, err := sonarrGet(apiURL, apiKey, fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=false&days=%d", daysAhead))
+	// Fetch upcoming episodes — use 90 day window to ensure we get next N regardless of gap
+	upcoming, err := sonarrGet(apiURL, apiKey, "/api/v3/calendar?includeSeries=true&unmonitored=false&days=90")
 	if err == nil {
 		var episodes []map[string]interface{}
 		json.Unmarshal(upcoming, &episodes)
@@ -314,10 +315,12 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			if series != nil {
 				seriesTitle, _ = series["title"].(string)
 			}
+			// Skip already-downloaded episodes
+			hasFile := ep["hasFile"] == true
 			e := SonarrEpisode{
 				SeriesTitle: seriesTitle,
 				AirDate:     stringVal(ep, "airDateUtc"),
-				HasFile:     ep["hasFile"] == true,
+				HasFile:     hasFile,
 			}
 			if t, ok := ep["title"].(string); ok { e.Title = t }
 			if s, ok := ep["seasonNumber"].(float64); ok { e.Season = int(s) }
@@ -328,7 +331,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	}
 
 	// Fetch recent history
-	hist, err := sonarrGet(apiURL, apiKey, "/api/v3/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=1")
+	hist, err := sonarrGet(apiURL, apiKey, "/api/v3/history?pageSize=5&pageSize=5&sortKey=date&sortDirection=descending&eventType=1&includeSeries=true&includeEpisode=true")
 	if err == nil {
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
@@ -336,23 +339,35 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
 				if rec == nil { continue }
+
+				// Try top-level series/episode objects first (v3 with include params)
 				series, _ := rec["series"].(map[string]interface{})
 				episode, _ := rec["episode"].(map[string]interface{})
+
 				seriesTitle := ""
-				if series != nil { seriesTitle, _ = series["title"].(string) }
-				epTitle := ""
-				if episode != nil { epTitle, _ = episode["title"].(string) }
-				quality := ""
-				if q, ok := rec["quality"].(map[string]interface{}); ok {
-					if qn, ok := q["quality"].(map[string]interface{}); ok {
-						quality, _ = qn["name"].(string)
-					}
+				if series != nil {
+					seriesTitle, _ = series["title"].(string)
 				}
+				// Fallback: sourceTitle often contains "Series - Episode Title"
+				if seriesTitle == "" {
+					seriesTitle, _ = rec["sourceTitle"].(string)
+				}
+
+				epTitle := ""
+				season := 0
+				epNum := 0
+				if episode != nil {
+					epTitle, _ = episode["title"].(string)
+					if s, ok := episode["seasonNumber"].(float64); ok { season = int(s) }
+					if n, ok := episode["episodeNumber"].(float64); ok { epNum = int(n) }
+				}
+
 				data.History = append(data.History, SonarrHistory{
 					SeriesTitle: seriesTitle,
 					Title:       epTitle,
 					Date:        stringVal(rec, "date"),
-					Quality:     quality,
+					Season:      season,
+					Episode:     epNum,
 				})
 			}
 		}
