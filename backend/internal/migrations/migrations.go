@@ -300,6 +300,24 @@ var migrations = []migration{
 		`,
 	},
 
+	{
+		version: 9,
+		name:    "integrations",
+		up: `
+			CREATE TABLE IF NOT EXISTS integrations (
+				id         TEXT PRIMARY KEY,
+				name       TEXT NOT NULL,
+				type       TEXT NOT NULL,
+				api_url    TEXT NOT NULL,
+				ui_url     TEXT NOT NULL DEFAULT '',
+				secret_id  TEXT REFERENCES secrets(id) ON DELETE SET NULL,
+				enabled    INTEGER NOT NULL DEFAULT 1,
+				created_by TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+		`,
+	},
+
 }
 
 func Run(db *sql.DB) error {

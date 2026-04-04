@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { panelsApi, tagsApi, bookmarksApi, Panel, Tag, BookmarkNode } from '../../api'
+import { panelsApi, tagsApi, bookmarksApi, integrationsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
 
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
@@ -12,6 +12,8 @@ export default function PanelsAdminPanel() {
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [showCalConfig, setShowCalConfig] = useState(false)
+  const [integrations, setIntegrations] = useState<Integration[]>([])
+  const [calConfigPanel, setCalConfigPanel] = useState<any>(null)
   const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
@@ -25,7 +27,8 @@ export default function PanelsAdminPanel() {
   const load = async () => {
     // Admin panel only shows shared panels - personal panels managed in profile
     // Always reload bookmark tree to pick up renames
-    const [p, t, b] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree()])
+    const [p, t, b, ig] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list()])
+    setIntegrations(ig.data || [])
     setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
     setTags(t.data || [])
     setBookmarkRoots(b.data || [])
@@ -44,7 +47,11 @@ export default function PanelsAdminPanel() {
   const create = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
-    const config = JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
+    const config = newType === 'sonarr'
+      ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300 })
+      : newType === 'calendar'
+      ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
+      : JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
     await panelsApi.create({ type: newType, title: newTitle.trim(), config })
     setNewTitle(''); setNewRootId(''); setShowForm(false)
     await load(); setCreating(false)
@@ -78,22 +85,21 @@ export default function PanelsAdminPanel() {
         </button>
       </div>
 
-      {/* Calendar config modal */}
+      {/* Calendar source config modal */}
       {showCalConfig && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 1000,
-          background: 'rgba(0,0,0,0.5)', display: 'flex',
-          alignItems: 'center', justifyContent: 'center',
-        }} onClick={() => setShowCalConfig(false)}>
-          <div className="card" style={{ padding: 28, maxWidth: 400, width: '90%' }}
-            onClick={e => e.stopPropagation()}>
-            <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Calendar configuration</div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, marginTop: 0 }}>
-              Configuration options (week start, data sources, etc.) are coming soon.
-            </p>
-            <button className="btn btn-primary" onClick={() => setShowCalConfig(false)}>Close</button>
-          </div>
-        </div>
+        <CalendarConfigModal
+          panel={calConfigPanel}
+          integrations={integrations.filter(i => ['sonarr','radarr'].includes(i.type))}
+          onClose={() => { setShowCalConfig(false); setCalConfigPanel(null) }}
+          onSave={async (sources) => {
+            if (calConfigPanel) {
+              const existing = (() => { try { return JSON.parse(calConfigPanel.config||'{}') } catch { return {} } })()
+              await panelsApi.update(calConfigPanel.id, { title: calConfigPanel.title, config: JSON.stringify({ ...existing, sources }) })
+              await load()
+            }
+            setShowCalConfig(false); setCalConfigPanel(null)
+          }}
+        />
       )}
 
       {showForm && (
@@ -109,6 +115,7 @@ export default function PanelsAdminPanel() {
               <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
                 <option value="bookmarks">Bookmarks</option>
                 <option value="calendar">Calendar</option>
+                <option value="sonarr">Sonarr</option>
               </select>
             </div>
             {newType === 'bookmarks' && (
@@ -129,6 +136,18 @@ export default function PanelsAdminPanel() {
                 <label className="label">Configuration</label>
                 <button className="btn btn-secondary" style={{ fontSize: 12 }}
                   onClick={() => setShowCalConfig(true)}>Configure ↗</button>
+              </div>
+            )}
+            {newType === 'sonarr' && (
+              <div style={{ flex: 1 }}>
+                <label className="label">Integration</label>
+                <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
+                  style={{ cursor: 'pointer' }}>
+                  <option value="">— Select integration —</option>
+                  {integrations.filter(i => i.type === 'sonarr').map(i => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
               </div>
             )}
             <div style={{ flex: 0.4 }}>
@@ -194,6 +213,12 @@ export default function PanelsAdminPanel() {
                         setEditingHeight({ id: p.id, height: h })
                       }}>
                       Resize
+                    </button>
+                  )}
+                  {p.type === 'calendar' && (
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={() => { setCalConfigPanel(p); setShowCalConfig(true) }}>
+                      Sources
                     </button>
                   )}
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
@@ -266,4 +291,101 @@ function safeParseConfig(config: string): any {
 function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
 function Empty({ message }: { message: string }) {
   return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
+}
+
+// ── Calendar source config modal ──────────────────────────────────────────────
+
+function CalendarConfigModal({ panel, integrations, onClose, onSave }: {
+  panel: any; integrations: Integration[]
+  onClose: () => void; onSave: (sources: any[]) => void
+}) {
+  const existingSources = (() => {
+    try { return JSON.parse(panel?.config || '{}').sources || [] } catch { return [] }
+  })()
+
+  const [sources, setSources] = useState<any[]>(existingSources)
+  const [newIntId, setNewIntId] = useState('')
+  const [newDays, setNewDays] = useState(14)
+
+  const addSource = () => {
+    if (!newIntId) return
+    const ig = integrations.find(i => i.id === newIntId)
+    if (!ig) return
+    setSources(s => [...s, { type: ig.type, integrationId: newIntId, daysAhead: newDays }])
+    setNewIntId('')
+  }
+
+  const removeSource = (i: number) => setSources(s => s.filter((_, idx) => idx !== i))
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.5)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div className="card" style={{ padding: 24, maxWidth: 480, width: '90%' }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
+          Calendar data sources
+        </div>
+
+        {/* Existing sources */}
+        {sources.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            {sources.map((src, i) => {
+              const ig = integrations.find(ig => ig.id === src.integrationId)
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                  background: 'var(--surface2)', borderRadius: 7, marginBottom: 6,
+                }}>
+                  <span style={{ flex: 1, fontSize: 13 }}>
+                    {ig?.name ?? src.integrationId}
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
+                      {src.daysAhead}d ahead
+                    </span>
+                  </span>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                    onClick={() => removeSource(i)}>Remove</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Add source */}
+        {integrations.length > 0 ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 20 }}>
+            <div style={{ flex: 1 }}>
+              <label className="label">Add source</label>
+              <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)}
+                style={{ cursor: 'pointer' }}>
+                <option value="">— Select integration —</option>
+                {integrations.map(ig => <option key={ig.id} value={ig.id}>{ig.name} ({ig.type})</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="label">Days ahead</label>
+              <select className="input" value={newDays} onChange={e => setNewDays(Number(e.target.value))}
+                style={{ cursor: 'pointer' }}>
+                <option value={7}>7 days</option>
+                <option value={14}>14 days</option>
+                <option value={30}>30 days</option>
+              </select>
+            </div>
+            <button className="btn btn-secondary" onClick={addSource} disabled={!newIntId}>Add</button>
+          </div>
+        ) : (
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
+            No compatible integrations found. Add a Sonarr or Radarr integration in the Integrations tab first.
+          </p>
+        )}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-primary" onClick={() => onSave(sources)}>Save</button>
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
 }

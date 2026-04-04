@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
+import SonarrPanel from '../components/panels/SonarrPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -620,6 +621,9 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
           )}
           {panel.type === 'calendar' && (
             <CalendarPanel panel={panel} heightUnits={heightUnits} />
+          )}
+          {panel.type === 'sonarr' && (
+            <SonarrPanel panel={panel} heightUnits={heightUnits} />
           )}
         </div>
       )}

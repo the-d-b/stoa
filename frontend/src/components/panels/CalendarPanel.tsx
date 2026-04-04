@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { integrationsApi } from '../../api'
 import { Panel } from '../../api'
 
 interface CalendarConfig { firstDay: 0 | 1 }
@@ -16,6 +17,10 @@ const NavBtn = ({ onClick, label }: { onClick: () => void; label: string }) => (
   }}>{label}</button>
 )
 
+interface CalendarEvent {
+  date: string; title: string; color: string; source: string; hasFile?: boolean
+}
+
 export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const config: CalendarConfig = (() => {
     try { return { firstDay: 0, ...JSON.parse(panel.config || '{}') } }
@@ -24,6 +29,29 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
 
   const [viewDate, setViewDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate())
+  const [events, setEvents] = useState<CalendarEvent[]>([])
+
+  const hasSources = (config as any).sources?.length > 0
+
+  const loadEvents = useCallback(async () => {
+    if (!hasSources) return
+    try {
+      const res = await integrationsApi.getPanelData(panel.id)
+      setEvents(res.data?.events || [])
+    } catch (e) {
+      console.error('[CalendarPanel] event load failed:', e)
+    }
+  }, [panel.id, hasSources])
+
+  useEffect(() => { loadEvents() }, [loadEvents])
+
+  // Get events for a given date string (YYYY-MM-DD)
+  const eventsForDate = (year: number, month: number, day: number): CalendarEvent[] => {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
+    return events.filter(e => e.date?.startsWith(dateStr))
+  }
+
+  const eventsForSelected = eventsForDate(viewDate.getFullYear(), viewDate.getMonth(), selectedDay)
 
   const today = new Date()
   const year  = viewDate.getFullYear()
@@ -120,9 +148,16 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
               background: todayFlag ? 'var(--accent)' : selected ? 'var(--surface2)' : 'transparent',
               color: todayFlag ? 'white' : cell.current ? 'var(--text)' : 'var(--text-dim)',
               border: selected && !todayFlag ? '1px solid var(--border2)' : '1px solid transparent',
-              transition: 'all 0.1s',
+              transition: 'all 0.1s', position: 'relative',
             }}>
             {cell.day}
+            {cell.current && eventsForDate(year, month, cell.day).length > 0 && (
+              <span style={{
+                position: 'absolute', bottom: 1, left: '50%', transform: 'translateX(-50%)',
+                width: 3, height: 3, borderRadius: '50%',
+                background: todayFlag ? 'white' : eventsForDate(year, month, cell.day)[0].color,
+              }} />
+            )}
           </div>
         )
       })}
@@ -152,10 +187,17 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {MONTHS[month]} {selectedDay}
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>
-          No events — data sources coming soon
-        </div>
+        {eventsForSelected.length === 0 ? (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>
+            {hasSources ? 'No events' : 'No data sources — configure in Admin → Panels'}
+          </div>
+        ) : eventsForSelected.map((ev, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</span>
+          </div>
+        ))}
       </div>
-    </div>
+      </div>
   )
 }

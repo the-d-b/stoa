@@ -209,6 +209,32 @@ export const tickersApi = {
   getData: (id: string) => api.get<any[]>(`/tickers/${id}/data`),
 }
 
+// ── Integrations ─────────────────────────────────────────────────────────────
+
+export interface Integration {
+  id: string
+  name: string
+  type: string
+  apiUrl: string
+  uiUrl: string
+  secretId: string | null
+  enabled: boolean
+  createdBy: string
+  createdAt: string
+}
+
+export const integrationsApi = {
+  list: () => api.get<Integration[]>('/integrations'),
+  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; secretId?: string }) =>
+    api.post<{ id: string }>('/integrations', data),
+  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; enabled: boolean }>) =>
+    api.put(`/integrations/${id}`, data),
+  delete: (id: string) => api.delete(`/integrations/${id}`),
+  test: (data: { type: string; apiUrl: string; secretId?: string }) =>
+    api.post<{ ok: boolean; error?: string }>('/integrations/test', data),
+  getPanelData: (panelId: string) => api.get<any>(`/panels/${panelId}/data`),
+}
+
 // ── Preferences ──────────────────────────────────────────────────────────────
 
 export const preferencesApi = {
@@ -360,6 +386,21 @@ export interface Ticker {
   symbols: string
   config: string
   enabled: boolean
+  createdAt: string
+}
+
+
+// ── Integrations ─────────────────────────────────────────────────────────────
+
+export interface Integration {
+  id: string
+  name: string
+  type: string
+  apiUrl: string
+  uiUrl: string
+  secretId: string | null
+  enabled: boolean
+  createdBy: string
   createdAt: string
 }
 

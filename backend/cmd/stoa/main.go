@@ -123,6 +123,14 @@ func main() {
 	admin := protected.PathPrefix("").Subrouter()
 	admin.Use(authService.AdminMiddleware)
 
+	// Integrations (admin only for write, all users can read)
+	protected.HandleFunc("/integrations", handlers.ListIntegrations(database)).Methods("GET")
+	protected.HandleFunc("/panels/{id}/data", handlers.GetPanelData(database)).Methods("GET")
+	admin.HandleFunc("/integrations", handlers.CreateIntegration(database)).Methods("POST")
+	admin.HandleFunc("/integrations/{id}", handlers.UpdateIntegration(database)).Methods("PUT")
+	admin.HandleFunc("/integrations/{id}", handlers.DeleteIntegration(database)).Methods("DELETE")
+	admin.HandleFunc("/integrations/test", handlers.TestIntegration(database)).Methods("POST")
+
 	// Secrets (admin only: group assignment)
 	admin.HandleFunc("/secrets/{id}/groups", handlers.SetSecretGroups(database)).Methods("PUT")
 
