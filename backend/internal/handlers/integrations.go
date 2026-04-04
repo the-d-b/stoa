@@ -436,6 +436,12 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
 				if v, ok := statistics["episodeCount"].(float64); ok { episodeCount = int(v) }
 			}
+			// Log every series that has zero sizeOnDisk so we can see why they're excluded
+			if size == 0 {
+				title, _ := s["title"].(string)
+				log.Printf("[SONARR] size=0 series: %q episodeFileCount=%d episodeCount=%d",
+					title, episodeFileCount, episodeCount)
+			}
 			if size == 0 && episodeFileCount == 0 && episodeCount > 0 {
 				ss := SonarrSeries{}
 				if t, ok := s["title"].(string); ok { ss.Title = t }
