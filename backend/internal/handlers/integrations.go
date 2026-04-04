@@ -377,8 +377,10 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	}
 	if err == nil {
 		var seriesList []map[string]interface{}
-		json.Unmarshal(seriesData, &seriesList)
-		log.Printf("[SONARR] series total=%d", len(seriesList))
+		if umerr := json.Unmarshal(seriesData, &seriesList); umerr != nil {
+			log.Printf("[SONARR] series unmarshal error: %v (data len=%d)", umerr, len(seriesData))
+		}
+		log.Printf("[SONARR] series total=%d (data len=%d)", len(seriesList), len(seriesData))
 		for _, s := range seriesList {
 			// sizeOnDisk may be float64 or int depending on Sonarr version
 			var size float64
@@ -489,5 +491,5 @@ func sonarrGet(apiURL, apiKey, path string) ([]byte, error) {
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("sonarr returned %d", resp.StatusCode)
 	}
-	return io.ReadAll(io.LimitReader(resp.Body, 512*1024))
+	return io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
 }
