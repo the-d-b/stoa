@@ -353,11 +353,22 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	data := &SonarrPanelData{UIURL: uiURL}
 
 	// Fetch upcoming episodes — use 90 day window to ensure we get next N regardless of gap
-	upcoming, err := sonarrGet(apiURL, apiKey, "/api/v3/calendar?includeSeries=true&unmonitored=true&days=90")
+	upcStart := time.Now().Format("2006-01-02")
+	upcEnd   := time.Now().AddDate(0, 0, 90).Format("2006-01-02")
+	upcoming, err := sonarrGet(apiURL, apiKey,
+		fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", upcStart, upcEnd))
 	if err == nil {
 		var episodes []map[string]interface{}
 		json.Unmarshal(upcoming, &episodes)
-		for _, ep := range episodes {
+		log.Printf("[SONARR] upcoming count=%d (start=%s end=%s)", len(episodes), upcStart, upcEnd)
+		for idx, ep := range episodes {
+			if idx < 5 {
+				title, _ := ep["title"].(string)
+				airDate, _ := ep["airDate"].(string)
+				airDateUtc, _ := ep["airDateUtc"].(string)
+				log.Printf("[SONARR] ep[%d]: title=%q airDate=%q airDateUtc=%q", idx, title, airDate, airDateUtc)
+			}
+			ep := ep // shadow for loop var
 			series, _ := ep["series"].(map[string]interface{})
 			seriesTitle := ""
 			if series != nil {
@@ -468,11 +479,22 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		case "sonarr":
 			apiURL, _, apiKey, err := resolveIntegration(db, integrationID)
 			if err != nil { continue }
+			calStart := time.Now().Format("2006-01-02")
+			calEnd   := time.Now().AddDate(0, 0, daysAhead).Format("2006-01-02")
 			upcoming, err := sonarrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&days=%d", daysAhead))
+				fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", calStart, calEnd))
 			if err != nil { continue }
 			var episodes []map[string]interface{}
 			json.Unmarshal(upcoming, &episodes)
+			log.Printf("[CALENDAR] sonarr returned %d episodes (start=%s end=%s)", len(episodes), calStart, calEnd)
+			for cidx, ep := range episodes {
+				if cidx < 5 {
+					t, _ := ep["title"].(string)
+					d, _ := ep["airDate"].(string)
+					log.Printf("[CALENDAR] ep[%d]: %q on %q", cidx, t, d)
+				}
+				_ = cidx
+			}
 			for _, ep := range episodes {
 				series, _ := ep["series"].(map[string]interface{})
 				seriesTitle := ""
