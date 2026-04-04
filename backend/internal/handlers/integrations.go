@@ -454,29 +454,29 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			// Use episodeFileCount/episodeCount from statistics instead
 			statistics, _ := s["statistics"].(map[string]interface{})
 			episodeFileCount := 0
-			episodeCount := 0
 			if statistics != nil {
 				if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
-				if v, ok := statistics["episodeCount"].(float64); ok { episodeCount = int(v) }
 			}
 			seriesTitle := ""
 			if t, ok := s["title"].(string); ok { seriesTitle = t }
 
-			// Targeted debug for known empty series
+			// Targeted debug for known empty series — dump raw statistics
 			targetSeries := map[string]bool{
-				"90 Day: The Last Resort": true,
-				"Body of Evidence":        true,
-				"Lucky (2026)":            true,
-				"Spider-Noir":             true,
-				"Warhammer 40,000":        true,
+				"90 Day: The Last Resort":  true,
+				"Body of Evidence":         true,
+				"Lucky (2026)":             true,
+				"Spider-Noir":              true,
+				"Warhammer 40,000":         true,
 				"Wuthering Heights (1978)": true,
 			}
 			if targetSeries[seriesTitle] {
-				log.Printf("[ZERO-BYTE DEBUG] %q: episodeFileCount=%d episodeCount=%d",
-					seriesTitle, episodeFileCount, episodeCount)
+				statRaw, _ := json.Marshal(statistics)
+				sizeRaw := s["sizeOnDisk"]
+				log.Printf("[ZERO-BYTE DEBUG] %q: episodeFileCount=%d sizeOnDisk=%v stats=%s",
+					seriesTitle, episodeFileCount, sizeRaw, string(statRaw))
 			}
 
-			if episodeFileCount == 0 && episodeCount > 0 {
+			if episodeFileCount == 0 { // episodeCount omitted — unmonitored series may show 0 even with known episodes
 				ss := SonarrSeries{}
 				ss.Title = seriesTitle
 				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }

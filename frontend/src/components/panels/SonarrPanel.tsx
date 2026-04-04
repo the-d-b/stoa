@@ -157,13 +157,16 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   )
 
   // Group upcoming by date bucket (Today / Tomorrow / this week / by date)
+  // Cap by height: 1x=2 buckets, 2x=4 buckets, 4x=8 buckets
+  const maxBuckets = heightUnits <= 1 ? 2 : heightUnits < 4 ? 4 : 8
   const groupedUpcoming = (() => {
     const groups: { label: string; isToday: boolean; episodes: SonarrEpisode[] }[] = []
     for (const ep of (data.upcoming || [])) {
+      if (groups.length >= maxBuckets) break
       const rel = formatRelative(ep.airDate)
       const existing = groups.find(g => g.label === rel)
       if (existing) existing.episodes.push(ep)
-      else groups.push({ label: rel, isToday: rel === 'Today', episodes: [ep] })
+      else if (groups.length < maxBuckets) groups.push({ label: rel, isToday: rel === 'Today', episodes: [ep] })
     }
     return groups
   })()
