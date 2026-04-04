@@ -12,6 +12,7 @@ interface SonarrSeries { id: number; title: string; year: number }
 interface SonarrData {
   upcoming: SonarrEpisode[]; history: SonarrHistory[]
   zeroByte: SonarrSeries[]; uiUrl: string
+  seriesCount: number; episodeCount: number; onDiskCount: number
 }
 
 function formatDate(iso: string) {
@@ -185,21 +186,43 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   const epCode = (season: number, episode: number) =>
     `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}`
 
-  // 1x — compact grouped upcoming
+  const statsBar = (
+    <div style={{
+      display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap',
+    }}>
+      {[
+        { label: 'Series', value: data.seriesCount },
+        { label: 'Episodes', value: data.episodeCount.toLocaleString() },
+        { label: 'On disk', value: data.onDiskCount.toLocaleString() },
+      ].map(stat => (
+        <div key={stat.label} style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          padding: '2px 8px', borderRadius: 5,
+          background: 'var(--surface2)', border: '1px solid var(--border)',
+          fontSize: 11,
+        }}>
+          <span style={{ color: 'var(--text-dim)' }}>{stat.label}</span>
+          <span style={{ fontWeight: 600, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{stat.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+
+  // 1x — stats + compact upcoming (2 date buckets, no history)
   if (heightUnits <= 1) {
     return (
       <div style={{ height: '100%', overflow: 'hidden' }}>
+        {statsBar}
         {groupedUpcoming.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
           : groupedUpcoming.map(group => (
-            <div key={group.label}>
-              <span style={{
-                fontSize: 10, fontWeight: 700,
-                color: group.isToday ? 'var(--accent2)' : 'var(--text-dim)',
-                marginRight: 6,
-              }}>{group.label}</span>
+            <div key={group.label} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0,
+                color: group.isToday ? 'var(--accent2)' : 'var(--text-dim)' }}>
+                {group.label}
+              </span>
               {group.episodes.map(ep => (
-                <span key={ep.id} style={{ fontSize: 11, color: 'var(--text)', marginRight: 10 }}>
+                <span key={ep.id} style={{ fontSize: 11, color: 'var(--text-muted)' }}>
                   {ep.seriesTitle}: {epCode(ep.season, ep.episode)}
                 </span>
               ))}
@@ -210,10 +233,11 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  // 2x — grouped upcoming + grouped history
+  // 2x — stats + upcoming (4 buckets) + recent downloads
   if (heightUnits < 4) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
+        {statsBar}
         {sectionTitle('Upcoming')}
         {groupedUpcoming.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
@@ -228,9 +252,10 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  // 4x — grouped upcoming + grouped history + missing on disk
+  // 4x — stats + upcoming (8 buckets) + recent + missing on disk
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
+      {statsBar}
       {sectionTitle('Upcoming')}
       {groupedUpcoming.length === 0
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
@@ -247,9 +272,12 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
         <>
           {sectionTitle(`Missing on disk (${data.zeroByte.length})`)}
           {data.zeroByte.map(s => (
-            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {s.title}{s.year > 0 && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 5 }}>{s.year}</span>}
+            <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8,
+              padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 12, flex: 1, overflow: 'hidden',
+                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {s.title}
+                {s.year > 0 && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 5 }}>{s.year}</span>}
               </span>
               {uiUrl && (
                 <a href={`${uiUrl}/series`} target="_blank" rel="noopener noreferrer"

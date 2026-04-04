@@ -309,10 +309,13 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 // ── Sonarr fetch ──────────────────────────────────────────────────────────────
 
 type SonarrPanelData struct {
-	Upcoming  []SonarrEpisode  `json:"upcoming"`
-	History   []SonarrHistory  `json:"history"`
-	ZeroByte  []SonarrSeries   `json:"zeroByte"`
-	UIURL     string           `json:"uiUrl"`
+	Upcoming       []SonarrEpisode `json:"upcoming"`
+	History        []SonarrHistory `json:"history"`
+	ZeroByte       []SonarrSeries  `json:"zeroByte"`
+	UIURL          string          `json:"uiUrl"`
+	SeriesCount    int             `json:"seriesCount"`
+	EpisodeCount   int             `json:"episodeCount"`
+	OnDiskCount    int             `json:"onDiskCount"`
 }
 
 type SonarrEpisode struct {
@@ -449,6 +452,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	if seriesErr != nil {
 		log.Printf("[SONARR] series fetch error: %v", seriesErr)
 	} else {
+		data.SeriesCount = len(seriesList)
 		for _, s := range seriesList {
 			// sizeOnDisk is unreliable — Sonarr only updates it after manual rescan
 			// Use episodeFileCount/episodeCount from statistics instead
@@ -456,6 +460,8 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			episodeFileCount := 0
 			if statistics != nil {
 				if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
+				if v, ok := statistics["episodeCount"].(float64); ok { data.EpisodeCount += int(v) }
+				data.OnDiskCount += episodeFileCount
 			}
 			seriesTitle := ""
 			if t, ok := s["title"].(string); ok { seriesTitle = t }
