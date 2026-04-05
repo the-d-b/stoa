@@ -652,6 +652,7 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 		var req struct {
 			Name  string `json:"name"`
 			Color string `json:"color"`
+			Scope string `json:"scope"` // optional — caller can force 'personal'
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
 			writeError(w, http.StatusBadRequest, "name required")
@@ -663,6 +664,10 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		scope := "shared"
 		if claims.Role != models.RoleAdmin {
+			scope = "personal"
+		}
+		// Allow caller to explicitly request personal scope (e.g. admin creating via profile)
+		if req.Scope == "personal" {
 			scope = "personal"
 		}
 		id := generateID()

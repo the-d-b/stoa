@@ -90,7 +90,7 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 		if claims.Role == models.RoleAdmin {
 			rows, err = db.Query(`
 				SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
-				FROM integrations ORDER BY scope ASC, name ASC
+				FROM integrations WHERE scope = 'shared' ORDER BY name ASC
 			`)
 		} else {
 			rows, err = db.Query(`
@@ -142,6 +142,7 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 			APIURL   string  `json:"apiUrl"`
 			UIURL    string  `json:"uiUrl"`
 			SecretID *string `json:"secretId"`
+			Scope    string  `json:"scope"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
 			req.Name == "" || req.Type == "" || req.APIURL == "" {
@@ -151,7 +152,11 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 
 		scope := "shared"
 		if claims.Role != models.RoleAdmin {
-			scope = "personal" // non-admins can only create personal integrations
+			scope = "personal"
+		}
+		// Allow caller to explicitly request personal (e.g. admin creating via profile)
+		if req.Scope == "personal" {
+			scope = "personal"
 		}
 
 		id := generateID()

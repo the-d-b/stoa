@@ -125,7 +125,7 @@ export const groupsApi = {
 
 export const tagsApi = {
   list: () => api.get<Tag[]>('/tags'),
-  create: (data: { name: string; color?: string } | string, color?: string) => {
+  create: (data: { name: string; color?: string; scope?: string } | string, color?: string) => {
     if (typeof data === 'string') return api.post<Tag>('/tags', { name: data, color })
     return api.post<Tag>('/tags', data)
   },
@@ -233,7 +233,7 @@ export interface Integration {
 
 export const integrationsApi = {
   list: () => api.get<Integration[]>('/integrations'),
-  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; secretId?: string }) =>
+  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; secretId?: string; scope?: string }) =>
     api.post<{ id: string }>('/integrations', data),
   update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; enabled: boolean }>) =>
     api.put(`/integrations/${id}`, data),

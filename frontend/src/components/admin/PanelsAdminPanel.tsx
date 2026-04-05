@@ -16,7 +16,6 @@ export default function PanelsAdminPanel() {
   const [groups, setGroups] = useState<any[]>([])
   const [calConfigPanel, setCalConfigPanel] = useState<any>(null)
   const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
-  const [expandedPanel, setExpandedPanel] = useState<string | null>(null)
   const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
@@ -98,37 +97,6 @@ export default function PanelsAdminPanel() {
         </button>
       </div>
 
-      {/* Group access panel */}
-      {expandedPanel && groups.length > 0 && (
-        <div style={{ marginTop: 8, padding: '12px 16px', background: 'var(--surface2)',
-          borderRadius: 8, border: '1px solid var(--border)' }}>
-          <div className="section-title" style={{ marginBottom: 8 }}>
-            Group access — {panels.find(p => p.id === expandedPanel)?.title}
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>
-              (no groups = visible to all users)
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {groups.map(g => {
-              const assigned = (panelGroups[expandedPanel] || []).includes(g.id)
-              return (
-                <button key={g.id} onClick={async () => {
-                  const current = panelGroups[expandedPanel] || []
-                  const next = assigned ? current.filter((id: string) => id !== g.id) : [...current, g.id]
-                  await panelsApi.setGroups(expandedPanel, next)
-                  setPanelGroups((prev: Record<string,string[]>) => ({ ...prev, [expandedPanel]: next }))
-                }} style={{
-                  padding: '3px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-                  background: assigned ? 'var(--accent-bg)' : 'var(--surface)',
-                  color: assigned ? 'var(--accent2)' : 'var(--text-muted)',
-                  border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
-                  transition: 'all 0.15s',
-                }}>{g.name}</button>
-              )
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Calendar source config modal */}
       {showCalConfig && (
@@ -266,10 +234,6 @@ export default function PanelsAdminPanel() {
                       Sources
                     </button>
                   )}
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                    onClick={() => setExpandedPanel(expandedPanel === p.id ? null : p.id)}>
-                    Group Access
-                  </button>
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
                 </div>
               </div>
@@ -308,6 +272,33 @@ export default function PanelsAdminPanel() {
                   </span>
                 )}
               </div>
+
+              {/* Inline group access */}
+              {groups.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>Groups:</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>
+                    {(panelGroups[p.id] || []).length === 0 ? '(all users)' : ''}
+                  </span>
+                  {groups.map(g => {
+                    const assigned = (panelGroups[p.id] || []).includes(g.id)
+                    return (
+                      <button key={g.id} onClick={async () => {
+                        const current = panelGroups[p.id] || []
+                        const next = assigned ? current.filter((id: string) => id !== g.id) : [...current, g.id]
+                        await panelsApi.setGroups(p.id, next)
+                        setPanelGroups((prev: Record<string,string[]>) => ({ ...prev, [p.id]: next }))
+                      }} style={{
+                        padding: '2px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11,
+                        background: assigned ? 'var(--accent-bg)' : 'transparent',
+                        color: assigned ? 'var(--accent2)' : 'var(--text-dim)',
+                        border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
+                        transition: 'all 0.15s',
+                      }}>{g.name}</button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )
         })}

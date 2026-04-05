@@ -1526,7 +1526,7 @@ function PersonalIntegrationsTab() {
     if (!newName || !newApiUrl) return
     setCreating(true)
     try {
-      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined })
+      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined, scope: 'personal' })
       setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null)
       await load()
       setShowForm(false)
@@ -1766,7 +1766,7 @@ function PersonalTagsTab() {
     if (!newName.trim()) return
     setCreating(true)
     try {
-      await tagsApi.create({ name: newName.trim(), color: newColor })
+      await tagsApi.create({ name: newName.trim(), color: newColor, scope: 'personal' })
       setNewName(''); setShowForm(false); await load()
     } finally { setCreating(false) }
   }
@@ -1908,6 +1908,7 @@ function MyPanelsTab() {
   const [myPanels, setMyPanels] = useState<Panel[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
+  const [systemCollapsed, setSystemCollapsed] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState('bookmarks')
@@ -1953,7 +1954,7 @@ function MyPanelsTab() {
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
-  const needsIntegration = ['sonarr', 'radarr', 'calendar'].includes(newType)
+  const needsIntegration = ['sonarr', 'radarr'].includes(newType)
   const compatibleIntegrations = integrations.filter(i =>
     newType === 'calendar' ? true : i.type === newType
   )
@@ -1968,24 +1969,35 @@ function MyPanelsTab() {
           onClick={() => setShowForm(f => !f)}>+ New panel</button>
       </div>
 
-      {/* System panels — read only */}
+      {/* System panels — collapsible read-only */}
       {systemPanels.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>System panels</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {systemPanels.map(p => (
-              <div key={p.id} style={{
-                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
-                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
-              }}>
-                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
-                  background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
-                  {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
-                </span>
-                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
-              </div>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
+            onClick={() => setSystemCollapsed(c => !c)}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{systemCollapsed ? '▶' : '▼'}</span>
+            <div className="section-title" style={{ margin: 0 }}>
+              System panels
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+                ({systemPanels.length})
+              </span>
+            </div>
           </div>
+          {!systemCollapsed && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {systemPanels.map(p => (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                  background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+                }}>
+                  <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                    background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                    {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -2036,7 +2048,7 @@ function MyPanelsTab() {
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" onClick={create}
-                disabled={creating || !newTitle || (needsIntegration && !newIntegrationId)}>
+                disabled={creating || !newTitle}>
                 {creating ? <span className="spinner" /> : 'Create'}
               </button>
               <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
