@@ -435,3 +435,33 @@ func SavePreferences(db *sql.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
+
+// ListMySecrets returns only secrets owned by the current user, regardless of role.
+func ListMySecrets(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		rows, err := db.Query(`
+			SELECT id, name, scope, created_by, created_at
+			FROM secrets WHERE created_by = ? ORDER BY name ASC
+		`, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query secrets")
+			return
+		}
+		defer rows.Close()
+		type SecretRow struct {
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			Scope     string `json:"scope"`
+			CreatedBy string `json:"createdBy"`
+			CreatedAt string `json:"createdAt"`
+		}
+		secrets := []SecretRow{}
+		for rows.Next() {
+			var s SecretRow
+			rows.Scan(&s.ID, &s.Name, &s.Scope, &s.CreatedBy, &s.CreatedAt)
+			secrets = append(secrets, s)
+		}
+		writeJSON(w, http.StatusOK, secrets)
+	}
+}

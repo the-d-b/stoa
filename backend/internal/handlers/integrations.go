@@ -648,3 +648,33 @@ func SetIntegrationGroups(db *sql.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
+
+// ListMyIntegrations returns only integrations owned by the current user, regardless of role.
+func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		rows, err := db.Query(`
+			SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
+			FROM integrations WHERE created_by = ? ORDER BY name ASC
+		`, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query integrations")
+			return
+		}
+		defer rows.Close()
+		integrations := []Integration{}
+		for rows.Next() {
+			var ig Integration
+			var enabled int
+			var secretID sql.NullString
+			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL,
+				&secretID, &enabled, &ig.CreatedBy, &ig.CreatedAt)
+			ig.Enabled = enabled == 1
+			if secretID.Valid {
+				ig.SecretID = &secretID.String
+			}
+			integrations = append(integrations, ig)
+		}
+		writeJSON(w, http.StatusOK, integrations)
+	}
+}

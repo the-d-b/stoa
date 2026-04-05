@@ -809,3 +809,26 @@ func GetProfile(db *sql.DB) http.HandlerFunc {
 		})
 	}
 }
+
+// ListMyTags returns only tags owned by the current user, regardless of role.
+func ListMyTags(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		rows, err := db.Query(`
+			SELECT id, name, color, COALESCE(scope,'shared'), COALESCE(created_by,''), created_at
+			FROM tags WHERE created_by = ? ORDER BY name ASC
+		`, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query tags")
+			return
+		}
+		defer rows.Close()
+		tags := []models.Tag{}
+		for rows.Next() {
+			var t models.Tag
+			rows.Scan(&t.ID, &t.Name, &t.Color, &t.Scope, &t.CreatedBy, &t.CreatedAt)
+			tags = append(tags, t)
+		}
+		writeJSON(w, http.StatusOK, tags)
+	}
+}

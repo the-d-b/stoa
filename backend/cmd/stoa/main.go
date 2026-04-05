@@ -87,8 +87,12 @@ func main() {
 	protected.HandleFunc("/my/bookmarks/{id}", handlers.DeleteBookmarkNode(database)).Methods("DELETE")
 	protected.HandleFunc("/my/bookmarks/{id}/move", handlers.MoveBookmarkNode(database)).Methods("PUT")
 	protected.HandleFunc("/my/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
+	protected.HandleFunc("/my/panels", handlers.ListMyPanels(database)).Methods("GET")
 	protected.HandleFunc("/my/panels", handlers.CreatePanel(database)).Methods("POST")
 	protected.HandleFunc("/my/panels/{id}", handlers.DeletePanel(database)).Methods("DELETE")
+	protected.HandleFunc("/my/integrations", handlers.ListMyIntegrations(database)).Methods("GET")
+	protected.HandleFunc("/my/tags", handlers.ListMyTags(database)).Methods("GET")
+	protected.HandleFunc("/my/secrets", handlers.ListMySecrets(database)).Methods("GET")
 	protected.HandleFunc("/my/panels/{id}", handlers.UpdatePanel(database)).Methods("PUT")
 
 	// Panels (read + reorder)

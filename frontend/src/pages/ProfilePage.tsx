@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
 type Tab = 'overview' | 'bookmarks' | 'panels' | 'mypanels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers' | 'integrations' | 'tags'
@@ -706,9 +706,9 @@ function SecretsTab() {
   const [editing, setEditing] = useState<{ id: string; name: string; value: string } | null>(null)
 
   const load = async () => {
-    const res = await secretsApi.list()
-    setShared((res.data || []).filter((s: Secret) => s.createdBy === 'SYSTEM'))
-    setPersonal((res.data || []).filter((s: Secret) => s.createdBy !== 'SYSTEM'))
+    const [sysRes, myRes] = await Promise.all([secretsApi.list(), mySecretsApi.list()])
+    setShared((sysRes.data || []).filter((s: Secret) => s.createdBy === 'SYSTEM'))
+    setPersonal(myRes.data || [])
     setLoading(false)
   }
 
@@ -1504,9 +1504,13 @@ function PersonalIntegrationsTab() {
   const [testing, setTesting] = useState(false)
 
   const load = async () => {
-    const [i, s] = await Promise.all([integrationsApi.list(), secretsApi.list()])
-    setShared((i.data || []).filter((x: Integration) => x.createdBy === 'SYSTEM'))
-    setPersonal((i.data || []).filter((x: Integration) => x.createdBy !== 'SYSTEM'))
+    const [shared, personal, s] = await Promise.all([
+      integrationsApi.list(),
+      myIntegrationsApi.list(),
+      secretsApi.list(),
+    ])
+    setShared(shared.data || [])
+    setPersonal(personal.data || [])
     setSecrets(s.data || [])
     setLoading(false)
   }
@@ -1754,10 +1758,9 @@ function PersonalTagsTab() {
   const [editColor, setEditColor] = useState('')
 
   const load = async () => {
-    const res = await tagsApi.list()
-    const allTags: Tag[] = res.data || []
-    setSharedTags(allTags.filter(t => t.createdBy === 'SYSTEM'))
-    setPersonalTags(allTags.filter(t => t.createdBy !== 'SYSTEM'))
+    const [systemRes, myRes] = await Promise.all([tagsApi.list(), myTagsApi.list()])
+    setSharedTags((systemRes.data || []).filter((t: Tag) => t.createdBy === 'SYSTEM'))
+    setPersonalTags(myRes.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1917,10 +1920,13 @@ function MyPanelsTab() {
   const [creating, setCreating] = useState(false)
 
   const load = async () => {
-    const [p, i] = await Promise.all([panelsApi.list(), integrationsApi.list()])
-    const all: Panel[] = p.data || []
-    setSystemPanels(all.filter(p => p.createdBy === 'SYSTEM'))
-    setMyPanels(all.filter(p => p.createdBy !== 'SYSTEM'))
+    const [system, mine, i] = await Promise.all([
+      panelsApi.list(),
+      myPanelsApi.list(),
+      integrationsApi.list(),
+    ])
+    setSystemPanels((system.data || []).filter((p: Panel) => p.createdBy === 'SYSTEM'))
+    setMyPanels(mine.data || [])
     setIntegrations(i.data || [])
     setLoading(false)
   }

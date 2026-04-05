@@ -306,11 +306,24 @@ export const myBookmarksApi = {
 }
 
 export const myPanelsApi = {
+  list: () => api.get<Panel[]>('/my/panels'),
   create: (data: { type: string; title: string; config: string }) =>
     api.post<Panel>('/my/panels', { ...data, scope: 'personal' }),
   delete: (id: string) => api.delete(`/my/panels/${id}`),
   update: (id: string, data: { title: string; config: string }) =>
     api.put(`/my/panels/${id}`, data),
+}
+
+export const myIntegrationsApi = {
+  list: () => api.get<Integration[]>('/my/integrations'),
+}
+
+export const myTagsApi = {
+  list: () => api.get<Tag[]>('/my/tags'),
+}
+
+export const mySecretsApi = {
+  list: () => api.get<any[]>('/my/secrets'),
 }
 
 // ── Panels ────────────────────────────────────────────────────────────────────

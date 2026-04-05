@@ -330,3 +330,30 @@ func SetPanelGroups(db *sql.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
+
+// ListMyPanels returns only panels owned by the current user, regardless of role.
+// Used by the profile page so admins can see their personal panels too.
+func ListMyPanels(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		rows, err := db.Query(`
+			SELECT p.id, p.type, p.title, p.config, p.scope,
+			       COALESCE(p.created_by,''), p.created_at
+			FROM panels p
+			WHERE p.created_by = ?
+			ORDER BY p.created_at ASC
+		`, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query panels")
+			return
+		}
+		defer rows.Close()
+		panels := []models.Panel{}
+		for rows.Next() {
+			var p models.Panel
+			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
+			panels = append(panels, p)
+		}
+		writeJSON(w, http.StatusOK, panels)
+	}
+}
