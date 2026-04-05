@@ -321,41 +321,8 @@ var migrations = []migration{
 	{
 		version: 10,
 		name:    "unified_permission_model",
-		up: `
-			-- Panels: add scope, created_by, keep tags for filtering only
-			ALTER TABLE panels ADD COLUMN scope TEXT NOT NULL DEFAULT 'shared';
-			ALTER TABLE panels ADD COLUMN created_by TEXT REFERENCES users(id) ON DELETE SET NULL;
-
-			-- Panel group access (replaces tag-based panel visibility)
-			CREATE TABLE IF NOT EXISTS panel_groups (
-				panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
-				group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-				PRIMARY KEY (panel_id, group_id)
-			);
-
-			-- Integrations: add scope
-			ALTER TABLE integrations ADD COLUMN scope TEXT NOT NULL DEFAULT 'shared';
-
-			-- Integration group access
-			CREATE TABLE IF NOT EXISTS integration_groups (
-				integration_id TEXT NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
-				group_id       TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-				PRIMARY KEY (integration_id, group_id)
-			);
-
-			-- Tags: add scope and created_by
-			ALTER TABLE tags ADD COLUMN scope TEXT NOT NULL DEFAULT 'shared';
-			ALTER TABLE tags ADD COLUMN created_by TEXT REFERENCES users(id) ON DELETE SET NULL;
-
-			-- Mark all existing panels as shared, created by first admin
-			UPDATE panels SET scope='shared' WHERE scope IS NULL OR scope='';
-
-			-- Mark all existing integrations as shared
-			UPDATE integrations SET scope='shared' WHERE scope IS NULL OR scope='';
-
-			-- Mark all existing tags as shared
-			UPDATE tags SET scope='shared' WHERE scope IS NULL OR scope='';
-		`,
+		// Statements run individually via runMigration10 — see Run() below
+		up: "",
 	},
 
 }
@@ -383,22 +350,112 @@ func Run(db *sql.DB) error {
 		}
 
 		log.Printf("Applying migration %d: %s", m.version, m.name)
-		tx, err := db.Begin()
-		if err != nil {
-			return fmt.Errorf("failed to begin transaction for migration %d: %w", m.version, err)
+
+		var applyErr error
+		if m.version == 10 {
+			applyErr = runMigration10(db)
+		} else {
+			tx, err := db.Begin()
+			if err != nil {
+				return fmt.Errorf("failed to begin transaction for migration %d: %w", m.version, err)
+			}
+			if _, err := tx.Exec(m.up); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to apply migration %d: %w", m.version, err)
+			}
+			if _, err := tx.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", m.version, m.name); err != nil {
+				tx.Rollback()
+				return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+			}
+			if err := tx.Commit(); err != nil {
+				return fmt.Errorf("failed to commit migration %d: %w", m.version, err)
+			}
 		}
-		if _, err := tx.Exec(m.up); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to apply migration %d: %w", m.version, err)
+
+		if applyErr != nil {
+			return fmt.Errorf("failed to apply migration %d: %w", m.version, applyErr)
 		}
-		if _, err := tx.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", m.version, m.name); err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+
+		if m.version == 10 {
+			if _, err := db.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", m.version, m.name); err != nil {
+				return fmt.Errorf("failed to record migration %d: %w", m.version, err)
+			}
 		}
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("failed to commit migration %d: %w", m.version, err)
-		}
+
 		log.Printf("Migration %d applied successfully", m.version)
+	}
+	return nil
+}
+
+// runMigration10 applies the unified permission model migration statement by statement,
+// skipping ALTER TABLE statements for columns that already exist (idempotent).
+func runMigration10(db *sql.DB) error {
+	addColumnIfMissing := func(table, column, definition string) error {
+		rows, err := db.Query(fmt.Sprintf("PRAGMA table_info(%s)", table))
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var cid int
+			var name, colType string
+			var notNull int
+			var dflt interface{}
+			var pk int
+			rows.Scan(&cid, &name, &colType, &notNull, &dflt, &pk)
+			if name == column {
+				log.Printf("[migration10] column %s.%s already exists, skipping", table, column)
+				return nil
+			}
+		}
+		_, err = db.Exec(fmt.Sprintf("ALTER TABLE %s ADD COLUMN %s", table, definition))
+		if err != nil {
+			return fmt.Errorf("ALTER TABLE %s ADD COLUMN %s: %w", table, column, err)
+		}
+		log.Printf("[migration10] added column %s.%s", table, column)
+		return nil
+	}
+
+	stmts := []struct{ table, column, def string }{
+		{"panels",       "scope",      "scope TEXT NOT NULL DEFAULT 'shared'"},
+		{"panels",       "created_by", "created_by TEXT REFERENCES users(id) ON DELETE SET NULL"},
+		{"integrations", "scope",      "scope TEXT NOT NULL DEFAULT 'shared'"},
+		{"tags",         "scope",      "scope TEXT NOT NULL DEFAULT 'shared'"},
+		{"tags",         "created_by", "created_by TEXT REFERENCES users(id) ON DELETE SET NULL"},
+	}
+	for _, s := range stmts {
+		if err := addColumnIfMissing(s.table, s.column, s.def); err != nil {
+			return err
+		}
+	}
+
+	// Create join tables (idempotent)
+	for _, ddl := range []string{
+		`CREATE TABLE IF NOT EXISTS panel_groups (
+			panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+			group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+			PRIMARY KEY (panel_id, group_id)
+		)`,
+		`CREATE TABLE IF NOT EXISTS integration_groups (
+			integration_id TEXT NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
+			group_id       TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+			PRIMARY KEY (integration_id, group_id)
+		)`,
+	} {
+		if _, err := db.Exec(ddl); err != nil {
+			return err
+		}
+	}
+
+	// Backfill default scope values
+	for _, stmt := range []string{
+		"UPDATE panels SET scope='shared' WHERE scope IS NULL OR scope=''",
+		"UPDATE integrations SET scope='shared' WHERE scope IS NULL OR scope=''",
+		"UPDATE tags SET scope='shared' WHERE scope IS NULL OR scope=''",
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return err
+		}
 	}
 	return nil
 }
