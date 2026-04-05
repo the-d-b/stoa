@@ -6,6 +6,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
+import { useUserMode } from '../../context/UserModeContext'
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
@@ -48,6 +49,7 @@ export default function Layout() {
   }, [])
 
   const onAdmin = location.pathname.startsWith('/admin')
+  const userMode = useUserMode()
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
@@ -100,7 +102,7 @@ export default function Layout() {
               }
             </button>
 
-            {isAdmin && (
+            {isAdmin && userMode === 'multi' && (
               <Link
                 to="/admin"
                 title="Admin"

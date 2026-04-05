@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
+import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
 type Tab = 'overview' | 'bookmarks' | 'panels' | 'mypanels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers' | 'integrations' | 'tags'
@@ -696,6 +697,7 @@ function WallsTab() {
 // ── Secrets ───────────────────────────────────────────────────────────────────
 
 function SecretsTab() {
+  const userMode = useUserMode()
   const [shared, setShared] = useState<Secret[]>([])
   const [personal, setPersonal] = useState<Secret[]>([])
   const [loading, setLoading] = useState(true)
@@ -739,10 +741,10 @@ function SecretsTab() {
 
   return (
     <div>
-      {/* Shared secrets accessible to this user — read-only view */}
-      {shared.length > 0 && (
+      {/* System secrets accessible to this user — read-only view */}
+      {userMode === 'multi' && shared.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>Shared secrets you can use</div>
+          <div className="section-title" style={{ marginBottom: 10 }}>System secrets</div>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 0, marginBottom: 12, lineHeight: 1.6 }}>
             These are managed by your admin and shared with your groups. Values are not visible.
           </p>
@@ -1488,6 +1490,7 @@ const INTEGRATION_TYPES = [
 ]
 
 function PersonalIntegrationsTab() {
+  const userMode = useUserMode()
   const [shared, setShared] = useState<Integration[]>([])
   const [personal, setPersonal] = useState<Integration[]>([])
   const [secrets, setSecrets] = useState<any[]>([])
@@ -1549,13 +1552,9 @@ function PersonalIntegrationsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Personal integrations are only visible to you. Shared integrations are managed by your admin.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
-          onClick={() => setShowForm(f => !f)}>+ Add</button>
-      </div>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: 1.7 }}>
+        Personal integrations are only visible to you. Shared integrations are managed by your admin.
+      </p>
 
       {/* Search */}
       <div style={{ marginBottom: 12 }}>
@@ -1564,7 +1563,7 @@ function PersonalIntegrationsTab() {
       </div>
 
       {/* System integrations — collapsible read-only */}
-      {shared.length > 0 && (
+      {userMode === 'multi' && shared.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
             onClick={() => setSystemCollapsed(c => !c)}>
@@ -1596,7 +1595,21 @@ function PersonalIntegrationsTab() {
         </div>
       )}
 
-      {/* New integration form */}
+      {/* Personal integrations — collapsible */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
+          onClick={() => setMyCollapsed(c => !c)}>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
+          <div className="section-title" style={{ margin: 0 }}>
+            My integrations
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+              ({personal.length})
+            </span>
+          </div>
+        </div>
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={() => setShowForm(f => !f)}>+ Add</button>
+      </div>
       {showForm && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -1650,18 +1663,6 @@ function PersonalIntegrationsTab() {
           </div>
         </div>
       )}
-
-      {/* Personal integrations — collapsible */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
-        onClick={() => setMyCollapsed(c => !c)}>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
-        <div className="section-title" style={{ margin: 0 }}>
-          My integrations
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
-            ({personal.length})
-          </span>
-        </div>
-      </div>
       {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {personal.filter(ig => !search || ig.name.toLowerCase().includes(search.toLowerCase())).map(ig => (
           <div key={ig.id} style={{
@@ -1773,6 +1774,7 @@ const TAG_COLORS = [
 ]
 
 function PersonalTagsTab() {
+  const userMode = useUserMode()
   const [sharedTags, setSharedTags] = useState<Tag[]>([])
   const [personalTags, setPersonalTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
@@ -1828,7 +1830,7 @@ function PersonalTagsTab() {
           placeholder="Filter tags..." style={{ fontSize: 13 }} />
       </div>
 
-      {sharedTags.length > 0 && (
+      {userMode === 'multi' && sharedTags.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
             onClick={() => setSystemCollapsed(c => !c)}>
@@ -1895,50 +1897,64 @@ function PersonalTagsTab() {
           </span>
         </div>
       </div>
-      {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {personalTags.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())).map(t => (
-          <div key={t.id} style={{
-            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
-            background: 'var(--surface)', border: `1px solid ${editId === t.id ? 'var(--accent)' : 'var(--border)'}`,
-            borderRadius: 8,
-          }}>
-            {editId === t.id ? (
-              <>
-                <input className="input" value={editName} onChange={e => setEditName(e.target.value)}
-                  style={{ fontSize: 13, flex: 1 }} />
-                <div style={{ display: 'flex', gap: 3 }}>
-                  {TAG_COLORS.map(c => (
-                    <button key={c} onClick={() => setEditColor(c)} style={{
-                      width: 18, height: 18, borderRadius: 4, background: c, border: 'none', cursor: 'pointer',
-                      outline: editColor === c ? `2px solid ${c}` : 'none', outlineOffset: 1,
-                    }} />
-                  ))}
+      {!myCollapsed && (
+        <>
+          {/* Color picker for editing */}
+          {editId && (
+            <div className="card" style={{ marginBottom: 10, padding: 12 }}>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="label">Name</label>
+                  <input className="input" value={editName} onChange={e => setEditName(e.target.value)}
+                    style={{ fontSize: 13 }} />
                 </div>
-                <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                  await tagsApi.update(t.id, { name: editName, color: editColor })
-                  setEditId(null); await load()
-                }}>Save</button>
-                <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
-              </>
-            ) : (
-              <>
-                <span style={{ width: 10, height: 10, borderRadius: 3, background: t.color, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, flex: 1 }}>{t.name}</span>
-                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
-                  setEditId(t.id); setEditName(t.name); setEditColor(t.color)
-                }}>Edit</button>
-                <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
-                  onClick={() => remove(t.id, t.name)}>Delete</button>
-              </>
+                <div>
+                  <label className="label">Color</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {TAG_COLORS.map(c => (
+                      <button key={c} onClick={() => setEditColor(c)} style={{
+                        width: 22, height: 22, borderRadius: 5, background: c, border: 'none', cursor: 'pointer',
+                        outline: editColor === c ? `2px solid ${c}` : 'none', outlineOffset: 2,
+                      }} />
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                    await tagsApi.update(editId, { name: editName, color: editColor })
+                    setEditId(null); await load()
+                  }}>Save</button>
+                  <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Pills */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {personalTags.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())).map(t => (
+              <div key={t.id} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '3px 4px 3px 10px', borderRadius: 8,
+                background: t.color + '18', border: `1px solid ${t.color}40`,
+                color: t.color, fontSize: 12, cursor: 'pointer',
+                outline: editId === t.id ? `2px solid ${t.color}` : 'none',
+              }} onClick={() => { setEditId(t.id); setEditName(t.name); setEditColor(t.color) }}>
+                <span style={{ width: 6, height: 6, borderRadius: 2, background: t.color }} />
+                {t.name}
+                <button onClick={e => { e.stopPropagation(); remove(t.id, t.name) }} style={{
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '0 2px',
+                  color: t.color, fontSize: 14, lineHeight: 1, opacity: 0.7,
+                }}>×</button>
+              </div>
+            ))}
+            {personalTags.length === 0 && !showForm && (
+              <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '4px 0' }}>
+                No personal tags yet.
+              </div>
             )}
           </div>
-        ))}
-        {personalTags.length === 0 && !showForm && (
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
-            No personal tags yet.
-          </div>
-        )}
-      </div>}
+        </>
+      )}
     </div>
   )
 }
@@ -1961,6 +1977,7 @@ const HEIGHT_OPTIONS = [
 ]
 
 function MyPanelsTab() {
+  const userMode = useUserMode()
   const [systemPanels, setSystemPanels] = useState<Panel[]>([])
   const [myPanels, setMyPanels] = useState<Panel[]>([])
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -2023,16 +2040,16 @@ function MyPanelsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Personal panels are only visible to you. System panels are shared by your admin.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+      {/* Search + New panel button */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter panels..." style={{ fontSize: 13, flex: 1 }} />
+        <button className="btn btn-primary" style={{ flexShrink: 0 }}
           onClick={() => setShowForm(f => !f)}>+ New panel</button>
       </div>
 
       {/* System panels — collapsible read-only */}
-      {systemPanels.length > 0 && (
+      {userMode === 'multi' && systemPanels.length > 0 && (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
             onClick={() => setSystemCollapsed(c => !c)}>
@@ -2118,12 +2135,6 @@ function MyPanelsTab() {
           </div>
         </div>
       )}
-
-      {/* Search */}
-      <div style={{ marginBottom: 12 }}>
-        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Filter panels..." style={{ fontSize: 13 }} />
-      </div>
 
       {/* My panels — collapsible */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}

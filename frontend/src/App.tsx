@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { UserModeProvider } from './context/UserModeContext'
 import { authApi } from './api'
 
 import SetupPage from './pages/SetupPage'
@@ -85,8 +86,10 @@ export default function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AppRoutes />
-          <ThemeSwitcher />
+          <UserModeProvider>
+            <AppRoutes />
+            <ThemeSwitcher />
+          </UserModeProvider>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

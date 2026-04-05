@@ -8,6 +8,7 @@ import BookmarksPanel from '../components/admin/BookmarksPanel'
 import PanelsAdminPanel from '../components/admin/PanelsAdminPanel'
 import SecretsPanel from '../components/admin/SecretsPanel'
 import IntegrationsPanel from '../components/admin/IntegrationsPanel'
+import SettingsPanel from '../components/admin/SettingsPanel'
 
 const tabs = [
   { path: '/admin/bookmarks', label: 'Bookmarks',        icon: '↗' },
@@ -15,6 +16,7 @@ const tabs = [
   { path: '/admin/secrets',   label: 'System Secrets',   icon: '🔑' },
   { path: '/admin/integrations', label: 'System Integrations', icon: '⇄' },
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
+  { path: '/admin/settings',  label: 'Settings',  icon: '⚙' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
   { path: '/admin/groups',    label: 'Groups',    icon: '◈' },
   { path: '/admin/tags',      label: 'Tags',      icon: '◇' },
@@ -66,6 +68,7 @@ export default function AdminPage() {
           <Route path="secrets"   element={<SecretsPanel />} />
           <Route path="integrations" element={<IntegrationsPanel />} />
           <Route path="oauth"     element={<OAuthConfigPanel />} />
+          <Route path="settings"  element={<SettingsPanel />} />
           <Route path="users"     element={<UsersPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />
           <Route path="tags"      element={<TagsPanel />} />

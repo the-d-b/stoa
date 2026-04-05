@@ -143,6 +143,7 @@ func main() {
 	admin.HandleFunc("/secrets/{id}/groups", handlers.SetSecretGroups(database)).Methods("PUT")
 
 	// Users admin
+	admin.HandleFunc("/users", handlers.CreateLocalUser(database)).Methods("POST")
 	admin.HandleFunc("/users/{id}/role", handlers.UpdateUserRole(database)).Methods("PUT")
 	admin.HandleFunc("/users/{id}", handlers.DeleteUser(database)).Methods("DELETE")
 
@@ -178,6 +179,9 @@ func main() {
 
 	// Config
 	admin.HandleFunc("/config/oauth", handlers.GetOAuthConfig(database)).Methods("GET")
+	admin.HandleFunc("/config/mode", handlers.GetUserMode(database)).Methods("GET")
+	admin.HandleFunc("/config/mode", handlers.SetUserMode(database)).Methods("PUT")
+	protected.HandleFunc("/config/mode", handlers.GetUserMode(database)).Methods("GET")
 	admin.HandleFunc("/config/oauth", handlers.SaveOAuthConfig(database, cfg)).Methods("PUT")
 
 	// Static frontend

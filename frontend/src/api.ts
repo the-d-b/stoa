@@ -97,6 +97,8 @@ export const authApi = {
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 export const usersApi = {
+  create: (data: { username: string; email?: string; password: string; role?: string }) =>
+    api.post('/users', data),
   list: () => api.get<User[]>('/users'),
   get: (id: string) => api.get<User>(`/users/${id}`),
   updateRole: (id: string, role: Role) => api.put(`/users/${id}/role`, { role }),
@@ -139,6 +141,8 @@ export const tagsApi = {
 export const configApi = {
   getOAuth: () => api.get<OAuthConfig>('/config/oauth'),
   saveOAuth: (data: OAuthConfig) => api.put('/config/oauth', data),
+  getMode: () => api.get<{ mode: string }>('/config/mode'),
+  setMode: (mode: 'single' | 'multi') => api.put('/config/mode', { mode }),
 }
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────────

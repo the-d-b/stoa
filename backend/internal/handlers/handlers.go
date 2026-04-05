@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
 	"github.com/gorilla/mux"
 	"github.com/the-d-b/stoa/internal/auth"
 	"github.com/the-d-b/stoa/internal/config"
@@ -830,5 +832,65 @@ func ListMyTags(db *sql.DB) http.HandlerFunc {
 			tags = append(tags, t)
 		}
 		writeJSON(w, http.StatusOK, tags)
+	}
+}
+
+func GetUserMode(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var mode string
+		db.QueryRow("SELECT value FROM app_config WHERE key = 'user_mode'").Scan(&mode)
+		if mode == "" {
+			mode = "multi" // default to multi-user
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"mode": mode})
+	}
+}
+
+func SetUserMode(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Mode string `json:"mode"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		if req.Mode != "single" && req.Mode != "multi" {
+			writeError(w, http.StatusBadRequest, "mode must be 'single' or 'multi'")
+			return
+		}
+		db.Exec(`INSERT INTO app_config (key, value) VALUES ('user_mode', ?)
+			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, req.Mode)
+		writeJSON(w, http.StatusOK, map[string]string{"mode": req.Mode})
+	}
+}
+
+func CreateLocalUser(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Username string `json:"username"`
+			Email    string `json:"email"`
+			Password string `json:"password"`
+			Role     string `json:"role"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
+			req.Username == "" || req.Password == "" {
+			writeError(w, http.StatusBadRequest, "username and password required")
+			return
+		}
+		if req.Role != "admin" && req.Role != "user" {
+			req.Role = "user"
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
+		id := generateID()
+		_, err = db.Exec(
+			"INSERT INTO users (id, username, email, role, auth_provider, password_hash) VALUES (?, ?, ?, ?, 'local', ?)",
+			id, req.Username, req.Email, req.Role, string(hash))
+		if err != nil {
+			writeError(w, http.StatusConflict, "username already exists")
+			return
+		}
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "username": req.Username, "role": req.Role})
 	}
 }
