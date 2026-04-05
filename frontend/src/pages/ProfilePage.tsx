@@ -1539,7 +1539,7 @@ function PersonalIntegrationsTab() {
 
   const remove = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return
-    await integrationsApi.delete(id); await load()
+    await myIntegrationsApi.delete(id); await load()
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
@@ -1955,7 +1955,7 @@ function MyPanelsTab() {
 
   const remove = async (id: string, title: string) => {
     if (!confirm(`Delete panel "${title}"?`)) return
-    await panelsApi.delete(id); await load()
+    await myPanelsApi.delete(id); await load()
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>

@@ -316,6 +316,7 @@ export const myPanelsApi = {
 
 export const myIntegrationsApi = {
   list: () => api.get<Integration[]>('/my/integrations'),
+  delete: (id: string) => api.delete(`/my/integrations/${id}`),
 }
 
 export const myTagsApi = {

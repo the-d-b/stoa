@@ -91,6 +91,7 @@ func main() {
 	protected.HandleFunc("/my/panels", handlers.CreatePanel(database)).Methods("POST")
 	protected.HandleFunc("/my/panels/{id}", handlers.DeletePanel(database)).Methods("DELETE")
 	protected.HandleFunc("/my/integrations", handlers.ListMyIntegrations(database)).Methods("GET")
+	protected.HandleFunc("/my/integrations/{id}", handlers.DeleteMyIntegration(database)).Methods("DELETE")
 	protected.HandleFunc("/my/tags", handlers.ListMyTags(database)).Methods("GET")
 	protected.HandleFunc("/my/secrets", handlers.ListMySecrets(database)).Methods("GET")
 	protected.HandleFunc("/my/panels/{id}", handlers.UpdatePanel(database)).Methods("PUT")

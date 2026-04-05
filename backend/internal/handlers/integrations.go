@@ -678,3 +678,13 @@ func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, integrations)
 	}
 }
+
+// DeleteMyIntegration deletes an integration owned by the current user.
+func DeleteMyIntegration(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		db.Exec("DELETE FROM integrations WHERE id=? AND created_by=?", id, claims.UserID)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
