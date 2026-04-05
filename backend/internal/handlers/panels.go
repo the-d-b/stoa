@@ -191,6 +191,15 @@ func DeletePanel(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func DeleteMyPanel(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		db.Exec("DELETE FROM panels WHERE id=? AND created_by=?", id, claims.UserID)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
 func AddTagToPanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panelID := mux.Vars(r)["id"]

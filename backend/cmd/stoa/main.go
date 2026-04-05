@@ -89,7 +89,7 @@ func main() {
 	protected.HandleFunc("/my/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
 	protected.HandleFunc("/my/panels", handlers.ListMyPanels(database)).Methods("GET")
 	protected.HandleFunc("/my/panels", handlers.CreatePanel(database)).Methods("POST")
-	protected.HandleFunc("/my/panels/{id}", handlers.DeletePanel(database)).Methods("DELETE")
+	protected.HandleFunc("/my/panels/{id}", handlers.DeleteMyPanel(database)).Methods("DELETE")
 	protected.HandleFunc("/my/integrations", handlers.ListMyIntegrations(database)).Methods("GET")
 	protected.HandleFunc("/my/integrations/{id}", handlers.DeleteMyIntegration(database)).Methods("DELETE")
 	protected.HandleFunc("/my/tags", handlers.ListMyTags(database)).Methods("GET")

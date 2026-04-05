@@ -15,6 +15,7 @@ export default function PanelsAdminPanel() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [calConfigPanel, setCalConfigPanel] = useState<any>(null)
+  const [search, setSearch] = useState('')
   const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
   const [loadingTree, setLoadingTree] = useState(false)
 
@@ -182,8 +183,12 @@ export default function PanelsAdminPanel() {
         </div>
       )}
 
+      <div style={{ marginBottom: 12 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter panels..." style={{ fontSize: 13 }} />
+      </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {panels.map(p => {
+        {panels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
           const config = safeParseConfig(p.config)
           const rootNode = config.rootNodeId
             ? flatNodes.find(({ node }) => node.id === config.rootNodeId)?.node

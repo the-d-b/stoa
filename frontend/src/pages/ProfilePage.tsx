@@ -1493,6 +1493,9 @@ function PersonalIntegrationsTab() {
   const [secrets, setSecrets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [systemCollapsed, setSystemCollapsed] = useState(true)
+  const [myCollapsed, setMyCollapsed] = useState(false)
+  const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState('sonarr')
   const [newApiUrl, setNewApiUrl] = useState('')
@@ -1554,12 +1557,27 @@ function PersonalIntegrationsTab() {
           onClick={() => setShowForm(f => !f)}>+ Add</button>
       </div>
 
-      {/* Shared integrations — read only */}
+      {/* Search */}
+      <div style={{ marginBottom: 12 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter integrations..." style={{ fontSize: 13 }} />
+      </div>
+
+      {/* System integrations — collapsible read-only */}
       {shared.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>System integrations</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {shared.map(ig => (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
+            onClick={() => setSystemCollapsed(c => !c)}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{systemCollapsed ? '▶' : '▼'}</span>
+            <div className="section-title" style={{ margin: 0 }}>
+              System integrations
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+                ({shared.length})
+              </span>
+            </div>
+          </div>
+          {!systemCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {shared.filter(ig => !search || ig.name.toLowerCase().includes(search.toLowerCase())).map(ig => (
               <div key={ig.id} style={{
                 display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
                 background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
@@ -1574,7 +1592,7 @@ function PersonalIntegrationsTab() {
                 </span>
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 
@@ -1633,10 +1651,19 @@ function PersonalIntegrationsTab() {
         </div>
       )}
 
-      {/* Personal integrations */}
-      <div className="section-title" style={{ marginBottom: 10 }}>My integrations</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {personal.map(ig => (
+      {/* Personal integrations — collapsible */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
+        onClick={() => setMyCollapsed(c => !c)}>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
+        <div className="section-title" style={{ margin: 0 }}>
+          My integrations
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+            ({personal.length})
+          </span>
+        </div>
+      </div>
+      {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {personal.filter(ig => !search || ig.name.toLowerCase().includes(search.toLowerCase())).map(ig => (
           <div key={ig.id} style={{
             background: 'var(--surface)', border: `1px solid ${editId === ig.id ? 'var(--accent)' : 'var(--border)'}`,
             borderRadius: 8, overflow: 'hidden',
@@ -1669,7 +1696,7 @@ function PersonalIntegrationsTab() {
             No personal integrations yet.
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -1750,6 +1777,9 @@ function PersonalTagsTab() {
   const [personalTags, setPersonalTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [systemCollapsed, setSystemCollapsed] = useState(true)
+  const [myCollapsed, setMyCollapsed] = useState(false)
+  const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(TAG_COLORS[0])
   const [creating, setCreating] = useState(false)
@@ -1792,11 +1822,26 @@ function PersonalTagsTab() {
       </div>
 
       {/* Shared tags — read only display */}
+      {/* Search */}
+      <div style={{ marginBottom: 12 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter tags..." style={{ fontSize: 13 }} />
+      </div>
+
       {sharedTags.length > 0 && (
-        <div style={{ marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>System tags</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {sharedTags.map(t => (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
+            onClick={() => setSystemCollapsed(c => !c)}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{systemCollapsed ? '▶' : '▼'}</span>
+            <div className="section-title" style={{ margin: 0 }}>
+              System tags
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+                ({sharedTags.length})
+              </span>
+            </div>
+          </div>
+          {!systemCollapsed && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {sharedTags.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())).map(t => (
               <div key={t.id} style={{
                 display: 'inline-flex', alignItems: 'center', gap: 5,
                 padding: '3px 10px', borderRadius: 8,
@@ -1807,7 +1852,7 @@ function PersonalTagsTab() {
                 {t.name}
               </div>
             ))}
-          </div>
+          </div>}
         </div>
       )}
 
@@ -1840,9 +1885,18 @@ function PersonalTagsTab() {
         </div>
       )}
 
-      <div className="section-title" style={{ marginBottom: 10 }}>My tags</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {personalTags.map(t => (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
+        onClick={() => setMyCollapsed(c => !c)}>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
+        <div className="section-title" style={{ margin: 0 }}>
+          My tags
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+            ({personalTags.length})
+          </span>
+        </div>
+      </div>
+      {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {personalTags.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())).map(t => (
           <div key={t.id} style={{
             display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
             background: 'var(--surface)', border: `1px solid ${editId === t.id ? 'var(--accent)' : 'var(--border)'}`,
@@ -1884,7 +1938,7 @@ function PersonalTagsTab() {
             No personal tags yet.
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }
@@ -1912,6 +1966,8 @@ function MyPanelsTab() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [systemCollapsed, setSystemCollapsed] = useState(true)
+  const [myCollapsed, setMyCollapsed] = useState(false)
+  const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState('bookmarks')
@@ -2063,10 +2119,25 @@ function MyPanelsTab() {
         </div>
       )}
 
-      {/* My panels */}
-      <div className="section-title" style={{ marginBottom: 10 }}>My panels</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {myPanels.map(p => {
+      {/* Search */}
+      <div style={{ marginBottom: 12 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter panels..." style={{ fontSize: 13 }} />
+      </div>
+
+      {/* My panels — collapsible */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
+        onClick={() => setMyCollapsed(c => !c)}>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
+        <div className="section-title" style={{ margin: 0 }}>
+          My panels
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+            ({myPanels.length})
+          </span>
+        </div>
+      </div>
+      {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {myPanels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
           let cfg: any = {}
           try { cfg = JSON.parse(p.config || '{}') } catch {}
           return (
@@ -2089,12 +2160,12 @@ function MyPanelsTab() {
             </div>
           )
         })}
-        {myPanels.length === 0 && !showForm && (
+        {myPanels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
-            No personal panels yet.
+            {search ? 'No panels match your search.' : 'No personal panels yet.'}
           </div>
         )}
-      </div>
+      </div>}
     </div>
   )
 }
