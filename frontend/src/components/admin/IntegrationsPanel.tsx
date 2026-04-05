@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { integrationsApi, secretsApi, Integration } from '../../api'
+import { integrationsApi, secretsApi, groupsApi, Integration } from '../../api'
 
 const INTEGRATION_TYPES = [
   { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
@@ -17,6 +17,8 @@ export default function IntegrationsPanel() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [groups, setGroups] = useState<any[]>([])
+  const [integrationGroups, setIntegrationGroups] = useState<Record<string, string[]>>({})
 
   // New form state
   const [newName, setNewName] = useState('')
@@ -29,9 +31,15 @@ export default function IntegrationsPanel() {
   const [testing, setTesting] = useState(false)
 
   const load = async () => {
-    const [i, s] = await Promise.all([integrationsApi.list(), secretsApi.list()])
-    setIntegrations(i.data || [])
+    const [i, s, g] = await Promise.all([integrationsApi.list(), secretsApi.list(), groupsApi.list()])
+    const list: Integration[] = i.data || []
+    setIntegrations(list)
     setSecrets(s.data || [])
+    setGroups(g.data || [])
+    // Load group assignments for each integration
+    const ig: Record<string, string[]> = {}
+    // We'll load lazily when expanded to avoid N+1 on load
+    setIntegrationGroups(ig)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -153,8 +161,22 @@ export default function IntegrationsPanel() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {integrations.map(ig => (
           <IntegrationRow key={ig.id} integration={ig} secrets={secrets}
+            groups={groups}
+            assignedGroups={integrationGroups[ig.id] || []}
+            onGroupsChange={async (groupIds) => {
+              await integrationsApi.setGroups(ig.id, groupIds)
+              setIntegrationGroups(prev => ({ ...prev, [ig.id]: groupIds }))
+            }}
             expanded={expandedId === ig.id}
-            onExpand={() => setExpandedId(expandedId === ig.id ? null : ig.id)}
+            onExpand={async () => {
+              const next = expandedId === ig.id ? null : ig.id
+              setExpandedId(next)
+              if (next && !integrationGroups[next]) {
+                // Lazy load group assignments
+                // For now default to empty until backend returns them with list
+                setIntegrationGroups(prev => ({ ...prev, [next]: [] }))
+              }
+            }}
             onDelete={() => remove(ig.id, ig.name)}
             onUpdate={async (data) => { await integrationsApi.update(ig.id, data); await load() }}
           />
@@ -169,8 +191,10 @@ export default function IntegrationsPanel() {
   )
 }
 
-function IntegrationRow({ integration: ig, secrets, expanded, onExpand, onDelete, onUpdate }: {
+function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGroupsChange, expanded, onExpand, onDelete, onUpdate }: {
   integration: Integration; secrets: any[]
+  groups: any[]; assignedGroups: string[]
+  onGroupsChange: (groupIds: string[]) => void
   expanded: boolean; onExpand: () => void; onDelete: () => void
   onUpdate: (data: any) => void
 }) {
@@ -294,6 +318,37 @@ function IntegrationRow({ integration: ig, secrets, expanded, onExpand, onDelete
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>Type</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{typeDef?.desc ?? ig.type}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Group access */}
+          {groups.length > 0 && (
+            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+              <div className="section-title" style={{ marginBottom: 8 }}>
+                Group access
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>
+                  (no groups = visible to all users)
+                </span>
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {groups.map(g => {
+                  const assigned = assignedGroups.includes(g.id)
+                  return (
+                    <button key={g.id} onClick={() => {
+                      const next = assigned
+                        ? assignedGroups.filter(id => id !== g.id)
+                        : [...assignedGroups, g.id]
+                      onGroupsChange(next)
+                    }} style={{
+                      padding: '3px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                      background: assigned ? 'var(--accent-bg)' : 'var(--surface)',
+                      color: assigned ? 'var(--accent2)' : 'var(--text-muted)',
+                      border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
+                      transition: 'all 0.15s',
+                    }}>{g.name}</button>
+                  )
+                })}
               </div>
             </div>
           )}

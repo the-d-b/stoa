@@ -5,7 +5,7 @@ import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers' | 'integrations' | 'tags'
+type Tab = 'overview' | 'bookmarks' | 'panels' | 'mypanels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers' | 'integrations' | 'tags'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -31,8 +31,9 @@ export default function ProfilePage() {
     { id: 'secrets',   label: 'Secrets',      icon: '🔑' },
     { id: 'glyphs',    label: 'Glyphs',       icon: '◈' },
     { id: 'tickers',   label: 'Tickers',      icon: '▶' },
-    { id: 'integrations', label: 'Integrations', icon: '⇄' },
+    { id: 'integrations', label: 'My Integrations', icon: '⇄' },
     { id: 'tags',      label: 'My Tags',      icon: '◉' },
+    { id: 'mypanels',  label: 'My Panels',    icon: '⊞' },
   ]
 
   return (
@@ -82,6 +83,7 @@ export default function ProfilePage() {
       {tab === 'tickers'   && <TickersTab />}
       {tab === 'integrations' && <PersonalIntegrationsTab />}
       {tab === 'tags'        && <PersonalTagsTab />}
+      {tab === 'mypanels'   && <MyPanelsTab />}
     </div>
   )
 }
@@ -1494,12 +1496,12 @@ function PersonalIntegrationsTab() {
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState('sonarr')
   const [newApiUrl, setNewApiUrl] = useState('')
+  const [editId, setEditId] = useState<string | null>(null)
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
   const [creating, setCreating] = useState(false)
   const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
   const [testing, setTesting] = useState(false)
-  const [editId, setEditId] = useState<string | null>(null)
 
   const load = async () => {
     const [i, s] = await Promise.all([integrationsApi.list(), secretsApi.list()])
@@ -1525,8 +1527,9 @@ function PersonalIntegrationsTab() {
     setCreating(true)
     try {
       await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined })
-      setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null); setShowForm(false)
+      setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null)
       await load()
+      setShowForm(false)
     } finally { setCreating(false) }
   }
 
@@ -1550,7 +1553,7 @@ function PersonalIntegrationsTab() {
       {/* Shared integrations — read only */}
       {shared.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>Shared integrations you can use</div>
+          <div className="section-title" style={{ marginBottom: 10 }}>System integrations</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {shared.map(ig => (
               <div key={ig.id} style={{
@@ -1627,7 +1630,7 @@ function PersonalIntegrationsTab() {
       )}
 
       {/* Personal integrations */}
-      <div className="section-title" style={{ marginBottom: 10 }}>My personal integrations</div>
+      <div className="section-title" style={{ marginBottom: 10 }}>My integrations</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {personal.map(ig => (
           <div key={ig.id} style={{
@@ -1752,8 +1755,9 @@ function PersonalTagsTab() {
 
   const load = async () => {
     const res = await tagsApi.list()
-    setSharedTags((res.data || []).filter((t: Tag) => t.scope === 'shared'))
-    setPersonalTags((res.data || []).filter((t: Tag) => t.scope === 'personal'))
+    const allTags: Tag[] = res.data || []
+    setSharedTags(allTags.filter(t => t.scope === 'shared' || !t.scope))
+    setPersonalTags(allTags.filter(t => t.scope === 'personal'))
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1787,7 +1791,7 @@ function PersonalTagsTab() {
       {/* Shared tags — read only display */}
       {sharedTags.length > 0 && (
         <div style={{ marginBottom: 24 }}>
-          <div className="section-title" style={{ marginBottom: 10 }}>Shared tags</div>
+          <div className="section-title" style={{ marginBottom: 10 }}>System tags</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {sharedTags.map(t => (
               <div key={t.id} style={{
@@ -1833,7 +1837,7 @@ function PersonalTagsTab() {
         </div>
       )}
 
-      <div className="section-title" style={{ marginBottom: 10 }}>My personal tags</div>
+      <div className="section-title" style={{ marginBottom: 10 }}>My tags</div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {personalTags.map(t => (
           <div key={t.id} style={{
@@ -1875,6 +1879,201 @@ function PersonalTagsTab() {
         {personalTags.length === 0 && !showForm && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
             No personal tags yet.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── My Panels ────────────────────────────────────────────────────────────────
+
+const PANEL_TYPES = [
+  { id: 'bookmarks', label: 'Bookmarks',  desc: 'Bookmark tree panel' },
+  { id: 'sonarr',    label: 'Sonarr',     desc: 'TV show tracking' },
+  { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
+  { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
+  { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
+]
+
+const HEIGHT_OPTIONS = [
+  { value: 1, label: '1x — compact' },
+  { value: 2, label: '2x — standard' },
+  { value: 4, label: '4x — tall' },
+  { value: 8, label: '8x — full height' },
+]
+
+function MyPanelsTab() {
+  const [systemPanels, setSystemPanels] = useState<Panel[]>([])
+  const [myPanels, setMyPanels] = useState<Panel[]>([])
+  const [integrations, setIntegrations] = useState<Integration[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newType, setNewType] = useState('bookmarks')
+  const [newHeight, setNewHeight] = useState(2)
+  const [newIntegrationId, setNewIntegrationId] = useState('')
+  const [creating, setCreating] = useState(false)
+
+  const load = async () => {
+    const [p, i] = await Promise.all([panelsApi.list(), integrationsApi.list()])
+    const all: Panel[] = p.data || []
+    setSystemPanels(all.filter(p => p.scope === 'shared'))
+    setMyPanels(all.filter(p => p.scope === 'personal'))
+    setIntegrations(i.data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const configForType = (integrationId: string, height: number) => {
+    const base: any = { height }
+    if (integrationId) base.integrationId = integrationId
+    return JSON.stringify(base)
+  }
+
+  const create = async () => {
+    if (!newTitle.trim()) return
+    setCreating(true)
+    try {
+      await myPanelsApi.create({
+        title: newTitle.trim(),
+        type: newType,
+        config: configForType(newIntegrationId, newHeight),
+      })
+      setNewTitle(''); setNewType('bookmarks'); setNewHeight(2); setNewIntegrationId('')
+      await load()
+      setShowForm(false)
+    } finally { setCreating(false) }
+  }
+
+  const remove = async (id: string, title: string) => {
+    if (!confirm(`Delete panel "${title}"?`)) return
+    await panelsApi.delete(id); await load()
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+
+  const needsIntegration = ['sonarr', 'radarr', 'calendar'].includes(newType)
+  const compatibleIntegrations = integrations.filter(i =>
+    newType === 'calendar' ? true : i.type === newType
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
+          Personal panels are only visible to you. System panels are shared by your admin.
+        </p>
+        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+          onClick={() => setShowForm(f => !f)}>+ New panel</button>
+      </div>
+
+      {/* System panels — read only */}
+      {systemPanels.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-title" style={{ marginBottom: 10 }}>System panels</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {systemPanels.map(p => (
+              <div key={p.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+              }}>
+                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                  background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                  {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* New panel form */}
+      {showForm && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label className="label">Title</label>
+                <input className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)}
+                  placeholder="My Sonarr" autoFocus />
+              </div>
+              <div style={{ flex: 0.5 }}>
+                <label className="label">Type</label>
+                <select className="input" value={newType}
+                  onChange={e => { setNewType(e.target.value); setNewIntegrationId('') }}
+                  style={{ cursor: 'pointer' }}>
+                  {PANEL_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 0.4 }}>
+                <label className="label">Height</label>
+                <select className="input" value={newHeight}
+                  onChange={e => setNewHeight(Number(e.target.value))}
+                  style={{ cursor: 'pointer' }}>
+                  {HEIGHT_OPTIONS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {needsIntegration && (
+              <div>
+                <label className="label">Integration</label>
+                <select className="input" value={newIntegrationId}
+                  onChange={e => setNewIntegrationId(e.target.value)}
+                  style={{ cursor: 'pointer' }}>
+                  <option value="">— Select integration —</option>
+                  {compatibleIntegrations.map(i => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
+                {compatibleIntegrations.length === 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                    No {newType} integrations found. Add one in My Integrations first.
+                  </div>
+                )}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-primary" onClick={create}
+                disabled={creating || !newTitle || (needsIntegration && !newIntegrationId)}>
+                {creating ? <span className="spinner" /> : 'Create'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* My panels */}
+      <div className="section-title" style={{ marginBottom: 10 }}>My panels</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {myPanels.map(p => {
+          let cfg: any = {}
+          try { cfg = JSON.parse(p.config || '{}') } catch {}
+          return (
+            <div key={p.id} style={{
+              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 8,
+            }}>
+              <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                {cfg.height ?? 2}x
+              </span>
+              <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                onClick={() => remove(p.id, p.title)}>Delete</button>
+            </div>
+          )
+        })}
+        {myPanels.length === 0 && !showForm && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
+            No personal panels yet.
           </div>
         )}
       </div>

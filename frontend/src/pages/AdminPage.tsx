@@ -10,10 +10,10 @@ import SecretsPanel from '../components/admin/SecretsPanel'
 import IntegrationsPanel from '../components/admin/IntegrationsPanel'
 
 const tabs = [
-  { path: '/admin/bookmarks', label: 'Bookmarks', icon: '↗' },
-  { path: '/admin/panels',    label: 'Panels',    icon: '▤' },
-  { path: '/admin/secrets',   label: 'Secrets',   icon: '🔑' },
-  { path: '/admin/integrations', label: 'Integrations', icon: '⇄' },
+  { path: '/admin/bookmarks', label: 'Bookmarks',        icon: '↗' },
+  { path: '/admin/panels',    label: 'System Panels',    icon: '▤' },
+  { path: '/admin/secrets',   label: 'System Secrets',   icon: '🔑' },
+  { path: '/admin/integrations', label: 'System Integrations', icon: '⇄' },
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
   { path: '/admin/groups',    label: 'Groups',    icon: '◈' },

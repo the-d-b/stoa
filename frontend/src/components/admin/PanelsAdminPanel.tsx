@@ -268,7 +268,7 @@ export default function PanelsAdminPanel() {
                   )}
                   <button className="btn btn-ghost" style={{ fontSize: 12 }}
                     onClick={() => setExpandedPanel(expandedPanel === p.id ? null : p.id)}>
-                    Groups
+                    Group Access
                   </button>
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
                 </div>
@@ -276,7 +276,7 @@ export default function PanelsAdminPanel() {
 
               {/* Tag assignment */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>Access:</span>
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>Tags:</span>
                 {tags.length === 0 && (
                   <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No tags yet</span>
                 )}
