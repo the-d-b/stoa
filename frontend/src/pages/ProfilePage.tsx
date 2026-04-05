@@ -439,18 +439,10 @@ function PanelsOrderTab() {
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
           Drag or use arrows to reorder. Changes apply to your view only.
         </p>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {!hasPersonalPanel && (
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => setShowCreatePanel(s => !s)}>
-              + Personal panel
-            </button>
-          )}
-          <button className="btn btn-primary" style={{ fontSize: 12 }}
-            onClick={saveOrder} disabled={saving}>
-            {saving ? <span className="spinner" /> : saved ? '✓ Saved' : 'Save order'}
-          </button>
-        </div>
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={saveOrder} disabled={saving}>
+          {saving ? <span className="spinner" /> : saved ? '✓ Saved' : 'Save order'}
+        </button>
       </div>
 
       {showCreatePanel && (
@@ -702,6 +694,7 @@ function SecretsTab() {
   const [personal, setPersonal] = useState<Secret[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newValue, setNewValue] = useState('')
   const [creating, setCreating] = useState(false)
@@ -741,6 +734,12 @@ function SecretsTab() {
 
   return (
     <div>
+      {/* Search */}
+      <div style={{ marginBottom: 16 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter secrets..." style={{ fontSize: 13 }} />
+      </div>
+
       {/* System secrets accessible to this user — read-only view */}
       {userMode === 'multi' && shared.length > 0 && (
         <div style={{ marginBottom: 28 }}>
@@ -749,7 +748,7 @@ function SecretsTab() {
             These are managed by your admin and shared with your groups. Values are not visible.
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {shared.map(s => (
+            {shared.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase())).map(s => (
               <div key={s.id} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '10px 14px', borderRadius: 8,
@@ -806,7 +805,7 @@ function SecretsTab() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {personal.map(s => (
+        {personal.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase())).map(s => (
           <div key={s.id} style={{
             background: 'var(--surface)', border: `1px solid ${editing?.id === s.id ? 'var(--accent)' : 'var(--border)'}`,
             borderRadius: 8, padding: '10px 14px',
@@ -1815,13 +1814,9 @@ function PersonalTagsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Personal tags are only visible to you. Use them to filter and organize your personal panels.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
-          onClick={() => setShowForm(f => !f)}>+ New tag</button>
-      </div>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.7 }}>
+        Personal tags are only visible to you. Use them to filter and organize your personal panels.
+      </p>
 
       {/* Shared tags — read only display */}
       {/* Search */}
@@ -1858,6 +1853,21 @@ function PersonalTagsTab() {
         </div>
       )}
 
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
+          onClick={() => setMyCollapsed(c => !c)}>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
+          <div className="section-title" style={{ margin: 0 }}>
+            My tags
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+              ({personalTags.length})
+            </span>
+          </div>
+        </div>
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={() => setShowForm(f => !f)}>+ New tag</button>
+      </div>
+
       {showForm && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -1886,17 +1896,6 @@ function PersonalTagsTab() {
           </div>
         </div>
       )}
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
-        onClick={() => setMyCollapsed(c => !c)}>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
-        <div className="section-title" style={{ margin: 0 }}>
-          My tags
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
-            ({personalTags.length})
-          </span>
-        </div>
-      </div>
       {!myCollapsed && (
         <>
           {/* Color picker for editing */}
@@ -2040,12 +2039,10 @@ function MyPanelsTab() {
 
   return (
     <div>
-      {/* Search + New panel button */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+      {/* Search only at top */}
+      <div style={{ marginBottom: 16 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Filter panels..." style={{ fontSize: 13, flex: 1 }} />
-        <button className="btn btn-primary" style={{ flexShrink: 0 }}
-          onClick={() => setShowForm(f => !f)}>+ New panel</button>
+          placeholder="Filter panels..." style={{ fontSize: 13 }} />
       </div>
 
       {/* System panels — collapsible read-only */}
@@ -2079,6 +2076,22 @@ function MyPanelsTab() {
           )}
         </div>
       )}
+
+      {/* My panels — collapsible with Add button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flex: 1 }}
+          onClick={() => setMyCollapsed(c => !c)}>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
+          <div className="section-title" style={{ margin: 0 }}>
+            My panels
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
+              ({myPanels.length})
+            </span>
+          </div>
+        </div>
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={() => setShowForm(f => !f)}>+ New panel</button>
+      </div>
 
       {/* New panel form */}
       {showForm && (
@@ -2136,17 +2149,6 @@ function MyPanelsTab() {
         </div>
       )}
 
-      {/* My panels — collapsible */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, cursor: 'pointer' }}
-        onClick={() => setMyCollapsed(c => !c)}>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{myCollapsed ? '▶' : '▼'}</span>
-        <div className="section-title" style={{ margin: 0 }}>
-          My panels
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 6 }}>
-            ({myPanels.length})
-          </span>
-        </div>
-      </div>
       {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {myPanels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
           let cfg: any = {}

@@ -39,10 +39,11 @@ export default function UsersPanel() {
     await usersApi.delete(u.id); load()
   }
 
-  const filtered = users.filter(u =>
-    !search || u.username.toLowerCase().includes(search.toLowerCase()) ||
-    (u.email || '').toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = users
+    .filter(u => u.id !== 'SYSTEM')
+    .filter(u => !search || u.username.toLowerCase().includes(search.toLowerCase()) ||
+      (u.email || '').toLowerCase().includes(search.toLowerCase())
+    )
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 

@@ -396,7 +396,7 @@ func ListUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.Query(`
 			SELECT id, username, email, role, auth_provider, created_at, last_login
-			FROM users ORDER BY created_at ASC
+			FROM users WHERE id != 'SYSTEM' ORDER BY created_at ASC
 		`)
 		if err != nil {
 			log.Printf("[API] list_users error: %v", err)
@@ -470,6 +470,10 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 func DeleteUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
+		if id == "SYSTEM" {
+			writeError(w, http.StatusForbidden, "cannot delete system user")
+			return
+		}
 		db.Exec("DELETE FROM users WHERE id = ? AND auth_provider != 'local'", id)
 		log.Printf("[ADMIN] user_deleted user_id=%s", id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -878,19 +882,27 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 		if req.Role != "admin" && req.Role != "user" {
 			req.Role = "user"
 		}
+		log.Printf("[USERS] creating local user username=%q role=%s", req.Username, req.Role)
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
+			log.Printf("[USERS] bcrypt error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to hash password")
 			return
 		}
 		id := generateID()
+		var emailVal interface{} = nil
+		if req.Email != "" {
+			emailVal = req.Email
+		}
 		_, err = db.Exec(
 			"INSERT INTO users (id, username, email, role, auth_provider, password_hash) VALUES (?, ?, ?, ?, 'local', ?)",
-			id, req.Username, req.Email, req.Role, string(hash))
+			id, req.Username, emailVal, req.Role, string(hash))
 		if err != nil {
+			log.Printf("[USERS] insert error: %v", err)
 			writeError(w, http.StatusConflict, "username already exists")
 			return
 		}
+		log.Printf("[USERS] created local user id=%s username=%q", id, req.Username)
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "username": req.Username, "role": req.Role})
 	}
 }
