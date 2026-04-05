@@ -2063,7 +2063,7 @@ function MyPanelsTab() {
           </div>
           {!systemCollapsed && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {systemPanels.map(p => (
+              {systemPanels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => (
                 <div key={p.id} style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
                   background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,

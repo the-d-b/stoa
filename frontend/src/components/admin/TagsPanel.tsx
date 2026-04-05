@@ -16,6 +16,7 @@ export default function TagsPanel() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editColor, setEditColor] = useState('')
+  const [search, setSearch] = useState('')
 
   const load = () => tagsApi.list().then(r => setTags(r.data)).finally(() => setLoading(false))
   useEffect(() => { load() }, [])
@@ -42,11 +43,10 @@ export default function TagsPanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Tags control panel visibility. Click a tag to edit its color.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }} onClick={() => setShowForm(!showForm)}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter tags..." style={{ fontSize: 13, flex: 1 }} />
+        <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setShowForm(!showForm)}>
           + New tag
         </button>
       </div>
@@ -79,7 +79,7 @@ export default function TagsPanel() {
       )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-        {tags.map(t => (
+        {tags.filter(t => !search || t.name.toLowerCase().includes(search.toLowerCase())).map(t => (
           <div key={t.id}>
             {editingId === t.id ? (
               <div style={{

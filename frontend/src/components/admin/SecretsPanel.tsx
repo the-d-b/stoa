@@ -11,6 +11,7 @@ export default function SecretsPanel() {
   const [creating, setCreating] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; name: string; value: string } | null>(null)
+  const [search, setSearch] = useState('')
 
   const load = async () => {
     const [s, g] = await Promise.all([secretsApi.list(), groupsApi.list()])
@@ -55,12 +56,10 @@ export default function SecretsPanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 500 }}>
-          Shared secrets store API keys and tokens for glyphs, tickers, and panels.
-          Grant groups access to a secret so their members can use it in personal glyphs and tickers.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter secrets..." style={{ fontSize: 13, flex: 1 }} />
+        <button className="btn btn-primary" style={{ flexShrink: 0 }}
           onClick={() => setShowForm(f => !f)}>+ New secret</button>
       </div>
 
@@ -89,7 +88,7 @@ export default function SecretsPanel() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {secrets.map(s => (
+        {secrets.filter(s => !search || s.name.toLowerCase().includes(search.toLowerCase())).map(s => (
           <div key={s.id} style={{
             background: 'var(--surface)', border: `1px solid ${expanded === s.id ? 'var(--border2)' : 'var(--border)'}`,
             borderRadius: 10, overflow: 'hidden',

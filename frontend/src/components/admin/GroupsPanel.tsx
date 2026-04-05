@@ -11,6 +11,7 @@ export default function GroupsPanel() {
   const [desc, setDesc] = useState('')
   const [creating, setCreating] = useState(false)
   const [showForm, setShowForm] = useState(false)
+  const [search, setSearch] = useState('')
 
   const load = async () => {
     const [g, u, t] = await Promise.all([groupsApi.list(), usersApi.list(), tagsApi.list()])
@@ -59,11 +60,10 @@ export default function GroupsPanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Groups control which tags — and therefore which content — users can see.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }} onClick={() => setShowForm(!showForm)}>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter groups..." style={{ fontSize: 13, flex: 1 }} />
+        <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setShowForm(!showForm)}>
           + New group
         </button>
       </div>
@@ -88,7 +88,7 @@ export default function GroupsPanel() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {groups.map(g => {
+        {groups.filter(g => !search || g.name.toLowerCase().includes(search.toLowerCase())).map(g => {
           const open = expanded === g.id
           return (
             <div key={g.id} style={{

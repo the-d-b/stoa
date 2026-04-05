@@ -19,6 +19,7 @@ export default function IntegrationsPanel() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [groups, setGroups] = useState<any[]>([])
   const [integrationGroups, setIntegrationGroups] = useState<Record<string, string[]>>({})
+  const [search, setSearch] = useState('')
 
   // New form state
   const [newName, setNewName] = useState('')
@@ -83,15 +84,11 @@ export default function IntegrationsPanel() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 500 }}>
-          Integrations connect Stoa to external services. Configure once and reference from any panel.
-          The API URL is used by the backend to fetch data. The UI URL is opened in your browser when you click through.
-        </p>
-        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
-          onClick={() => { setShowForm(f => !f); setTestResult(null) }}>
-          + New integration
-        </button>
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Filter integrations..." style={{ fontSize: 13, flex: 1 }} />
+        <button className="btn btn-primary" style={{ flexShrink: 0 }}
+          onClick={() => { setShowForm(f => !f); setTestResult(null) }}>+ New integration</button>
       </div>
 
       {showForm && (
@@ -159,7 +156,7 @@ export default function IntegrationsPanel() {
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {integrations.map(ig => (
+        {integrations.filter(ig => !search || ig.name.toLowerCase().includes(search.toLowerCase())).map(ig => (
           <IntegrationRow key={ig.id} integration={ig} secrets={secrets}
             groups={groups}
             assignedGroups={integrationGroups[ig.id] || []}
