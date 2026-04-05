@@ -220,6 +220,7 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 
 func DeleteIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		if claims.Role == models.RoleAdmin {
 			db.Exec("DELETE FROM integrations WHERE id=? AND created_by='SYSTEM'", id)
