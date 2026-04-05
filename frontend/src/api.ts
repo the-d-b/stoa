@@ -321,6 +321,7 @@ export interface Panel {
   title: string
   config: string
   scope: 'shared' | 'personal'
+  createdBy: string
   tags: Tag[]
   position: number
   createdAt: string

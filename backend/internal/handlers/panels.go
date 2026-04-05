@@ -157,8 +157,7 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 
 		writeJSON(w, http.StatusCreated, models.Panel{
 			ID: id, Type: req.Type, Title: req.Title,
-			Config: req.Config, Scope: models.Scope(scope),
-			CreatedBy: claims.UserID, CreatedAt: time.Now(),
+			Config: req.Config, CreatedBy: ownerID, CreatedAt: time.Now(),
 		})
 	}
 }
