@@ -35,21 +35,24 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			`, claims.UserID)
 		} else {
 			rows, err = db.Query(`
+			rows, err = db.Query(`
 				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
 				WHERE
+					-- Personal panels owned by this user
 					(p.scope = 'personal' AND p.created_by = ?)
 					OR
-					(p.scope = 'shared' AND
-					 (SELECT COUNT(*) FROM panel_tags WHERE panel_id = p.id) = 0)
+					-- Shared panels: no group restrictions (visible to all)
+					(p.scope = 'shared' AND NOT EXISTS (
+						SELECT 1 FROM panel_groups WHERE panel_id = p.id
+					))
 					OR
+					-- Shared panels: user is in an assigned group
 					(p.scope = 'shared' AND EXISTS (
-						SELECT 1
-						FROM panel_tags pt
-						JOIN group_tags gt ON pt.tag_id = gt.tag_id
-						JOIN user_groups ug ON gt.group_id = ug.group_id
-						WHERE pt.panel_id = p.id AND ug.user_id = ?
+						SELECT 1 FROM panel_groups pg
+						JOIN user_groups ug ON pg.group_id = ug.group_id
+						WHERE pg.panel_id = p.id AND ug.user_id = ?
 					))
 				ORDER BY p.created_at ASC
 			`, claims.UserID, claims.UserID)
@@ -292,4 +295,38 @@ func loadPanelTags(db *sql.DB, panelID string) []models.Tag {
 		tags = append(tags, t)
 	}
 	return tags
+}
+
+// ── Panel group access ────────────────────────────────────────────────────────
+
+func GetPanelGroups(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		rows, _ := db.Query("SELECT group_id FROM panel_groups WHERE panel_id=?", id)
+		defer rows.Close()
+		ids := []string{}
+		for rows.Next() {
+			var gid string
+			rows.Scan(&gid)
+			ids = append(ids, gid)
+		}
+		writeJSON(w, http.StatusOK, ids)
+	}
+}
+
+func SetPanelGroups(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		var req struct {
+			GroupIDs []string `json:"groupIds"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		tx, _ := db.Begin()
+		tx.Exec("DELETE FROM panel_groups WHERE panel_id=?", id)
+		for _, gid := range req.GroupIDs {
+			tx.Exec("INSERT OR IGNORE INTO panel_groups (panel_id, group_id) VALUES (?,?)", id, gid)
+		}
+		tx.Commit()
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }

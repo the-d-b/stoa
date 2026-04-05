@@ -318,6 +318,46 @@ var migrations = []migration{
 		`,
 	},
 
+	{
+		version: 10,
+		name:    "unified_permission_model",
+		up: `
+			-- Panels: add scope, created_by, keep tags for filtering only
+			ALTER TABLE panels ADD COLUMN scope TEXT NOT NULL DEFAULT 'shared';
+			ALTER TABLE panels ADD COLUMN created_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+			-- Panel group access (replaces tag-based panel visibility)
+			CREATE TABLE IF NOT EXISTS panel_groups (
+				panel_id TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+				PRIMARY KEY (panel_id, group_id)
+			);
+
+			-- Integrations: add scope
+			ALTER TABLE integrations ADD COLUMN scope TEXT NOT NULL DEFAULT 'shared';
+
+			-- Integration group access
+			CREATE TABLE IF NOT EXISTS integration_groups (
+				integration_id TEXT NOT NULL REFERENCES integrations(id) ON DELETE CASCADE,
+				group_id       TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+				PRIMARY KEY (integration_id, group_id)
+			);
+
+			-- Tags: add scope and created_by
+			ALTER TABLE tags ADD COLUMN scope TEXT NOT NULL DEFAULT 'shared';
+			ALTER TABLE tags ADD COLUMN created_by TEXT REFERENCES users(id) ON DELETE SET NULL;
+
+			-- Mark all existing panels as shared, created by first admin
+			UPDATE panels SET scope='shared' WHERE scope IS NULL OR scope='';
+
+			-- Mark all existing integrations as shared
+			UPDATE integrations SET scope='shared' WHERE scope IS NULL OR scope='';
+
+			-- Mark all existing tags as shared
+			UPDATE tags SET scope='shared' WHERE scope IS NULL OR scope='';
+		`,
+	},
+
 }
 
 func Run(db *sql.DB) error {

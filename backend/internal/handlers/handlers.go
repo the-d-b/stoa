@@ -614,16 +614,21 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 
 		if claims.Role == models.RoleAdmin {
 			// Admins see all tags
-			rows, err = db.Query("SELECT id, name, color, created_at FROM tags ORDER BY name ASC")
-		} else {
-			// Regular users only see tags their groups grant access to
 			rows, err = db.Query(`
-				SELECT DISTINCT t.id, t.name, t.color, t.created_at
+				SELECT id, name, color, COALESCE(scope,'shared'), COALESCE(created_by,''), created_at
+				FROM tags ORDER BY scope ASC, name ASC
+			`)
+		} else {
+			// Users see shared tags + their own personal tags
+			rows, err = db.Query(`
+				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
 				FROM tags t
-				JOIN group_tags gt ON t.id = gt.tag_id
-				JOIN user_groups ug ON gt.group_id = ug.group_id
-				WHERE ug.user_id = ?
-				ORDER BY t.name ASC
+				WHERE t.scope = 'personal' AND t.created_by = ?
+				UNION
+				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
+				FROM tags t
+				WHERE t.scope = 'shared'
+				ORDER BY scope ASC, name ASC
 			`, claims.UserID)
 		}
 
@@ -635,7 +640,7 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 		tags := []models.Tag{}
 		for rows.Next() {
 			var t models.Tag
-			rows.Scan(&t.ID, &t.Name, &t.Color, &t.CreatedAt)
+			rows.Scan(&t.ID, &t.Name, &t.Color, &t.Scope, &t.CreatedBy, &t.CreatedAt)
 			tags = append(tags, t)
 		}
 		writeJSON(w, http.StatusOK, tags)
@@ -655,8 +660,15 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 		if req.Color == "" {
 			req.Color = "#6366f1"
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		scope := "shared"
+		if claims.Role != models.RoleAdmin {
+			scope = "personal"
+		}
 		id := generateID()
-		_, err := db.Exec("INSERT INTO tags (id, name, color) VALUES (?, ?, ?)", id, req.Name, req.Color)
+		_, err := db.Exec(
+			"INSERT INTO tags (id, name, color, scope, created_by) VALUES (?, ?, ?, ?, ?)",
+			id, req.Name, req.Color, scope, claims.UserID)
 		if err != nil {
 			writeError(w, http.StatusConflict, "tag already exists")
 			return

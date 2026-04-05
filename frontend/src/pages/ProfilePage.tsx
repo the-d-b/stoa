@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, Ticker, Glyph, Secret, Panel, Wall } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers'
+type Tab = 'overview' | 'bookmarks' | 'panels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers' | 'integrations' | 'tags'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -31,6 +31,8 @@ export default function ProfilePage() {
     { id: 'secrets',   label: 'Secrets',      icon: '🔑' },
     { id: 'glyphs',    label: 'Glyphs',       icon: '◈' },
     { id: 'tickers',   label: 'Tickers',      icon: '▶' },
+    { id: 'integrations', label: 'Integrations', icon: '⇄' },
+    { id: 'tags',      label: 'My Tags',      icon: '◉' },
   ]
 
   return (
@@ -78,6 +80,8 @@ export default function ProfilePage() {
       {tab === 'secrets'   && <SecretsTab />}
       {tab === 'glyphs'    && <GlyphsTab />}
       {tab === 'tickers'   && <TickersTab />}
+      {tab === 'integrations' && <PersonalIntegrationsTab />}
+      {tab === 'tags'        && <PersonalTagsTab />}
     </div>
   )
 }
@@ -1465,6 +1469,415 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── Personal Integrations ─────────────────────────────────────────────────────
+
+const INTEGRATION_TYPES = [
+  { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
+  { id: 'radarr',  label: 'Radarr',  desc: 'Movie management' },
+  { id: 'lidarr',  label: 'Lidarr',  desc: 'Music management' },
+  { id: 'readarr', label: 'Readarr', desc: 'Book management' },
+  { id: 'plex',    label: 'Plex',    desc: 'Media server' },
+  { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
+  { id: 'generic', label: 'Generic', desc: 'Other service' },
+]
+
+function PersonalIntegrationsTab() {
+  const [shared, setShared] = useState<Integration[]>([])
+  const [personal, setPersonal] = useState<Integration[]>([])
+  const [secrets, setSecrets] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newType, setNewType] = useState('sonarr')
+  const [newApiUrl, setNewApiUrl] = useState('')
+  const [newUiUrl, setNewUiUrl] = useState('')
+  const [newSecretId, setNewSecretId] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+
+  const load = async () => {
+    const [i, s] = await Promise.all([integrationsApi.list(), secretsApi.list()])
+    setShared((i.data || []).filter((x: Integration) => x.scope === 'shared'))
+    setPersonal((i.data || []).filter((x: Integration) => x.scope === 'personal'))
+    setSecrets(s.data || [])
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const test = async () => {
+    if (!newApiUrl) return
+    setTesting(true); setTestResult(null)
+    try {
+      const res = await integrationsApi.test({ type: newType, apiUrl: newApiUrl, secretId: newSecretId || undefined })
+      setTestResult(res.data)
+    } catch { setTestResult({ ok: false, error: 'Request failed' }) }
+    finally { setTesting(false) }
+  }
+
+  const create = async () => {
+    if (!newName || !newApiUrl) return
+    setCreating(true)
+    try {
+      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined })
+      setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null); setShowForm(false)
+      await load()
+    } finally { setCreating(false) }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`Delete "${name}"?`)) return
+    await integrationsApi.delete(id); await load()
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
+          Personal integrations are only visible to you. Shared integrations are managed by your admin.
+        </p>
+        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+          onClick={() => setShowForm(f => !f)}>+ Add</button>
+      </div>
+
+      {/* Shared integrations — read only */}
+      {shared.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-title" style={{ marginBottom: 10 }}>Shared integrations you can use</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {shared.map(ig => (
+              <div key={ig.id} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
+              }}>
+                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: 'var(--surface2)',
+                  color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                  {INTEGRATION_TYPES.find(t => t.id === ig.type)?.label ?? ig.type}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{ig.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                  {ig.uiUrl || ig.apiUrl}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* New integration form */}
+      {showForm && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label className="label">Name</label>
+                <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
+                  placeholder="e.g. My Sonarr" autoFocus />
+              </div>
+              <div style={{ flex: 0.5 }}>
+                <label className="label">Type</label>
+                <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
+                  {INTEGRATION_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="label">API URL</label>
+              <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
+                placeholder="http://sonarr.local:8989" />
+            </div>
+            <div>
+              <label className="label">UI URL (optional)</label>
+              <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
+                placeholder="https://sonarr.yourdomain.com" />
+            </div>
+            <div>
+              <label className="label">API key secret</label>
+              <select className="input" value={newSecretId} onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }} style={{ cursor: 'pointer' }}>
+                <option value="">— None —</option>
+                {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+            </div>
+            {testResult && (
+              <div style={{
+                padding: '7px 12px', borderRadius: 7, fontSize: 12,
+                background: testResult.ok ? '#4ade8018' : '#f8717118',
+                border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
+                color: testResult.ok ? 'var(--green)' : 'var(--red)',
+              }}>{testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}</div>
+            )}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
+                {testing ? <span className="spinner" /> : 'Test'}
+              </button>
+              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || !newApiUrl}>
+                {creating ? <span className="spinner" /> : 'Create'}
+              </button>
+              <button className="btn btn-ghost" onClick={() => { setShowForm(false); setTestResult(null) }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Personal integrations */}
+      <div className="section-title" style={{ marginBottom: 10 }}>My personal integrations</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {personal.map(ig => (
+          <div key={ig.id} style={{
+            background: 'var(--surface)', border: `1px solid ${editId === ig.id ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 8, overflow: 'hidden',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
+              <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: 'var(--surface2)',
+                color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                {INTEGRATION_TYPES.find(t => t.id === ig.type)?.label ?? ig.type}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{ig.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                {ig.apiUrl}
+              </span>
+              <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditId(editId === ig.id ? null : ig.id)}>Edit</button>
+              <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={() => remove(ig.id, ig.name)}>Delete</button>
+            </div>
+            {editId === ig.id && (
+              <PersonalIntegrationEdit ig={ig} secrets={secrets}
+                onSave={async (data) => {
+                  await integrationsApi.update(ig.id, data)
+                  setEditId(null); await load()
+                }}
+                onCancel={() => setEditId(null)}
+              />
+            )}
+          </div>
+        ))}
+        {personal.length === 0 && !showForm && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
+            No personal integrations yet.
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
+  ig: Integration; secrets: any[]
+  onSave: (data: any) => void; onCancel: () => void
+}) {
+  const [name, setName] = useState(ig.name)
+  const [apiUrl, setApiUrl] = useState(ig.apiUrl)
+  const [uiUrl, setUiUrl] = useState(ig.uiUrl)
+  const [secretId, setSecretId] = useState(ig.secretId || '')
+  const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
+  const [testing, setTesting] = useState(false)
+
+  const test = async () => {
+    setTesting(true); setTestResult(null)
+    try {
+      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined })
+      setTestResult(res.data)
+    } catch { setTestResult({ ok: false, error: 'Request failed' }) }
+    finally { setTesting(false) }
+  }
+
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ flex: 1 }}>
+            <label className="label">Name</label>
+            <input className="input" value={name} onChange={e => setName(e.target.value)} />
+          </div>
+        </div>
+        <div>
+          <label className="label">API URL</label>
+          <input className="input" value={apiUrl} onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
+        </div>
+        <div>
+          <label className="label">UI URL</label>
+          <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
+        </div>
+        <div>
+          <label className="label">API key secret</label>
+          <select className="input" value={secretId} onChange={e => { setSecretId(e.target.value); setTestResult(null) }} style={{ cursor: 'pointer' }}>
+            <option value="">— None —</option>
+            {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
+        </div>
+        {testResult && (
+          <div style={{
+            padding: '7px 12px', borderRadius: 7, fontSize: 12,
+            background: testResult.ok ? '#4ade8018' : '#f8717118',
+            border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
+            color: testResult.ok ? 'var(--green)' : 'var(--red)',
+          }}>{testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}</div>
+        )}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
+            {testing ? <span className="spinner" /> : 'Test'}
+          </button>
+          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId })}>Save</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onCancel}>Cancel</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Personal Tags ─────────────────────────────────────────────────────────────
+
+const TAG_COLORS = [
+  '#6366f1', '#60a5fa', '#34d399', '#f59e0b',
+  '#f87171', '#a78bfa', '#fb923c', '#4ade80',
+]
+
+function PersonalTagsTab() {
+  const [sharedTags, setSharedTags] = useState<Tag[]>([])
+  const [personalTags, setPersonalTags] = useState<Tag[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [newColor, setNewColor] = useState(TAG_COLORS[0])
+  const [creating, setCreating] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editColor, setEditColor] = useState('')
+
+  const load = async () => {
+    const res = await tagsApi.list()
+    setSharedTags((res.data || []).filter((t: Tag) => t.scope === 'shared'))
+    setPersonalTags((res.data || []).filter((t: Tag) => t.scope === 'personal'))
+    setLoading(false)
+  }
+  useEffect(() => { load() }, [])
+
+  const create = async () => {
+    if (!newName.trim()) return
+    setCreating(true)
+    try {
+      await tagsApi.create({ name: newName.trim(), color: newColor })
+      setNewName(''); setShowForm(false); await load()
+    } finally { setCreating(false) }
+  }
+
+  const remove = async (id: string, name: string) => {
+    if (!confirm(`Delete tag "${name}"?`)) return
+    await tagsApi.delete(id); await load()
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
+          Personal tags are only visible to you. Use them to filter and organize your personal panels.
+        </p>
+        <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
+          onClick={() => setShowForm(f => !f)}>+ New tag</button>
+      </div>
+
+      {/* Shared tags — read only display */}
+      {sharedTags.length > 0 && (
+        <div style={{ marginBottom: 24 }}>
+          <div className="section-title" style={{ marginBottom: 10 }}>Shared tags</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {sharedTags.map(t => (
+              <div key={t.id} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                padding: '3px 10px', borderRadius: 8,
+                background: t.color + '18', border: `1px solid ${t.color}40`,
+                color: t.color, fontSize: 12,
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: 2, background: t.color }} />
+                {t.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+            <div style={{ flex: 1 }}>
+              <label className="label">Name</label>
+              <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder="Tag name" autoFocus onKeyDown={e => e.key === 'Enter' && create()} />
+            </div>
+            <div>
+              <label className="label">Color</label>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {TAG_COLORS.map(c => (
+                  <button key={c} onClick={() => setNewColor(c)} style={{
+                    width: 22, height: 22, borderRadius: 5, background: c, border: 'none', cursor: 'pointer',
+                    outline: newColor === c ? `2px solid ${c}` : 'none', outlineOffset: 2,
+                  }} />
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button className="btn btn-primary" onClick={create} disabled={creating || !newName}>
+                {creating ? <span className="spinner" /> : 'Create'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="section-title" style={{ marginBottom: 10 }}>My personal tags</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {personalTags.map(t => (
+          <div key={t.id} style={{
+            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px',
+            background: 'var(--surface)', border: `1px solid ${editId === t.id ? 'var(--accent)' : 'var(--border)'}`,
+            borderRadius: 8,
+          }}>
+            {editId === t.id ? (
+              <>
+                <input className="input" value={editName} onChange={e => setEditName(e.target.value)}
+                  style={{ fontSize: 13, flex: 1 }} />
+                <div style={{ display: 'flex', gap: 3 }}>
+                  {TAG_COLORS.map(c => (
+                    <button key={c} onClick={() => setEditColor(c)} style={{
+                      width: 18, height: 18, borderRadius: 4, background: c, border: 'none', cursor: 'pointer',
+                      outline: editColor === c ? `2px solid ${c}` : 'none', outlineOffset: 1,
+                    }} />
+                  ))}
+                </div>
+                <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                  await tagsApi.update(t.id, { name: editName, color: editColor })
+                  setEditId(null); await load()
+                }}>Save</button>
+                <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                <span style={{ width: 10, height: 10, borderRadius: 3, background: t.color, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, flex: 1 }}>{t.name}</span>
+                <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+                  setEditId(t.id); setEditName(t.name); setEditColor(t.color)
+                }}>Edit</button>
+                <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
+                  onClick={() => remove(t.id, t.name)}>Delete</button>
+              </>
+            )}
+          </div>
+        ))}
+        {personalTags.length === 0 && !showForm && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
+            No personal tags yet.
+          </div>
+        )}
+      </div>
     </div>
   )
 }

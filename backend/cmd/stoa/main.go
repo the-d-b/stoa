@@ -130,6 +130,9 @@ func main() {
 	admin.HandleFunc("/integrations/{id}", handlers.UpdateIntegration(database)).Methods("PUT")
 	admin.HandleFunc("/integrations/{id}", handlers.DeleteIntegration(database)).Methods("DELETE")
 	admin.HandleFunc("/integrations/test", handlers.TestIntegration(database)).Methods("POST")
+	admin.HandleFunc("/integrations/{id}/groups", handlers.SetIntegrationGroups(database)).Methods("PUT")
+	admin.HandleFunc("/panels/{id}/groups", handlers.SetPanelGroups(database)).Methods("PUT")
+	protected.HandleFunc("/panels/{id}/groups", handlers.GetPanelGroups(database)).Methods("GET")
 
 	// Secrets (admin only: group assignment)
 	admin.HandleFunc("/secrets/{id}/groups", handlers.SetSecretGroups(database)).Methods("PUT")

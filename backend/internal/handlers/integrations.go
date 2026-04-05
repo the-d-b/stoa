@@ -84,10 +84,32 @@ type Integration struct {
 
 func ListIntegrations(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		rows, err := db.Query(`
-			SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
-			FROM integrations ORDER BY name ASC
-		`)
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var rows *sql.Rows
+		var err error
+		if claims.Role == models.RoleAdmin {
+			rows, err = db.Query(`
+				SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
+				FROM integrations ORDER BY scope ASC, name ASC
+			`)
+		} else {
+			rows, err = db.Query(`
+				SELECT DISTINCT i.id, i.name, i.type, i.api_url, i.ui_url,
+				       i.secret_id, i.enabled, i.created_by, i.created_at
+				FROM integrations i
+				WHERE
+					(i.scope = 'personal' AND i.created_by = ?)
+					OR (i.scope = 'shared' AND NOT EXISTS (
+						SELECT 1 FROM integration_groups WHERE integration_id = i.id
+					))
+					OR (i.scope = 'shared' AND EXISTS (
+						SELECT 1 FROM integration_groups ig
+						JOIN user_groups ug ON ig.group_id = ug.group_id
+						WHERE ig.integration_id = i.id AND ug.user_id = ?
+					))
+				ORDER BY i.scope ASC, i.name ASC
+			`, claims.UserID, claims.UserID)
+		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to query integrations")
 			return
@@ -127,6 +149,11 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		scope := "shared"
+		if claims.Role != models.RoleAdmin {
+			scope = "personal" // non-admins can only create personal integrations
+		}
+
 		id := generateID()
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
@@ -134,9 +161,9 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, created_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, claims.UserID)
+			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, scope, created_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, scope, claims.UserID)
 		if err != nil {
 			log.Printf("[INTEGRATIONS] create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create integration")
@@ -586,4 +613,23 @@ func sonarrGet(apiURL, apiKey, path string) ([]byte, error) {
 		return nil, fmt.Errorf("sonarr returned %d", resp.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 10*1024*1024))
+}
+
+// ── Integration group access ──────────────────────────────────────────────────
+
+func SetIntegrationGroups(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		var req struct {
+			GroupIDs []string `json:"groupIds"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		tx, _ := db.Begin()
+		tx.Exec("DELETE FROM integration_groups WHERE integration_id=?", id)
+		for _, gid := range req.GroupIDs {
+			tx.Exec("INSERT OR IGNORE INTO integration_groups (integration_id, group_id) VALUES (?,?)", id, gid)
+		}
+		tx.Commit()
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
 }

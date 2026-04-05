@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { panelsApi, tagsApi, bookmarksApi, integrationsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
+import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
 
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
@@ -13,7 +13,10 @@ export default function PanelsAdminPanel() {
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [showCalConfig, setShowCalConfig] = useState(false)
   const [integrations, setIntegrations] = useState<Integration[]>([])
+  const [groups, setGroups] = useState<any[]>([])
   const [calConfigPanel, setCalConfigPanel] = useState<any>(null)
+  const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
+  const [expandedPanel, setExpandedPanel] = useState<string | null>(null)
   const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
@@ -27,10 +30,20 @@ export default function PanelsAdminPanel() {
   const load = async () => {
     // Admin panel only shows shared panels - personal panels managed in profile
     // Always reload bookmark tree to pick up renames
-    const [p, t, b, ig] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list()])
+    const [p, t, b, ig, g] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list(), groupsApi.list()])
     setIntegrations(ig.data || [])
+    setGroups(g.data || [])
     setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
     setTags(t.data || [])
+    // Load group assignments for each shared panel
+    const pg: Record<string,string[]> = {}
+    for (const panel of (p.data || [])) {
+      if (panel.scope === 'shared') {
+        const gr = await panelsApi.getGroups(panel.id)
+        pg[panel.id] = gr.data || []
+      }
+    }
+    setPanelGroups(pg)
     setBookmarkRoots(b.data || [])
     setLoading(false)
   }
@@ -84,6 +97,38 @@ export default function PanelsAdminPanel() {
           + New panel
         </button>
       </div>
+
+      {/* Group access panel */}
+      {expandedPanel && groups.length > 0 && (
+        <div style={{ marginTop: 8, padding: '12px 16px', background: 'var(--surface2)',
+          borderRadius: 8, border: '1px solid var(--border)' }}>
+          <div className="section-title" style={{ marginBottom: 8 }}>
+            Group access — {panels.find(p => p.id === expandedPanel)?.title}
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>
+              (no groups = visible to all users)
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {groups.map(g => {
+              const assigned = (panelGroups[expandedPanel] || []).includes(g.id)
+              return (
+                <button key={g.id} onClick={async () => {
+                  const current = panelGroups[expandedPanel] || []
+                  const next = assigned ? current.filter((id: string) => id !== g.id) : [...current, g.id]
+                  await panelsApi.setGroups(expandedPanel, next)
+                  setPanelGroups((prev: Record<string,string[]>) => ({ ...prev, [expandedPanel]: next }))
+                }} style={{
+                  padding: '3px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                  background: assigned ? 'var(--accent-bg)' : 'var(--surface)',
+                  color: assigned ? 'var(--accent2)' : 'var(--text-muted)',
+                  border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
+                  transition: 'all 0.15s',
+                }}>{g.name}</button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Calendar source config modal */}
       {showCalConfig && (
@@ -221,6 +266,10 @@ export default function PanelsAdminPanel() {
                       Sources
                     </button>
                   )}
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={() => setExpandedPanel(expandedPanel === p.id ? null : p.id)}>
+                    Groups
+                  </button>
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
                 </div>
               </div>

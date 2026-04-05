@@ -60,6 +60,8 @@ type Tag struct {
 	ID        string    `json:"id"`
 	Name      string    `json:"name"`
 	Color     string    `json:"color"`
+	Scope     string    `json:"scope"`
+	CreatedBy string    `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 

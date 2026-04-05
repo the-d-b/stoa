@@ -58,6 +58,8 @@ export interface Tag {
   id: string
   name: string
   color: string
+  scope: string
+  createdBy: string
   createdAt: string
 }
 
@@ -123,7 +125,11 @@ export const groupsApi = {
 
 export const tagsApi = {
   list: () => api.get<Tag[]>('/tags'),
-  create: (name: string, color?: string) => api.post<Tag>('/tags', { name, color }),
+  create: (data: { name: string; color?: string } | string, color?: string) => {
+    if (typeof data === 'string') return api.post<Tag>('/tags', { name: data, color })
+    return api.post<Tag>('/tags', data)
+  },
+  update: (id: string, data: { name?: string; color?: string }) => api.put(`/tags/${id}`, data),
   updateColor: (id: string, color: string) => api.put(`/tags/${id}`, { color }),
   delete: (id: string) => api.delete(`/tags/${id}`),
 }
@@ -218,9 +224,11 @@ export interface Integration {
   apiUrl: string
   uiUrl: string
   secretId: string | null
+  scope: string
   enabled: boolean
   createdBy: string
   createdAt: string
+  groups: string[]
 }
 
 export const integrationsApi = {
@@ -232,6 +240,8 @@ export const integrationsApi = {
   delete: (id: string) => api.delete(`/integrations/${id}`),
   test: (data: { type: string; apiUrl: string; secretId?: string }) =>
     api.post<{ ok: boolean; error?: string }>('/integrations/test', data),
+  setGroups: (id: string, groupIds: string[]) =>
+    api.put(`/integrations/${id}/groups`, { groupIds }),
   getPanelData: (panelId: string) => api.get<any>(`/panels/${panelId}/data`),
 }
 
@@ -320,6 +330,8 @@ export const panelsApi = {
   list: (wallId?: string) => api.get<Panel[]>('/panels' + (wallId ? `?wall_id=${wallId}` : '')),  
   create: (data: { type: string; title: string; config: string }) => api.post<Panel>('/panels', data),
   update: (id: string, data: { title: string; config: string }) => api.put(`/panels/${id}`, data),
+  getGroups: (id: string) => api.get<string[]>(`/panels/${id}/groups`),
+  setGroups: (id: string, groupIds: string[]) => api.put(`/panels/${id}/groups`, { groupIds }),
   delete: (id: string) => api.delete(`/panels/${id}`),
   addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
   removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
@@ -399,9 +411,11 @@ export interface Integration {
   apiUrl: string
   uiUrl: string
   secretId: string | null
+  scope: string
   enabled: boolean
   createdBy: string
   createdAt: string
+  groups: string[]
 }
 
 
