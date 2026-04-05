@@ -707,8 +707,8 @@ function SecretsTab() {
 
   const load = async () => {
     const res = await secretsApi.list()
-    setShared((res.data || []).filter((s: Secret) => s.scope === 'shared'))
-    setPersonal((res.data || []).filter((s: Secret) => s.scope === 'personal'))
+    setShared((res.data || []).filter((s: Secret) => s.createdBy === 'SYSTEM'))
+    setPersonal((res.data || []).filter((s: Secret) => s.createdBy !== 'SYSTEM'))
     setLoading(false)
   }
 
@@ -1505,8 +1505,8 @@ function PersonalIntegrationsTab() {
 
   const load = async () => {
     const [i, s] = await Promise.all([integrationsApi.list(), secretsApi.list()])
-    setShared((i.data || []).filter((x: Integration) => x.scope === 'shared'))
-    setPersonal((i.data || []).filter((x: Integration) => x.scope === 'personal'))
+    setShared((i.data || []).filter((x: Integration) => x.createdBy === 'SYSTEM'))
+    setPersonal((i.data || []).filter((x: Integration) => x.createdBy !== 'SYSTEM'))
     setSecrets(s.data || [])
     setLoading(false)
   }
@@ -1756,8 +1756,8 @@ function PersonalTagsTab() {
   const load = async () => {
     const res = await tagsApi.list()
     const allTags: Tag[] = res.data || []
-    setSharedTags(allTags.filter(t => t.scope === 'shared' || !t.scope))
-    setPersonalTags(allTags.filter(t => t.scope === 'personal'))
+    setSharedTags(allTags.filter(t => t.createdBy === 'SYSTEM'))
+    setPersonalTags(allTags.filter(t => t.createdBy !== 'SYSTEM'))
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1919,8 +1919,8 @@ function MyPanelsTab() {
   const load = async () => {
     const [p, i] = await Promise.all([panelsApi.list(), integrationsApi.list()])
     const all: Panel[] = p.data || []
-    setSystemPanels(all.filter(p => p.scope === 'shared'))
-    setMyPanels(all.filter(p => p.scope === 'personal'))
+    setSystemPanels(all.filter(p => p.createdBy === 'SYSTEM'))
+    setMyPanels(all.filter(p => p.createdBy !== 'SYSTEM'))
     setIntegrations(i.data || [])
     setLoading(false)
   }

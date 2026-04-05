@@ -179,21 +179,32 @@ func ListSecrets(db *sql.DB) http.HandlerFunc {
 		var rows *sql.Rows
 		var err error
 		if claims.Role == models.RoleAdmin {
+			// Admin screens: only system secrets (no owner)
 			rows, err = db.Query(`
 				SELECT id, name, scope, created_by, created_at FROM secrets
-				ORDER BY scope ASC, name ASC
+				WHERE created_by = 'SYSTEM' ORDER BY name ASC
 			`)
 		} else {
+			// Profile: system secrets shared to user's groups + user's own secrets
 			rows, err = db.Query(`
 				SELECT DISTINCT s.id, s.name, s.scope, s.created_by, s.created_at
 				FROM secrets s
-				WHERE s.created_by = ?
-				   OR EXISTS (
-				   		SELECT 1 FROM secret_groups sg
-				   		JOIN user_groups ug ON sg.group_id = ug.group_id
-				   		WHERE sg.secret_id = s.id AND ug.user_id = ?
-				   )
-				ORDER BY s.scope ASC, s.name ASC
+				WHERE
+					-- User's own secrets
+					s.created_by = ?
+					OR
+					-- System secrets with no group restrictions
+					(s.created_by = 'SYSTEM' AND NOT EXISTS (
+						SELECT 1 FROM secret_groups WHERE secret_id = s.id
+					))
+					OR
+					-- System secrets shared to user's groups
+					(s.created_by = 'SYSTEM' AND EXISTS (
+						SELECT 1 FROM secret_groups sg
+						JOIN user_groups ug ON sg.group_id = ug.group_id
+						WHERE sg.secret_id = s.id AND ug.user_id = ?
+					))
+				ORDER BY CASE WHEN s.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, s.name ASC
 			`, claims.UserID, claims.UserID)
 		}
 		if err != nil {
@@ -261,11 +272,16 @@ func CreateSecret(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Admin creating system secret = NULL owner; personal = userID
+		ownerID := "SYSTEM"
+		if scope == "personal" || claims.Role != models.RoleAdmin {
+			ownerID = claims.UserID
+		}
 		id := generateID()
 		_, err = db.Exec(`
 			INSERT INTO secrets (id, name, value, scope, created_by)
 			VALUES (?, ?, ?, ?, ?)
-		`, id, req.Name, encrypted, scope, claims.UserID)
+		`, id, req.Name, encrypted, scope, ownerID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to create secret")
 			return

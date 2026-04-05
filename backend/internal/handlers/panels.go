@@ -25,35 +25,35 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		var err error
 
 		if claims.Role == models.RoleAdmin {
+			// Admin screens: only system panels (no owner)
 			rows, err = db.Query(`
 				SELECT p.id, p.type, p.title, p.config, p.scope,
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
-				WHERE p.scope = 'shared'
-				   OR (p.scope = 'personal' AND p.created_by = ?)
+				WHERE p.created_by = 'SYSTEM'
 				ORDER BY p.created_at ASC
-			`, claims.UserID)
+			`)
 		} else {
 			rows, err = db.Query(`
 				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
 				WHERE
-					-- Personal panels owned by this user
-					(p.scope = 'personal' AND p.created_by = ?)
+					-- User's own panels
+					p.created_by = ?
 					OR
-					-- Shared panels: no group restrictions (visible to all)
-					(p.scope = 'shared' AND NOT EXISTS (
+					-- System panels with no group restrictions
+					(p.created_by = 'SYSTEM' AND NOT EXISTS (
 						SELECT 1 FROM panel_groups WHERE panel_id = p.id
 					))
 					OR
-					-- Shared panels: user is in an assigned group
-					(p.scope = 'shared' AND EXISTS (
+					-- System panels restricted to groups user belongs to
+					(p.created_by = 'SYSTEM' AND EXISTS (
 						SELECT 1 FROM panel_groups pg
 						JOIN user_groups ug ON pg.group_id = ug.group_id
 						WHERE pg.panel_id = p.id AND ug.user_id = ?
 					))
-				ORDER BY p.created_at ASC
+				ORDER BY CASE WHEN p.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, p.created_at ASC
 			`, claims.UserID, claims.UserID)
 		}
 
@@ -137,16 +137,18 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 			req.Config = "{}"
 		}
 
-		scope := "shared"
+		// Admin creating from admin page = system panel (NULL owner)
+		// Admin via profile (scope=personal) or non-admin = owned panel
+		ownerID := "SYSTEM"
 		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
-			scope = "personal"
+			ownerID = claims.UserID
 		}
 
 		id := generateID()
 		_, err := db.Exec(`
-			INSERT INTO panels (id, type, title, config, scope, created_by)
-			VALUES (?, ?, ?, ?, ?, ?)
-		`, id, req.Type, req.Title, req.Config, scope, claims.UserID)
+			INSERT INTO panels (id, type, title, config, created_by)
+			VALUES (?, ?, ?, ?, ?)
+		`, id, req.Type, req.Title, req.Config, ownerID)
 		if err != nil {
 			log.Printf("[PANELS] create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create panel")
@@ -182,9 +184,9 @@ func DeletePanel(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		if claims.Role == models.RoleAdmin {
-			db.Exec("DELETE FROM panels WHERE id=?", id)
+			db.Exec("DELETE FROM panels WHERE id=? AND created_by='SYSTEM'", id)
 		} else {
-			db.Exec("DELETE FROM panels WHERE id=? AND created_by=? AND scope='personal'", id, claims.UserID)
+			db.Exec("DELETE FROM panels WHERE id=? AND created_by=?", id, claims.UserID)
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

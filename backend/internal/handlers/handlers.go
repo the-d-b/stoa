@@ -613,22 +613,18 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 		var err error
 
 		if claims.Role == models.RoleAdmin {
-			// Admins see all tags
+			// Admin screens: only show system tags (no owner)
 			rows, err = db.Query(`
 				SELECT id, name, color, COALESCE(scope,'shared'), COALESCE(created_by,''), created_at
-				FROM tags ORDER BY scope ASC, name ASC
+				FROM tags WHERE created_by = 'SYSTEM' ORDER BY name ASC
 			`)
 		} else {
-			// Users see shared tags + their own personal tags
+			// Profile: system tags + user's own tags
 			rows, err = db.Query(`
-				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
-				FROM tags t
-				WHERE t.scope = 'personal' AND t.created_by = ?
-				UNION
-				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
-				FROM tags t
-				WHERE t.scope = 'shared'
-				ORDER BY scope ASC, name ASC
+				SELECT id, name, color, COALESCE(scope,'shared'), COALESCE(created_by,''), created_at
+				FROM tags
+				WHERE created_by = 'SYSTEM' OR created_by = ?
+				ORDER BY CASE WHEN created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, name ASC
 			`, claims.UserID)
 		}
 
@@ -662,18 +658,16 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 			req.Color = "#6366f1"
 		}
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		scope := "shared"
-		if claims.Role != models.RoleAdmin {
-			scope = "personal"
-		}
-		// Allow caller to explicitly request personal scope (e.g. admin creating via profile)
-		if req.Scope == "personal" {
-			scope = "personal"
+		// Admin creating from admin page = system tag (NULL owner)
+		// Admin creating from profile (scope=personal) or any non-admin = owned tag
+		ownerID := "SYSTEM"
+		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
+			ownerID = claims.UserID
 		}
 		id := generateID()
 		_, err := db.Exec(
-			"INSERT INTO tags (id, name, color, scope, created_by) VALUES (?, ?, ?, ?, ?)",
-			id, req.Name, req.Color, scope, claims.UserID)
+			"INSERT INTO tags (id, name, color, created_by) VALUES (?, ?, ?, ?)",
+			id, req.Name, req.Color, ownerID)
 		if err != nil {
 			writeError(w, http.StatusConflict, "tag already exists")
 			return

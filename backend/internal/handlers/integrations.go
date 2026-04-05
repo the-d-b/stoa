@@ -88,26 +88,33 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 		var rows *sql.Rows
 		var err error
 		if claims.Role == models.RoleAdmin {
+			// Admin screens: only show system integrations (no owner)
 			rows, err = db.Query(`
 				SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
-				FROM integrations WHERE scope = 'shared' ORDER BY name ASC
+				FROM integrations WHERE created_by = 'SYSTEM' ORDER BY name ASC
 			`)
 		} else {
+			// Profile: system integrations shared to user's groups + user's own integrations
 			rows, err = db.Query(`
 				SELECT DISTINCT i.id, i.name, i.type, i.api_url, i.ui_url,
 				       i.secret_id, i.enabled, i.created_by, i.created_at
 				FROM integrations i
 				WHERE
-					(i.scope = 'personal' AND i.created_by = ?)
-					OR (i.scope = 'shared' AND NOT EXISTS (
+					-- User's own integrations
+					i.created_by = ?
+					OR
+					-- System integrations with no group restrictions (visible to all)
+					(i.created_by = 'SYSTEM' AND NOT EXISTS (
 						SELECT 1 FROM integration_groups WHERE integration_id = i.id
 					))
-					OR (i.scope = 'shared' AND EXISTS (
+					OR
+					-- System integrations restricted to groups user belongs to
+					(i.created_by = 'SYSTEM' AND EXISTS (
 						SELECT 1 FROM integration_groups ig
 						JOIN user_groups ug ON ig.group_id = ug.group_id
 						WHERE ig.integration_id = i.id AND ug.user_id = ?
 					))
-				ORDER BY i.scope ASC, i.name ASC
+				ORDER BY CASE WHEN i.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, i.name ASC
 			`, claims.UserID, claims.UserID)
 		}
 		if err != nil {
@@ -150,13 +157,11 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		scope := "shared"
-		if claims.Role != models.RoleAdmin {
-			scope = "personal"
-		}
-		// Allow caller to explicitly request personal (e.g. admin creating via profile)
-		if req.Scope == "personal" {
-			scope = "personal"
+		// Determine owner: explicit personal request or non-admin = owned by user
+		// Admin creating from admin page (no scope field) = system integration (NULL owner)
+		ownerID := "SYSTEM"
+		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
+			ownerID = claims.UserID
 		}
 
 		id := generateID()
@@ -166,9 +171,9 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 
 		_, err := db.Exec(`
-			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, scope, created_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, scope, claims.UserID)
+			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, created_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?)
+		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, ownerID)
 		if err != nil {
 			log.Printf("[INTEGRATIONS] create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create integration")
@@ -216,7 +221,11 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 func DeleteIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
-		db.Exec("DELETE FROM integrations WHERE id=?", id)
+		if claims.Role == models.RoleAdmin {
+			db.Exec("DELETE FROM integrations WHERE id=? AND created_by='SYSTEM'", id)
+		} else {
+			db.Exec("DELETE FROM integrations WHERE id=? AND created_by=?", id, claims.UserID)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

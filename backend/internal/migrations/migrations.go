@@ -325,6 +325,26 @@ var migrations = []migration{
 		up: "",
 	},
 
+
+
+	{
+		version: 11,
+		name:    "system_sentinel_owner",
+		up: `
+			-- Insert SYSTEM pseudo-user as owner of all admin-created objects.
+			-- created_by = 'SYSTEM' means admin-owned; created_by = userID means personal.
+			-- This keeps NOT NULL constraints intact and avoids nullable foreign keys.
+			INSERT OR IGNORE INTO users (id, username, email, role, auth_provider, created_at)
+			VALUES ('SYSTEM', 'system', 'system@stoa.internal', 'admin', 'system', CURRENT_TIMESTAMP);
+
+			-- Backfill: any existing admin-created objects get SYSTEM as owner.
+			-- We identify them by scope='shared' which was set by the old model.
+			UPDATE integrations SET created_by = 'SYSTEM' WHERE scope = 'shared';
+			UPDATE panels      SET created_by = 'SYSTEM' WHERE scope = 'shared';
+			UPDATE tags        SET created_by = 'SYSTEM' WHERE scope = 'shared' OR created_by IS NULL;
+			UPDATE secrets     SET created_by = 'SYSTEM' WHERE scope = 'shared';
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {
