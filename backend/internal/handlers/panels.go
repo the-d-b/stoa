@@ -35,7 +35,6 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			`, claims.UserID)
 		} else {
 			rows, err = db.Query(`
-			rows, err = db.Query(`
 				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				       COALESCE(p.created_by,''), p.created_at
 				FROM panels p
