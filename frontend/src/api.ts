@@ -396,7 +396,7 @@ export const porticosApi = {
   create: (name: string, isDefault?: boolean) => api.post<Wall>('/porticos', { name, isDefault }),
   delete: (id: string) => api.delete(`/porticos/${id}`),
   updateOrder: (order: { porticoId: string; position: number }[]) => api.put('/porticos/order', order),
-  update: (id: string, data: { layout?: string; columnCount?: number; columnHeight?: number }) =>
+  update: (id: string, data: { name?: string; layout?: string; columnCount?: number; columnHeight?: number }) =>
     api.put(`/porticos/${id}`, data),
   setTagActive: (porticoId: string, tagId: string, active: boolean) =>
     api.put(`/porticos/${porticoId}/tags/${tagId}`, { active }),

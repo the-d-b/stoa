@@ -509,15 +509,45 @@ function PanelsOrderTab() {
 
 function WallsTab() {
   const [walls, setWalls] = useState<Wall[]>([])
+  const [allTags, setAllTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [dragging, setDragging] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
+  const [showForm, setShowForm] = useState(false)
+  const [newName, setNewName] = useState('')
+  const [creating, setCreating] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+
+  const load = async () => {
+    const [w, t] = await Promise.all([porticosApi.list(), tagsApi.list()])
+    setWalls(w.data || [])
+    setAllTags(t.data || [])
+  }
 
   useEffect(() => {
-    porticosApi.list().then(r => setWalls(r.data || [])).finally(() => setLoading(false))
+    load().finally(() => setLoading(false))
   }, [])
+
+  const create = async () => {
+    if (!newName.trim()) return
+    setCreating(true)
+    try {
+      await porticosApi.create(newName.trim())
+      setNewName(''); setShowForm(false)
+      await load()
+    } finally { setCreating(false) }
+  }
+
+  const rename = async (id: string) => {
+    if (!editName.trim()) return
+    await porticosApi.update(id, { name: editName.trim() })
+    setRenamingId(null)
+    await load()
+  }
 
   const handleDragStart = (i: number) => setDragging(i)
   const handleDragOver  = (e: React.DragEvent, i: number) => { e.preventDefault(); setDragOver(i) }
@@ -551,15 +581,31 @@ function WallsTab() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7 }}>
-          Drag or use arrows to reorder your porticos. The Home portico always appears first.
-        </p>
-        <button className="btn btn-primary" style={{ fontSize: 12, flexShrink: 0, marginLeft: 16 }}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={() => setShowForm(f => !f)}>+ New portico</button>
+        <button className="btn btn-secondary" style={{ fontSize: 12 }}
           onClick={saveOrder} disabled={saving}>
-          {saving ? <span className="spinner" /> : saved ? '✓ Saved' : 'Save order'}
+          {saving ? <span className="spinner" /> : saved ? '✓ Order saved' : 'Save order'}
         </button>
       </div>
+
+      {showForm && (
+        <div className="card" style={{ marginBottom: 12, padding: 14 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <label className="label">Portico name</label>
+              <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
+                placeholder="e.g. Media, Work, Gaming" autoFocus
+                onKeyDown={e => e.key === 'Enter' && create()} />
+            </div>
+            <button className="btn btn-primary" onClick={create} disabled={creating || !newName}>
+              {creating ? <span className="spinner" /> : 'Create'}
+            </button>
+            <button className="btn btn-ghost" onClick={() => { setShowForm(false); setNewName('') }}>Cancel</button>
+          </div>
+        </div>
+      )}
 
       {/* Home portico - always first, not draggable */}
       <div style={{
@@ -579,21 +625,33 @@ function WallsTab() {
       {/* User walls - draggable */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {walls.map((wall, i) => (
-          <div key={wall.id} draggable
-            onDragStart={() => handleDragStart(i)}
-            onDragOver={e => handleDragOver(e, i)}
-            onDrop={() => handleDrop(i)}
-            onDragEnd={() => { setDragging(null); setDragOver(null) }}
+          <div key={wall.id}
             style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '10px 14px', borderRadius: 8, cursor: 'grab',
+              borderRadius: 8, overflow: 'hidden',
               background: dragOver === i ? 'var(--accent-bg)' : 'var(--surface)',
-              border: `1px solid ${dragOver === i ? 'var(--accent)' : 'var(--border)'}`,
+              border: `1px solid ${expandedId === wall.id ? 'var(--border2)' : dragOver === i ? 'var(--accent)' : 'var(--border)'}`,
               transition: 'all 0.1s', opacity: dragging === i ? 0.4 : 1,
+              marginBottom: 4,
             }}>
+            <div draggable
+              onDragStart={() => handleDragStart(i)}
+              onDragOver={e => handleDragOver(e, i)}
+              onDrop={() => handleDrop(i)}
+              onDragEnd={() => { setDragging(null); setDragOver(null) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'grab' }}>
             <span style={{ color: 'var(--text-dim)', fontSize: 14, userSelect: 'none' }}>⠿</span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 500 }}>{wall.name}</div>
+              {renamingId === wall.id ? (
+                <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+                  <input className="input" value={editName} onChange={e => setEditName(e.target.value)}
+                    style={{ fontSize: 12, flex: 1 }} autoFocus
+                    onKeyDown={e => { if (e.key === 'Enter') rename(wall.id); if (e.key === 'Escape') setRenamingId(null) }} />
+                  <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => rename(wall.id)}>Save</button>
+                  <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setRenamingId(null)}>Cancel</button>
+                </div>
+              ) : (
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{wall.name}</div>
+              )}
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>
                 {(wall.tags || []).filter(t => t.active).length} active tag{(wall.tags || []).filter(t => t.active).length !== 1 ? 's' : ''}
               </div>
@@ -645,6 +703,14 @@ function WallsTab() {
                 opacity: i === walls.length - 1 ? 0.2 : 0.6, lineHeight: 1,
               }}>▼</button>
             </div>
+            <button onClick={e => { e.stopPropagation(); setRenamingId(wall.id); setEditName(wall.name) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
+              title="Rename">✎</button>
+            <button onClick={e => { e.stopPropagation(); setExpandedId(expandedId === wall.id ? null : wall.id) }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer',
+                color: expandedId === wall.id ? 'var(--accent2)' : 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
+              title="Edit tags">◉</button>
             <button onClick={() => deleteWall(wall)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--red)', fontSize: 11, opacity: 0.5, padding: '0 4px',
@@ -652,10 +718,46 @@ function WallsTab() {
               onMouseOver={e => e.currentTarget.style.opacity = '1'}
               onMouseOut={e => e.currentTarget.style.opacity = '0.5'}>✕</button>
           </div>
+          {expandedId === wall.id && (
+            <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
+                Active tags — panels matching these tags appear on this portico
+              </div>
+              {allTags.length > 0 ? (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {allTags.map(t => {
+                    const wallTag = (wall.tags || []).find((wt: any) => wt.tagId === t.id)
+                    const active = wallTag?.active ?? false
+                    return (
+                      <button key={t.id} onClick={async () => {
+                        await porticosApi.setTagActive(wall.id, t.id, !active)
+                        await load()
+                      }} style={{
+                        padding: '3px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+                        background: active ? t.color + '20' : 'transparent',
+                        border: `1px solid ${active ? t.color + '60' : 'var(--border)'}`,
+                        color: active ? t.color : 'var(--text-dim)',
+                        transition: 'all 0.15s',
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: 2, background: active ? t.color : 'var(--text-dim)',
+                          display: 'inline-block', marginRight: 5, verticalAlign: 'middle' }} />
+                        {t.name}
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                  No system tags yet. Add tags in My Setup → My Tags or admin settings.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         ))}
         {walls.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>
-            No saved porticos yet. Create one from the dashboard by filtering tags and clicking "+ Save as wall".
+            No porticos yet. Click "+ New portico" to create one, then assign tags to control which panels appear.
           </div>
         )}
       </div>

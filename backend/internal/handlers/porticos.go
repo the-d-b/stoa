@@ -389,6 +389,10 @@ func UpdatePortico(db *sql.DB) http.HandlerFunc {
 			req.ColumnHeight = 8
 		}
 
+		// Update name if provided
+		if req.Name != "" {
+			db.Exec("UPDATE porticos SET name=? WHERE id=? AND user_id=?", req.Name, id, claims.UserID)
+		}
 		db.Exec(`
 			UPDATE porticos SET layout=?, column_count=?, column_height=?
 			WHERE id=? AND user_id=?
