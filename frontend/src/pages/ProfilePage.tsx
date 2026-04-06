@@ -936,6 +936,7 @@ function GlyphsTab() {
               await glyphsApi.update(g.id, { zone })
               await load()
             }}
+            onSecretCreated={(s) => setSecrets(prev => [...prev, s])}
           />
         ))}
         {glyphs.length === 0 && !showForm && (
@@ -948,20 +949,38 @@ function GlyphsTab() {
   )
 }
 
-function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave, onZoneChange }: {
+function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave, onZoneChange, onSecretCreated }: {
   glyph: Glyph; secrets: any[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: (config: string) => void; onZoneChange: (zone: string) => void
+  onSecretCreated: (secret: any) => void
 }) {
   const typeDef = GLYPH_TYPES.find(t => t.id === glyph.type)
   const zoneDef = ZONES.find(z => z.id === glyph.zone)
   const [localConfig, setLocalConfig] = useState(() => {
     try { return JSON.parse(glyph.config) } catch { return {} }
   })
+  const [showAddSecret, setShowAddSecret] = useState(false)
+  const [newSecretName, setNewSecretName] = useState('')
+  const [newSecretValue, setNewSecretValue] = useState('')
+  const [savingSecret, setSavingSecret] = useState(false)
+
   // Sync when glyph prop changes (after save/reload)
   useEffect(() => {
     try { setLocalConfig(JSON.parse(glyph.config)) } catch { setLocalConfig({}) }
   }, [glyph.config])
+
+  const createSecret = async () => {
+    if (!newSecretName.trim() || !newSecretValue.trim()) return
+    setSavingSecret(true)
+    try {
+      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'personal' })
+      const newSecret = { id: res.data.id, name: newSecretName.trim() }
+      setLocalConfig((c: any) => ({ ...c, secretId: newSecret.id }))
+      onSecretCreated(newSecret)
+      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
+    } finally { setSavingSecret(false) }
+  }
 
   return (
     <div style={{
@@ -1116,15 +1135,41 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
                 </div>
                 <div>
                   <label className="label">API key secret</label>
-                  <select className="input" value={localConfig.secretId || ''}
-                    onChange={e => setLocalConfig((c: any) => ({ ...c, secretId: e.target.value }))}
-                    style={{ cursor: 'pointer' }}>
-                    <option value="">— Select a secret —</option>
-                    {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                  {secrets.length === 0 && (
-                    <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
-                      No secrets yet. Add an OpenWeatherMap API key in the Secrets tab.
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <select className="input" value={localConfig.secretId || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, secretId: e.target.value }))}
+                      style={{ cursor: 'pointer', flex: 1 }}>
+                      <option value="">— Select a secret —</option>
+                      {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
+                      onClick={() => setShowAddSecret(v => !v)}>
+                      {showAddSecret ? 'Cancel' : '+ New'}
+                    </button>
+                  </div>
+                  {showAddSecret && (
+                    <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <label className="label">Secret name</label>
+                          <input className="input" value={newSecretName}
+                            onChange={e => setNewSecretName(e.target.value)}
+                            placeholder="e.g. OpenWeatherMap Key" autoFocus />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label className="label">API key value</label>
+                          <input className="input" type="password" value={newSecretValue}
+                            onChange={e => setNewSecretValue(e.target.value)}
+                            placeholder="Paste key here" />
+                        </div>
+                      </div>
+                      <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                        disabled={savingSecret || !newSecretName || !newSecretValue}
+                        onClick={createSecret}>
+                        {savingSecret ? <span className="spinner" /> : 'Save & select'}
+                      </button>
                     </div>
                   )}
                 </div>
