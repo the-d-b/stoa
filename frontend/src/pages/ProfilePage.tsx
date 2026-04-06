@@ -250,9 +250,6 @@ function PanelsOrderTab() {
   const [dragging, setDragging] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
   const [hasPersonalPanel, setHasPersonalPanel] = useState(false)
-  const [showCreatePanel, setShowCreatePanel] = useState(false)
-  const [newPanelTitle, setNewPanelTitle] = useState('')
-  const [newPanelType] = useState('bookmarks')
   // Personal panel portico assignment
   const [personalPanelId, setPersonalPanelId] = useState<string | null>(null)
   const [assignedWalls, setAssignedWalls] = useState<string[]>([])
@@ -364,16 +361,6 @@ function PanelsOrderTab() {
     } finally { setSavingAssignment(false) }
   }
 
-  const createPersonalPanel = async () => {
-    if (!newPanelTitle.trim()) return
-    if (hasPersonalPanel) {
-      alert('You already have a personal bookmarks panel.')
-      return
-    }
-    await myPanelsApi.create({ type: newPanelType, title: newPanelTitle.trim(), config: '{}' })
-    setNewPanelTitle(''); setShowCreatePanel(false)
-    await loadPanels(selectedWall)
-  }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
@@ -445,27 +432,7 @@ function PanelsOrderTab() {
         </button>
       </div>
 
-      {showCreatePanel && (
-        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ flex: 0.5 }}>
-              <label className="label">Panel type</label>
-              <select className="input" style={{ cursor: 'pointer' }} disabled>
-                <option value="bookmarks">Bookmarks</option>
-              </select>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="label">Panel title</label>
-              <input className="input" value={newPanelTitle}
-                onChange={e => setNewPanelTitle(e.target.value)}
-                placeholder="e.g. My Links"
-                onKeyDown={e => e.key === 'Enter' && createPersonalPanel()} />
-            </div>
-            <button className="btn btn-primary" onClick={createPersonalPanel}>Create</button>
-            <button className="btn btn-secondary" onClick={() => setShowCreatePanel(false)}>Cancel</button>
-          </div>
-        </div>
-      )}
+
 
       {/* Panel list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -1985,6 +1952,7 @@ function MyPanelsTab() {
   const [myCollapsed, setMyCollapsed] = useState(false)
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [calPanel, setCalPanel] = useState<Panel | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState('bookmarks')
   const [newHeight, setNewHeight] = useState(2)
@@ -2168,6 +2136,10 @@ function MyPanelsTab() {
               <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
                 {cfg.height ?? 2}x
               </span>
+              {p.type === 'calendar' && (
+                <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                  onClick={() => setCalPanel(p)}>Sources</button>
+              )}
               <button className="btn btn-ghost" style={{ fontSize: 12 }}
                 onClick={() => remove(p.id, p.title)}>Delete</button>
             </div>
@@ -2179,6 +2151,119 @@ function MyPanelsTab() {
           </div>
         )}
       </div>}
+
+      {calPanel && (
+        <MyCalendarModal
+          panel={calPanel}
+          integrations={integrations}
+          onClose={() => setCalPanel(null)}
+          onSave={async (sources) => {
+            const cfg = (() => { try { return JSON.parse(calPanel.config || '{}') } catch { return {} } })()
+            await myPanelsApi.update(calPanel.id, { title: calPanel.title, config: JSON.stringify({ ...cfg, sources }) })
+            setCalPanel(null); await load()
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+function MyCalendarModal({ panel, integrations, onClose, onSave }: {
+  panel: Panel; integrations: Integration[]
+  onClose: () => void; onSave: (sources: any[]) => void
+}) {
+  const existingSources = (() => {
+    try { return JSON.parse(panel.config || '{}').sources || [] } catch { return [] }
+  })()
+  const [sources, setSources] = useState<any[]>(existingSources)
+  const [newIntId, setNewIntId] = useState('')
+  const [newDays, setNewDays] = useState(14)
+  const [saving, setSaving] = useState(false)
+
+  const calendarIntegrations = integrations.filter(i =>
+    ['sonarr','radarr','lidarr','readarr'].includes(i.type)
+  )
+
+  const addSource = () => {
+    if (!newIntId) return
+    const ig = integrations.find(i => i.id === newIntId)
+    if (!ig) return
+    setSources(s => [...s, { type: ig.type, integrationId: newIntId, daysAhead: newDays }])
+    setNewIntId('')
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 1000,
+      background: 'rgba(0,0,0,0.5)', display: 'flex',
+      alignItems: 'center', justifyContent: 'center',
+    }} onClick={onClose}>
+      <div className="card" style={{ padding: 24, maxWidth: 480, width: '90%' }}
+        onClick={e => e.stopPropagation()}>
+        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
+          Calendar sources — {panel.title}
+        </div>
+
+        {sources.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            {sources.map((src, i) => {
+              const ig = integrations.find(ig => ig.id === src.integrationId)
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                  background: 'var(--surface2)', borderRadius: 7, marginBottom: 6,
+                }}>
+                  <span style={{ flex: 1, fontSize: 13 }}>
+                    {ig?.name ?? src.integrationId}
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
+                      {src.daysAhead}d ahead
+                    </span>
+                  </span>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                    onClick={() => setSources(s => s.filter((_, idx) => idx !== i))}>Remove</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {calendarIntegrations.length > 0 ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 20 }}>
+            <div style={{ flex: 1 }}>
+              <label className="label">Add source</label>
+              <select className="input" value={newIntId}
+                onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
+                <option value="">— Select integration —</option>
+                {calendarIntegrations.map(i => (
+                  <option key={i.id} value={i.id}>{i.name} ({i.type})</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label">Days ahead</label>
+              <input className="input" type="number" value={newDays} min={1} max={90}
+                onChange={e => setNewDays(Number(e.target.value))}
+                style={{ width: 70 }} />
+            </div>
+            <button className="btn btn-secondary" onClick={addSource} disabled={!newIntId}>
+              Add
+            </button>
+          </div>
+        ) : (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 20 }}>
+            No integrations available. Add Sonarr, Radarr, or similar in My Integrations first.
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-primary" disabled={saving} onClick={async () => {
+            setSaving(true); await onSave(sources); setSaving(false)
+          }}>
+            {saving ? <span className="spinner" /> : 'Save'}
+          </button>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        </div>
+      </div>
     </div>
   )
 }

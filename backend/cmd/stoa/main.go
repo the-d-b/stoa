@@ -145,6 +145,7 @@ func main() {
 	// Users admin
 	admin.HandleFunc("/users", handlers.CreateLocalUser(database)).Methods("POST")
 	admin.HandleFunc("/users/{id}/role", handlers.UpdateUserRole(database)).Methods("PUT")
+	admin.HandleFunc("/users/{id}/password", handlers.ResetUserPassword(database)).Methods("PUT")
 	admin.HandleFunc("/users/{id}", handlers.DeleteUser(database)).Methods("DELETE")
 
 	// Groups

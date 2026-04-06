@@ -99,6 +99,8 @@ export const authApi = {
 export const usersApi = {
   create: (data: { username: string; email?: string; password: string; role?: string }) =>
     api.post('/users', data),
+  resetPassword: (id: string, password: string) =>
+    api.put(`/users/${id}/password`, { password }),
   list: () => api.get<User[]>('/users'),
   get: (id: string) => api.get<User>(`/users/${id}`),
   updateRole: (id: string, role: Role) => api.put(`/users/${id}/role`, { role }),

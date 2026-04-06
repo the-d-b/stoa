@@ -469,13 +469,19 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 
 func DeleteUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		if id == "SYSTEM" {
 			writeError(w, http.StatusForbidden, "cannot delete system user")
 			return
 		}
-		db.Exec("DELETE FROM users WHERE id = ? AND auth_provider != 'local'", id)
-		log.Printf("[ADMIN] user_deleted user_id=%s", id)
+		if id == claims.UserID {
+			writeError(w, http.StatusForbidden, "cannot delete your own account")
+			return
+		}
+		// Allow deleting both local and OAuth users (but not SYSTEM or self)
+		db.Exec("DELETE FROM users WHERE id = ?", id)
+		log.Printf("[ADMIN] user_deleted user_id=%s by=%s", id, claims.UserID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -904,5 +910,37 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 		}
 		log.Printf("[USERS] created local user id=%s username=%q", id, req.Username)
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "username": req.Username, "role": req.Role})
+	}
+}
+
+func ResetUserPassword(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		var req struct {
+			Password string `json:"password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Password == "" {
+			writeError(w, http.StatusBadRequest, "password required")
+			return
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
+		res, err := db.Exec(
+			"UPDATE users SET password_hash=? WHERE id=? AND auth_provider='local'",
+			string(hash), id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update password")
+			return
+		}
+		rows, _ := res.RowsAffected()
+		if rows == 0 {
+			writeError(w, http.StatusNotFound, "user not found or not a local user")
+			return
+		}
+		log.Printf("[ADMIN] password_reset user_id=%s", id)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

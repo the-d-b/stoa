@@ -87,8 +87,10 @@ export default function App() {
       <ThemeProvider>
         <AuthProvider>
           <UserModeProvider>
-            <AppRoutes />
-            <ThemeSwitcher />
+            <ErrorBoundary>
+              <AppRoutes />
+              <ThemeSwitcher />
+            </ErrorBoundary>
           </UserModeProvider>
         </AuthProvider>
       </ThemeProvider>
