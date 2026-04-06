@@ -54,27 +54,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     authApi.me()
       .then((res) => setUser(res.data))
       .catch(async () => {
-        // Token failed — check if auto-login replaced it (interceptor may have already run)
-        const currentToken = localStorage.getItem('stoa_token')
-        if (currentToken && currentToken !== token) {
-          // Interceptor got us a new token, fetch user with it
-          try {
-            const res = await authApi.me()
-            setUser(res.data)
-            return
-          } catch {}
-        }
-        // Give up — try auto-login one more time before clearing
+        localStorage.removeItem('stoa_token')
+        // Token expired — if auto-login is configured, get a fresh token silently
         try {
           const statusRes = await authApi.setupStatus()
           if (statusRes.data.autoLogin && !statusRes.data.needsSetup) {
             const r = await authApi.autoLogin()
             localStorage.setItem('stoa_token', r.data.token)
             setUser(r.data.user)
-            return
           }
-        } catch {}
-        localStorage.removeItem('stoa_token')
+        } catch { /* not auto-login mode, will show login page */ }
       })
       .finally(() => setLoading(false))
   }, [])
