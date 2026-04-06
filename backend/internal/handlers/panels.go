@@ -361,6 +361,7 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
+			p.Tags = loadPanelTags(db, p.ID)
 			panels = append(panels, p)
 		}
 		writeJSON(w, http.StatusOK, panels)

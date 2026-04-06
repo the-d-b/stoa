@@ -17,7 +17,7 @@ export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
     try { return JSON.parse(glyph.config) } catch { return {} }
   })()
 
-  const refreshSecs = config.refreshSecs || 1800
+  const refreshSecs = config.refreshSecs || 3600
 
   const fetch = useCallback(async () => {
     try {
@@ -46,8 +46,10 @@ export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
   const hi = Math.round(data.main.temp_max)
   const lo = Math.round(data.main.temp_min)
 
+  const displayName = config.label || data.name
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={`${desc} · H:${hi}${units} L:${lo}${units} · ${data.name}`}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} title={`${displayName} · ${desc} · H:${hi}${units} L:${lo}${units}`}>
       {icon && (
         <img
           src={`https://openweathermap.org/img/wn/${icon}.png`}
@@ -56,6 +58,11 @@ export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
         />
       )}
       <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+        {displayName && (
+          <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {displayName}
+          </span>
+        )}
         <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{temp}{units}</span>
         <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>H:{hi} L:{lo}</span>
       </div>
