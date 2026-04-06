@@ -15,13 +15,20 @@ import ThemeSwitcher from './components/layout/ThemeSwitcher'
 import ErrorBoundary from './components/ErrorBoundary'
 
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { user, loading, login } = useAuth()
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null)
 
   useEffect(() => {
-    authApi.setupStatus()
-      .then((res) => setNeedsSetup(res.data.needsSetup))
-      .catch(() => setNeedsSetup(false))
+    authApi.setupStatus().then(async (res) => {
+      setNeedsSetup(res.data.needsSetup)
+      // If auto-login is configured and no token exists, fetch one silently
+      if (!res.data.needsSetup && res.data.autoLogin && !localStorage.getItem('stoa_token')) {
+        try {
+          const r = await authApi.autoLogin()
+          login(r.data.token, r.data.user)
+        } catch { /* auto-login not available, show login screen */ }
+      }
+    }).catch(() => setNeedsSetup(false))
   }, [])
 
   if (loading || needsSetup === null) return <LoadingScreen />

@@ -40,7 +40,8 @@ func main() {
 	api := r.PathPrefix("/api").Subrouter()
 
 	// ── Public ────────────────────────────────────────────
-	api.HandleFunc("/setup/status", handlers.SetupStatus(database)).Methods("GET")
+	api.HandleFunc("/setup/status", handlers.SetupStatusFull(database)).Methods("GET")
+	api.HandleFunc("/auth/autologin", handlers.AutoLogin(database, authService)).Methods("POST")
 	api.HandleFunc("/setup/init", handlers.SetupInit(database, cfg)).Methods("POST")
 	api.HandleFunc("/auth/login", handlers.LocalLogin(authService)).Methods("POST")
 	api.HandleFunc("/auth/logout", handlers.Logout(authService)).Methods("POST")

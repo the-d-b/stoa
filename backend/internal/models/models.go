@@ -159,6 +159,8 @@ type SetupRequest struct {
 	AdminPassword    string `json:"adminPassword"`
 	AppURL           string `json:"appUrl"`
 	SessionSecret    string `json:"sessionSecret,omitempty"`
+	UserMode         string `json:"userMode,omitempty"`         // "single" or "multi"
+	AutoLogin        bool   `json:"autoLogin,omitempty"`        // single-user: skip login screen
 	InitialTags      []SetupTag   `json:"initialTags,omitempty"`
 	InitialGroups    []SetupGroup `json:"initialGroups,omitempty"`
 	DefaultGroupName string `json:"defaultGroupName,omitempty"`

@@ -95,11 +95,20 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			return
 		}
 
+		userMode := req.UserMode
+		if userMode != "single" && userMode != "multi" {
+			userMode = "multi" // default
+		}
 		configs := map[string]string{
 			"session_secret": sessionSecret,
 			"app_url":        req.AppURL,
 			"setup_complete": "true",
 			"setup_version":  "1",
+			"user_mode":      userMode,
+		}
+		// Auto-login: store the admin user ID so the auto-login endpoint can issue a token
+		if req.AutoLogin && userMode == "single" {
+			configs["auto_login_user_id"] = userID
 		}
 		for k, v := range configs {
 			tx.Exec(`
@@ -942,5 +951,63 @@ func ResetUserPassword(db *sql.DB) http.HandlerFunc {
 		}
 		log.Printf("[ADMIN] password_reset user_id=%s", id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+// AutoLogin issues a token without credentials when auto_login is configured.
+// Only works when auto_login_user_id is set in app_config (single-user, no-auth mode).
+func AutoLogin(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var userID string
+		err := db.QueryRow("SELECT value FROM app_config WHERE key = 'auto_login_user_id'").Scan(&userID)
+		if err != nil || userID == "" {
+			writeError(w, http.StatusForbidden, "auto-login not configured")
+			return
+		}
+
+		var user models.User
+		var email sql.NullString
+		err = db.QueryRow(`
+			SELECT id, username, email, role, auth_provider, created_at, last_login
+			FROM users WHERE id = ?
+		`, userID).Scan(&user.ID, &user.Username, &email, &user.Role,
+			&user.AuthProvider, &user.CreatedAt, &user.LastLogin)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "auto-login user not found")
+			return
+		}
+		if email.Valid {
+			user.Email = email.String
+		}
+
+		token, err := authSvc.GenerateToken(&user)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to generate token")
+			return
+		}
+		db.Exec("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?", user.ID)
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"token": token,
+			"user":  user,
+		})
+	}
+}
+
+// SetupStatusFull returns setup status plus mode and auto-login flag for the frontend.
+func SetupStatusFull(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var count int
+		db.QueryRow("SELECT COUNT(*) FROM users WHERE id != 'SYSTEM'").Scan(&count)
+		var mode, autoLoginID string
+		db.QueryRow("SELECT value FROM app_config WHERE key = 'user_mode'").Scan(&mode)
+		db.QueryRow("SELECT value FROM app_config WHERE key = 'auto_login_user_id'").Scan(&autoLoginID)
+		if mode == "" {
+			mode = "multi"
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"needsSetup": count == 0,
+			"userMode":   mode,
+			"autoLogin":  autoLoginID != "",
+		})
 	}
 }
