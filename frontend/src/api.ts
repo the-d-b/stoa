@@ -13,15 +13,30 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Redirect to login on 401 — but only for protected API calls, not auth/me itself
+// Redirect to login on 401 — but only for protected API calls, not auth/me or autologin itself
 api.interceptors.response.use(
   (res) => res,
-  (err) => {
+  async (err) => {
     const url = err.config?.url || ''
     const is401 = err.response?.status === 401
-    const isAuthMe = url.includes('/auth/me')
-    if (is401 && !isAuthMe) {
+    const isAuthEndpoint = url.includes('/auth/me') || url.includes('/auth/autologin')
+    if (is401 && !isAuthEndpoint) {
       localStorage.removeItem('stoa_token')
+      // Before redirecting to login, check if auto-login is configured.
+      // If so, silently re-acquire a token instead of sending to login screen.
+      try {
+        const statusRes = await axios.get('/api/setup/status')
+        if (statusRes.data?.autoLogin) {
+          const loginRes = await axios.post('/api/auth/autologin', {})
+          const token = loginRes.data?.token
+          if (token) {
+            localStorage.setItem('stoa_token', token)
+            // Retry the original request with the new token
+            err.config.headers['Authorization'] = 'Bearer ' + token
+            return axios(err.config)
+          }
+        }
+      } catch { /* fall through to login redirect */ }
       window.location.href = '/login'
     }
     return Promise.reject(err)

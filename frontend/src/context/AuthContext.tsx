@@ -38,13 +38,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Try to restore existing session
     const token = localStorage.getItem('stoa_token')
     if (!token) {
-      setLoading(false)
+      // No token — check if auto-login is configured before giving up
+      authApi.setupStatus().then(async (res) => {
+        if (res.data.autoLogin && !res.data.needsSetup) {
+          try {
+            const r = await authApi.autoLogin()
+            localStorage.setItem('stoa_token', r.data.token)
+            setUser(r.data.user)
+          } catch { /* auto-login failed, stay logged out */ }
+        }
+      }).catch(() => {}).finally(() => setLoading(false))
       return
     }
 
     authApi.me()
       .then((res) => setUser(res.data))
-      .catch(() => localStorage.removeItem('stoa_token'))
+      .catch(async () => {
+        // Token failed — check if auto-login replaced it (interceptor may have already run)
+        const currentToken = localStorage.getItem('stoa_token')
+        if (currentToken && currentToken !== token) {
+          // Interceptor got us a new token, fetch user with it
+          try {
+            const res = await authApi.me()
+            setUser(res.data)
+            return
+          } catch {}
+        }
+        // Give up — try auto-login one more time before clearing
+        try {
+          const statusRes = await authApi.setupStatus()
+          if (statusRes.data.autoLogin && !statusRes.data.needsSetup) {
+            const r = await authApi.autoLogin()
+            localStorage.setItem('stoa_token', r.data.token)
+            setUser(r.data.user)
+            return
+          }
+        } catch {}
+        localStorage.removeItem('stoa_token')
+      })
       .finally(() => setLoading(false))
   }, [])
 
