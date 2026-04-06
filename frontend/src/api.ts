@@ -74,6 +74,8 @@ export interface SetupRequest {
   adminUsername: string
   adminPassword: string
   appUrl: string
+  userMode?: 'single' | 'multi'
+  autoLogin?: boolean
   initialTags?: { name: string; color: string }[]
   initialGroups?: { name: string; tagNames: string[] }[]
   defaultGroupName?: string
@@ -84,7 +86,7 @@ export interface SetupRequest {
 export const authApi = {
   setupStatus: () => api.get<{ needsSetup: boolean; userMode: string; autoLogin: boolean }>('/setup/status'),
   autoLogin: () => api.post<{ token: string; user: User }>('/auth/autologin', {}),
-  setupInit: (data: SetupRequest & { userMode?: string; autoLogin?: boolean }) => api.post('/setup/init', data),
+  setupInit: (data: SetupRequest) => api.post('/setup/init', data),
   login: (username: string, password: string) =>
     api.post<{ token: string; user: User }>('/auth/login', { username, password }),
   logout: () => api.post('/auth/logout'),

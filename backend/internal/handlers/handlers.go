@@ -51,7 +51,8 @@ func SetupStatus(db *sql.DB) http.HandlerFunc {
 func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var count int
-		db.QueryRow("SELECT COUNT(*) FROM users").Scan(&count)
+		// Exclude SYSTEM pseudo-user — it's inserted by migration and not a real user
+		db.QueryRow("SELECT COUNT(*) FROM users WHERE id != 'SYSTEM'").Scan(&count)
 		if count > 0 {
 			writeError(w, http.StatusForbidden, "setup already complete")
 			return
@@ -967,18 +968,18 @@ func AutoLogin(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 
 		var user models.User
 		var email sql.NullString
+		var lastLogin sql.NullTime
 		err = db.QueryRow(`
 			SELECT id, username, email, role, auth_provider, created_at, last_login
 			FROM users WHERE id = ?
 		`, userID).Scan(&user.ID, &user.Username, &email, &user.Role,
-			&user.AuthProvider, &user.CreatedAt, &user.LastLogin)
+			&user.AuthProvider, &user.CreatedAt, &lastLogin)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "auto-login user not found")
 			return
 		}
-		if email.Valid {
-			user.Email = email.String
-		}
+		if email.Valid { user.Email = email.String }
+		if lastLogin.Valid { user.LastLogin = &lastLogin.Time }
 
 		token, err := authSvc.GenerateToken(&user)
 		if err != nil {
