@@ -256,51 +256,39 @@ function PanelsOrderTab() {
   const [savingAssignment, setSavingAssignment] = useState(false)
 
   const loadPanels = async (wallId?: string) => {
-    const wallParam = wallId && wallId !== 'home' ? wallId : undefined
-    const res = await panelsApi.list(wallParam)
-    let sorted = [...(res.data || [])]
+    const [sys, mine] = await Promise.all([panelsApi.list(), myPanelsApi.list()])
+    let sorted = [...(sys.data || []), ...(mine.data || [])]
 
     if (wallId && wallId !== 'home') {
       const wall = walls.find(w => w.id === wallId)
       if (wall) {
-        const wallTagIds = new Set((wall.tags || []).filter(t => t.active).map(t => t.tagId))
+        const wallTagIds = new Set((wall.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId))
         sorted = sorted.filter((p: Panel) => {
-          // Personal panels only show on walls they're assigned to
-          if (p.scope === 'personal') {
-            const config = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-            const assigned: string[] = config.assignedWalls || []
-            return assigned.includes(wallId)
-          }
           if (!p.tags || p.tags.length === 0) return true
           return p.tags.some((t: any) => wallTagIds.has(t.id))
         })
       }
     }
-    // Personal panels always appear in Home ordering
-    console.log('[ProfilePage] loadPanels wall=' + wallId + ' panels=' + sorted.length +
-      ' (' + sorted.filter((p: Panel) => p.scope === 'personal').length + ' personal)')
-    sorted.forEach((p: Panel) => console.log('  panel:', p.id, p.title, 'pos=' + p.position, 'scope=' + p.scope))
     setPanels(sorted)
-    const personal = (res.data || []).find((p: Panel) => p.scope === 'personal')
-    setHasPersonalPanel(!!personal)
-    if (personal) {
-      setPersonalPanelId(personal.id)
-      // Load portico assignments from panel config
+    const myPanelsList = mine.data || []
+    setHasPersonalPanel(myPanelsList.length > 0)
+    if (myPanelsList.length > 0) {
+      setPersonalPanelId(myPanelsList[0].id)
       try {
-        const config = JSON.parse(personal.config || '{}')
+        const config = JSON.parse(myPanelsList[0].config || '{}')
         setAssignedWalls(config.assignedWalls || [])
       } catch { setAssignedWalls([]) }
     }
   }
 
   useEffect(() => {
-    Promise.all([panelsApi.list(), porticosApi.list()]).then(([p, w]) => {
-      console.log('[Profile] loaded panels:', p.data?.length, p.data?.map((x: Panel) => `${x.title}(${x.scope})`))
-      const sorted = [...(p.data || [])]
+    Promise.all([panelsApi.list(), myPanelsApi.list(), porticosApi.list()]).then(([sys, mine, w]) => {
+      // Merge system panels + personal panels for ordering
+      const sorted = [...(sys.data || []), ...(mine.data || [])]
       setPanels(sorted)
       setWalls(w.data || [])
-      const personal = (p.data || []).find((pan: Panel) => pan.scope === 'personal')
-      setHasPersonalPanel(!!personal)
+      const personal = (mine.data || []).find((pan: Panel) => !!pan.createdBy)
+      setHasPersonalPanel(!!(mine.data?.length))
       if (personal) {
         setPersonalPanelId(personal.id)
         try {
@@ -488,7 +476,7 @@ function PanelsOrderTab() {
           </div>
         ))}
         {panels.length === 0 && (
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>No panels visible on this wall.</div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>No panels visible on this portico.</div>
         )}
       </div>
     </div>
@@ -843,9 +831,11 @@ function GlyphsTab() {
   const [editId, setEditId] = useState<string | null>(null)
 
   const load = async () => {
-    const [g, s] = await Promise.all([glyphsApi.list(), secretsApi.list()])
+    const [g, sysS, myS] = await Promise.all([glyphsApi.list(), secretsApi.list(), mySecretsApi.list()])
     setGlyphs(g.data || [])
-    setSecrets(s.data || [])
+    // Merge system + personal secrets for the dropdown
+    const allSecrets = [...(sysS.data || []), ...(myS.data || [])]
+    setSecrets(allSecrets)
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1190,7 +1180,8 @@ function TickersTab() {
 
   const [porticos, setPorticos] = useState<Wall[]>([])
   const load = async () => {
-    const [t, s, p] = await Promise.all([tickersApi.list(), secretsApi.list(), porticosApi.list()])
+    const [t, sysS, myS, p] = await Promise.all([tickersApi.list(), secretsApi.list(), mySecretsApi.list(), porticosApi.list()])
+    const s = { data: [...(sysS.data || []), ...(myS.data || [])] }
     setTickers(t.data || [])
     setSecrets(s.data || [])
     setPorticos(p.data || [])
@@ -1476,14 +1467,15 @@ function PersonalIntegrationsTab() {
   const [testing, setTesting] = useState(false)
 
   const load = async () => {
-    const [shared, personal, s] = await Promise.all([
+    const [shared, personal, sysS, myS] = await Promise.all([
       integrationsApi.list(),
       myIntegrationsApi.list(),
       secretsApi.list(),
+      mySecretsApi.list(),
     ])
     setShared(shared.data || [])
     setPersonal(personal.data || [])
-    setSecrets(s.data || [])
+    setSecrets([...(sysS.data || []), ...(myS.data || [])])
     setLoading(false)
   }
   useEffect(() => { load() }, [])

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { authApi, configApi } from '../api'
+import { authApi, configApi, preferencesApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 
@@ -109,6 +109,11 @@ export default function SetupPage({ onComplete }: Props) {
       } else {
         const res = await authApi.login(adminUsername, adminPassword)
         login(res.data.token, res.data.user)
+      }
+      // Save current theme so it persists on next load
+      const currentTheme = localStorage.getItem('stoa_theme')
+      if (currentTheme) {
+        try { await preferencesApi.save({ theme: currentTheme }) } catch {}
       }
       setStep('done')
       setTimeout(onComplete, 1200)

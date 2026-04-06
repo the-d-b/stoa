@@ -1,20 +1,28 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { configApi } from '../api'
+import { authApi } from '../api'
 
-type UserMode = 'single' | 'multi'
-
-const UserModeContext = createContext<UserMode>('multi')
-
-export function UserModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<UserMode>('multi')
-
-  useEffect(() => {
-    configApi.getMode().then(res => {
-      if (res.data?.mode === 'single') setMode('single')
-    }).catch(() => {})
-  }, [])
-
-  return <UserModeContext.Provider value={mode}>{children}</UserModeContext.Provider>
+interface UserModeState {
+  mode: 'single' | 'multi' | null  // null = not yet loaded
+  autoLogin: boolean
 }
 
-export const useUserMode = () => useContext(UserModeContext)
+const UserModeContext = createContext<UserModeState>({ mode: null, autoLogin: false })
+
+export function UserModeProvider({ children }: { children: React.ReactNode }) {
+  const [state, setState] = useState<UserModeState>({ mode: null, autoLogin: false })
+
+  useEffect(() => {
+    authApi.setupStatus()
+      .then(res => setState({
+        mode: res.data?.userMode === 'single' ? 'single' : 'multi',
+        autoLogin: res.data?.autoLogin ?? false,
+      }))
+      .catch(() => setState({ mode: 'multi', autoLogin: false }))
+  }, [])
+
+  return <UserModeContext.Provider value={state}>{children}</UserModeContext.Provider>
+}
+
+export const useUserMode = () => useContext(UserModeContext).mode
+export const useAutoLogin = () => useContext(UserModeContext).autoLogin
+export const useUserModeState = () => useContext(UserModeContext)

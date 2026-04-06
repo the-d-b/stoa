@@ -6,7 +6,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
-import { useUserMode } from '../../context/UserModeContext'
+import { useUserMode, useAutoLogin } from '../../context/UserModeContext'
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
@@ -50,6 +50,7 @@ export default function Layout() {
 
   const onAdmin = location.pathname.startsWith('/admin')
   const userMode = useUserMode()
+  const autoLogin = useAutoLogin()
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
@@ -123,7 +124,7 @@ export default function Layout() {
               </Link>
             )}
 
-            <button
+            {!autoLogin && <button
               onClick={logout}
               title="Sign out"
               style={{
@@ -140,7 +141,7 @@ export default function Layout() {
                 <polyline points="16 17 21 12 16 7"/>
                 <line x1="21" y1="12" x2="9" y2="12"/>
               </svg>
-            </button>
+            </button>}
           </div>
         </div>
         {/* Header ticker strip — inside sticky header, sticks with it */}
