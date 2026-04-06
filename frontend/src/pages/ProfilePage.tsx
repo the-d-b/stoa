@@ -523,9 +523,9 @@ function WallsTab() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
 
   const load = async () => {
-    const [w, t] = await Promise.all([porticosApi.list(), tagsApi.list()])
+    const [w, sysT, myT] = await Promise.all([porticosApi.list(), tagsApi.list(), myTagsApi.list()])
     setWalls(w.data || [])
-    setAllTags(t.data || [])
+    setAllTags([...(sysT.data || []), ...(myT.data || [])])
   }
 
   useEffect(() => {
@@ -1498,6 +1498,7 @@ function TickersTab() {
             onToggle={() => toggleEnabled(t)}
             onDelete={() => remove(t.id)}
             onSave={load}
+            onSecretCreated={(s) => setSecrets((prev: any[]) => [...prev, s])}
           />
         ))}
         {tickers.length === 0 && !showForm && (
@@ -1510,15 +1511,32 @@ function TickersTab() {
   )
 }
 
-function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave }: {
+function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave, onSecretCreated }: {
   ticker: Ticker; secrets: any[]; porticos: Wall[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
-  onSave: () => void  // called after save to reload
+  onSave: () => void
+  onSecretCreated: (secret: any) => void
 }) {
   const config = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
   const symbolsArr: string[] = (() => { try { return JSON.parse(ticker.symbols) } catch { return [] } })()
+  const [showAddSecret, setShowAddSecret] = useState(false)
+  const [newSecretName, setNewSecretName] = useState('')
+  const [newSecretValue, setNewSecretValue] = useState('')
+  const [savingSecret, setSavingSecret] = useState(false)
 
   const [localSecretId, setLocalSecretId] = useState(config.secretId || '')
+
+  const createSecret = async () => {
+    if (!newSecretName.trim() || !newSecretValue.trim()) return
+    setSavingSecret(true)
+    try {
+      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'personal' })
+      const newSecret = { id: res.data.id, name: newSecretName.trim() }
+      setLocalSecretId(newSecret.id)
+      onSecretCreated(newSecret)
+      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
+    } finally { setSavingSecret(false) }
+  }
   const [localMode, setLocalMode] = useState(config.mode || 'static')
   const [localRefresh, setLocalRefresh] = useState(config.refreshSecs || 300)
   const [localSymbols, setLocalSymbols] = useState(symbolsArr.join(', '))
@@ -1619,13 +1637,41 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
 
             <div>
               <label className="label">API key secret</label>
-              <select className="input" value={localSecretId} onChange={e => setLocalSecretId(e.target.value)} style={{ cursor: 'pointer' }}>
-                <option value="">— Select a secret —</option>
-                {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              {secrets.length === 0 && (
-                <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
-                  No secrets yet — add a Finnhub or CoinMarketCap API key in the Secrets tab.
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select className="input" value={localSecretId}
+                  onChange={e => setLocalSecretId(e.target.value)}
+                  style={{ cursor: 'pointer', flex: 1 }}>
+                  <option value="">— Select a secret —</option>
+                  {secrets.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
+                  onClick={() => setShowAddSecret(v => !v)}>
+                  {showAddSecret ? 'Cancel' : '+ New'}
+                </button>
+              </div>
+              {showAddSecret && (
+                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="label">Name</label>
+                      <input className="input" value={newSecretName}
+                        onChange={e => setNewSecretName(e.target.value)}
+                        placeholder="e.g. Finnhub Key" autoFocus />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label className="label">Value</label>
+                      <input className="input" type="password" value={newSecretValue}
+                        onChange={e => setNewSecretValue(e.target.value)}
+                        placeholder="Paste key here" />
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                    disabled={savingSecret || !newSecretName || !newSecretValue}
+                    onClick={createSecret}>
+                    {savingSecret ? <span className="spinner" /> : 'Save & select'}
+                  </button>
                 </div>
               )}
             </div>
@@ -1705,9 +1751,24 @@ function PersonalIntegrationsTab() {
   const [editId, setEditId] = useState<string | null>(null)
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
+  const [showAddSecret, setShowAddSecret] = useState(false)
+  const [newSecretName, setNewSecretName] = useState('')
+  const [newSecretValue, setNewSecretValue] = useState('')
+  const [savingSecret, setSavingSecret] = useState(false)
   const [creating, setCreating] = useState(false)
   const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
   const [testing, setTesting] = useState(false)
+
+  const createSecret = async () => {
+    if (!newSecretName.trim() || !newSecretValue.trim()) return
+    setSavingSecret(true)
+    try {
+      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'personal' })
+      setNewSecretId(res.data.id)
+      setSecrets((prev: any[]) => [...prev, { id: res.data.id, name: newSecretName.trim() }])
+      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
+    } finally { setSavingSecret(false) }
+  }
 
   const load = async () => {
     const [shared, personal, sysS, myS] = await Promise.all([
@@ -1839,10 +1900,43 @@ function PersonalIntegrationsTab() {
             </div>
             <div>
               <label className="label">API key secret</label>
-              <select className="input" value={newSecretId} onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }} style={{ cursor: 'pointer' }}>
-                <option value="">— None —</option>
-                {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select className="input" value={newSecretId}
+                  onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
+                  style={{ cursor: 'pointer', flex: 1 }}>
+                  <option value="">— None —</option>
+                  {secrets.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
+                  onClick={() => setShowAddSecret(v => !v)}>
+                  {showAddSecret ? 'Cancel' : '+ New'}
+                </button>
+              </div>
+              {showAddSecret && (
+                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="label">Name</label>
+                      <input className="input" value={newSecretName}
+                        onChange={e => setNewSecretName(e.target.value)}
+                        placeholder="e.g. Sonarr API Key" autoFocus />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label className="label">Value</label>
+                      <input className="input" type="password" value={newSecretValue}
+                        onChange={e => setNewSecretValue(e.target.value)}
+                        placeholder="Paste key here" />
+                    </div>
+                  </div>
+                  <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                    disabled={savingSecret || !newSecretName || !newSecretValue}
+                    onClick={createSecret}>
+                    {savingSecret ? <span className="spinner" /> : 'Save & select'}
+                  </button>
+                </div>
+              )}
             </div>
             {testResult && (
               <div style={{
@@ -2202,15 +2296,16 @@ function MyPanelsTab() {
   const [creating, setCreating] = useState(false)
 
   const load = async () => {
-    const [system, mine, i, t] = await Promise.all([
+    const [system, mine, sysI, myI, t] = await Promise.all([
       panelsApi.list(),
       myPanelsApi.list(),
       integrationsApi.list(),
+      myIntegrationsApi.list(),
       myTagsApi.list(),
     ])
     setSystemPanels((system.data || []).filter((p: Panel) => p.createdBy === 'SYSTEM'))
     setMyPanels(mine.data || [])
-    setIntegrations(i.data || [])
+    setIntegrations([...(sysI.data || []), ...(myI.data || [])])
     setMyTags(t.data || [])
     setLoading(false)
   }
