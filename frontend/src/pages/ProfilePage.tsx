@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'bookmarks' | 'panels' | 'mypanels' | 'porticos' | 'secrets' | 'glyphs' | 'tickers' | 'integrations' | 'tags'
+type Tab = 'overview' | 'tags' | 'secrets' | 'integrations' | 'bookmarks' | 'mypanels' | 'glyphs' | 'tickers' | 'porticos' | 'panels'
 
 export default function ProfilePage() {
   const { user } = useAuth()
@@ -24,67 +25,106 @@ export default function ProfilePage() {
     if (t && ['overview', 'bookmarks', 'panels', 'porticos'].includes(t)) setTab(t)
   }, [location.search])
 
-  const tabs: { id: Tab; label: string; icon: string }[] = [
-    { id: 'overview',  label: 'Overview',    icon: '○' },
-    { id: 'bookmarks', label: 'My Bookmarks', icon: '↗' },
-    { id: 'panels',    label: 'Panel Order',  icon: '▤' },
-    { id: 'porticos',  label: 'Porticos',     icon: '◧' },
-    { id: 'secrets',   label: 'Secrets',      icon: '🔑' },
-    { id: 'glyphs',    label: 'Glyphs',       icon: '◈' },
-    { id: 'tickers',   label: 'Tickers',      icon: '▶' },
-    { id: 'integrations', label: 'My Integrations', icon: '⇄' },
-    { id: 'tags',      label: 'My Tags',      icon: '◉' },
-    { id: 'mypanels',  label: 'My Panels',    icon: '⊞' },
+  type NavGroup = { label: string; items: { id: Tab; label: string; icon: string }[] }
+  const navGroups: NavGroup[] = [
+    {
+      label: 'Overview',
+      items: [
+        { id: 'overview', label: 'Overview', icon: '○' },
+      ],
+    },
+    {
+      label: 'My Setup',
+      items: [
+        { id: 'tags',         label: 'My Tags',         icon: '◉' },
+        { id: 'secrets',      label: 'My Secrets',      icon: '🔑' },
+        { id: 'integrations', label: 'My Integrations', icon: '⇄' },
+      ],
+    },
+    {
+      label: 'My Content',
+      items: [
+        { id: 'bookmarks', label: 'My Bookmarks', icon: '↗' },
+        { id: 'mypanels',  label: 'My Panels',   icon: '⊞' },
+        { id: 'glyphs',    label: 'My Glyphs',   icon: '◈' },
+        { id: 'tickers',   label: 'My Tickers',  icon: '▶' },
+      ],
+    },
+    {
+      label: 'My Layout',
+      items: [
+        { id: 'porticos', label: 'Porticos',    icon: '◧' },
+        { id: 'panels',   label: 'Panel Order', icon: '▤' },
+      ],
+    },
   ]
 
   return (
-    <div className="fade-up" style={{ maxWidth: 720 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 32 }}>
-        <div style={{
-          width: 52, height: 52, borderRadius: 12,
-          background: 'var(--accent-bg)', border: '2px solid var(--accent)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 18, fontWeight: 600, color: 'var(--accent2)', flexShrink: 0,
-        }}>{initials}</div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: 18, letterSpacing: '-0.01em' }}>{user?.username}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
-            {user?.email || 'No email set'} · <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12 }}>{user?.role}</span>
+    <div className="fade-up" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', maxWidth: 960 }}>
+
+      {/* Vertical sidebar */}
+      <div style={{ width: 180, flexShrink: 0 }}>
+        {/* User identity */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 8, flexShrink: 0,
+            background: 'var(--accent-bg)', border: '1px solid var(--accent)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 13, fontWeight: 600, color: 'var(--accent2)',
+          }}>{initials}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.username}</div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{user?.role}</div>
           </div>
         </div>
+
+        {/* Nav groups */}
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {navGroups.map(group => (
+            <div key={group.label}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, paddingLeft: 8 }}>
+                {group.label}
+              </div>
+              {group.items.map(item => {
+                const active = tab === item.id
+                return (
+                  <button key={item.id}
+                    onClick={() => { setTab(item.id); navigate(`/profile?tab=${item.id}`, { replace: true }) }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                      padding: '7px 10px', fontSize: 13, fontWeight: active ? 500 : 400,
+                      background: active ? 'var(--accent-bg)' : 'transparent',
+                      color: active ? 'var(--accent2)' : 'var(--text-muted)',
+                      border: 'none', borderRadius: 7,
+                      cursor: 'pointer', textAlign: 'left',
+                      transition: 'all 0.12s',
+                    }}
+                    onMouseOver={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseOut={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <span style={{ fontSize: 11, width: 14, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </nav>
       </div>
 
-      <nav style={{ display: 'flex', gap: 4, marginBottom: 28, borderBottom: '1px solid var(--border)' }}>
-        {tabs.map(t => {
-          const active = tab === t.id
-          return (
-            <button key={t.id}
-              onClick={() => { setTab(t.id); navigate(`/profile?tab=${t.id}`, { replace: true }) }}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '8px 14px', fontSize: 13, fontWeight: 500,
-                background: active ? 'var(--accent-bg)' : 'transparent',
-                color: active ? 'var(--accent2)' : 'var(--text-muted)',
-                border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-                cursor: 'pointer', borderRadius: '8px 8px 0 0',
-                transition: 'all 0.15s', marginBottom: -1,
-              }}>
-              <span style={{ fontSize: 11 }}>{t.icon}</span>{t.label}
-            </button>
-          )
-        })}
-      </nav>
-
-      {tab === 'overview'  && <OverviewTab />}
-      {tab === 'bookmarks' && <BookmarksTab />}
-      {tab === 'panels'    && <PanelsOrderTab />}
-      {tab === 'porticos'  && <WallsTab />}
-      {tab === 'secrets'   && <SecretsTab />}
-      {tab === 'glyphs'    && <GlyphsTab />}
-      {tab === 'tickers'   && <TickersTab />}
-      {tab === 'integrations' && <PersonalIntegrationsTab />}
-      {tab === 'tags'        && <PersonalTagsTab />}
-      {tab === 'mypanels'   && <MyPanelsTab />}
+      {/* Main content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {tab === 'overview'      && <OverviewTab />}
+        {tab === 'tags'          && <PersonalTagsTab />}
+        {tab === 'secrets'       && <SecretsTab />}
+        {tab === 'integrations'  && <PersonalIntegrationsTab />}
+        {tab === 'bookmarks'     && <BookmarksTab />}
+        {tab === 'mypanels'      && <MyPanelsTab />}
+        {tab === 'glyphs'        && <GlyphsTab />}
+        {tab === 'tickers'       && <TickersTab />}
+        {tab === 'porticos'      && <WallsTab />}
+        {tab === 'panels'        && <PanelsOrderTab />}
+      </div>
     </div>
   )
 }
@@ -197,26 +237,8 @@ function OverviewTab() {
         )}
       </div>
 
-      {/* Density setting */}
-      <DensityPicker />
-
-      {/* Coming soon items */}
-      {[
-        { title: 'Theme',       desc: 'CSS download/upload for custom themes — use color wheel for now' },
-        { title: 'Date & time', desc: 'Customize how dates and times are displayed' },
-      ].map(item => (
-        <div key={item.title} style={{
-          padding: '12px 16px', borderRadius: 10,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 500 }}>{item.title}</div>
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>{item.desc}</div>
-          </div>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>coming soon</span>
-        </div>
-      ))}
+      {/* Theme + Density combined */}
+      <ThemeDensityBlock />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
         <StoaLogo size={14} />stoa v0.0.5
@@ -845,7 +867,7 @@ function GlyphsTab() {
     try {
       const defaultConfig = newType === 'clock'
         ? JSON.stringify({ format: '12h', showSeconds: false, showDate: true, timezone: '', label: '' })
-        : JSON.stringify({ zip: '', country: 'US', units: 'imperial', refreshSecs: 1800, secretId: '' })
+        : JSON.stringify({ zip: '', country: 'US', units: 'imperial', refreshSecs: 3600, secretId: '' })
       await glyphsApi.create({ type: newType, zone: newZone, config: defaultConfig })
       setShowForm(false); await load()
     } finally { setCreating(false) }
@@ -1011,12 +1033,41 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
                 <div style={{ display: 'flex', gap: 10 }}>
                   <div style={{ flex: 1 }}>
                     <label className="label">Timezone</label>
-                    <input className="input" value={localConfig.timezone || ''}
+                    <select className="input" value={localConfig.timezone || ''}
                       onChange={e => setLocalConfig((c: any) => ({ ...c, timezone: e.target.value }))}
-                      placeholder="e.g. America/New_York (blank = local)" />
-                    <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3 }}>
-                      IANA format: America/Chicago · Europe/London · Asia/Tokyo · UTC
-                    </div>
+                      style={{ cursor: 'pointer' }}>
+                      <option value="">— Local (browser default) —</option>
+                      <optgroup label="United States">
+                        <option value="America/New_York">Eastern — New York</option>
+                        <option value="America/Chicago">Central — Chicago</option>
+                        <option value="America/Denver">Mountain — Denver</option>
+                        <option value="America/Phoenix">Mountain (no DST) — Phoenix</option>
+                        <option value="America/Los_Angeles">Pacific — Los Angeles</option>
+                        <option value="America/Anchorage">Alaska — Anchorage</option>
+                        <option value="Pacific/Honolulu">Hawaii — Honolulu</option>
+                      </optgroup>
+                      <optgroup label="Europe">
+                        <option value="Europe/London">London (GMT/BST)</option>
+                        <option value="Europe/Paris">Paris / Berlin / Rome</option>
+                        <option value="Europe/Helsinki">Helsinki / Athens</option>
+                        <option value="Europe/Moscow">Moscow</option>
+                      </optgroup>
+                      <optgroup label="Asia / Pacific">
+                        <option value="Asia/Dubai">Dubai</option>
+                        <option value="Asia/Kolkata">India — Kolkata</option>
+                        <option value="Asia/Bangkok">Bangkok / Jakarta</option>
+                        <option value="Asia/Shanghai">China — Shanghai</option>
+                        <option value="Asia/Tokyo">Japan — Tokyo</option>
+                        <option value="Australia/Sydney">Australia — Sydney</option>
+                        <option value="Pacific/Auckland">New Zealand — Auckland</option>
+                      </optgroup>
+                      <optgroup label="Other">
+                        <option value="UTC">UTC</option>
+                        <option value="America/Sao_Paulo">Brazil — São Paulo</option>
+                        <option value="America/Toronto">Canada — Toronto</option>
+                        <option value="America/Vancouver">Canada — Vancouver</option>
+                      </optgroup>
+                    </select>
                   </div>
                   <div style={{ flex: 0.4 }}>
                     <label className="label">Label (optional)</label>
@@ -1035,6 +1086,12 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
             {glyph.type === 'weather' && (
               <>
                 <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 0.5 }}>
+                    <label className="label">Name (optional)</label>
+                    <input className="input" value={localConfig.label || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
+                      placeholder="e.g. Dallas" />
+                  </div>
                   <div style={{ flex: 1 }}>
                     <label className="label">ZIP code</label>
                     <input className="input" value={localConfig.zip || ''}
@@ -1073,7 +1130,7 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
                 </div>
                 <div>
                   <label className="label">Refresh every</label>
-                  <select className="input" value={localConfig.refreshSecs || 1800}
+                  <select className="input" value={localConfig.refreshSecs || 3600}
                     onChange={e => setLocalConfig((c: any) => ({ ...c, refreshSecs: Number(e.target.value) }))}
                     style={{ cursor: 'pointer' }}>
                     <option value={300}>5 minutes</option>
@@ -1097,18 +1154,24 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
   )
 }
 
-// ── Density picker ────────────────────────────────────────────────────────────
+// ── Theme + Density combined block ───────────────────────────────────────────
 
-function DensityPicker() {
+// THEMES_LIST is replaced by THEME_DEFS from ThemeContext
+
+function ThemeDensityBlock() {
   const [density, setDensityState] = useState('normal')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-
+  const { theme: currentTheme, setTheme: applyTheme } = useTheme()
+  const [activeTheme, setActiveTheme] = useState(currentTheme)
   useEffect(() => {
-    preferencesApi.get().then(r => setDensityState(r.data.density || 'normal')).catch(() => {})
+    preferencesApi.get().then(r => {
+      setDensityState(r.data.density || 'normal')
+      if (r.data.theme) setActiveTheme(r.data.theme as any)
+    }).catch(() => {})
   }, [])
 
-  const save = async (val: string) => {
+  const saveDensity = async (val: string) => {
     setDensityState(val)
     setSaving(true)
     try {
@@ -1117,35 +1180,68 @@ function DensityPicker() {
     } finally { setSaving(false) }
   }
 
-  const options = [
-    { id: 'compact',     label: 'Compact',     desc: '~6 columns · 180px min' },
-    { id: 'normal',      label: 'Normal',       desc: '~5 columns · 240px min' },
-    { id: 'comfortable', label: 'Comfortable',  desc: '~3 columns · 320px min' },
+
+
+  const saveTheme = async (themeId: string) => {
+    setActiveTheme(themeId as any)
+    applyTheme(themeId as any)
+    try { await preferencesApi.save({ theme: themeId }) } catch {}
+  }
+
+  const densityOptions = [
+    { id: 'compact',     label: 'Compact',     desc: '~6 cols' },
+    { id: 'normal',      label: 'Normal',       desc: '~5 cols' },
+    { id: 'comfortable', label: 'Comfortable',  desc: '~3 cols' },
   ]
 
   return (
-    <div className="card" style={{ padding: 16 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 500 }}>Panel density</div>
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>Controls minimum panel width on desktop</div>
+    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
+      {/* Theme */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>Theme</div>
+          {saved && <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ saved</span>}
         </div>
-        {saved && <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ saved</span>}
-        {saving && <span className="spinner" />}
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {THEME_DEFS.map(t => (
+            <button key={t.name} onClick={() => saveTheme(t.name)} style={{
+              padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+              background: activeTheme === t.name ? 'var(--accent-bg)' : 'var(--surface2)',
+              border: `1px solid ${activeTheme === t.name ? '#7c6fff50' : 'var(--border)'}`,
+              color: activeTheme === t.name ? 'var(--accent2)' : 'var(--text-muted)',
+              fontWeight: activeTheme === t.name ? 500 : 400,
+              transition: 'all 0.15s',
+            }}>{t.label}</button>
+          ))}
+        </div>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        {options.map(o => (
-          <button key={o.id} onClick={() => save(o.id)} style={{
-            flex: 1, padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
-            background: density === o.id ? 'var(--accent-bg)' : 'var(--surface2)',
-            border: `1px solid ${density === o.id ? '#7c6fff50' : 'var(--border)'}`,
-            color: density === o.id ? 'var(--accent2)' : 'var(--text-muted)',
-            transition: 'all 0.15s', textAlign: 'left',
-          }}>
-            <div style={{ fontSize: 13, fontWeight: density === o.id ? 500 : 400 }}>{o.label}</div>
-            <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>{o.desc}</div>
-          </button>
-        ))}
+
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--border)' }} />
+
+      {/* Density */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 500 }}>Panel density</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 1 }}>Controls minimum panel width</div>
+          </div>
+          {saving && <span className="spinner" />}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {densityOptions.map(o => (
+            <button key={o.id} onClick={() => saveDensity(o.id)} style={{
+              flex: 1, padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+              background: density === o.id ? 'var(--accent-bg)' : 'var(--surface2)',
+              border: `1px solid ${density === o.id ? '#7c6fff50' : 'var(--border)'}`,
+              color: density === o.id ? 'var(--accent2)' : 'var(--text-muted)',
+              transition: 'all 0.15s', textAlign: 'left',
+            }}>
+              <div style={{ fontSize: 13, fontWeight: density === o.id ? 500 : 400 }}>{o.label}</div>
+              <div style={{ fontSize: 10, opacity: 0.6, marginTop: 2 }}>{o.desc}</div>
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -1945,6 +2041,13 @@ function MyPanelsTab() {
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [calPanel, setCalPanel] = useState<Panel | null>(null)
+  const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null)
+  const [myTags, setMyTags] = useState<Tag[]>([])
+  const [editTitle, setEditTitle] = useState('')
+  const [editHeight, setEditHeight] = useState(2)
+  const [savingPanel, setSavingPanel] = useState(false)
+  const [editUrl, setEditUrl] = useState('')
+  const [editHtml, setEditHtml] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState('bookmarks')
   const [newHeight, setNewHeight] = useState(2)
@@ -1952,14 +2055,16 @@ function MyPanelsTab() {
   const [creating, setCreating] = useState(false)
 
   const load = async () => {
-    const [system, mine, i] = await Promise.all([
+    const [system, mine, i, t] = await Promise.all([
       panelsApi.list(),
       myPanelsApi.list(),
       integrationsApi.list(),
+      myTagsApi.list(),
     ])
     setSystemPanels((system.data || []).filter((p: Panel) => p.createdBy === 'SYSTEM'))
     setMyPanels(mine.data || [])
     setIntegrations(i.data || [])
+    setMyTags(t.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -2113,27 +2218,131 @@ function MyPanelsTab() {
         {myPanels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
           let cfg: any = {}
           try { cfg = JSON.parse(p.config || '{}') } catch {}
+          const expanded = expandedPanelId === p.id
+
           return (
             <div key={p.id} style={{
-              display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
               background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
+              border: `1px solid ${expanded ? 'var(--border2)' : 'var(--border)'}`,
+              borderRadius: 8, overflow: 'hidden',
             }}>
-              <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
-                background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
-                {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
-              </span>
-              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-                {cfg.height ?? 2}x
-              </span>
-              {p.type === 'calendar' && (
-                <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                  onClick={() => setCalPanel(p)}>Sources</button>
+              {/* Row header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer' }}
+                onClick={() => {
+                  if (!expanded) {
+                    setEditTitle(p.title)
+                    setEditHeight(cfg.height ?? 2)
+                    setEditUrl(cfg.url || '')
+                    setEditHtml(cfg.html || '')
+                  }
+                  setExpandedPanelId(expanded ? null : p.id)
+                }}>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{expanded ? '▼' : '▶'}</span>
+                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                  background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                  {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                  {cfg.height ?? 2}x
+                </span>
+                <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
+                  {p.type === 'calendar' && (
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={() => setCalPanel(p)}>Sources</button>
+                  )}
+                  <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
+                    onClick={() => remove(p.id, p.title)}>Delete</button>
+                </div>
+              </div>
+
+              {/* Expanded edit area */}
+              {expanded && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {/* Rename + resize */}
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="label">Title</label>
+                      <input className="input" value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                        style={{ fontSize: 13 }} />
+                    </div>
+                    <div style={{ flex: 0.4 }}>
+                      <label className="label">Height</label>
+                      <select className="input" value={editHeight}
+                        onChange={e => setEditHeight(Number(e.target.value))}
+                        style={{ cursor: 'pointer' }}>
+                        <option value={1}>1x</option>
+                        <option value={2}>2x</option>
+                        <option value={4}>4x</option>
+                        <option value={8}>8x</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Configure for iframe/custom */}
+                  {p.type === 'iframe' && (
+                    <div>
+                      <label className="label">Embed URL</label>
+                      <input className="input" style={{ fontSize: 13 }}
+                        value={editUrl} onChange={e => setEditUrl(e.target.value)}
+                        placeholder="https://example.com" />
+                    </div>
+                  )}
+                  {p.type === 'custom' && (
+                    <div>
+                      <label className="label">HTML content</label>
+                      <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
+                        value={editHtml} onChange={e => setEditHtml(e.target.value)}
+                        placeholder="<div>Your custom HTML here</div>" />
+                    </div>
+                  )}
+
+                  {/* Tag assignment */}
+                  {myTags.length > 0 && (
+                    <div>
+                      <label className="label">Tags</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                        {myTags.map(t => {
+                          const hasTag = p.tags?.some((pt: any) => pt.id === t.id)
+                          return (
+                            <button key={t.id} onClick={async () => {
+                              if (hasTag) await panelsApi.removeTag(p.id, t.id)
+                              else await panelsApi.addTag(p.id, t.id)
+                              await load()
+                            }} style={{
+                              padding: '2px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+                              background: hasTag ? t.color + '20' : 'transparent',
+                              border: `1px solid ${hasTag ? t.color + '60' : 'var(--border)'}`,
+                              color: hasTag ? t.color : 'var(--text-dim)',
+                            }}>{t.name}</button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Save */}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-primary" style={{ fontSize: 12 }}
+                      disabled={savingPanel}
+                      onClick={async () => {
+                        setSavingPanel(true)
+                        try {
+                          const newCfg = { ...cfg, height: editHeight }
+                          if (p.type === 'iframe') newCfg.url = editUrl
+                          if (p.type === 'custom') newCfg.html = editHtml
+                          await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
+                          setExpandedPanelId(null)
+                          await load()
+                        } finally { setSavingPanel(false) }
+                      }}>
+                      {savingPanel ? <span className="spinner" /> : 'Save'}
+                    </button>
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={() => setExpandedPanelId(null)}>Cancel</button>
+                  </div>
+                </div>
               )}
-              <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                onClick={() => remove(p.id, p.title)}>Delete</button>
             </div>
           )
         })}
