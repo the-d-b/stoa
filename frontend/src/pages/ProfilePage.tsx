@@ -1387,16 +1387,54 @@ function ThemeDensityBlock() {
   }
 
   const downloadCurrentCSS = () => {
-    // Get all computed CSS variables as a snapshot
-    const cssVars = Array.from(document.styleSheets)
-      .flatMap(s => { try { return Array.from(s.cssRules) } catch { return [] } })
-      .filter(r => r instanceof CSSStyleRule && (r as CSSStyleRule).selectorText === ':root')
-      .flatMap(r => (r as CSSStyleRule).style.cssText.split(';').filter(Boolean).map(s => s.trim()))
-      .join(';\n  ')
-    const blob = new Blob([`:root {\n  ${cssVars}\n}\n`], { type: 'text/css' })
+    // Read vars from document inline styles (set by ThemeContext or custom CSS)
+    const root = document.documentElement
+    const style = root.style
+    const allVarNames = [
+      '--bg','--surface','--surface2','--border','--border2',
+      '--text','--text-muted','--text-dim',
+      '--accent','--accent2','--accent-bg',
+      '--green','--red','--amber',
+    ]
+    const lines = allVarNames
+      .map(k => {
+        const v = style.getPropertyValue(k).trim()
+        return v ? `  ${k}: ${v};` : null
+      })
+      .filter(Boolean)
+      .join('\n')
+
+    const themeName = activeCssId === 'system'
+      ? (THEME_DEFS.find(t => t.name === activeTheme)?.label ?? activeTheme)
+      : (cssSheets.find(s => s.id === activeCssId)?.name ?? 'custom')
+
+    const output = [
+      `/* Stoa theme export — based on "${themeName}" */`,
+      `/* Edit any value below, save as .css, then upload via Overview > Theme > Upload */`,
+      `/* Tip: you only need to include the variables you want to change */`,
+      ``,
+      `:root {`,
+      lines,
+      `}`,
+      ``,
+      `/* ── Common customisations ──────────────────────────────────────────── */`,
+      `/* Uncomment and edit these to quickly personalise your theme:          */`,
+      ``,
+      `/* :root {                                                               */`,
+      `/*   --bg: #1a1a2e;         Main page background                        */`,
+      `/*   --surface: #16213e;    Card / panel background                     */`,
+      `/*   --accent: #e94560;     Accent colour (buttons, highlights)         */`,
+      `/*   --accent2: #ff6b6b;    Accent text colour                          */`,
+      `/* }                                                                     */`,
+    ].join('\n')
+
+    const blob = new Blob([output], { type: 'text/css' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = 'stoa-theme.css'
-    a.click(); URL.revokeObjectURL(url)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `stoa-${themeName.toLowerCase().replace(/\s+/g, '-')}.css`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const uploadCSS = async (file: File) => {
