@@ -65,7 +65,8 @@ export default function DashboardPage() {
           if (panel.type === 'bookmarks') {
             try {
               const config = JSON.parse(panel.config || '{}')
-              const isPersonal = panel.scope === 'personal' || config.scope === 'personal'
+              // Personal panels are owned by a user (createdBy != 'SYSTEM' and != '')
+              const isPersonal = !!panel.createdBy && panel.createdBy !== 'SYSTEM'
 
               if (isPersonal) {
                 // Load from personal bookmark tree
@@ -612,14 +613,14 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
       {/* Content */}
       {!collapsed && (
         <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
-          {panel.type === 'bookmarks' && subtree && (
-            <BookmarkTree nodes={displayNodes} externalExpanded={treeExpanded} />
-          )}
           {panel.type === 'bookmarks' && !subtree && (
             <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
           )}
           {panel.type === 'bookmarks' && subtree && displayNodes.length === 0 && (
-            <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>No bookmarks</div>
+            <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>No bookmarks in this panel.</div>
+          )}
+          {panel.type === 'bookmarks' && subtree && displayNodes.length > 0 && (
+            <BookmarkTree nodes={displayNodes} externalExpanded={treeExpanded} />
           )}
           {panel.type === 'calendar' && (
             <CalendarPanel panel={panel} heightUnits={heightUnits} />
@@ -627,6 +628,19 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
           {panel.type === 'sonarr' && (
             <SonarrPanel panel={panel} heightUnits={heightUnits} />
           )}
+          {panel.type === 'iframe' && (() => {
+            const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+            return cfg.url
+              ? <iframe src={cfg.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: 4 }}
+                  title={panel.title} sandbox="allow-scripts allow-same-origin allow-forms" />
+              : <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: 8 }}>No URL configured — edit this panel in My Panels to set one.</div>
+          })()}
+          {panel.type === 'custom' && (() => {
+            const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+            return cfg.html
+              ? <div dangerouslySetInnerHTML={{ __html: cfg.html }} style={{ fontSize: 13 }} />
+              : <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: 8 }}>No content configured — edit this panel in My Panels to add HTML.</div>
+          })()}
         </div>
       )}
     </div>

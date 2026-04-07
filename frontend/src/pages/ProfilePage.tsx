@@ -2419,6 +2419,7 @@ function MyPanelsTab() {
   const [savingPanel, setSavingPanel] = useState(false)
   const [editUrl, setEditUrl] = useState('')
   const [editHtml, setEditHtml] = useState('')
+  const [editIntegrationId, setEditIntegrationId] = useState('')
   const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState('bookmarks')
   const [newHeight, setNewHeight] = useState(2)
@@ -2606,6 +2607,7 @@ function MyPanelsTab() {
                     setEditHeight(cfg.height ?? 2)
                     setEditUrl(cfg.url || '')
                     setEditHtml(cfg.html || '')
+                    setEditIntegrationId(cfg.integrationId || '')
                   }
                   setExpandedPanelId(expanded ? null : p.id)
                 }}>
@@ -2668,6 +2670,25 @@ function MyPanelsTab() {
                         placeholder="<div>Your custom HTML here</div>" />
                     </div>
                   )}
+                  {/* Integration picker for sonarr/radarr/etc */}
+                  {['sonarr','radarr','lidarr','readarr'].includes(p.type) && (
+                    <div>
+                      <label className="label">Integration</label>
+                      <select className="input" style={{ cursor: 'pointer' }}
+                        value={editIntegrationId}
+                        onChange={e => setEditIntegrationId(e.target.value)}>
+                        <option value="">— Select integration —</option>
+                        {integrations.filter(i => i.type === p.type).map(i => (
+                          <option key={i.id} value={i.id}>{i.name}</option>
+                        ))}
+                      </select>
+                      {integrations.filter(i => i.type === p.type).length === 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                          No {p.type} integrations found. Add one in My Integrations first.
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* Tag assignment */}
                   {myTags.length > 0 && (
@@ -2703,6 +2724,7 @@ function MyPanelsTab() {
                           const newCfg = { ...cfg, height: editHeight }
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
+                          if (['sonarr','radarr','lidarr','readarr'].includes(p.type)) newCfg.integrationId = editIntegrationId
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
                           setExpandedPanelId(null)
                           await load()
