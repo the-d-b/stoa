@@ -19,6 +19,7 @@ const NavBtn = ({ onClick, label }: { onClick: () => void; label: string }) => (
 
 interface CalendarEvent {
   date: string; title: string; color: string; source: string; hasFile?: boolean
+  seriesTitle?: string; epTitle?: string; titleSlug?: string; uiUrl?: string
 }
 
 export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -92,7 +93,17 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
                   fontWeight: todayFlag ? 700 : 400,
                   background: todayFlag ? 'var(--accent)' : 'transparent',
                   color: todayFlag ? 'white' : 'var(--text)',
-                }}>{d.getDate()}</div>
+                  position: 'relative',
+                }}>
+                  {d.getDate()}
+                  {eventsForDate(d.getFullYear(), d.getMonth(), d.getDate()).length > 0 && (
+                    <span style={{
+                      position: 'absolute', bottom: 2, left: '50%', transform: 'translateX(-50%)',
+                      width: 3, height: 3, borderRadius: '50%',
+                      background: todayFlag ? 'white' : eventsForDate(d.getFullYear(), d.getMonth(), d.getDate())[0].color,
+                    }} />
+                  )}
+                </div>
               </div>
             )
           })}
@@ -164,7 +175,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── 2x — Month only ──────────────────────────────────────────────────────
+  // ── 2x — Month only ─────────────────────────────────────────────────────
   if (heightUnits < 4) {
     return (
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -191,12 +202,28 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
           <div style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>
             {hasSources ? 'No events' : 'No data sources — configure in Admin → Panels'}
           </div>
-        ) : eventsForSelected.map((ev, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</span>
-          </div>
-        ))}
+        ) : eventsForSelected.map((ev, i) => {
+          const href = ev.uiUrl && ev.titleSlug
+            ? `${ev.uiUrl}/series/${ev.titleSlug}`
+            : ev.titleSlug ? `https://www.thetvdb.com/series/${ev.titleSlug}` : null
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+              <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
+              <span style={{ fontSize: 12, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {href
+                  ? <a href={href} target="_blank" rel="noopener noreferrer"
+                      style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
+                      onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                      onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
+                      {ev.seriesTitle || ev.title}
+                    </a>
+                  : <span style={{ fontWeight: 500 }}>{ev.seriesTitle || ev.title}</span>
+                }
+                {ev.epTitle && <span style={{ color: 'var(--text-dim)' }}> — {ev.epTitle}</span>}
+              </span>
+            </div>
+          )
+        })}
       </div>
       </div>
   )

@@ -363,6 +363,7 @@ type SonarrPanelData struct {
 type SonarrEpisode struct {
 	ID          int    `json:"id"`
 	SeriesTitle string `json:"seriesTitle"`
+	TitleSlug   string `json:"titleSlug"`
 	Title       string `json:"title"`
 	Season      int    `json:"season"`
 	Episode     int    `json:"episode"`
@@ -372,6 +373,7 @@ type SonarrEpisode struct {
 
 type SonarrHistory struct {
 	SeriesTitle string `json:"seriesTitle"`
+	TitleSlug   string `json:"titleSlug"`
 	Title       string `json:"title"`
 	Date        string `json:"date"`
 	Season      int    `json:"season"`
@@ -379,9 +381,10 @@ type SonarrHistory struct {
 }
 
 type SonarrSeries struct {
-	ID    int    `json:"id"`
-	Title string `json:"title"`
-	Year  int    `json:"year"`
+	ID        int    `json:"id"`
+	Title     string `json:"title"`
+	TitleSlug string `json:"titleSlug"`
+	Year      int    `json:"year"`
 }
 
 func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPanelData, error) {
@@ -428,13 +431,16 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			ep := ep // shadow for loop var
 			series, _ := ep["series"].(map[string]interface{})
 			seriesTitle := ""
+			seriesTitleSlug := ""
 			if series != nil {
 				seriesTitle, _ = series["title"].(string)
+				seriesTitleSlug, _ = series["titleSlug"].(string)
 			}
 			// Skip already-downloaded episodes
 			hasFile := ep["hasFile"] == true
 			e := SonarrEpisode{
 				SeriesTitle: seriesTitle,
+				TitleSlug:   seriesTitleSlug,
 				AirDate:     stringVal(ep, "airDate"), // local date, not UTC to avoid day offset
 				HasFile:     hasFile,
 			}
@@ -461,8 +467,10 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				episode, _ := rec["episode"].(map[string]interface{})
 
 				seriesTitle := ""
+				seriesTitleSlug := ""
 				if series != nil {
 					seriesTitle, _ = series["title"].(string)
+					seriesTitleSlug, _ = series["titleSlug"].(string)
 				}
 				// Fallback: sourceTitle often contains "Series - Episode Title"
 				if seriesTitle == "" {
@@ -480,6 +488,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 
 				data.History = append(data.History, SonarrHistory{
 					SeriesTitle: seriesTitle,
+					TitleSlug:   seriesTitleSlug,
 					Title:       epTitle,
 					Date:        stringVal(rec, "date"),
 					Season:      season,
@@ -529,6 +538,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				ss.Title = seriesTitle
 				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
 				if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
+				if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
 				data.ZeroByte = append(data.ZeroByte, ss)
 			}
 		}
@@ -575,15 +585,23 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			for _, ep := range episodes {
 				series, _ := ep["series"].(map[string]interface{})
 				seriesTitle := ""
-				if series != nil { seriesTitle, _ = series["title"].(string) }
+				titleSlug := ""
+				if series != nil {
+					seriesTitle, _ = series["title"].(string)
+					titleSlug, _ = series["titleSlug"].(string)
+				}
 				epTitle, _ := ep["title"].(string)
 				airDate, _ := ep["airDate"].(string) // local date avoids UTC day offset
 				events = append(events, map[string]interface{}{
-					"source":  "sonarr",
-					"date":    airDate,
-					"title":   fmt.Sprintf("%s — %s", seriesTitle, epTitle),
-					"color":   "#60a5fa",
-					"hasFile": ep["hasFile"] == true,
+					"source":      "sonarr",
+					"date":        airDate,
+					"title":       fmt.Sprintf("%s — %s", seriesTitle, epTitle),
+					"seriesTitle": seriesTitle,
+					"epTitle":     epTitle,
+					"titleSlug":   titleSlug,
+					"uiUrl":       uiURL,
+					"color":       "#60a5fa",
+					"hasFile":     ep["hasFile"] == true,
 				})
 			}
 		}

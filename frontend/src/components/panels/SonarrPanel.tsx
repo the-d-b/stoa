@@ -2,13 +2,14 @@ import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
 
 interface SonarrEpisode {
-  id: number; seriesTitle: string; title: string
+  id: number; seriesTitle: string; titleSlug: string; title: string
   season: number; episode: number; airDate: string; hasFile: boolean
 }
 interface SonarrHistory {
-  seriesTitle: string; title: string; date: string; season: number; episode: number
+  seriesTitle: string; titleSlug: string; title: string
+  date: string; season: number; episode: number
 }
-interface SonarrSeries { id: number; title: string; year: number }
+interface SonarrSeries { id: number; title: string; titleSlug: string; year: number }
 interface SonarrData {
   upcoming: SonarrEpisode[]; history: SonarrHistory[]
   zeroByte: SonarrSeries[]; uiUrl: string
@@ -19,81 +20,6 @@ function formatDate(iso: string) {
   if (!iso) return ''
   const d = new Date(iso)
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
-}
-
-function UpcomingGroups({ groups, uiUrl, epCode }: {
-  groups: { label: string; isToday: boolean; episodes: SonarrEpisode[] }[]
-  uiUrl: string
-  epCode: (s: number, e: number) => string
-}) {
-  return (
-    <>
-      {groups.map(group => (
-        <div key={group.label} style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 10, fontWeight: 700,
-            color: group.isToday ? 'var(--accent2)' : 'var(--text-muted)',
-            marginBottom: 2 }}>
-            {group.label}
-          </div>
-          {group.episodes.map(ep => (
-            <div key={ep.id} style={{ display: 'flex', alignItems: 'center', gap: 6,
-              padding: '2px 0 2px 8px', opacity: ep.hasFile ? 0.5 : 1 }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: 12,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                <span style={{ fontWeight: 500 }}>{ep.seriesTitle}</span>
-                <span style={{ color: 'var(--text-dim)' }}>
-                  {': '}{epCode(ep.season, ep.episode)} · {ep.title}
-                </span>
-              </div>
-              {ep.hasFile && <span style={{ fontSize: 9, color: 'var(--green)', flexShrink: 0 }}>✓</span>}
-              {uiUrl && (
-                <a href={`${uiUrl}/series`} target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--text-dim)', fontSize: 10, textDecoration: 'none', opacity: 0.4, flexShrink: 0 }}>↗</a>
-              )}
-            </div>
-          ))}
-        </div>
-      ))}
-    </>
-  )
-}
-
-function HistoryGroups({ groups }: {
-  groups: { seriesTitle: string; episodes: SonarrHistory[] }[]
-}) {
-  return (
-    <>
-      {groups.map(group => (
-        <div key={group.seriesTitle} style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-            {group.seriesTitle}
-            <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
-          </div>
-          {group.episodes.map((h, i) => {
-            const ep = h.season > 0
-              ? `S${String(h.season).padStart(2,'0')}E${String(h.episode).padStart(2,'0')}`
-              : ''
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-                padding: '1px 0 1px 8px', fontSize: 11 }}>
-                <span style={{ color: 'var(--text-dim)', minWidth: 32, fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
-                  {ep}
-                </span>
-                <span style={{ flex: 1, color: 'var(--text-muted)', overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {h.title}
-                </span>
-                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-                  fontFamily: 'DM Mono, monospace' }}>
-                  {formatDate(h.date)}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      ))}
-    </>
-  )
 }
 
 function formatRelative(iso: string) {
@@ -107,6 +33,103 @@ function formatRelative(iso: string) {
   if (diff > 1 && diff < 8) return `In ${diff}d`
   if (diff < 0 && diff > -8) return `${Math.abs(diff)}d ago`
   return formatDate(iso)
+}
+
+function epCode(season: number, episode: number) {
+  return `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}`
+}
+
+// Link to Sonarr series page if uiUrl + titleSlug available, else TVDB
+function seriesHref(uiUrl: string, titleSlug: string, title: string) {
+  if (uiUrl && titleSlug) return `${uiUrl}/series/${titleSlug}`
+  if (titleSlug) return `https://www.thetvdb.com/series/${titleSlug}`
+  return `https://www.thetvdb.com/search?query=${encodeURIComponent(title)}`
+}
+
+const linkStyle: React.CSSProperties = {
+  color: 'inherit', textDecoration: 'none', fontWeight: 500,
+}
+const linkHover = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  e.currentTarget.style.textDecoration = 'underline'
+}
+const linkOut = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  e.currentTarget.style.textDecoration = 'none'
+}
+
+function SeriesLink({ uiUrl, titleSlug, title }: { uiUrl: string; titleSlug: string; title: string }) {
+  return (
+    <a href={seriesHref(uiUrl, titleSlug, title)} target="_blank" rel="noopener noreferrer"
+      style={linkStyle} onMouseOver={linkHover} onMouseOut={linkOut}>
+      {title}
+    </a>
+  )
+}
+
+function UpcomingGroups({ groups, uiUrl }: {
+  groups: { label: string; isToday: boolean; episodes: SonarrEpisode[] }[]
+  uiUrl: string
+}) {
+  return (
+    <>
+      {groups.map(group => (
+        <div key={group.label} style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 10, fontWeight: 700,
+            color: group.isToday ? 'var(--accent2)' : 'var(--text-muted)', marginBottom: 2 }}>
+            {group.label}
+          </div>
+          {group.episodes.map(ep => (
+            <div key={ep.id} style={{ display: 'flex', alignItems: 'center', gap: 6,
+              padding: '2px 0 2px 8px', opacity: ep.hasFile ? 0.5 : 1 }}>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 12,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <SeriesLink uiUrl={uiUrl} titleSlug={ep.titleSlug} title={ep.seriesTitle} />
+                <span style={{ color: 'var(--text-dim)' }}>
+                  {' — '}{epCode(ep.season, ep.episode)} · {ep.title}
+                </span>
+              </div>
+              {ep.hasFile && <span style={{ fontSize: 9, color: 'var(--green)', flexShrink: 0 }}>✓</span>}
+            </div>
+          ))}
+        </div>
+      ))}
+    </>
+  )
+}
+
+function HistoryGroups({ groups, uiUrl }: {
+  groups: { seriesTitle: string; titleSlug: string; episodes: SonarrHistory[] }[]
+  uiUrl: string
+}) {
+  return (
+    <>
+      {groups.map(group => (
+        <div key={group.seriesTitle} style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <SeriesLink uiUrl={uiUrl} titleSlug={group.titleSlug} title={group.seriesTitle} />
+            <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
+          </div>
+          {group.episodes.map((h, i) => {
+            const ep = h.season > 0 ? epCode(h.season, h.episode) : ''
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
+                padding: '1px 0 1px 8px', fontSize: 11 }}>
+                <span style={{ color: 'var(--text-dim)', minWidth: 32, fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
+                  {ep}
+                </span>
+                <span style={{ flex: 1, color: 'var(--text-muted)', overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {h.title}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
+                  {formatDate(h.date)}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      ))}
+    </>
+  )
 }
 
 export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -124,7 +147,6 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
       setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
-      console.error(`[SonarrPanel:${panel.id}]`, e.message)
     } finally { setLoading(false) }
   }, [panel.id])
 
@@ -133,8 +155,6 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     const interval = setInterval(load, refreshSecs * 1000)
     return () => clearInterval(interval)
   }, [load, refreshSecs])
-
-  const uiUrl = data?.uiUrl || ''
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>
@@ -150,6 +170,8 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
 
   if (!data) return null
 
+  const uiUrl = data.uiUrl || ''
+
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
       letterSpacing: '0.07em', marginBottom: 4, marginTop: 10 }}>
@@ -157,9 +179,26 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     </div>
   )
 
-  // Group upcoming by date bucket (Today / Tomorrow / this week / by date)
-  // Cap by height: 1x=2 buckets, 2x=4 buckets, 4x=8 buckets
-  const maxBuckets = heightUnits <= 1 ? 2 : heightUnits < 4 ? 4 : 8
+  const statsBar = (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      {[
+        { label: 'Series',   value: data.seriesCount },
+        { label: 'Episodes', value: data.episodeCount.toLocaleString() },
+        { label: 'On disk',  value: data.onDiskCount.toLocaleString() },
+      ].map(stat => (
+        <div key={stat.label} style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          padding: '2px 8px', borderRadius: 5,
+          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11,
+        }}>
+          <span style={{ color: 'var(--text-dim)' }}>{stat.label}</span>
+          <span style={{ fontWeight: 600, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{stat.value}</span>
+        </div>
+      ))}
+    </div>
+  )
+
+  const maxBuckets = heightUnits >= 4 ? 8 : 4
   const groupedUpcoming = (() => {
     const groups: { label: string; isToday: boolean; episodes: SonarrEpisode[] }[] = []
     for (const ep of (data.upcoming || [])) {
@@ -172,100 +211,87 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     return groups
   })()
 
-  // Group history by series title
   const groupedHistory = (() => {
-    const groups: { seriesTitle: string; episodes: SonarrHistory[] }[] = []
+    const groups: { seriesTitle: string; titleSlug: string; episodes: SonarrHistory[] }[] = []
     for (const h of (data.history || [])) {
       const existing = groups.find(g => g.seriesTitle === h.seriesTitle)
       if (existing) existing.episodes.push(h)
-      else groups.push({ seriesTitle: h.seriesTitle, episodes: [h] })
+      else groups.push({ seriesTitle: h.seriesTitle, titleSlug: h.titleSlug, episodes: [h] })
     }
     return groups
   })()
 
-  const epCode = (season: number, episode: number) =>
-    `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}`
-
-  const statsBar = (
-    <div style={{
-      display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap',
-    }}>
-      {[
-        { label: 'Series', value: data.seriesCount },
-        { label: 'Episodes', value: data.episodeCount.toLocaleString() },
-        { label: 'On disk', value: data.onDiskCount.toLocaleString() },
-      ].map(stat => (
-        <div key={stat.label} style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          padding: '2px 8px', borderRadius: 5,
-          background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11,
-        }}>
-          <span style={{ color: 'var(--text-dim)' }}>{stat.label}</span>
-          <span style={{ fontWeight: 600, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{stat.value}</span>
-        </div>
-      ))}
-    </div>
-  )
-
-  // 1x — stats + compact upcoming (2 date buckets, no history)
+  // ── 1x — stats bar only ─────────────────────────────────────────────────
   if (heightUnits <= 1) {
     return (
-      <div style={{ height: '100%', overflow: 'hidden' }}>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
         {statsBar}
-        {groupedUpcoming.length === 0
-          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
-          : groupedUpcoming.map(group => (
-            <div key={group.label} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 2 }}>
-              <span style={{ fontSize: 10, fontWeight: 700, flexShrink: 0,
-                color: group.isToday ? 'var(--accent2)' : 'var(--text-dim)' }}>
-                {group.label}
-              </span>
-              {group.episodes.map(ep => (
-                <span key={ep.id} style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                  {ep.seriesTitle}: {epCode(ep.season, ep.episode)}
-                </span>
-              ))}
-            </div>
-          ))
-        }
       </div>
     )
   }
 
-  // 2x — stats + upcoming (4 buckets) + recent downloads
-  if (heightUnits < 4) {
+  // ── 2x — stats + recent activity (upcoming + recently downloaded) ────────
+  if (heightUnits < 3) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
         {statsBar}
         {sectionTitle('Upcoming')}
         {groupedUpcoming.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
-          : <UpcomingGroups groups={groupedUpcoming} uiUrl={uiUrl} epCode={epCode} />
+          : <UpcomingGroups groups={groupedUpcoming} uiUrl={uiUrl} />
         }
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
-          : <HistoryGroups groups={groupedHistory} />
+          : <HistoryGroups groups={groupedHistory} uiUrl={uiUrl} />
         }
       </div>
     )
   }
 
-  // 4x — stats + upcoming (8 buckets) + recent + missing on disk
+  // ── 3x — stats + recently downloaded + missing on disk ─────────────────
+  if (heightUnits < 4) {
+    return (
+      <div style={{ height: '100%', overflow: 'auto' }}>
+        {statsBar}
+        {sectionTitle('Recently downloaded')}
+        {groupedHistory.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
+          : <HistoryGroups groups={groupedHistory} uiUrl={uiUrl} />
+        }
+        {(data.zeroByte || []).length > 0 && (
+          <>
+            {sectionTitle(`Missing on disk (${data.zeroByte.length})`)}
+            {data.zeroByte.map(s => (
+              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <SeriesLink uiUrl={uiUrl} titleSlug={s.titleSlug} title={s.title} />
+                  {s.year > 0 && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 5 }}>{s.year}</span>}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ── 4x — stats + upcoming + recently downloaded + missing on disk ─────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       {statsBar}
+
       {sectionTitle('Upcoming')}
       {groupedUpcoming.length === 0
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
-        : <UpcomingGroups groups={groupedUpcoming} uiUrl={uiUrl} epCode={epCode} />
+        : <UpcomingGroups groups={groupedUpcoming} uiUrl={uiUrl} />
       }
 
       {sectionTitle('Recently downloaded')}
       {groupedHistory.length === 0
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
-        : <HistoryGroups groups={groupedHistory} />
+        : <HistoryGroups groups={groupedHistory} uiUrl={uiUrl} />
       }
 
       {(data.zeroByte || []).length > 0 && (
@@ -274,15 +300,10 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
           {data.zeroByte.map(s => (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8,
               padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 12, flex: 1, overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {s.title}
+              <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <SeriesLink uiUrl={uiUrl} titleSlug={s.titleSlug} title={s.title} />
                 {s.year > 0 && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 5 }}>{s.year}</span>}
               </span>
-              {uiUrl && (
-                <a href={`${uiUrl}/series`} target="_blank" rel="noopener noreferrer"
-                  style={{ color: 'var(--text-dim)', fontSize: 11, textDecoration: 'none', opacity: 0.4 }}>↗</a>
-              )}
             </div>
           ))}
         </>
