@@ -363,7 +363,13 @@ export interface Panel {
 }
 
 export const panelsApi = {
-  list: (wallId?: string) => api.get<Panel[]>('/panels' + (wallId ? `?wall_id=${wallId}` : '')),  
+  list: (wallId?: string, scope?: string) => {
+    const params = new URLSearchParams()
+    if (wallId) params.set('wall_id', wallId)
+    if (scope) params.set('scope', scope)
+    const qs = params.toString()
+    return api.get<Panel[]>('/panels' + (qs ? '?' + qs : ''))
+  },
   create: (data: { type: string; title: string; config: string }) => api.post<Panel>('/panels', data),
   update: (id: string, data: { title: string; config: string }) => api.put(`/panels/${id}`, data),
   getGroups: (id: string) => api.get<string[]>(`/panels/${id}/groups`),

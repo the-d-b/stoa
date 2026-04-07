@@ -24,7 +24,8 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		var rows *sql.Rows
 		var err error
 
-		if claims.Role == models.RoleAdmin {
+		scopeFilter := r.URL.Query().Get("scope")
+		if claims.Role == models.RoleAdmin && scopeFilter == "system" {
 			// Admin screens: only system panels (no owner)
 			rows, err = db.Query(`
 				SELECT p.id, p.type, p.title, p.config, p.scope,
@@ -33,6 +34,15 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 				WHERE p.created_by = 'SYSTEM'
 				ORDER BY p.created_at ASC
 			`)
+		} else if claims.Role == models.RoleAdmin {
+			// Admin viewing their own dashboard / panel order: system + personal
+			rows, err = db.Query(`
+				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
+				       COALESCE(p.created_by,''), p.created_at
+				FROM panels p
+				WHERE p.created_by = 'SYSTEM' OR p.created_by = ?
+				ORDER BY CASE WHEN p.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, p.created_at ASC
+			`, claims.UserID)
 		} else {
 			rows, err = db.Query(`
 				SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,

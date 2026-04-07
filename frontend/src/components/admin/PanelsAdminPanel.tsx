@@ -30,7 +30,7 @@ export default function PanelsAdminPanel() {
   const load = async () => {
     // Admin panel only shows shared panels - personal panels managed in profile
     // Always reload bookmark tree to pick up renames
-    const [p, t, b, ig, g] = await Promise.all([panelsApi.list(), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list(), groupsApi.list()])
+    const [p, t, b, ig, g] = await Promise.all([panelsApi.list(undefined, 'system'), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list(), groupsApi.list()])
     setIntegrations(ig.data || [])
     setGroups(g.data || [])
     setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
