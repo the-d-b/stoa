@@ -274,27 +274,51 @@ function PanelsOrderTab() {
   const [dragOver, setDragOver] = useState<number | null>(null)
 
   const loadPanels = async (wallId?: string) => {
-    const [sys, mine] = await Promise.all([panelsApi.list(), myPanelsApi.list()])
-    let sorted = [...(sys.data || []), ...(mine.data || [])]
+    const porticoId = wallId && wallId !== 'home' ? wallId : undefined
+    const [sys, mine] = await Promise.all([panelsApi.list(porticoId), myPanelsApi.list()])
+    // Merge and sort by position (position=0 means unordered, goes to end)
+    const merged = [...(sys.data || []), ...(mine.data || [])]
 
-    if (wallId && wallId !== 'home') {
-      const wall = walls.find(w => w.id === wallId)
+    if (porticoId) {
+      // Filter to panels visible on this portico by tag
+      const wall = walls.find(w => w.id === porticoId)
       if (wall) {
         const wallTagIds = new Set((wall.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId))
-        sorted = sorted.filter((p: Panel) => {
+        const filtered = merged.filter((p: Panel) => {
           if (!p.tags || p.tags.length === 0) return true
           return p.tags.some((t: any) => wallTagIds.has(t.id))
         })
+        // Sort by saved position
+        filtered.sort((a, b) => {
+          if (a.position > 0 && b.position > 0) return a.position - b.position
+          if (a.position > 0) return -1
+          if (b.position > 0) return 1
+          return 0
+        })
+        setPanels(filtered)
+        return
       }
     }
-    setPanels(sorted)
+    // Home: sort by position
+    merged.sort((a, b) => {
+      if (a.position > 0 && b.position > 0) return a.position - b.position
+      if (a.position > 0) return -1
+      if (b.position > 0) return 1
+      return 0
+    })
+    setPanels(merged)
   }
 
   useEffect(() => {
     Promise.all([panelsApi.list(), myPanelsApi.list(), porticosApi.list()]).then(([sys, mine, w]) => {
-      // Merge system panels + personal panels for ordering
-      const sorted = [...(sys.data || []), ...(mine.data || [])]
-      setPanels(sorted)
+      const merged = [...(sys.data || []), ...(mine.data || [])]
+      merged.sort((a, b) => {
+        if (a.position > 0 && b.position > 0) return a.position - b.position
+        if (a.position > 0) return -1
+        if (b.position > 0) return 1
+        return 0
+      })
+      setPanels(merged)
       setWalls(w.data || [])
     }).finally(() => setLoading(false))
   }, [])
