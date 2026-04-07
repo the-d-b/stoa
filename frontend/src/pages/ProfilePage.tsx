@@ -272,11 +272,6 @@ function PanelsOrderTab() {
   const [saved, setSaved]       = useState(false)
   const [dragging, setDragging] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
-  const [hasPersonalPanel, setHasPersonalPanel] = useState(false)
-  // Personal panel portico assignment
-  const [personalPanelId, setPersonalPanelId] = useState<string | null>(null)
-  const [assignedWalls, setAssignedWalls] = useState<string[]>([])
-  const [savingAssignment, setSavingAssignment] = useState(false)
 
   const loadPanels = async (wallId?: string) => {
     const [sys, mine] = await Promise.all([panelsApi.list(), myPanelsApi.list()])
@@ -293,15 +288,6 @@ function PanelsOrderTab() {
       }
     }
     setPanels(sorted)
-    const myPanelsList = mine.data || []
-    setHasPersonalPanel(myPanelsList.length > 0)
-    if (myPanelsList.length > 0) {
-      setPersonalPanelId(myPanelsList[0].id)
-      try {
-        const config = JSON.parse(myPanelsList[0].config || '{}')
-        setAssignedWalls(config.assignedWalls || [])
-      } catch { setAssignedWalls([]) }
-    }
   }
 
   useEffect(() => {
@@ -310,15 +296,6 @@ function PanelsOrderTab() {
       const sorted = [...(sys.data || []), ...(mine.data || [])]
       setPanels(sorted)
       setWalls(w.data || [])
-      const personal = (mine.data || []).find((pan: Panel) => !!pan.createdBy)
-      setHasPersonalPanel(!!(mine.data?.length))
-      if (personal) {
-        setPersonalPanelId(personal.id)
-        try {
-          const config = JSON.parse(personal.config || '{}')
-          setAssignedWalls(config.assignedWalls || [])
-        } catch { setAssignedWalls([]) }
-      }
     }).finally(() => setLoading(false))
   }, [])
 
@@ -356,21 +333,7 @@ function PanelsOrderTab() {
     } finally { setSaving(false) }
   }
 
-  const saveWallAssignment = async () => {
-    if (!personalPanelId) return
-    setSavingAssignment(true)
-    try {
-      // Store portico assignments in panel config
-      const currentConfig = (() => {
-        try { return JSON.parse(panels.find(p => p.id === personalPanelId)?.config || '{}') } catch { return {} }
-      })()
-      const newConfig = JSON.stringify({ ...currentConfig, assignedWalls })
-      await myPanelsApi.update(personalPanelId, {
-        title: panels.find(p => p.id === personalPanelId)?.title || 'My Bookmarks',
-        config: newConfig,
-      })
-    } finally { setSavingAssignment(false) }
-  }
+
 
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
@@ -398,39 +361,6 @@ function PanelsOrderTab() {
         </div>
       </div>
 
-      {/* Personal panel portico assignment */}
-      {hasPersonalPanel && personalPanelId && walls.length > 0 && (
-        <div className="card" style={{ marginBottom: 20, padding: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 10 }}>
-            Personal panel — portico visibility
-          </div>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '0 0 12px' }}>
-            Your personal panel always shows on Home. Select additional porticos to show it on:
-          </p>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
-            {walls.map(wall => {
-              const on = assignedWalls.includes(wall.id)
-              return (
-                <button key={wall.id} onClick={() => {
-                  setAssignedWalls(prev =>
-                    prev.includes(wall.id) ? prev.filter(id => id !== wall.id) : [...prev, wall.id]
-                  )
-                }} style={{
-                  padding: '4px 12px', borderRadius: 8, cursor: 'pointer',
-                  background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                  color: on ? 'var(--accent2)' : 'var(--text-muted)',
-                  border: `1px solid ${on ? '#7c6fff30' : 'var(--border)'}`,
-                  fontSize: 13, transition: 'all 0.15s',
-                }}>{wall.name}</button>
-              )
-            })}
-          </div>
-          <button className="btn btn-secondary" style={{ fontSize: 12 }}
-            onClick={saveWallAssignment} disabled={savingAssignment}>
-            {savingAssignment ? <span className="spinner" /> : 'Save portico assignment'}
-          </button>
-        </div>
-      )}
 
       {/* Actions */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
