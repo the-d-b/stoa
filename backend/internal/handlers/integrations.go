@@ -564,7 +564,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 		switch srcType {
 		case "sonarr":
-			apiURL, _, apiKey, err := resolveIntegration(db, integrationID)
+			apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
 			if err != nil { continue }
 			calStart := time.Now().Format("2006-01-02")
 			calEnd   := time.Now().AddDate(0, 0, daysAhead).Format("2006-01-02")
