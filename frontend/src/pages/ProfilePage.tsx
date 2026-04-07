@@ -2754,7 +2754,13 @@ function MyPanelsTab() {
           onClose={() => setCalPanel(null)}
           onSave={async (sources) => {
             const cfg = (() => { try { return JSON.parse(calPanel.config || '{}') } catch { return {} } })()
-            await myPanelsApi.update(calPanel.id, { title: calPanel.title, config: JSON.stringify({ ...cfg, sources }) })
+            const newConfig = JSON.stringify({ ...cfg, sources })
+            const isSystem = !calPanel.createdBy || calPanel.createdBy === 'SYSTEM'
+            if (isSystem) {
+              await panelsApi.update(calPanel.id, { title: calPanel.title, config: newConfig })
+            } else {
+              await myPanelsApi.update(calPanel.id, { title: calPanel.title, config: newConfig })
+            }
             setCalPanel(null); await load()
           }}
         />
