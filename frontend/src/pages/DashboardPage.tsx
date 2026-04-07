@@ -593,16 +593,18 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
             {(panel.tags || []).map(t => (
               <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
             ))}
-            <button onClick={() => setTreeExpanded(s => s === true ? null : true)} title="Expand all"
-              style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
-                background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
-                fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1, padding: 0 }}>+</button>
-            <button onClick={() => setTreeExpanded(s => s === false ? null : false)} title="Collapse all"
-              style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
-                background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
-                fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                lineHeight: 1, padding: 0 }}>−</button>
+            {panel.type === 'bookmarks' && <>
+              <button onClick={() => setTreeExpanded(s => s === true ? null : true)} title="Expand all"
+                style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+                  background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+                  fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1, padding: 0 }}>+</button>
+              <button onClick={() => setTreeExpanded(s => s === false ? null : false)} title="Collapse all"
+                style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+                  background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+                  fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  lineHeight: 1, padding: 0 }}>−</button>
+            </>}
           </div>
         )}
       </div>

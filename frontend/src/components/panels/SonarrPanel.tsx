@@ -22,19 +22,6 @@ function formatDate(iso: string) {
   return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-function formatRelative(iso: string) {
-  if (!iso) return ''
-  const d = new Date(iso)
-  const now = new Date()
-  const diff = Math.round((d.getTime() - now.getTime()) / 86400000)
-  if (diff === 0) return 'Today'
-  if (diff === 1) return 'Tomorrow'
-  if (diff === -1) return 'Yesterday'
-  if (diff > 1 && diff < 8) return `In ${diff}d`
-  if (diff < 0 && diff > -8) return `${Math.abs(diff)}d ago`
-  return formatDate(iso)
-}
-
 function epCode(season: number, episode: number) {
   return `S${String(season).padStart(2,'0')}E${String(episode).padStart(2,'0')}`
 }
@@ -62,37 +49,6 @@ function SeriesLink({ uiUrl, titleSlug, title }: { uiUrl: string; titleSlug: str
       style={linkStyle} onMouseOver={linkHover} onMouseOut={linkOut}>
       {title}
     </a>
-  )
-}
-
-function UpcomingGroups({ groups, uiUrl }: {
-  groups: { label: string; isToday: boolean; episodes: SonarrEpisode[] }[]
-  uiUrl: string
-}) {
-  return (
-    <>
-      {groups.map(group => (
-        <div key={group.label} style={{ marginBottom: 6 }}>
-          <div style={{ fontSize: 10, fontWeight: 700,
-            color: group.isToday ? 'var(--accent2)' : 'var(--text-muted)', marginBottom: 2 }}>
-            {group.label}
-          </div>
-          {group.episodes.map(ep => (
-            <div key={ep.id} style={{ display: 'flex', alignItems: 'center', gap: 6,
-              padding: '2px 0 2px 8px', opacity: ep.hasFile ? 0.5 : 1 }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: 12,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                <SeriesLink uiUrl={uiUrl} titleSlug={ep.titleSlug} title={ep.seriesTitle} />
-                <span style={{ color: 'var(--text-dim)' }}>
-                  {' — '}{epCode(ep.season, ep.episode)} · {ep.title}
-                </span>
-              </div>
-              {ep.hasFile && <span style={{ fontSize: 9, color: 'var(--green)', flexShrink: 0 }}>✓</span>}
-            </div>
-          ))}
-        </div>
-      ))}
-    </>
   )
 }
 
@@ -198,18 +154,6 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     </div>
   )
 
-  const maxBuckets = heightUnits >= 4 ? 8 : 4
-  const groupedUpcoming = (() => {
-    const groups: { label: string; isToday: boolean; episodes: SonarrEpisode[] }[] = []
-    for (const ep of (data.upcoming || [])) {
-      if (groups.length >= maxBuckets) break
-      const rel = formatRelative(ep.airDate)
-      const existing = groups.find(g => g.label === rel)
-      if (existing) existing.episodes.push(ep)
-      else if (groups.length < maxBuckets) groups.push({ label: rel, isToday: rel === 'Today', episodes: [ep] })
-    }
-    return groups
-  })()
 
   const groupedHistory = (() => {
     const groups: { seriesTitle: string; titleSlug: string; episodes: SonarrHistory[] }[] = []
@@ -230,16 +174,11 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  // ── 2x — stats + recent activity (upcoming + recently downloaded) ────────
+  // ── 2x — stats + recently downloaded ────────────────────────────────────
   if (heightUnits < 3) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
         {statsBar}
-        {sectionTitle('Upcoming')}
-        {groupedUpcoming.length === 0
-          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
-          : <UpcomingGroups groups={groupedUpcoming} uiUrl={uiUrl} />
-        }
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
@@ -277,16 +216,10 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  // ── 4x — stats + upcoming + recently downloaded + missing on disk ─────────
+  // ── 4x — stats + recently downloaded + missing on disk ─────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       {statsBar}
-
-      {sectionTitle('Upcoming')}
-      {groupedUpcoming.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No upcoming episodes</div>
-        : <UpcomingGroups groups={groupedUpcoming} uiUrl={uiUrl} />
-      }
 
       {sectionTitle('Recently downloaded')}
       {groupedHistory.length === 0
