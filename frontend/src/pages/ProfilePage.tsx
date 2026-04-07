@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
+import { cssApi } from '../api'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
@@ -1311,28 +1312,103 @@ function ThemeDensityBlock() {
   const [saved, setSaved] = useState(false)
   const { theme: currentTheme, setTheme: applyTheme } = useTheme()
   const [activeTheme, setActiveTheme] = useState(currentTheme)
+
+  // Custom CSS state
+  const [cssSheets, setCssSheets] = useState<{ id: string; name: string; filename: string }[]>([])
+  const [activeCssId, setActiveCssId] = useState<string>('system') // 'system' = built-in theme
+  const [uploadName, setUploadName] = useState('')
+  const [showUpload, setShowUpload] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [cssLinkEl] = useState(() => {
+    // Persistent <link> element for custom CSS
+    const el = document.getElementById('stoa-custom-css') as HTMLLinkElement
+      || (() => {
+          const l = document.createElement('link')
+          l.id = 'stoa-custom-css'
+          l.rel = 'stylesheet'
+          document.head.appendChild(l)
+          return l
+        })()
+    return el
+  })
+
   useEffect(() => {
-    preferencesApi.get().then(r => {
-      setDensityState(r.data.density || 'normal')
-      if (r.data.theme) setActiveTheme(r.data.theme as any)
+    Promise.all([preferencesApi.get(), cssApi.list()]).then(([prefs, sheets]) => {
+      setDensityState(prefs.data.density || 'normal')
+      if (prefs.data.theme) setActiveTheme(prefs.data.theme as any)
+      const list = sheets.data || []
+      setCssSheets(list)
+      // Restore saved CSS selection
+      const savedCssId = localStorage.getItem('stoa_custom_css_id')
+      const savedCssFile = localStorage.getItem('stoa_custom_css_file')
+      if (savedCssId && savedCssFile && list.find((s: any) => s.id === savedCssId)) {
+        setActiveCssId(savedCssId)
+        cssLinkEl.href = cssApi.url(savedCssFile)
+      }
     }).catch(() => {})
   }, [])
 
   const saveDensity = async (val: string) => {
-    setDensityState(val)
-    setSaving(true)
+    setDensityState(val); setSaving(true)
     try {
       await preferencesApi.save({ density: val })
       setSaved(true); setTimeout(() => setSaved(false), 1500)
     } finally { setSaving(false) }
   }
 
-
-
   const saveTheme = async (themeId: string) => {
     setActiveTheme(themeId as any)
     applyTheme(themeId as any)
+    // Switch back to system CSS
+    setActiveCssId('system')
+    cssLinkEl.href = ''
+    localStorage.removeItem('stoa_custom_css_id')
+    localStorage.removeItem('stoa_custom_css_file')
     try { await preferencesApi.save({ theme: themeId }) } catch {}
+  }
+
+  const applyCustomCSS = (id: string, filename: string) => {
+    setActiveCssId(id)
+    cssLinkEl.href = cssApi.url(filename)
+    localStorage.setItem('stoa_custom_css_id', id)
+    localStorage.setItem('stoa_custom_css_file', filename)
+  }
+
+  const downloadCurrentCSS = () => {
+    // Get all computed CSS variables as a snapshot
+    const cssVars = Array.from(document.styleSheets)
+      .flatMap(s => { try { return Array.from(s.cssRules) } catch { return [] } })
+      .filter(r => r instanceof CSSStyleRule && (r as CSSStyleRule).selectorText === ':root')
+      .flatMap(r => (r as CSSStyleRule).style.cssText.split(';').filter(Boolean).map(s => s.trim()))
+      .join(';\n  ')
+    const blob = new Blob([`:root {\n  ${cssVars}\n}\n`], { type: 'text/css' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = 'stoa-theme.css'
+    a.click(); URL.revokeObjectURL(url)
+  }
+
+  const uploadCSS = async (file: File) => {
+    if (!uploadName.trim()) return
+    setUploading(true)
+    try {
+      const text = await file.text()
+      const res = await cssApi.upload(uploadName.trim(), text)
+      const newSheet = res.data
+      setCssSheets(prev => [...prev, newSheet])
+      applyCustomCSS(newSheet.id, newSheet.filename)
+      setUploadName(''); setShowUpload(false)
+    } finally { setUploading(false) }
+  }
+
+  const deleteSheet = async (id: string) => {
+    await cssApi.delete(id)
+    setCssSheets(prev => prev.filter(s => s.id !== id))
+    if (activeCssId === id) {
+      setActiveCssId('system')
+      cssLinkEl.href = ''
+      localStorage.removeItem('stoa_custom_css_id')
+      localStorage.removeItem('stoa_custom_css_file')
+    }
   }
 
   const densityOptions = [
@@ -1343,27 +1419,101 @@ function ThemeDensityBlock() {
 
   return (
     <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
-      {/* Theme */}
+
+      {/* Theme selection */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
           <div style={{ fontSize: 13, fontWeight: 500 }}>Theme</div>
-          {saved && <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ saved</span>}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {saved && <span style={{ fontSize: 11, color: 'var(--green)' }}>✓ saved</span>}
+            <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={downloadCurrentCSS}>
+              ↓ Export CSS
+            </button>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {THEME_DEFS.map(t => (
-            <button key={t.name} onClick={() => saveTheme(t.name)} style={{
-              padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
-              background: activeTheme === t.name ? 'var(--accent-bg)' : 'var(--surface2)',
-              border: `1px solid ${activeTheme === t.name ? '#7c6fff50' : 'var(--border)'}`,
-              color: activeTheme === t.name ? 'var(--accent2)' : 'var(--text-muted)',
-              fontWeight: activeTheme === t.name ? 500 : 400,
-              transition: 'all 0.15s',
-            }}>{t.label}</button>
-          ))}
+
+        {/* System themes */}
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          Built-in
         </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          {THEME_DEFS.map(t => {
+            const active = activeCssId === 'system' && activeTheme === t.name
+            return (
+              <button key={t.name} onClick={() => saveTheme(t.name)} style={{
+                padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+                background: active ? 'var(--accent-bg)' : 'var(--surface2)',
+                border: `1px solid ${active ? '#7c6fff50' : 'var(--border)'}`,
+                color: active ? 'var(--accent2)' : 'var(--text-muted)',
+                fontWeight: active ? 500 : 400, transition: 'all 0.15s',
+              }}>{t.label}</button>
+            )
+          })}
+        </div>
+
+        {/* Custom CSS sheets */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            Custom CSS {cssSheets.length > 0 ? `(${cssSheets.length})` : ''}
+          </div>
+          <button className="btn btn-ghost" style={{ fontSize: 11 }}
+            onClick={() => setShowUpload(v => !v)}>
+            {showUpload ? 'Cancel' : '+ Upload'}
+          </button>
+        </div>
+
+        {showUpload && (
+          <div style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 8,
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+            display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div>
+              <label className="label">Sheet name</label>
+              <input className="input" value={uploadName} onChange={e => setUploadName(e.target.value)}
+                placeholder="e.g. My Dark Theme" style={{ fontSize: 13 }} />
+            </div>
+            <div>
+              <label className="label">CSS file</label>
+              <input type="file" accept=".css,text/css" style={{ fontSize: 12, color: 'var(--text-muted)' }}
+                onChange={e => { const f = e.target.files?.[0]; if (f && uploadName.trim()) uploadCSS(f) }} />
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                Select a .css file — it will be applied immediately
+              </div>
+            </div>
+            {uploading && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Uploading…</div>}
+          </div>
+        )}
+
+        {cssSheets.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {cssSheets.map(s => {
+              const active = activeCssId === s.id
+              return (
+                <div key={s.id} style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '3px 4px 3px 10px', borderRadius: 8,
+                  background: active ? 'var(--accent-bg)' : 'var(--surface2)',
+                  border: `1px solid ${active ? '#7c6fff50' : 'var(--border)'}`,
+                  cursor: 'pointer',
+                }} onClick={() => applyCustomCSS(s.id, s.filename)}>
+                  <span style={{ fontSize: 12, color: active ? 'var(--accent2)' : 'var(--text-muted)', fontWeight: active ? 500 : 400 }}>
+                    {s.name}
+                  </span>
+                  <button onClick={e => { e.stopPropagation(); deleteSheet(s.id) }} style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-dim)', fontSize: 14, lineHeight: 1, padding: '0 3px',
+                  }}>×</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {cssSheets.length === 0 && !showUpload && (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            Upload a .css file to override any built-in theme variable
+          </div>
+        )}
       </div>
 
-      {/* Divider */}
       <div style={{ borderTop: '1px solid var(--border)' }} />
 
       {/* Density */}

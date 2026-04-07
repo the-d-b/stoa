@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"path/filepath"
 	"fmt"
 	"io"
 	"log"
@@ -1010,5 +1011,122 @@ func SetupStatusFull(db *sql.DB) http.HandlerFunc {
 			"userMode":   mode,
 			"autoLogin":  autoLoginID != "",
 		})
+	}
+}
+
+// ── Custom CSS ────────────────────────────────────────────────────────────────
+
+func ListCSSSheets(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		rows, err := db.Query(`
+			SELECT id, name, filename, created_at FROM custom_css
+			WHERE user_id = ? ORDER BY created_at DESC
+		`, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to list css")
+			return
+		}
+		defer rows.Close()
+		type Sheet struct {
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			Filename  string `json:"filename"`
+			CreatedAt string `json:"createdAt"`
+		}
+		sheets := []Sheet{}
+		for rows.Next() {
+			var s Sheet
+			rows.Scan(&s.ID, &s.Name, &s.Filename, &s.CreatedAt)
+			sheets = append(sheets, s)
+		}
+		writeJSON(w, http.StatusOK, sheets)
+	}
+}
+
+func UploadCSSSheet(db *sql.DB, cssDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		r.ParseMultipartForm(2 << 20) // 2MB max
+		name := r.FormValue("name")
+		if name == "" {
+			writeError(w, http.StatusBadRequest, "name required")
+			return
+		}
+		file, _, err := r.FormFile("css")
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "css file required")
+			return
+		}
+		defer file.Close()
+
+		// Read and validate it's CSS-like
+		data, err := io.ReadAll(file)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to read file")
+			return
+		}
+
+		// Ensure CSS dir exists
+		if err := os.MkdirAll(cssDir, 0755); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to create css dir")
+			return
+		}
+
+		id := generateID()
+		filename := id + ".css"
+		path := filepath.Join(cssDir, filename)
+		if err := os.WriteFile(path, data, 0644); err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to save file")
+			return
+		}
+
+		_, err = db.Exec(
+			"INSERT INTO custom_css (id, name, filename, user_id) VALUES (?, ?, ?, ?)",
+			id, name, filename, claims.UserID)
+		if err != nil {
+			os.Remove(path)
+			writeError(w, http.StatusInternalServerError, "failed to save record")
+			return
+		}
+		log.Printf("[CSS] uploaded sheet name=%q user=%s", name, claims.UserID)
+		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "name": name, "filename": filename})
+	}
+}
+
+func DeleteCSSSheet(db *sql.DB, cssDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		var filename string
+		err := db.QueryRow("SELECT filename FROM custom_css WHERE id=? AND user_id=?", id, claims.UserID).Scan(&filename)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "sheet not found")
+			return
+		}
+		db.Exec("DELETE FROM custom_css WHERE id=?", id)
+		os.Remove(filepath.Join(cssDir, filename))
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func ServeCSSSheet(cssDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		filename := mux.Vars(r)["filename"]
+		// Sanitize - only allow alphanumeric, dash, underscore, dot
+		for _, c := range filename {
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.') {
+				writeError(w, http.StatusBadRequest, "invalid filename")
+				return
+			}
+		}
+		path := filepath.Join(cssDir, filename)
+		data, err := os.ReadFile(path)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "file not found")
+			return
+		}
+		w.Header().Set("Content-Type", "text/css")
+		w.Write(data)
 	}
 }

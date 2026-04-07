@@ -143,6 +143,18 @@ export const tagsApi = {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
+export const cssApi = {
+  list: () => api.get<{ id: string; name: string; filename: string; createdAt: string }[]>('/css'),
+  upload: (name: string, cssText: string) => {
+    const form = new FormData()
+    form.append('name', name)
+    form.append('css', new Blob([cssText], { type: 'text/css' }), name + '.css')
+    return api.post<{ id: string; name: string; filename: string }>('/css', form)
+  },
+  delete: (id: string) => api.delete(`/css/${id}`),
+  url: (filename: string) => `/api/css/${filename}`,
+}
+
 export const configApi = {
   getOAuth: () => api.get<OAuthConfig>('/config/oauth'),
   saveOAuth: (data: OAuthConfig) => api.put('/config/oauth', data),

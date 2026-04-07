@@ -10,6 +10,7 @@ type Config struct {
 	Port           string
 	FrontendPath   string
 	IconsDir       string
+	CSSDir         string
 	SessionSecret  string
 	AllowedOrigins []string
 
@@ -25,6 +26,7 @@ func Load() *Config {
 		Port:         getEnv("STOA_PORT", "8080"),
 		FrontendPath: getEnv("STOA_FRONTEND_PATH", "/app/frontend/dist"),
 		IconsDir:     getEnv("STOA_ICONS_DIR", "/data/icons"),
+		CSSDir:       getEnv("STOA_CSS_DIR", "/data/css"),
 		SessionSecret: getEnv("STOA_SESSION_SECRET", ""),
 		AllowedOrigins: strings.Split(
 			getEnv("STOA_ALLOWED_ORIGINS", "http://localhost:3000"),

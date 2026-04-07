@@ -345,6 +345,19 @@ var migrations = []migration{
 			UPDATE secrets     SET created_by = 'SYSTEM' WHERE scope = 'shared';
 		`,
 	},
+	{
+		version: 12,
+		name:    "custom_css_sheets",
+		up: `
+			CREATE TABLE IF NOT EXISTS custom_css (
+				id       TEXT PRIMARY KEY,
+				name     TEXT NOT NULL,
+				filename TEXT NOT NULL,
+				user_id  TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

@@ -42,6 +42,7 @@ func main() {
 	// ── Public ────────────────────────────────────────────
 	api.HandleFunc("/setup/status", handlers.SetupStatusFull(database)).Methods("GET")
 	api.HandleFunc("/config/mode", handlers.GetUserMode(database)).Methods("GET")
+	api.HandleFunc("/css/{filename}", handlers.ServeCSSSheet(cfg.CSSDir)).Methods("GET")
 	api.HandleFunc("/auth/autologin", handlers.AutoLogin(database, authService)).Methods("POST")
 	api.HandleFunc("/setup/init", handlers.SetupInit(database, cfg)).Methods("POST")
 	api.HandleFunc("/auth/login", handlers.LocalLogin(authService)).Methods("POST")
@@ -183,6 +184,9 @@ func main() {
 	// Config
 	admin.HandleFunc("/config/oauth", handlers.GetOAuthConfig(database)).Methods("GET")
 	admin.HandleFunc("/config/mode", handlers.SetUserMode(database)).Methods("PUT")
+	protected.HandleFunc("/css", handlers.ListCSSSheets(database)).Methods("GET")
+	protected.HandleFunc("/css", handlers.UploadCSSSheet(database, cfg.CSSDir)).Methods("POST")
+	protected.HandleFunc("/css/{id}", handlers.DeleteCSSSheet(database, cfg.CSSDir)).Methods("DELETE")
 	admin.HandleFunc("/config/oauth", handlers.SaveOAuthConfig(database, cfg)).Methods("PUT")
 
 	// Static frontend
