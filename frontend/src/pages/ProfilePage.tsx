@@ -1319,18 +1319,7 @@ function ThemeDensityBlock() {
   const [uploadName, setUploadName] = useState('')
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [cssLinkEl] = useState(() => {
-    // Persistent <link> element for custom CSS
-    const el = document.getElementById('stoa-custom-css') as HTMLLinkElement
-      || (() => {
-          const l = document.createElement('link')
-          l.id = 'stoa-custom-css'
-          l.rel = 'stylesheet'
-          document.head.appendChild(l)
-          return l
-        })()
-    return el
-  })
+  const [customVarKeys, setCustomVarKeys] = useState<string[]>([])
 
   useEffect(() => {
     Promise.all([preferencesApi.get(), cssApi.list()]).then(([prefs, sheets]) => {
@@ -1343,7 +1332,7 @@ function ThemeDensityBlock() {
       const savedCssFile = localStorage.getItem('stoa_custom_css_file')
       if (savedCssId && savedCssFile && list.find((s: any) => s.id === savedCssId)) {
         setActiveCssId(savedCssId)
-        cssLinkEl.href = cssApi.url(savedCssFile)
+        fetchAndApplyCSS(savedCssFile)
       }
     }).catch(() => {})
   }, [])
@@ -1356,20 +1345,43 @@ function ThemeDensityBlock() {
     } finally { setSaving(false) }
   }
 
+  const clearCustomCSS = (keys: string[]) => {
+    const root = document.documentElement
+    keys.forEach(k => root.style.removeProperty(k))
+    setCustomVarKeys([])
+  }
+
+  const fetchAndApplyCSS = async (filename: string) => {
+    try {
+      const res = await fetch(cssApi.url(filename))
+      const text = await res.text()
+      const root = document.documentElement
+      // Parse --var-name: value pairs from :root block
+      const matches = text.match(/--[a-zA-Z0-9-]+\s*:[^;}\n]+/g) || []
+      const keys: string[] = []
+      matches.forEach(m => {
+        const [k, ...v] = m.split(':')
+        const key = k.trim()
+        root.style.setProperty(key, v.join(':').trim())
+        keys.push(key)
+      })
+      setCustomVarKeys(keys)
+    } catch (e) { console.error('Failed to apply CSS', e) }
+  }
+
   const saveTheme = async (themeId: string) => {
-    setActiveTheme(themeId as any)
-    applyTheme(themeId as any)
-    // Switch back to system CSS
+    clearCustomCSS(customVarKeys)
     setActiveCssId('system')
-    cssLinkEl.href = ''
     localStorage.removeItem('stoa_custom_css_id')
     localStorage.removeItem('stoa_custom_css_file')
+    setActiveTheme(themeId as any)
+    applyTheme(themeId as any)
     try { await preferencesApi.save({ theme: themeId }) } catch {}
   }
 
-  const applyCustomCSS = (id: string, filename: string) => {
+  const applyCustomCSS = async (id: string, filename: string) => {
     setActiveCssId(id)
-    cssLinkEl.href = cssApi.url(filename)
+    await fetchAndApplyCSS(filename)
     localStorage.setItem('stoa_custom_css_id', id)
     localStorage.setItem('stoa_custom_css_file', filename)
   }
@@ -1395,7 +1407,7 @@ function ThemeDensityBlock() {
       const res = await cssApi.upload(uploadName.trim(), text)
       const newSheet = res.data
       setCssSheets(prev => [...prev, newSheet])
-      applyCustomCSS(newSheet.id, newSheet.filename)
+      await applyCustomCSS(newSheet.id, newSheet.filename)
       setUploadName(''); setShowUpload(false)
     } finally { setUploading(false) }
   }
@@ -1404,8 +1416,8 @@ function ThemeDensityBlock() {
     await cssApi.delete(id)
     setCssSheets(prev => prev.filter(s => s.id !== id))
     if (activeCssId === id) {
+      clearCustomCSS(customVarKeys)
       setActiveCssId('system')
-      cssLinkEl.href = ''
       localStorage.removeItem('stoa_custom_css_id')
       localStorage.removeItem('stoa_custom_css_file')
     }
