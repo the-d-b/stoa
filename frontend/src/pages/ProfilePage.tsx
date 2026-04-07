@@ -275,9 +275,8 @@ function PanelsOrderTab() {
 
   const loadPanels = async (wallId?: string) => {
     const porticoId = wallId && wallId !== 'home' ? wallId : undefined
-    const [sys, mine] = await Promise.all([panelsApi.list(porticoId), myPanelsApi.list()])
-    // Merge and sort by position (position=0 means unordered, goes to end)
-    const merged = [...(sys.data || []), ...(mine.data || [])]
+    const sys = await panelsApi.list(porticoId)
+    const merged = sys.data || []
 
     if (porticoId) {
       // Filter to panels visible on this portico by tag
@@ -310,8 +309,8 @@ function PanelsOrderTab() {
   }
 
   useEffect(() => {
-    Promise.all([panelsApi.list(), myPanelsApi.list(), porticosApi.list()]).then(([sys, mine, w]) => {
-      const merged = [...(sys.data || []), ...(mine.data || [])]
+    Promise.all([panelsApi.list(), porticosApi.list()]).then(([sys, w]) => {
+      const merged = [...(sys.data || [])]
       merged.sort((a, b) => {
         if (a.position > 0 && b.position > 0) return a.position - b.position
         if (a.position > 0) return -1

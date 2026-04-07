@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, myPanelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, myTagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, myTagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
 import SonarrPanel from '../components/panels/SonarrPanel'
@@ -27,14 +27,13 @@ export default function DashboardPage() {
     const load = async () => {
       try {
         console.log('[Dashboard] loading panels, walls, tags...')
-        const [p, myP, w, t, myT] = await Promise.all([
+        const [p, w, t, myT] = await Promise.all([
           panelsApi.list(),
-          myPanelsApi.list(),
           porticosApi.list(),
           tagsApi.list(),
           myTagsApi.list(),
         ])
-        console.log(`[Dashboard] panels=${(p.data?.length||0)+(myP.data?.length||0)} walls=${w.data?.length} tags=${(t.data?.length||0)+(myT.data?.length||0)}`)
+        console.log(`[Dashboard] panels=${p.data?.length} walls=${w.data?.length} tags=${(t.data?.length||0)+(myT.data?.length||0)}`)
         // Load user density preference
         try {
           const prefs = await preferencesApi.get()
@@ -48,7 +47,7 @@ export default function DashboardPage() {
         console.log('[Dashboard] panel order from API:')
         ;(p.data || []).forEach((panel: any) => console.log(`  panel: ${panel.id} "${panel.title}" pos=${panel.position} scope=${panel.scope}`))
 
-        const panelData: Panel[] = [...(p.data || []), ...(myP.data || [])]
+        const panelData: Panel[] = p.data || []
         const wallData: Wall[] = w.data || []
         const tagData: Tag[] = [...(t.data || []), ...(myT.data || [])]
 
@@ -137,10 +136,9 @@ export default function DashboardPage() {
       setActiveTags(allTags.map(t => t.id))
       // Reload panels with Home ordering (no wall_id)
       try {
-        const [sysRes, myRes] = await Promise.all([panelsApi.list(), myPanelsApi.list()])
-        const merged = [...(sysRes.data || []), ...(myRes.data || [])]
-        console.log('[Dashboard] reloaded panels for Home, count=', merged.length)
-        setPanels(merged)
+        const sysRes = await panelsApi.list()
+        console.log('[Dashboard] reloaded panels for Home, count=', sysRes.data?.length)
+        setPanels(sysRes.data || [])
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     } else {
       setActiveWallId(wall.id)
@@ -150,10 +148,9 @@ export default function DashboardPage() {
       setActiveTags((wall.tags || []).filter(t => t.active).map(t => t.tagId))
       // Reload panels with this wall's ordering
       try {
-        const [sysRes, myRes] = await Promise.all([panelsApi.list(wall.id), myPanelsApi.list()])
-        const merged = [...(sysRes.data || []), ...(myRes.data || [])]
-        console.log('[Dashboard] reloaded panels for wall=' + wall.id + ' count=', merged.length)
-        setPanels(merged)
+        const sysRes = await panelsApi.list(wall.id)
+        console.log('[Dashboard] reloaded panels for wall=' + wall.id + ' count=', sysRes.data?.length)
+        setPanels(sysRes.data || [])
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     }
   }
@@ -183,8 +180,8 @@ export default function DashboardPage() {
       setNewWallName('')
 
       // Reload panels with new portico ordering context
-      const [sysPanels, myPanels] = await Promise.all([panelsApi.list(wall.id), myPanelsApi.list()])
-      setPanels([...(sysPanels.data || []), ...(myPanels.data || [])])
+      const sysPanels = await panelsApi.list(wall.id)
+      setPanels(sysPanels.data || [])
     } catch (e) {
       console.error('[Dashboard] failed to save portico:', e)
       alert('Failed to save portico. Check console for details.')
