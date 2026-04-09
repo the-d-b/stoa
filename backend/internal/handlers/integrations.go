@@ -408,26 +408,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	if err == nil {
 		var episodes []map[string]interface{}
 		json.Unmarshal(upcoming, &episodes)
-		log.Printf("[SONARR] upcoming count=%d (start=%s end=%s)", len(episodes), upcStart, upcEnd)
-		for idx, ep := range episodes {
-			// Always check for target episodes regardless of index
-			if ttl, ok := ep["title"].(string); ok {
-				if ttl == "Knick-Knack" || ttl == "Teenage Kix" {
-					ad, _ := ep["airDate"].(string)
-					adu, _ := ep["airDateUtc"].(string)
-					log.Printf("[UPCOMING TARGET] %q airDate=%q airDateUtc=%q", ttl, ad, adu)
-				}
-			}
-			if idx < 5 {
-				title, _ := ep["title"].(string)
-				airDate, _ := ep["airDate"].(string)
-				airDateUtc, _ := ep["airDateUtc"].(string)
-					log.Printf("[SONARR] ep[%d]: title=%q airDate=%q airDateUtc=%q", idx, title, airDate, airDateUtc)
-				targetEps := map[string]bool{"Knick-Knack": true, "Teenage Kix": true}
-				if targetEps[title] {
-					log.Printf("[UPCOMING DEBUG] FOUND target ep %q airDate=%q airDateUtc=%q", title, airDate, airDateUtc)
-				}
-			}
+		for _, ep := range episodes {
 			ep := ep // shadow for loop var
 			series, _ := ep["series"].(map[string]interface{})
 			seriesTitle := ""
@@ -527,10 +508,6 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				"Wuthering Heights (1978)": true,
 			}
 			if targetSeries[seriesTitle] {
-				statRaw, _ := json.Marshal(statistics)
-				sizeRaw := s["sizeOnDisk"]
-				log.Printf("[ZERO-BYTE DEBUG] %q: episodeFileCount=%d sizeOnDisk=%v stats=%s",
-					seriesTitle, episodeFileCount, sizeRaw, string(statRaw))
 			}
 
 			if episodeFileCount == 0 { // episodeCount omitted — unmonitored series may show 0 even with known episodes
@@ -542,7 +519,6 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				data.ZeroByte = append(data.ZeroByte, ss)
 			}
 		}
-		log.Printf("[SONARR] zero-byte count=%d", len(data.ZeroByte))
 	}
 
 	return data, nil
@@ -573,15 +549,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			if err != nil { continue }
 			var episodes []map[string]interface{}
 			json.Unmarshal(upcoming, &episodes)
-			log.Printf("[CALENDAR] sonarr returned %d episodes (start=%s end=%s)", len(episodes), calStart, calEnd)
-			for cidx, ep := range episodes {
-				if cidx < 5 {
-					t, _ := ep["title"].(string)
-					d, _ := ep["airDate"].(string)
-						log.Printf("[CALENDAR] ep[%d]: %q on %q", cidx, t, d)
-				}
-				_ = cidx
-			}
 			for _, ep := range episodes {
 				series, _ := ep["series"].(map[string]interface{})
 				seriesTitle := ""

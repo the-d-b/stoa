@@ -1000,16 +1000,18 @@ func SetupStatusFull(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var count int
 		db.QueryRow("SELECT COUNT(*) FROM users WHERE id != 'SYSTEM'").Scan(&count)
-		var mode, autoLoginID string
+		var mode, autoLoginID, oauthClientID string
 		db.QueryRow("SELECT value FROM app_config WHERE key = 'user_mode'").Scan(&mode)
 		db.QueryRow("SELECT value FROM app_config WHERE key = 'auto_login_user_id'").Scan(&autoLoginID)
+		db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_client_id'").Scan(&oauthClientID)
 		if mode == "" {
 			mode = "multi"
 		}
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"needsSetup": count == 0,
-			"userMode":   mode,
-			"autoLogin":  autoLoginID != "",
+			"needsSetup":      count == 0,
+			"userMode":        mode,
+			"autoLogin":       autoLoginID != "",
+			"oauthConfigured": oauthClientID != "",
 		})
 	}
 }

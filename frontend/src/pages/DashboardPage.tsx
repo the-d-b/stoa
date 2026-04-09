@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, myTagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
 import SonarrPanel from '../components/panels/SonarrPanel'
@@ -647,6 +648,8 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
 }
 
 function EmptyState({ isAdmin }: { isAdmin: boolean }) {
+  const userMode = useUserMode()
+  const singleUser = userMode === 'single'
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -665,9 +668,12 @@ function EmptyState({ isAdmin }: { isAdmin: boolean }) {
       <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 8px', letterSpacing: '-0.02em' }}>No panels yet</h2>
       <p style={{ fontSize: 14, color: 'var(--text-muted)', maxWidth: 340, lineHeight: 1.7, margin: 0 }}>
         {isAdmin
-          ? <>Go to <a href="/admin/bookmarks" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>Bookmarks</a> to add content,
-             then create <a href="/admin/panels" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>Panels</a> to display it.</>
-          : "The admin hasn't created any panels yet."}
+          ? singleUser
+            ? <>Go to <a href="/profile?tab=bookmarks" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>My Bookmarks</a> to add content,
+               then create <a href="/profile?tab=mypanels" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>My Panels</a> to display it.</>
+            : <>Go to <a href="/admin/bookmarks" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>Bookmarks</a> to add content,
+               then create <a href="/admin/panels" style={{ color: 'var(--accent2)', textDecoration: 'none' }}>Panels</a> to display it.</>
+          : "The admin hasn't added any panels yet."}
       </p>
     </div>
   )

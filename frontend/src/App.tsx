@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
-import { UserModeProvider } from './context/UserModeContext'
+import { UserModeProvider, useUserMode } from './context/UserModeContext'
 import { authApi } from './api'
 
 import SetupPage from './pages/SetupPage'
@@ -14,8 +14,10 @@ import Layout from './components/layout/Layout'
 import ThemeSwitcher from './components/layout/ThemeSwitcher'
 import ErrorBoundary from './components/ErrorBoundary'
 
+
 function AppRoutes() {
   const { user, loading } = useAuth()
+  const userMode = useUserMode()
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null)
 
   useEffect(() => {
@@ -48,7 +50,7 @@ function AppRoutes() {
       <Route element={<Layout />}>
         <Route path="/" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
         <Route path="/profile" element={<ProfilePage />} />
-        {user.role === 'admin' && (
+        {user.role === 'admin' && userMode !== 'single' && (
           <Route path="/admin/*" element={<AdminPage />} />
         )}
         <Route path="*" element={<Navigate to="/" replace />} />

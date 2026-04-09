@@ -6,6 +6,7 @@ import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
+import { APP_VERSION } from '../../version'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
 
 export default function Layout() {
@@ -170,7 +171,7 @@ export default function Layout() {
           <GlyphZone glyphs={glyphs} zone="footer-center" />
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <GlyphZone glyphs={glyphs} zone="footer-right" />
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa v0.0.6</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa {APP_VERSION}</span>
           </div>
         </div>
         </footer>

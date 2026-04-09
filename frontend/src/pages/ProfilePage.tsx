@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
+import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
@@ -242,7 +243,7 @@ function OverviewTab() {
       <ThemeDensityBlock />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
-        <StoaLogo size={14} />stoa v0.0.5
+        <StoaLogo size={14} />stoa {APP_VERSION}
       </div>
     </div>
   )

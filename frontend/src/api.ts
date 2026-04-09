@@ -84,7 +84,7 @@ export interface SetupRequest {
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
 export const authApi = {
-  setupStatus: () => api.get<{ needsSetup: boolean; userMode: string; autoLogin: boolean }>('/setup/status'),
+  setupStatus: () => api.get<{ needsSetup: boolean; userMode: string; autoLogin: boolean; oauthConfigured: boolean }>('/setup/status'),
   autoLogin: () => api.post<{ token: string; user: User }>('/auth/autologin', {}),
   setupInit: (data: SetupRequest) => api.post('/setup/init', data),
   login: (username: string, password: string) =>

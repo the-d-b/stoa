@@ -19,8 +19,6 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		wallID := r.URL.Query().Get("wall_id")
 
-		log.Printf("[PANELS] list request user=%s role=%s portico=%s", claims.UserID, claims.Role, wallID)
-
 		var rows *sql.Rows
 		var err error
 
@@ -93,8 +91,6 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 					WHERE user_id = ? AND panel_id = ? AND portico_id IS NULL
 				`, claims.UserID, p.ID).Scan(&p.Position)
 			}
-			log.Printf("[PANELS]   panel %s %q pos=%d scope=%s", p.ID, p.Title, p.Position, p.Scope)
-
 			panels = append(panels, p)
 			panelCount++
 		}
@@ -126,7 +122,6 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		ordered = append(ordered, positioned...)
 		ordered = append(ordered, unpositioned...)
 
-		log.Printf("[PANELS] returning %d panels for user=%s role=%s", panelCount, claims.UserID, claims.Role)
 		writeJSON(w, http.StatusOK, ordered)
 	}
 }
@@ -174,6 +169,7 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 
 func UpdatePanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		var req struct {
 			Title  string `json:"title"`
@@ -183,7 +179,26 @@ func UpdatePanel(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-		db.Exec("UPDATE panels SET title=?, config=? WHERE id=?", req.Title, req.Config, id)
+		// Admins can update SYSTEM-owned panels; users can only update their own
+		var result sql.Result
+		var err error
+		if claims.Role == models.RoleAdmin {
+			result, err = db.Exec(
+				"UPDATE panels SET title=?, config=? WHERE id=? AND (created_by='SYSTEM' OR created_by=?)",
+				req.Title, req.Config, id, claims.UserID)
+		} else {
+			result, err = db.Exec(
+				"UPDATE panels SET title=?, config=? WHERE id=? AND created_by=?",
+				req.Title, req.Config, id, claims.UserID)
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
+		if rows, _ := result.RowsAffected(); rows == 0 {
+			writeError(w, http.StatusForbidden, "panel not found or permission denied")
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -252,9 +267,6 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 			porticoIDStr = *req.PorticoID
 		}
 
-		log.Printf("[PANELS] UpdateOrder user=%s porticoId=%v isHome=%v panels=%d",
-			claims.UserID, req.PorticoID, isHome, len(req.Order))
-
 		tx, err := db.Begin()
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to begin transaction")
@@ -289,10 +301,6 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		for _, item := range req.Order {
-			log.Printf("[PANELS] saved panelId=%s position=%d porticoId=%q isHome=%v", item.PanelID, item.Position, porticoIDStr, isHome)
-		}
-		log.Printf("[PANELS] order saved user=%s porticoId=%q isHome=%v panels=%d", claims.UserID, porticoIDStr, isHome, len(req.Order))
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
