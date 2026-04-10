@@ -237,8 +237,12 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
             background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)',
           }}>{typeDef?.label ?? ig.type}</span>
         </div>
-        <div style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-          {ig.apiUrl}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{ig.apiUrl}</span>
+          {assignedGroups.length === 0
+            ? <span style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>visible to all users</span>
+            : <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{assignedGroups.length} group{assignedGroups.length !== 1 ? 's' : ''}</span>
+          }
         </div>
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
           <button className="btn btn-ghost" style={{ fontSize: 12 }}

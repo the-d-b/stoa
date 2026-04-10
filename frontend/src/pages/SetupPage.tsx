@@ -251,8 +251,8 @@ export default function SetupPage({ onComplete }: Props) {
               {error && <ErrorBox message={error} />}
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setError(''); setStep('admin') }}>Back</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={handleFinish} disabled={loading}>
-                  {loading ? <span className="spinner" /> : 'Finish setup'}
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('tags')}>
+                  Next →
                 </button>
               </div>
             </div>
@@ -304,7 +304,9 @@ export default function SetupPage({ onComplete }: Props) {
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('app')}>Back</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('tags')}>Next →</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('tags')}>
+                  {oauthIssuer && oauthClientId ? 'Next →' : 'Skip →'}
+                </button>
               </div>
             </div>
           )}
@@ -348,8 +350,12 @@ export default function SetupPage({ onComplete }: Props) {
                 {tags.length === 0 && <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No tags added yet</span>}
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('oauth')}>Back</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('groups')}>Next →</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }}
+                  onClick={() => setStep(userMode === 'single' ? 'auth_mode' : 'oauth')}>Back</button>
+                <button className="btn btn-primary" style={{ flex: 1 }}
+                  onClick={() => userMode === 'single' ? handleFinish() : setStep('groups')}>
+                  {userMode === 'single' ? (loading ? <span className="spinner" /> : 'Finish setup') : 'Next →'}
+                </button>
               </div>
             </div>
           )}

@@ -227,11 +227,23 @@ func DeleteMyPanel(db *sql.DB) http.HandlerFunc {
 
 func AddTagToPanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		panelID := mux.Vars(r)["id"]
 		var req struct {
 			TagID string `json:"tagId"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
+		// Check ownership: admin can tag SYSTEM panels, users can tag their own
+		var owner string
+		db.QueryRow("SELECT COALESCE(created_by,'') FROM panels WHERE id=?", panelID).Scan(&owner)
+		if owner == "SYSTEM" && claims.Role != models.RoleAdmin {
+			writeError(w, http.StatusForbidden, "permission denied")
+			return
+		}
+		if owner != "SYSTEM" && owner != claims.UserID {
+			writeError(w, http.StatusForbidden, "permission denied")
+			return
+		}
 		db.Exec("INSERT OR IGNORE INTO panel_tags (panel_id, tag_id) VALUES (?,?)", panelID, req.TagID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -239,7 +251,18 @@ func AddTagToPanel(db *sql.DB) http.HandlerFunc {
 
 func RemoveTagFromPanel(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		vars := mux.Vars(r)
+		var owner string
+		db.QueryRow("SELECT COALESCE(created_by,'') FROM panels WHERE id=?", vars["id"]).Scan(&owner)
+		if owner == "SYSTEM" && claims.Role != models.RoleAdmin {
+			writeError(w, http.StatusForbidden, "permission denied")
+			return
+		}
+		if owner != "SYSTEM" && owner != claims.UserID {
+			writeError(w, http.StatusForbidden, "permission denied")
+			return
+		}
 		db.Exec("DELETE FROM panel_tags WHERE panel_id=? AND tag_id=?", vars["id"], vars["tagId"])
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

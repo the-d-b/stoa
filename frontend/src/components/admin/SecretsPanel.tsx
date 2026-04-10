@@ -102,11 +102,10 @@ export default function SecretsPanel() {
                   {expanded === s.id ? '▼' : '▶'}
                 </span>
                 <span style={{ fontWeight: 500, fontSize: 14 }}>{s.name}</span>
-                {s.groups.length > 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                    {s.groups.length} group{s.groups.length !== 1 ? 's' : ''}
-                  </span>
-                )}
+                {s.groups.length === 0
+                  ? <span style={{ fontSize: 11, color: 'var(--amber)', fontStyle: 'italic' }}>visible to all users</span>
+                  : <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{s.groups.length} group{s.groups.length !== 1 ? 's' : ''}</span>
+                }
               </div>
               <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <button className="btn btn-ghost" style={{ fontSize: 12 }}

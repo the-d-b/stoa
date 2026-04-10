@@ -178,8 +178,8 @@ func main() {
 	admin.HandleFunc("/panels", handlers.CreatePanel(database)).Methods("POST")
 	admin.HandleFunc("/panels/{id}", handlers.UpdatePanel(database)).Methods("PUT")
 	admin.HandleFunc("/panels/{id}", handlers.DeletePanel(database)).Methods("DELETE")
-	admin.HandleFunc("/panels/{id}/tags", handlers.AddTagToPanel(database)).Methods("POST")
-	admin.HandleFunc("/panels/{id}/tags/{tagId}", handlers.RemoveTagFromPanel(database)).Methods("DELETE")
+	protected.HandleFunc("/panels/{id}/tags", handlers.AddTagToPanel(database)).Methods("POST")
+	protected.HandleFunc("/panels/{id}/tags/{tagId}", handlers.RemoveTagFromPanel(database)).Methods("DELETE")
 
 	// Config
 	admin.HandleFunc("/config/oauth", handlers.GetOAuthConfig(database)).Methods("GET")

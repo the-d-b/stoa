@@ -133,14 +133,17 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			if color == "" {
 				color = "#6366f1"
 			}
-			db.Exec(`INSERT OR IGNORE INTO tags (id, name, color) VALUES (?, ?, ?)`, tagID, t.Name, color)
+			db.Exec(`INSERT OR IGNORE INTO tags (id, name, color, created_by) VALUES (?, ?, ?, 'SYSTEM')`, tagID, t.Name, color)
 			tagNameToID[t.Name] = tagID
 		}
 
 		// Create initial groups and assign tags
 		for _, g := range req.InitialGroups {
 			groupID := generateID()
-			db.Exec(`INSERT OR IGNORE INTO groups (id, name) VALUES (?, ?)`, groupID, g.Name)
+			_, gerr := db.Exec(`INSERT OR IGNORE INTO groups (id, name, description) VALUES (?, ?, '')`, groupID, g.Name)
+			if gerr != nil {
+				log.Printf("[SETUP] failed to create group %q: %v", g.Name, gerr)
+			}
 			for _, tagName := range g.TagNames {
 				if tagID, ok := tagNameToID[tagName]; ok {
 					db.Exec(`INSERT OR IGNORE INTO group_tags (group_id, tag_id) VALUES (?, ?)`, groupID, tagID)
