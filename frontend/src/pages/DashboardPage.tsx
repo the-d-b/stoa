@@ -264,7 +264,7 @@ export default function DashboardPage() {
         )}
 
         {/* Wall tabs */}
-        <div style={{
+        <div className="portico-nav" style={{
           display: 'flex', alignItems: 'center', gap: 2, marginBottom: 20,
           borderBottom: '1px solid var(--border)', flexWrap: 'wrap',
         }}>
@@ -468,7 +468,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
     // gridAutoRows includes the gap so that span N * (ROW_UNIT+GAP) - GAP
     // gives perfect alignment between e.g. two 4x === one 8x
     return (
-      <div style={{
+      <div className="panel-grid-flow" style={{
         display: 'grid',
         gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}px, 1fr))`,
         gridAutoRows: `${ROW_UNIT + GRID_GAP}px`,
@@ -513,7 +513,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
   // In column mode, density influences effective min width check for readability
   // but column count is explicitly set on the portico
   return (
-    <div style={{
+    <div className="panel-grid-columns" style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${colCount}, minmax(${minColWidth}px, 1fr))`,
       gap: 16,
@@ -591,9 +591,11 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
 
         {!collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            {(panel.tags || []).map(t => (
-              <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
-            ))}
+            <span className="panel-tag-dots" style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {(panel.tags || []).map(t => (
+                <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
+              ))}
+            </span>
             {panel.type === 'bookmarks' && <>
               <button onClick={() => setTreeExpanded(s => s === true ? null : true)} title="Expand all"
                 style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',

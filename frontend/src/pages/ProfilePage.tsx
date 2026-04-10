@@ -62,10 +62,10 @@ export default function ProfilePage() {
   ]
 
   return (
-    <div className="fade-up" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', maxWidth: 960 }}>
+    <div className="fade-up profile-layout" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', maxWidth: 960 }}>
 
       {/* Vertical sidebar */}
-      <div style={{ width: 180, flexShrink: 0 }}>
+      <div className="profile-sidebar" style={{ width: 180, flexShrink: 0 }}>
         {/* User identity */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24, paddingBottom: 16, borderBottom: '1px solid var(--border)' }}>
           <div style={{

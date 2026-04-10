@@ -127,3 +127,71 @@
   .mobile-only  { display: block; }
   .desktop-only { display: none !important; }
 }
+
+/* ── Mobile layout ───────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  /* Tighter main padding */
+  .main-content { padding: 12px 14px !important; }
+
+  /* Header: tighter */
+  .header-inner { padding: 0 12px !important; }
+
+  /* Cards: tighter padding */
+  .card { padding: 14px !important; }
+
+  /* Profile page: stack sidebar above content */
+  .profile-layout { flex-direction: column !important; gap: 0 !important; }
+  .profile-sidebar {
+    width: 100% !important;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+  }
+  /* Sidebar user identity: smaller on mobile */
+  .profile-sidebar > div:first-child { margin-bottom: 10px !important; padding-bottom: 10px !important; }
+  /* Nav groups: flow horizontally, scrollable */
+  .profile-sidebar nav {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    gap: 2px !important;
+    padding-bottom: 4px;
+  }
+  /* Group labels: hide on mobile, just show the buttons */
+  .profile-sidebar nav > div > div:first-child { display: none; }
+  /* Nav buttons: compact pills */
+  .profile-sidebar nav > div > button {
+    white-space: nowrap;
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    border-radius: 20px !important;
+    background: var(--surface2) !important;
+    border: 1px solid var(--border) !important;
+  }
+  .profile-sidebar nav > div > button[style*="accent-bg"] {
+    background: var(--accent-bg) !important;
+    color: var(--accent2) !important;
+    border-color: var(--accent) !important;
+  }
+
+  /* Dashboard: single column on mobile */
+  .panel-grid-columns { grid-template-columns: 1fr !important; }
+  .panel-grid-flow    { grid-template-columns: 1fr !important; }
+
+  /* Portico/tag nav: scrollable row */
+  .portico-nav {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap !important;
+    padding-bottom: 6px;
+    scrollbar-width: none;
+  }
+  .portico-nav::-webkit-scrollbar { display: none; }
+
+  /* Admin page tabs: scrollable */
+  .admin-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; flex-wrap: nowrap !important; }
+
+  /* Hide tag dots on mobile panel headers (save space) */
+  .panel-tag-dots { display: none !important; }
+}

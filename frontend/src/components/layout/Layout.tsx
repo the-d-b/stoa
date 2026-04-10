@@ -63,7 +63,7 @@ export default function Layout() {
         position: 'sticky', top: 0, zIndex: 50,
         backdropFilter: 'blur(12px)',
       }}>
-        <div style={{
+        <div className="header-inner" style={{
           maxWidth: 1100, margin: '0 auto', padding: '0 24px',
           height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
@@ -151,7 +151,7 @@ export default function Layout() {
       </header>
 
       {/* Main */}
-      <main style={{ flex: 1, maxWidth: 1100, margin: '0 auto', width: '100%', padding: '32px 24px' }}>
+      <main className="main-content" style={{ flex: 1, maxWidth: 1100, margin: '0 auto', width: '100%', padding: '32px 24px' }}>
         <Outlet />
       </main>
 
