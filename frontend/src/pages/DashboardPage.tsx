@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, myTagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
@@ -28,13 +28,11 @@ export default function DashboardPage() {
     const load = async () => {
       try {
         console.log('[Dashboard] loading panels, walls, tags...')
-        const [p, w, t, myT] = await Promise.all([
+        const [p, w, t] = await Promise.all([
           panelsApi.list(),
           porticosApi.list(),
           tagsApi.list(),
-          myTagsApi.list(),
         ])
-        console.log(`[Dashboard] panels=${p.data?.length} walls=${w.data?.length} tags=${(t.data?.length||0)+(myT.data?.length||0)}`)
         // Load user density preference
         try {
           const prefs = await preferencesApi.get()
@@ -50,7 +48,7 @@ export default function DashboardPage() {
 
         const panelData: Panel[] = p.data || []
         const wallData: Wall[] = w.data || []
-        const tagData: Tag[] = [...(t.data || []), ...(myT.data || [])]
+        const tagData: Tag[] = t.data || []
 
         setPanels(panelData)
         setWalls(wallData)

@@ -645,7 +645,7 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 				FROM tags WHERE created_by = 'SYSTEM' ORDER BY name ASC
 			`)
 		} else {
-			// Profile: only system tags the user has access to via their groups + user's own tags
+			// Profile: system tags (ungrouped = visible to all, or in user's groups) + user's own tags
 			rows, err = db.Query(`
 				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
 				FROM tags t
@@ -653,7 +653,12 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 					-- User's own personal tags
 					t.created_by = ?
 					OR
-					-- System tags accessible via user's groups
+					-- System tags with no group restrictions (visible to all)
+					(t.created_by = 'SYSTEM' AND NOT EXISTS (
+						SELECT 1 FROM group_tags WHERE tag_id = t.id
+					))
+					OR
+					-- System tags in user's groups
 					(t.created_by = 'SYSTEM' AND EXISTS (
 						SELECT 1 FROM group_tags gt
 						JOIN user_groups ug ON gt.group_id = ug.group_id

@@ -5,6 +5,7 @@ import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
+import ReactDOM from 'react-dom'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
@@ -1974,7 +1975,7 @@ function PersonalIntegrationsTab() {
       myIntegrationsApi.list(),
       secretsApi.list(),
     ])
-    setShared(shared.data || [])
+    setShared((shared.data || []).filter((i: Integration) => i.createdBy === 'SYSTEM'))
     setPersonal(personal.data || [])
     setSecrets(sysS.data || [])
     setLoading(false)
@@ -2814,7 +2815,7 @@ function MyPanelsTab() {
         )}
       </div>}
 
-      {calPanel && (
+      {calPanel && ReactDOM.createPortal(
         <MyCalendarModal
           panel={calPanel}
           integrations={integrations}
@@ -2830,7 +2831,8 @@ function MyPanelsTab() {
             }
             setCalPanel(null); await load()
           }}
-        />
+        />,
+        document.body
       )}
     </div>
   )
