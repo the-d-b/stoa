@@ -2869,10 +2869,10 @@ function MyCalendarModal({ panel, integrations, onClose, onSave }: {
     }} onClick={onClose}>
       <div className="card" style={{
         position: 'fixed',
-        top: '50%', left: '50%',
-        transform: 'translate(-50%, -50%)',
+        top: 24, left: '50%',
+        transform: 'translateX(-50%)',
         padding: 24, maxWidth: 480, width: '90%',
-        maxHeight: '85vh', overflowY: 'auto',
+        maxHeight: '90vh', overflowY: 'auto',
         zIndex: 10000,
       }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
