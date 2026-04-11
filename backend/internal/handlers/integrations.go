@@ -617,6 +617,25 @@ func sonarrGet(apiURL, apiKey, path string) ([]byte, error) {
 
 // ── Integration group access ──────────────────────────────────────────────────
 
+func GetIntegrationGroups(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		rows, err := db.Query("SELECT group_id FROM integration_groups WHERE integration_id=?", id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to query groups")
+			return
+		}
+		defer rows.Close()
+		groupIDs := []string{}
+		for rows.Next() {
+			var gid string
+			rows.Scan(&gid)
+			groupIDs = append(groupIDs, gid)
+		}
+		writeJSON(w, http.StatusOK, groupIDs)
+	}
+}
+
 func SetIntegrationGroups(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]

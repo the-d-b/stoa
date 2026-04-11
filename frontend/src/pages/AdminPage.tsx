@@ -23,40 +23,63 @@ const tabs = [
 export default function AdminPage() {
   const location = useLocation()
 
+  const navGroups = [
+    {
+      label: 'Content',
+      items: tabs.filter(t => ['/admin/bookmarks', '/admin/panels'].includes(t.path)),
+    },
+    {
+      label: 'System',
+      items: tabs.filter(t => ['/admin/secrets', '/admin/integrations'].includes(t.path)),
+    },
+    {
+      label: 'Access',
+      items: tabs.filter(t => ['/admin/users', '/admin/groups', '/admin/tags'].includes(t.path)),
+    },
+    {
+      label: 'Config',
+      items: tabs.filter(t => ['/admin/oauth'].includes(t.path)),
+    },
+  ]
+
   return (
-    <div className="fade-up">
-      <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+    <div className="fade-up profile-layout" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', maxWidth: 960 }}>
+
+      {/* Vertical sidebar */}
+      <div className="profile-sidebar" style={{ width: 180, flexShrink: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
           Administration
-        </h1>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
-          Manage bookmarks, panels, OAuth, users, groups, and tags
-        </p>
+        </div>
+        <nav style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {navGroups.map(group => (
+            <div key={group.label}>
+              <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, paddingLeft: 8 }}>
+                {group.label}
+              </div>
+              {group.items.map(tab => {
+                const active = location.pathname === tab.path
+                return (
+                  <Link key={tab.path} to={tab.path} style={{
+                    display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                    padding: '7px 10px', fontSize: 13, fontWeight: active ? 500 : 400,
+                    background: active ? 'var(--accent-bg)' : 'transparent',
+                    color: active ? 'var(--accent2)' : 'var(--text-muted)',
+                    borderRadius: 7, textDecoration: 'none', transition: 'all 0.12s',
+                  }}
+                  onMouseOver={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseOut={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+                    <span style={{ fontSize: 11, width: 14, textAlign: 'center', flexShrink: 0 }}>{tab.icon}</span>
+                    {tab.label}
+                  </Link>
+                )
+              })}
+            </div>
+          ))}
+        </nav>
       </div>
 
-      <nav style={{
-        display: 'flex', gap: 4, marginBottom: 28,
-        borderBottom: '1px solid var(--border)', paddingBottom: 0,
-        overflowX: 'auto',
-      }}>
-        {tabs.map(tab => {
-          const active = location.pathname === tab.path
-          return (
-            <Link key={tab.path} to={tab.path} style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '8px 14px', fontSize: 13, fontWeight: 500,
-              textDecoration: 'none', borderRadius: '8px 8px 0 0',
-              borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
-              color: active ? 'var(--accent2)' : 'var(--text-muted)',
-              background: active ? 'var(--accent-bg)' : 'transparent',
-              transition: 'all 0.15s', marginBottom: -1, whiteSpace: 'nowrap',
-            }}>
-              <span style={{ fontSize: 11 }}>{tab.icon}</span>
-              {tab.label}
-            </Link>
-          )
-        })}
-      </nav>
+      {/* Main content */}
+      <div style={{ flex: 1, minWidth: 0 }}>
 
       <ErrorBoundary>
         <Routes>
@@ -71,6 +94,7 @@ export default function AdminPage() {
           <Route path="tags"      element={<TagsPanel />} />
         </Routes>
       </ErrorBoundary>
+      </div>
     </div>
   )
 }

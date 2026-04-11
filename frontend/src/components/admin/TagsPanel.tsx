@@ -16,6 +16,7 @@ export default function TagsPanel() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editColor, setEditColor] = useState('')
+  const [editName, setEditName] = useState('')
   const [search, setSearch] = useState('')
 
   const load = () => tagsApi.list().then(r => setTags(r.data)).finally(() => setLoading(false))
@@ -35,7 +36,7 @@ export default function TagsPanel() {
   }
 
   const saveColor = async (id: string) => {
-    await tagsApi.updateColor(id, editColor)
+    await tagsApi.update(id, { color: editColor, name: editName })
     setEditingId(null); load()
   }
 
@@ -88,7 +89,8 @@ export default function TagsPanel() {
                 background: 'var(--surface)', border: '1px solid var(--border2)',
                 minWidth: 200,
               }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{t.name}</div>
+                <input className="input" value={editName} onChange={e => setEditName(e.target.value)}
+                  style={{ fontSize: 13, fontWeight: 500 }} />
                 <ColorPicker value={editColor} onChange={setEditColor} />
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-primary" style={{ fontSize: 12, padding: '4px 12px' }}
@@ -105,7 +107,7 @@ export default function TagsPanel() {
                 color: t.color, fontSize: 13, fontWeight: 500, cursor: 'pointer',
                 transition: 'all 0.15s',
               }}
-                onClick={() => { setEditingId(t.id); setEditColor(t.color) }}
+                onClick={() => { setEditingId(t.id); setEditColor(t.color); setEditName(t.name) }}
                 title="Click to edit color"
               >
                 <span style={{ width: 6, height: 6, borderRadius: 3, background: t.color, flexShrink: 0 }} />

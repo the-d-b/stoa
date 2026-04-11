@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { groupsApi, usersApi, tagsApi, Group, User, Tag } from '../../api'
+import { groupsApi, usersApi, Group, User } from '../../api'
 
 export default function GroupsPanel() {
   const [groups, setGroups] = useState<Group[]>([])
   const [users, setUsers] = useState<User[]>([])
-  const [tags, setTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [name, setName] = useState('')
@@ -14,8 +13,8 @@ export default function GroupsPanel() {
   const [search, setSearch] = useState('')
 
   const load = async () => {
-    const [g, u, t] = await Promise.all([groupsApi.list(), usersApi.list(), tagsApi.list()])
-    setGroups(g.data); setUsers(u.data); setTags(t.data); setLoading(false)
+    const [g, u] = await Promise.all([groupsApi.list(), usersApi.list()])
+    setGroups(g.data); setUsers(u.data); setLoading(false)
   }
   useEffect(() => { load() }, [])
 
@@ -50,11 +49,6 @@ export default function GroupsPanel() {
     loadGroup(gid)
   }
 
-  const toggleTag = async (gid: string, tid: string, inGroup: boolean) => {
-    if (inGroup) await groupsApi.removeTag(gid, tid)
-    else await groupsApi.addTag(gid, tid)
-    loadGroup(gid)
-  }
 
   if (loading) return <Loading />
 
@@ -148,36 +142,7 @@ export default function GroupsPanel() {
                     </div>
                   </div>
 
-                  <div>
-                    <div className="section-title">Tag access</div>
-                    {tags.length === 0
-                      ? <p style={{ fontSize: 12, color: 'var(--text-dim)', margin: 0 }}>No tags yet. Create some in the Tags tab.</p>
-                      : (
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                          {tags.map(t => {
-                            const inGroup = g.tags?.some(gt => gt.id === t.id) ?? false
-                            return (
-                              <button key={t.id}
-                                onClick={() => toggleTag(g.id, t.id, inGroup)}
-                                style={{
-                                  display: 'inline-flex', alignItems: 'center', gap: 5,
-                                  padding: '3px 10px', borderRadius: 8, cursor: 'pointer',
-                                  background: inGroup ? t.color + '18' : 'var(--surface)',
-                                  border: `1px solid ${inGroup ? t.color + '50' : 'var(--border)'}`,
-                                  color: inGroup ? t.color : 'var(--text-muted)',
-                                  fontSize: 12, fontWeight: inGroup ? 500 : 400,
-                                  transition: 'all 0.15s',
-                                }}>
-                                <span style={{ width: 6, height: 6, borderRadius: 2, flexShrink: 0,
-                                  background: inGroup ? t.color : 'var(--text-dim)' }} />
-                                {t.name}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )
-                    }
-                  </div>
+
                 </div>
               )}
             </div>

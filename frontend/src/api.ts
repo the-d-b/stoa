@@ -261,6 +261,7 @@ export const integrationsApi = {
   delete: (id: string) => api.delete(`/integrations/${id}`),
   test: (data: { type: string; apiUrl: string; secretId?: string }) =>
     api.post<{ ok: boolean; error?: string }>('/integrations/test', data),
+  getGroups: (id: string) => api.get<string[]>(`/integrations/${id}/groups`),
   setGroups: (id: string, groupIds: string[]) =>
     api.put(`/integrations/${id}/groups`, { groupIds }),
   getPanelData: (panelId: string) => api.get<any>(`/panels/${panelId}/data`),
@@ -281,6 +282,8 @@ export const profileApi = {
     role: string; authProvider: string; avatarUrl: string
   }>('/profile'),
   update: (data: { email: string }) => api.put('/profile', data),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.put('/profile/password', { currentPassword, newPassword }),
   uploadAvatar: (file: File) => {
     const form = new FormData()
     form.append('avatar', file)
@@ -342,6 +345,9 @@ export const myIntegrationsApi = {
 
 export const myTagsApi = {
   list: () => api.get<Tag[]>('/my/tags'),
+  create: (data: { name: string; color: string }) => api.post<Tag>('/my/tags', data),
+  update: (id: string, data: { name: string; color: string }) => api.put(`/my/tags/${id}`, data),
+  delete: (id: string) => api.delete(`/my/tags/${id}`),
 }
 
 export const mySecretsApi = {

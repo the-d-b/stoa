@@ -142,6 +142,14 @@ function OverviewTab() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  // Password change (local users only)
+  const [currentPw, setCurrentPw] = useState('')
+  const [newPw, setNewPw] = useState('')
+  const [confirmPw, setConfirmPw] = useState('')
+  const [pwError, setPwError] = useState('')
+  const [pwSaved, setPwSaved] = useState(false)
+  const [savingPw, setSavingPw] = useState(false)
+  const isLocalUser = user?.authProvider === 'local'
 
   useEffect(() => {
     profileApi.get().then(r => {
@@ -240,6 +248,42 @@ function OverviewTab() {
       </div>
 
       {/* Theme + Density combined */}
+      {/* Password change — local users only */}
+      {isLocalUser && (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Change password</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <input type="password" className="input" value={currentPw}
+              onChange={e => { setCurrentPw(e.target.value); setPwError('') }}
+              placeholder="Current password" />
+            <input type="password" className="input" value={newPw}
+              onChange={e => { setNewPw(e.target.value); setPwError('') }}
+              placeholder="New password" />
+            <input type="password" className="input" value={confirmPw}
+              onChange={e => { setConfirmPw(e.target.value); setPwError('') }}
+              placeholder="Confirm new password" />
+            {pwError && <div style={{ fontSize: 12, color: 'var(--red)' }}>{pwError}</div>}
+            {pwSaved && <div style={{ fontSize: 12, color: 'var(--green)' }}>✓ Password changed</div>}
+            <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+              disabled={savingPw || !currentPw || !newPw || !confirmPw}
+              onClick={async () => {
+                if (newPw !== confirmPw) { setPwError('Passwords do not match'); return }
+                if (newPw.length < 8) { setPwError('Password must be at least 8 characters'); return }
+                setSavingPw(true); setPwError('')
+                try {
+                  await profileApi.changePassword(currentPw, newPw)
+                  setCurrentPw(''); setNewPw(''); setConfirmPw('')
+                  setPwSaved(true); setTimeout(() => setPwSaved(false), 3000)
+                } catch (e: any) {
+                  setPwError(e.response?.data?.error || 'Failed to change password')
+                } finally { setSavingPw(false) }
+              }}>
+              {savingPw ? <span className="spinner" /> : 'Change password'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <ThemeDensityBlock />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
@@ -1925,15 +1969,14 @@ function PersonalIntegrationsTab() {
   }
 
   const load = async () => {
-    const [shared, personal, sysS, myS] = await Promise.all([
+    const [shared, personal, sysS] = await Promise.all([
       integrationsApi.list(),
       myIntegrationsApi.list(),
       secretsApi.list(),
-      mySecretsApi.list(),
     ])
     setShared(shared.data || [])
     setPersonal(personal.data || [])
-    setSecrets([...(sysS.data || []), ...(myS.data || [])])
+    setSecrets(sysS.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -2250,14 +2293,14 @@ function PersonalTagsTab() {
     if (!newName.trim()) return
     setCreating(true)
     try {
-      await tagsApi.create({ name: newName.trim(), color: newColor, scope: 'personal' })
+      await myTagsApi.create({ name: newName.trim(), color: newColor })
       setNewName(''); setShowForm(false); await load()
     } finally { setCreating(false) }
   }
 
   const remove = async (id: string, name: string) => {
     if (!confirm(`Delete tag "${name}"?`)) return
-    await tagsApi.delete(id); await load()
+    await myTagsApi.delete(id); await load()
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
@@ -2370,7 +2413,7 @@ function PersonalTagsTab() {
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                    await tagsApi.update(editId, { name: editName, color: editColor })
+                    await myTagsApi.update(editId, { name: editName, color: editColor })
                     setEditId(null); await load()
                   }}>Save</button>
                   <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setEditId(null)}>Cancel</button>
@@ -2823,7 +2866,7 @@ function MyCalendarModal({ panel, integrations, onClose, onSave }: {
       background: 'rgba(0,0,0,0.5)', display: 'flex',
       alignItems: 'center', justifyContent: 'center',
     }} onClick={onClose}>
-      <div className="card" style={{ padding: 24, maxWidth: 480, width: '90%' }}
+      <div className="card" style={{ padding: 24, maxWidth: 480, width: '90%', maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
           Calendar sources — {panel.title}

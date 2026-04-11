@@ -645,13 +645,22 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 				FROM tags WHERE created_by = 'SYSTEM' ORDER BY name ASC
 			`)
 		} else {
-			// Profile: system tags + user's own tags
+			// Profile: only system tags the user has access to via their groups + user's own tags
 			rows, err = db.Query(`
-				SELECT id, name, color, COALESCE(scope,'shared'), COALESCE(created_by,''), created_at
-				FROM tags
-				WHERE created_by = 'SYSTEM' OR created_by = ?
-				ORDER BY CASE WHEN created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, name ASC
-			`, claims.UserID)
+				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
+				FROM tags t
+				WHERE
+					-- User's own personal tags
+					t.created_by = ?
+					OR
+					-- System tags accessible via user's groups
+					(t.created_by = 'SYSTEM' AND EXISTS (
+						SELECT 1 FROM group_tags gt
+						JOIN user_groups ug ON gt.group_id = ug.group_id
+						WHERE gt.tag_id = t.id AND ug.user_id = ?
+					))
+				ORDER BY CASE WHEN t.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, t.name ASC
+			`, claims.UserID, claims.UserID)
 		}
 
 		if err != nil {
@@ -666,6 +675,32 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 			tags = append(tags, t)
 		}
 		writeJSON(w, http.StatusOK, tags)
+	}
+}
+
+func CreateMyTag(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var req struct {
+			Name  string `json:"name"`
+			Color string `json:"color"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+			writeError(w, http.StatusBadRequest, "name required")
+			return
+		}
+		if req.Color == "" {
+			req.Color = "#6366f1"
+		}
+		id := generateID()
+		_, err := db.Exec(
+			"INSERT INTO tags (id, name, color, created_by) VALUES (?, ?, ?, ?)",
+			id, req.Name, req.Color, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusConflict, "tag already exists")
+			return
+		}
+		writeJSON(w, http.StatusCreated, models.Tag{ID: id, Name: req.Name, Color: req.Color, CreatedBy: claims.UserID})
 	}
 }
 
@@ -702,15 +737,62 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func DeleteMyTag(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		result, _ := db.Exec("DELETE FROM tags WHERE id=? AND created_by=?", id, claims.UserID)
+		if rows, _ := result.RowsAffected(); rows == 0 {
+			writeError(w, http.StatusForbidden, "tag not found or permission denied")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func UpdateMyTag(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		var req struct {
+			Name  string `json:"name"`
+			Color string `json:"color"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		result, err := db.Exec(
+			"UPDATE tags SET name=?, color=? WHERE id=? AND created_by=?",
+			req.Name, req.Color, id, claims.UserID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
+		if rows, _ := result.RowsAffected(); rows == 0 {
+			writeError(w, http.StatusForbidden, "tag not found or permission denied")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
 func UpdateTag(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
-		var req models.UpdateTagRequest
+		var req struct {
+			Name  string `json:"name"`
+			Color string `json:"color"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Color == "" {
 			writeError(w, http.StatusBadRequest, "color required")
 			return
 		}
-		db.Exec("UPDATE tags SET color=? WHERE id=?", req.Color, id)
+		if req.Name != "" {
+			db.Exec("UPDATE tags SET name=?, color=? WHERE id=?", req.Name, req.Color, id)
+		} else {
+			db.Exec("UPDATE tags SET color=? WHERE id=?", req.Color, id)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -924,6 +1006,40 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 		}
 		log.Printf("[USERS] created local user id=%s username=%q", id, req.Username)
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "username": req.Username, "role": req.Role})
+	}
+}
+
+func ChangeOwnPassword(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var req struct {
+			CurrentPassword string `json:"currentPassword"`
+			NewPassword     string `json:"newPassword"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.NewPassword == "" {
+			writeError(w, http.StatusBadRequest, "newPassword required")
+			return
+		}
+		// Verify current password
+		var hash string
+		err := db.QueryRow(
+			"SELECT password_hash FROM users WHERE id=? AND auth_provider='local'",
+			claims.UserID).Scan(&hash)
+		if err != nil {
+			writeError(w, http.StatusForbidden, "not a local user")
+			return
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.CurrentPassword)); err != nil {
+			writeError(w, http.StatusUnauthorized, "current password is incorrect")
+			return
+		}
+		newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to hash password")
+			return
+		}
+		db.Exec("UPDATE users SET password_hash=? WHERE id=?", string(newHash), claims.UserID)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 

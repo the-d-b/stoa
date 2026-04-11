@@ -168,12 +168,27 @@ export default function IntegrationsPanel() {
             onExpand={async () => {
               const next = expandedId === ig.id ? null : ig.id
               setExpandedId(next)
-              if (next && !integrationGroups[next]) {
-                // Lazy load group assignments
-                // For now default to empty until backend returns them with list
-                setIntegrationGroups(prev => ({ ...prev, [next]: [] }))
+              if (next && integrationGroups[next] === undefined) {
+                try {
+                  const res = await integrationsApi.getGroups(next)
+                  setIntegrationGroups(prev => ({ ...prev, [next]: res.data || [] }))
+                } catch {
+                  setIntegrationGroups(prev => ({ ...prev, [next]: [] }))
+                }
               }
             }}
+            onExpandAndEdit={async () => {
+              setExpandedId(ig.id)
+              if (integrationGroups[ig.id] === undefined) {
+                try {
+                  const res = await integrationsApi.getGroups(ig.id)
+                  setIntegrationGroups(prev => ({ ...prev, [ig.id]: res.data || [] }))
+                } catch {
+                  setIntegrationGroups(prev => ({ ...prev, [ig.id]: [] }))
+                }
+              }
+            }}
+
             onDelete={() => remove(ig.id, ig.name)}
             onUpdate={async (data) => { await integrationsApi.update(ig.id, data); await load() }}
           />
@@ -188,12 +203,13 @@ export default function IntegrationsPanel() {
   )
 }
 
-function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGroupsChange, expanded, onExpand, onDelete, onUpdate }: {
+function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGroupsChange, expanded, onExpand, onExpandAndEdit, onDelete, onUpdate }: {
   integration: Integration; secrets: any[]
   groups: any[]; assignedGroups: string[]
   onGroupsChange: (groupIds: string[]) => void
-  expanded: boolean; onExpand: () => void; onDelete: () => void
-  onUpdate: (data: any) => void
+  expanded: boolean; onExpand: () => void
+  onExpandAndEdit: () => void
+  onDelete: () => void; onUpdate: (data: any) => void
 }) {
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(ig.name)
@@ -246,7 +262,10 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
         </div>
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
           <button className="btn btn-ghost" style={{ fontSize: 12 }}
-            onClick={() => setEditing(e => !e)}>Edit</button>
+            onClick={() => {
+                      if (!expanded) { onExpandAndEdit(); setEditing(true) }
+                      else setEditing(e => !e)
+                    }}>Edit</button>
           <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
             onClick={onDelete}>Delete</button>
         </div>
