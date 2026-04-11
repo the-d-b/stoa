@@ -2879,31 +2879,8 @@ function MyCalendarModal({ panel, integrations, onClose, onSave }: {
           Calendar sources — {panel.title}
         </div>
 
-        {sources.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            {sources.map((src, i) => {
-              const ig = integrations.find(ig => ig.id === src.integrationId)
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                  background: 'var(--surface2)', borderRadius: 7, marginBottom: 6,
-                }}>
-                  <span style={{ flex: 1, fontSize: 13 }}>
-                    {ig?.name ?? src.integrationId}
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
-                      {src.daysAhead}d ahead
-                    </span>
-                  </span>
-                  <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-                    onClick={() => setSources(s => s.filter((_, idx) => idx !== i))}>Remove</button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
         {calendarIntegrations.length > 0 ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 16 }}>
             <div style={{ flex: 1 }}>
               <label className="label">Add source</label>
               <select className="input" value={newIntId}
@@ -2925,8 +2902,31 @@ function MyCalendarModal({ panel, integrations, onClose, onSave }: {
             </button>
           </div>
         ) : (
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 20 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 16 }}>
             No integrations available. Add Sonarr, Radarr, or similar in My Integrations first.
+          </div>
+        )}
+
+        {sources.length > 0 && (
+          <div style={{ marginBottom: 16 }}>
+            {sources.map((src, i) => {
+              const ig = integrations.find(ig => ig.id === src.integrationId)
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
+                  background: 'var(--surface2)', borderRadius: 7, marginBottom: 6,
+                }}>
+                  <span style={{ flex: 1, fontSize: 13 }}>
+                    {ig?.name ?? src.integrationId}
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
+                      {src.daysAhead}d ahead
+                    </span>
+                  </span>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                    onClick={() => setSources(s => s.filter((_, idx) => idx !== i))}>Remove</button>
+                </div>
+              )
+            })}
           </div>
         )}
 
