@@ -11,10 +11,8 @@ export default function PanelsAdminPanel() {
   const [newRootId, setNewRootId] = useState('')
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
-  const [showCalConfig, setShowCalConfig] = useState(false)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
-  const [calConfigPanel, setCalConfigPanel] = useState<any>(null)
   const [search, setSearch] = useState('')
   const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
   const [loadingTree, setLoadingTree] = useState(false)
@@ -99,22 +97,7 @@ export default function PanelsAdminPanel() {
       </div>
 
 
-      {/* Calendar source config modal */}
-      {showCalConfig && (
-        <CalendarConfigModal
-          panel={calConfigPanel}
-          integrations={integrations.filter(i => ['sonarr','radarr'].includes(i.type))}
-          onClose={() => { setShowCalConfig(false); setCalConfigPanel(null) }}
-          onSave={async (sources) => {
-            if (calConfigPanel) {
-              const existing = (() => { try { return JSON.parse(calConfigPanel.config||'{}') } catch { return {} } })()
-              await panelsApi.update(calConfigPanel.id, { title: calConfigPanel.title, config: JSON.stringify({ ...existing, sources }) })
-              await load()
-            }
-            setShowCalConfig(false); setCalConfigPanel(null)
-          }}
-        />
-      )}
+
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20, padding: 20 }}>
@@ -143,13 +126,6 @@ export default function PanelsAdminPanel() {
                     <option key={node.id} value={node.id}>{label}</option>
                   ))}
                 </select>
-              </div>
-            )}
-            {newType === 'calendar' && (
-              <div style={{ flex: 1 }}>
-                <label className="label">Configuration</label>
-                <button className="btn btn-secondary" style={{ fontSize: 12 }}
-                  onClick={() => setShowCalConfig(true)}>Configure ↗</button>
               </div>
             )}
             {newType === 'sonarr' && (
@@ -233,15 +209,54 @@ export default function PanelsAdminPanel() {
                       Resize
                     </button>
                   )}
-                  {p.type === 'calendar' && (
-                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                      onClick={() => { setCalConfigPanel(p); setShowCalConfig(true) }}>
-                      Sources
-                    </button>
-                  )}
+
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
                 </div>
               </div>
+
+              {/* Calendar sources - inline */}
+              {p.type === 'calendar' && (() => {
+                const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr','readarr'].includes(i.type))
+                const existingSources: any[] = (() => { try { return JSON.parse(p.config||'{}').sources || [] } catch { return [] } })()
+                return (
+                  <div style={{ marginTop: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Calendar sources</div>
+                    {existingSources.map((src: any, si: number) => {
+                      const ig = integrations.find((i: any) => i.id === src.integrationId)
+                      return (
+                        <div key={si} style={{
+                          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                          background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13,
+                        }}>
+                          <span style={{ flex: 1 }}>
+                            {ig?.name ?? src.integrationId}
+                            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>
+                          </span>
+                          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                            onClick={async () => {
+                              const cfg = (() => { try { return JSON.parse(p.config||'{}') } catch { return {} } })()
+                              const newSources = existingSources.filter((_: any, idx: number) => idx !== si)
+                              await panelsApi.update(p.id, { title: p.title, config: JSON.stringify({ ...cfg, sources: newSources }) })
+                              await load()
+                            }}>Remove</button>
+                        </div>
+                      )
+                    })}
+                    {calIntegrations.length > 0 ? (
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
+                        <AdminCalendarSourceAdder
+                          panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                          integrations={calIntegrations} onAdded={load}
+                        />
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                        No compatible integrations. Add Sonarr, Radarr, etc. in the Integrations tab first.
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Tag assignment */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -338,99 +353,47 @@ function Empty({ message }: { message: string }) {
   return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
 }
 
-// ── Calendar source config modal ──────────────────────────────────────────────
+// ── Inline calendar source adder ─────────────────────────────────────────────
 
-function CalendarConfigModal({ panel, integrations, onClose, onSave }: {
-  panel: any; integrations: Integration[]
-  onClose: () => void; onSave: (sources: any[]) => void
+function AdminCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrations, onAdded }: {
+  panelId: string; panelTitle: string; panelConfig: string
+  integrations: Integration[]; onAdded: () => void
 }) {
-  const existingSources = (() => {
-    try { return JSON.parse(panel?.config || '{}').sources || [] } catch { return [] }
-  })()
-
-  const [sources, setSources] = useState<any[]>(existingSources)
   const [newIntId, setNewIntId] = useState('')
   const [newDays, setNewDays] = useState(14)
+  const [adding, setAdding] = useState(false)
 
-  const addSource = () => {
+  const add = async () => {
     if (!newIntId) return
-    const ig = integrations.find(i => i.id === newIntId)
-    if (!ig) return
-    setSources(s => [...s, { type: ig.type, integrationId: newIntId, daysAhead: newDays }])
-    setNewIntId('')
+    setAdding(true)
+    try {
+      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
+      const ig = integrations.find(i => i.id === newIntId)
+      const sources = [...(cfg.sources || []), { type: ig?.type, integrationId: newIntId, daysAhead: newDays }]
+      await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
+      setNewIntId('')
+      onAdded()
+    } finally { setAdding(false) }
   }
 
-  const removeSource = (i: number) => setSources(s => s.filter((_, idx) => idx !== i))
-
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.5)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center',
-    }} onClick={onClose}>
-      <div className="card" style={{ padding: 24, maxWidth: 480, width: '90%' }}
-        onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
-          Calendar data sources
-        </div>
-
-        {/* Existing sources */}
-        {sources.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            {sources.map((src, i) => {
-              const ig = integrations.find(ig => ig.id === src.integrationId)
-              return (
-                <div key={i} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px',
-                  background: 'var(--surface2)', borderRadius: 7, marginBottom: 6,
-                }}>
-                  <span style={{ flex: 1, fontSize: 13 }}>
-                    {ig?.name ?? src.integrationId}
-                    <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
-                      {src.daysAhead}d ahead
-                    </span>
-                  </span>
-                  <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-                    onClick={() => removeSource(i)}>Remove</button>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Add source */}
-        {integrations.length > 0 ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 20 }}>
-            <div style={{ flex: 1 }}>
-              <label className="label">Add source</label>
-              <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)}
-                style={{ cursor: 'pointer' }}>
-                <option value="">— Select integration —</option>
-                {integrations.map(ig => <option key={ig.id} value={ig.id}>{ig.name} ({ig.type})</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Days ahead</label>
-              <select className="input" value={newDays} onChange={e => setNewDays(Number(e.target.value))}
-                style={{ cursor: 'pointer' }}>
-                <option value={7}>7 days</option>
-                <option value={14}>14 days</option>
-                <option value={30}>30 days</option>
-              </select>
-            </div>
-            <button className="btn btn-secondary" onClick={addSource} disabled={!newIntId}>Add</button>
-          </div>
-        ) : (
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 20 }}>
-            No compatible integrations found. Add a Sonarr or Radarr integration in the Integrations tab first.
-          </p>
-        )}
-
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-primary" onClick={() => onSave(sources)}>Save</button>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        </div>
+    <>
+      <div style={{ flex: 1 }}>
+        <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
+          <option value="">— Select integration —</option>
+          {integrations.map(ig => <option key={ig.id} value={ig.id}>{ig.name} ({ig.type})</option>)}
+        </select>
       </div>
-    </div>
+      <div>
+        <select className="input" value={newDays} onChange={e => setNewDays(Number(e.target.value))} style={{ cursor: 'pointer', width: 100 }}>
+          <option value={7}>7 days</option>
+          <option value={14}>14 days</option>
+          <option value={30}>30 days</option>
+        </select>
+      </div>
+      <button className="btn btn-secondary" onClick={add} disabled={adding || !newIntId}>
+        {adding ? <span className="spinner" /> : 'Add'}
+      </button>
+    </>
   )
 }
