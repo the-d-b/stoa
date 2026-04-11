@@ -2864,12 +2864,17 @@ function MyCalendarModal({ panel, integrations, onClose, onSave }: {
 
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 1000,
-      background: 'rgba(0,0,0,0.5)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center',
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: 'rgba(0,0,0,0.5)',
     }} onClick={onClose}>
-      <div className="card" style={{ padding: 24, maxWidth: 480, width: '90%', maxHeight: '90vh', overflowY: 'auto' }}
-        onClick={e => e.stopPropagation()}>
+      <div className="card" style={{
+        position: 'fixed',
+        top: '50%', left: '50%',
+        transform: 'translate(-50%, -50%)',
+        padding: 24, maxWidth: 480, width: '90%',
+        maxHeight: '85vh', overflowY: 'auto',
+        zIndex: 10000,
+      }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16 }}>
           Calendar sources — {panel.title}
         </div>
