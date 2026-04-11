@@ -393,10 +393,7 @@ function PanelsOrderTab() {
     try {
       const wallId = selectedWall !== 'home' ? selectedWall : null
       const order = panels.map((p, i) => ({ panelId: p.id, position: i + 1 }))
-      console.log('[ProfilePage] saving order wall=' + wallId)
-      order.forEach(o => console.log('  panelId=' + o.panelId + ' position=' + o.position))
       await panelsApi.updateOrder(wallId, order)
-      console.log('[ProfilePage] order saved successfully')
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
   }
@@ -522,9 +519,9 @@ function WallsTab() {
   const [renamingId, setRenamingId] = useState<string | null>(null)
 
   const load = async () => {
-    const [w, sysT, myT] = await Promise.all([porticosApi.list(), tagsApi.list(), myTagsApi.list()])
+    const [w, sysT] = await Promise.all([porticosApi.list(), tagsApi.list()])
     setWalls(w.data || [])
-    setAllTags([...(sysT.data || []), ...(myT.data || [])])
+    setAllTags(sysT.data || [])
   }
 
   useEffect(() => {

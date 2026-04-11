@@ -73,7 +73,6 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		defer rows.Close()
 
 		panels := []models.Panel{}
-		panelCount := 0
 		for rows.Next() {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
@@ -92,7 +91,6 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 				`, claims.UserID, p.ID).Scan(&p.Position)
 			}
 			panels = append(panels, p)
-			panelCount++
 		}
 
 		// Sort by saved position — panels with no saved position (0) go to end

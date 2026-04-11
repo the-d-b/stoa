@@ -27,7 +27,6 @@ export default function DashboardPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        console.log('[Dashboard] loading panels, walls, tags...')
         const [p, w, t] = await Promise.all([
           panelsApi.list(),
           porticosApi.list(),
@@ -38,14 +37,6 @@ export default function DashboardPage() {
           const prefs = await preferencesApi.get()
           setDensity(prefs.data.density || 'normal')
         } catch {}
-        if (p.data) {
-          p.data.forEach((panel: Panel) => {
-            console.log(`[Dashboard] panel=${panel.id} title="${panel.title}" position=${panel.position} scope=${panel.scope}`)
-          })
-        }
-        console.log('[Dashboard] panel order from API:')
-        ;(p.data || []).forEach((panel: any) => console.log(`  panel: ${panel.id} "${panel.title}" pos=${panel.position} scope=${panel.scope}`))
-
         const panelData: Panel[] = p.data || []
         const wallData: Wall[] = w.data || []
         const tagData: Tag[] = t.data || []
@@ -136,7 +127,6 @@ export default function DashboardPage() {
       // Reload panels with Home ordering (no wall_id)
       try {
         const sysRes = await panelsApi.list()
-        console.log('[Dashboard] reloaded panels for Home, count=', sysRes.data?.length)
         setPanels(sysRes.data || [])
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     } else {
@@ -148,7 +138,6 @@ export default function DashboardPage() {
       // Reload panels with this wall's ordering
       try {
         const sysRes = await panelsApi.list(wall.id)
-        console.log('[Dashboard] reloaded panels for wall=' + wall.id + ' count=', sysRes.data?.length)
         setPanels(sysRes.data || [])
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     }
