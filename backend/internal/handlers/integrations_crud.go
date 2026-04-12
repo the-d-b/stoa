@@ -164,6 +164,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 		switch req.Type {
 		case "sonarr", "radarr", "lidarr":
 			err = testArrConnection(req.APIURL, apiKey, req.Type)
+		case "plex":
+			err = testPlexConnection(req.APIURL, apiKey)
+		case "tautulli":
+			err = testTautulliConnection(req.APIURL, apiKey)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}

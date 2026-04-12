@@ -15,10 +15,12 @@ var timeNow = time.Now
 // PANEL_RENDERERS maps panel types to their fetch functions.
 // Add new integrations here.
 var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{}, error){
-	"sonarr":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSonarrPanelData(db, cfg) },
-	"radarr":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRadarrPanelData(db, cfg) },
-	"lidarr":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLidarrPanelData(db, cfg) },
+	"sonarr":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSonarrPanelData(db, cfg) },
+	"radarr":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRadarrPanelData(db, cfg) },
+	"lidarr":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLidarrPanelData(db, cfg) },
 	"calendar": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCalendarData(db, cfg) },
+	"plex":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPlexPanelData(db, cfg) },
+	"tautulli": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTautulliPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

@@ -6,6 +6,7 @@ const INTEGRATION_TYPES = [
   { id: 'radarr',  label: 'Radarr',  desc: 'Movie management' },
   { id: 'lidarr',  label: 'Lidarr',  desc: 'Music management' },
   { id: 'plex',    label: 'Plex',    desc: 'Media server' },
+  { id: 'tautulli', label: 'Tautulli', desc: 'Plex analytics' },
   { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },
 ]
