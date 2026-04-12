@@ -8,13 +8,14 @@ import (
 )
 
 type LidarrPanelData struct {
-	UIURL        string         `json:"uiUrl"`
-	Upcoming     []LidarrAlbum  `json:"upcoming"`
-	History      []LidarrAlbum  `json:"history"`
-	ArtistCount  int            `json:"artistCount"`
-	AlbumCount   int            `json:"albumCount"`
-	OnDiskCount  int            `json:"onDiskCount"`
-	Missing      []LidarrAlbum  `json:"missing"`
+	UIURL        string        `json:"uiUrl"`
+	Upcoming     []LidarrAlbum `json:"upcoming"`
+	History      []LidarrAlbum `json:"history"`
+	Missing      []LidarrAlbum `json:"missing"`
+	MissingCount int           `json:"missingCount"`
+	ArtistCount  int           `json:"artistCount"`
+	AlbumCount   int           `json:"albumCount"`
+	OnDiskCount  int           `json:"onDiskCount"`
 }
 
 type LidarrAlbum struct {
@@ -98,6 +99,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 			}
 		}
 	}
+	data.MissingCount = len(data.Missing)
 	return data, nil
 }
 
