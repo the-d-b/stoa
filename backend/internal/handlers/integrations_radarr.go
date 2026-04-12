@@ -8,23 +8,23 @@ import (
 )
 
 type RadarrPanelData struct {
-	UIURL       string         `json:"uiUrl"`
-	Upcoming    []RadarrMovie  `json:"upcoming"`
-	History     []RadarrMovie  `json:"history"`
-	Missing     []RadarrMovie  `json:"missing"`
-	MovieCount  int            `json:"movieCount"`
-	OnDiskCount int            `json:"onDiskCount"`
+	UIURL        string        `json:"uiUrl"`
+	History      []RadarrMovie `json:"history"`
+	Missing      []RadarrMovie `json:"missing"`
+	MissingCount int           `json:"missingCount"`
+	MovieCount   int           `json:"movieCount"`
+	OnDiskCount  int           `json:"onDiskCount"`
 }
 
 type RadarrMovie struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	TitleSlug   string `json:"titleSlug"`
-	Year        int    `json:"year"`
-	InCinemas   string `json:"inCinemas,omitempty"`
-	DigitalDate string `json:"digitalRelease,omitempty"`
-	HasFile     bool   `json:"hasFile"`
-	Date        string `json:"date,omitempty"`
+	ID              int    `json:"id"`
+	Title           string `json:"title"`
+	TitleSlug       string `json:"titleSlug"`
+	Year            int    `json:"year"`
+	DigitalRelease  string `json:"digitalRelease,omitempty"`
+	PhysicalRelease string `json:"physicalRelease,omitempty"`
+	HasFile         bool   `json:"hasFile"`
+	Date            string `json:"date,omitempty"`
 }
 
 func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPanelData, error) {
@@ -37,20 +37,6 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 		return nil, err
 	}
 	data := &RadarrPanelData{UIURL: uiURL}
-
-	// Upcoming releases — calendar endpoint
-	upcStart := timeNow().Format("2006-01-02")
-	upcEnd := timeNow().AddDate(0, 0, 90).Format("2006-01-02")
-	upcoming, err := arrGet(apiURL, apiKey,
-		fmt.Sprintf("/api/v3/calendar?start=%s&end=%s&unmonitored=true", upcStart, upcEnd))
-	if err == nil {
-		var movies []map[string]interface{}
-		json.Unmarshal(upcoming, &movies)
-		for _, m := range movies {
-			movie := radarrMovieFromMap(m)
-			data.Upcoming = append(data.Upcoming, movie)
-		}
-	}
 
 	// Recent history
 	hist, err := arrGet(apiURL, apiKey,
@@ -85,11 +71,9 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 				data.Missing = append(data.Missing, mv)
 			}
 		}
-		// Cap missing list
-		if len(data.Missing) > 20 {
-			data.Missing = data.Missing[:20]
-		}
+
 	}
+	data.MissingCount = len(data.Missing)
 	return data, nil
 }
 
@@ -100,7 +84,7 @@ func radarrMovieFromMap(m map[string]interface{}) RadarrMovie {
 	if y, ok := m["year"].(float64); ok { mv.Year = int(y) }
 	if i, ok := m["id"].(float64); ok { mv.ID = int(i) }
 	mv.HasFile = m["hasFile"] == true
-	mv.InCinemas, _ = m["inCinemas"].(string)
-	mv.DigitalDate, _ = m["digitalRelease"].(string)
+	mv.DigitalRelease, _ = m["digitalRelease"].(string)
+	mv.PhysicalRelease, _ = m["physicalRelease"].(string)
 	return mv
 }

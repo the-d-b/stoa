@@ -59,12 +59,16 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			json.Unmarshal(upcoming, &movies)
 			for _, m := range movies {
 				title, _ := m["title"].(string)
-				date, _ := m["inCinemas"].(string)
-				if d, ok := m["digitalRelease"].(string); ok && d != "" { date = d }
+				titleSlug, _ := m["titleSlug"].(string)
+				// Prefer digital release date, fall back to physical, then cinemas
+				date, _ := m["digitalRelease"].(string)
+				if date == "" { date, _ = m["physicalRelease"].(string) }
+				if date == "" { date, _ = m["inCinemas"].(string) }
 				events = append(events, map[string]interface{}{
 					"source": "radarr", "date": date,
-					"title": title, "uiUrl": uiURL,
-					"color": "#f59e0b", "hasFile": m["hasFile"] == true,
+					"title": title, "titleSlug": titleSlug,
+					"uiUrl": uiURL, "color": "#f59e0b",
+					"hasFile": m["hasFile"] == true,
 				})
 			}
 
@@ -77,12 +81,19 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			for _, a := range albums {
 				title, _ := a["title"].(string)
 				date, _ := a["releaseDate"].(string)
+				foreignAlbumId, _ := a["foreignAlbumId"].(string)
 				artist, _ := a["artist"].(map[string]interface{})
 				artistName := ""
-				if artist != nil { artistName, _ = artist["artistName"].(string) }
+				foreignArtistId := ""
+				if artist != nil {
+					artistName, _ = artist["artistName"].(string)
+					foreignArtistId, _ = artist["foreignArtistId"].(string)
+				}
 				events = append(events, map[string]interface{}{
 					"source": "lidarr", "date": date,
 					"title": fmt.Sprintf("%s — %s", artistName, title),
+					"artistName": artistName, "albumTitle": title,
+					"foreignAlbumId": foreignAlbumId, "foreignArtistId": foreignArtistId,
 					"uiUrl": uiURL, "color": "#a78bfa",
 				})
 			}

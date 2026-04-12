@@ -19,7 +19,12 @@ const NavBtn = ({ onClick, label }: { onClick: () => void; label: string }) => (
 
 interface CalendarEvent {
   date: string; title: string; color: string; source: string; hasFile?: boolean
+  // Sonarr
   seriesTitle?: string; epTitle?: string; titleSlug?: string; uiUrl?: string
+  // Radarr
+  foreignAlbumId?: string
+  // Lidarr
+  artistName?: string; albumTitle?: string; foreignArtistId?: string
 }
 
 export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -203,9 +208,16 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
             {hasSources ? 'No events' : 'No data sources — configure in Admin → Panels'}
           </div>
         ) : eventsForSelected.map((ev, i) => {
-          const href = ev.uiUrl && ev.titleSlug
-            ? `${ev.uiUrl}/series/${ev.titleSlug}`
-            : ev.titleSlug ? `https://www.thetvdb.com/series/${ev.titleSlug}` : null
+          const href = (() => {
+            if (!ev.uiUrl) return null
+            if (ev.source === 'sonarr' && ev.titleSlug) return `${ev.uiUrl}/series/${ev.titleSlug}`
+            if (ev.source === 'radarr' && ev.titleSlug) return `${ev.uiUrl}/movie/${ev.titleSlug}`
+            if (ev.source === 'lidarr' && ev.foreignArtistId) return `${ev.uiUrl}/artist/${ev.foreignArtistId}`
+            if (ev.source === 'readarr') return ev.uiUrl
+            return null
+          })()
+          const displayTitle = ev.source === 'sonarr' ? (ev.seriesTitle || ev.title) : ev.title
+          const displaySub = ev.source === 'sonarr' ? ev.epTitle : null
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
@@ -215,11 +227,11 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
                       style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
                       onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
                       onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
-                      {ev.seriesTitle || ev.title}
+                      {displayTitle}
                     </a>
-                  : <span style={{ fontWeight: 500 }}>{ev.seriesTitle || ev.title}</span>
+                  : <span style={{ fontWeight: 500 }}>{displayTitle}</span>
                 }
-                {ev.epTitle && <span style={{ color: 'var(--text-dim)' }}> — {ev.epTitle}</span>}
+                {displaySub && <span style={{ color: 'var(--text-dim)' }}> — {displaySub}</span>}
               </span>
             </div>
           )

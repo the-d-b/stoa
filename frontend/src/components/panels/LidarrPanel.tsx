@@ -2,46 +2,91 @@ import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
 
 interface LidarrAlbum {
-  id: number; title: string; artistName: string; foreignAlbumId?: string
-  releaseDate?: string; hasFile: boolean; date?: string
+  id: number; title: string; artistName: string
+  releaseDate?: string; date?: string
 }
 interface LidarrData {
   uiUrl: string
-  upcoming: LidarrAlbum[]; history: LidarrAlbum[]; missing: LidarrAlbum[]
-  artistCount: number; albumCount: number; onDiskCount: number
+  history: LidarrAlbum[]; missing: LidarrAlbum[]
+  missingCount: number; artistCount: number; albumCount: number; onDiskCount: number
 }
 
 function formatDate(iso: string) {
   if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
 const linkStyle: React.CSSProperties = { color: 'inherit', textDecoration: 'none', fontWeight: 500 }
 const linkHover = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = 'underline' }
 const linkOut  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = 'none' }
 
-function AlbumLink({ uiUrl, artistName, title }: { uiUrl: string; artistName: string; title: string }) {
+function ArtistLink({ uiUrl, artistName }: { uiUrl: string; artistName: string }) {
   const href = uiUrl
     ? `${uiUrl}/artist`
     : `https://musicbrainz.org/search?query=${encodeURIComponent(artistName)}&type=artist`
   return (
-    <span>
-      <a href={href} target="_blank" rel="noopener noreferrer"
-        style={{ ...linkStyle, color: 'var(--text-muted)', fontWeight: 400 }}
-        onMouseOver={linkHover} onMouseOut={linkOut}>
-        {artistName}
-      </a>
-      {artistName && title && <span style={{ color: 'var(--text-dim)', margin: '0 4px' }}>—</span>}
-      <span style={{ fontWeight: 500 }}>{title}</span>
-    </span>
+    <a href={href} target="_blank" rel="noopener noreferrer"
+      style={{ ...linkStyle, color: 'var(--text-muted)', fontWeight: 400 }}
+      onMouseOver={linkHover} onMouseOut={linkOut}>
+      {artistName}
+    </a>
+  )
+}
+
+function groupByArtist(albums: LidarrAlbum[]) {
+  const groups: { artistName: string; albums: LidarrAlbum[] }[] = []
+  for (const a of albums) {
+    const existing = groups.find(g => g.artistName === a.artistName)
+    if (existing) existing.albums.push(a)
+    else groups.push({ artistName: a.artistName, albums: [a] })
+  }
+  return groups
+}
+
+function HistoryGroups({ groups, uiUrl }: { groups: ReturnType<typeof groupByArtist>; uiUrl: string }) {
+  return (
+    <>
+      {groups.map(group => (
+        <div key={group.artistName} style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <ArtistLink uiUrl={uiUrl} artistName={group.artistName} />
+            <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
+          </div>
+          {group.albums.map((a, i) => {
+            const date = a.date || a.releaseDate || ''
+            return (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
+                padding: '1px 0 1px 8px', fontSize: 11 }}>
+                <span style={{ flex: 1, color: 'var(--text-muted)', overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {a.title}
+                </span>
+                {date && (
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
+                    {formatDate(date)}
+                  </span>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ))}
+    </>
   )
 }
 
 export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<LidarrData | null>(null)
+  const [missingSample, setMissingSample] = useState<LidarrAlbum[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+
+  const SAMPLE_SIZE = 8
+
+  const resample = (missing: LidarrAlbum[]) => {
+    const shuffled = [...missing].sort(() => Math.random() - 0.5)
+    setMissingSample(shuffled.slice(0, SAMPLE_SIZE))
+  }
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const refreshSecs = config.refreshSecs || 300
@@ -49,7 +94,9 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
   const load = useCallback(async () => {
     try {
       const res = await integrationsApi.getPanelData(panel.id)
-      setData(res.data); setError('')
+      setData(res.data)
+      resample(res.data.missing || [])
+      setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
@@ -66,6 +113,7 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
   if (!data)   return null
 
   const uiUrl = data.uiUrl || ''
+  const historyGroups = groupByArtist(data.history || [])
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
@@ -89,54 +137,35 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
     </div>
   )
 
-  const AlbumRow = ({ a, showDate }: { a: LidarrAlbum; showDate?: boolean }) => {
-    const date = a.date || a.releaseDate || ''
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8,
-        padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          <AlbumLink uiUrl={uiUrl} artistName={a.artistName} title={a.title} />
-        </span>
-        {showDate && date && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
-            {formatDate(date)}
-          </span>
-        )}
-      </div>
-    )
-  }
-
   if (heightUnits <= 1) return <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>{statsBar}</div>
 
-  if (heightUnits < 3) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      {statsBar}
-      {sectionTitle('Recently downloaded')}
-      {(data.history || []).length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
-        : (data.history || []).map((a, i) => <AlbumRow key={i} a={a} showDate />)
-      }
-    </div>
-  )
-
+  // 2x and above — stats + history grouped by artist
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       {statsBar}
-      {(data.upcoming || []).length > 0 && (
-        <>
-          {sectionTitle('Upcoming releases')}
-          {data.upcoming.map((a, i) => <AlbumRow key={i} a={a} showDate />)}
-        </>
-      )}
       {sectionTitle('Recently downloaded')}
-      {(data.history || []).length === 0
+      {historyGroups.length === 0
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
-        : (data.history || []).map((a, i) => <AlbumRow key={i} a={a} showDate />)
+        : <HistoryGroups groups={historyGroups} uiUrl={uiUrl} />
       }
-      {heightUnits >= 4 && (data.missing || []).length > 0 && (
+      {heightUnits >= 4 && (data.missingCount || 0) > 0 && (
         <>
-          {sectionTitle(`Wanted (${data.missing.length})`)}
-          {data.missing.map((a, i) => <AlbumRow key={i} a={a} showDate />)}
+          {sectionTitle(`Wanted — ${data.missingCount} total`)}
+          {missingSample.map((a, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+              padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <ArtistLink uiUrl={uiUrl} artistName={a.artistName} />
+                {a.artistName && a.title && <span style={{ color: 'var(--text-dim)', margin: '0 4px' }}>—</span>}
+                <span>{a.title}</span>
+              </span>
+              {a.releaseDate && (
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
+                  {formatDate(a.releaseDate)}
+                </span>
+              )}
+            </div>
+          ))}
         </>
       )}
     </div>
