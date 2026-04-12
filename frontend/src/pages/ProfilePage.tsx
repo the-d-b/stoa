@@ -1943,6 +1943,7 @@ function PersonalIntegrationsTab() {
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState('sonarr')
   const [newApiUrl, setNewApiUrl] = useState('')
+  const [newSkipTls, setNewSkipTls] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
@@ -1982,7 +1983,7 @@ function PersonalIntegrationsTab() {
     if (!newApiUrl) return
     setTesting(true); setTestResult(null)
     try {
-      const res = await integrationsApi.test({ type: newType, apiUrl: newApiUrl, secretId: newSecretId || undefined })
+      const res = await integrationsApi.test({ type: newType, apiUrl: newApiUrl, secretId: newSecretId || undefined, skipTls: newSkipTls })
       setTestResult(res.data)
     } catch { setTestResult({ ok: false, error: 'Request failed' }) }
     finally { setTesting(false) }
@@ -1992,7 +1993,7 @@ function PersonalIntegrationsTab() {
     if (!newName || !newApiUrl) return
     setCreating(true)
     try {
-      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined, scope: 'personal' })
+      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined, skipTls: newSkipTls, scope: 'personal' })
       setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null)
       await load()
       setShowForm(false)
@@ -2140,6 +2141,11 @@ function PersonalIntegrationsTab() {
                 color: testResult.ok ? 'var(--green)' : 'var(--red)',
               }}>{testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}</div>
             )}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', marginBottom: 4 }}>
+              <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
+              Skip TLS verification
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
+            </label>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
                 {testing ? <span className="spinner" /> : 'Test'}

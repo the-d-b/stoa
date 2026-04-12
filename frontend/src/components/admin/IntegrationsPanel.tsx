@@ -27,6 +27,7 @@ export default function IntegrationsPanel() {
   const [newApiUrl, setNewApiUrl] = useState('')
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
+  const [newSkipTls, setNewSkipTls] = useState(false)
   const [creating, setCreating] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
@@ -67,10 +68,10 @@ export default function IntegrationsPanel() {
       await integrationsApi.create({
         name: newName, type: newType,
         apiUrl: newApiUrl, uiUrl: newUiUrl,
-        secretId: newSecretId || undefined,
+        secretId: newSecretId || undefined, skipTls: newSkipTls,
       })
       setNewName(''); setNewApiUrl(''); setNewUiUrl('')
-      setNewSecretId(''); setTestResult(null); setShowForm(false)
+      setNewSecretId(''); setNewSkipTls(false); setTestResult(null); setShowForm(false)
       await load()
     } finally { setCreating(false) }
   }
@@ -146,6 +147,11 @@ export default function IntegrationsPanel() {
               <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
                 {testing ? <span className="spinner" /> : 'Test connection'}
               </button>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', marginBottom: 8 }}>
+                <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
+                Skip TLS verification
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
+              </label>
               <button className="btn btn-primary" onClick={create} disabled={creating || !newName || !newApiUrl}>
                 {creating ? <span className="spinner" /> : 'Create'}
               </button>
@@ -216,12 +222,14 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const [apiUrl, setApiUrl] = useState(ig.apiUrl)
   const [uiUrl, setUiUrl] = useState(ig.uiUrl)
   const [secretId, setSecretId] = useState(ig.secretId || '')
+  const [skipTls, setSkipTls] = useState(ig.skipTls || false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
 
   useEffect(() => {
     setName(ig.name); setApiUrl(ig.apiUrl)
     setUiUrl(ig.uiUrl); setSecretId(ig.secretId || '')
+    setSkipTls(ig.skipTls || false)
     setTestResult(null)
   }, [ig])
 
@@ -230,7 +238,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const test = async () => {
     setTesting(true); setTestResult(null)
     try {
-      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined })
+      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined, skipTls })
       setTestResult(res.data)
     } catch { setTestResult({ ok: false, error: 'Request failed' }) }
     finally { setTesting(false) }
@@ -307,12 +315,17 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
                 </div>
               )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={skipTls} onChange={e => setSkipTls(e.target.checked)} />
+                Skip TLS verification
+                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
+              </label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-secondary" onClick={test} disabled={testing}>
                   {testing ? <span className="spinner" /> : 'Test'}
                 </button>
                 <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => {
-                  onUpdate({ name, apiUrl, uiUrl, secretId: secretId || '' })
+                  onUpdate({ name, apiUrl, uiUrl, secretId: secretId || '', skipTls })
                   setEditing(false)
                 }}>Save</button>
                 <button className="btn btn-ghost" style={{ fontSize: 12 }}

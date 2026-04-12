@@ -246,6 +246,7 @@ export interface Integration {
   uiUrl: string
   secretId: string | null
   scope: string
+  skipTls: boolean
   enabled: boolean
   createdBy: string
   createdAt: string
@@ -254,12 +255,12 @@ export interface Integration {
 
 export const integrationsApi = {
   list: () => api.get<Integration[]>('/integrations'),
-  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; secretId?: string; scope?: string }) =>
+  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; secretId?: string; skipTls?: boolean; scope?: string }) =>
     api.post<{ id: string }>('/integrations', data),
-  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; enabled: boolean }>) =>
+  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; skipTls: boolean; enabled: boolean }>) =>
     api.put(`/integrations/${id}`, data),
   delete: (id: string) => api.delete(`/integrations/${id}`),
-  test: (data: { type: string; apiUrl: string; secretId?: string }) =>
+  test: (data: { type: string; apiUrl: string; secretId?: string; skipTls?: boolean }) =>
     api.post<{ ok: boolean; error?: string }>('/integrations/test', data),
   getGroups: (id: string) => api.get<string[]>(`/integrations/${id}/groups`),
   setGroups: (id: string, groupIds: string[]) =>
@@ -460,6 +461,7 @@ export interface Integration {
   uiUrl: string
   secretId: string | null
   scope: string
+  skipTls: boolean
   enabled: boolean
   createdBy: string
   createdAt: string

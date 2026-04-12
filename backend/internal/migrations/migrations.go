@@ -358,6 +358,13 @@ var migrations = []migration{
 			);
 		`,
 	},
+	{
+		version: 13,
+		name:    "integration_skip_tls",
+		up: `
+			ALTER TABLE integrations ADD COLUMN skip_tls INTEGER NOT NULL DEFAULT 0;
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {
