@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -156,7 +157,7 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 		if req.SecretID != "" {
 			var enc string
 			if err := db.QueryRow("SELECT value FROM secrets WHERE id=?", req.SecretID).Scan(&enc); err == nil {
-				apiKey, _ = decryptSecret(enc)
+				apiKey = decryptSecret(enc)
 			}
 		}
 		var err error
@@ -260,7 +261,7 @@ func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, er
 	if secretID.Valid {
 		var enc string
 		if dbErr := db.QueryRow("SELECT value FROM secrets WHERE id=?", secretID.String).Scan(&enc); dbErr == nil {
-			apiKey, _ = decryptSecret(enc)
+			apiKey = decryptSecret(enc)
 		}
 	}
 	return

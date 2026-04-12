@@ -97,8 +97,3 @@ func getCachedArr(apiURL, apiKey, itemType string) ([]map[string]interface{}, er
 	return items, nil
 }
 
-// stringVal safely extracts a string from a map.
-func stringVal(m map[string]interface{}, key string) string {
-	v, _ := m[key].(string)
-	return v
-}
