@@ -2453,6 +2453,9 @@ function PersonalTagsTab() {
 const PANEL_TYPES = [
   { id: 'bookmarks', label: 'Bookmarks',  desc: 'Bookmark tree panel' },
   { id: 'sonarr',    label: 'Sonarr',     desc: 'TV show tracking' },
+  { id: 'radarr',    label: 'Radarr',     desc: 'Movie tracking' },
+  { id: 'lidarr',    label: 'Lidarr',     desc: 'Music tracking' },
+  { id: 'readarr',   label: 'Readarr',    desc: 'Book tracking' },
   { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
   { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
   { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
@@ -2533,7 +2536,7 @@ function MyPanelsTab() {
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
-  const needsIntegration = ['sonarr', 'radarr'].includes(newType)
+  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'readarr'].includes(newType)
   const compatibleIntegrations = integrations.filter(i =>
     newType === 'calendar' ? true : i.type === newType
   )

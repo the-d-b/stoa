@@ -58,7 +58,7 @@ export default function PanelsAdminPanel() {
   const create = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
-    const config = newType === 'sonarr'
+    const config = ['sonarr','radarr','lidarr','readarr'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300 })
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
@@ -113,6 +113,9 @@ export default function PanelsAdminPanel() {
                 <option value="bookmarks">Bookmarks</option>
                 <option value="calendar">Calendar</option>
                 <option value="sonarr">Sonarr</option>
+                <option value="radarr">Radarr</option>
+                <option value="lidarr">Lidarr</option>
+                <option value="readarr">Readarr</option>
               </select>
             </div>
             {newType === 'bookmarks' && (
@@ -128,13 +131,13 @@ export default function PanelsAdminPanel() {
                 </select>
               </div>
             )}
-            {newType === 'sonarr' && (
+            {['sonarr','radarr','lidarr','readarr'].includes(newType) && (
               <div style={{ flex: 1 }}>
                 <label className="label">Integration</label>
                 <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
                   style={{ cursor: 'pointer' }}>
                   <option value="">— Select integration —</option>
-                  {integrations.filter(i => i.type === 'sonarr').map(i => (
+                  {integrations.filter(i => i.type === newType).map(i => (
                     <option key={i.id} value={i.id}>{i.name}</option>
                   ))}
                 </select>
