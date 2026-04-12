@@ -69,8 +69,6 @@ func getCachedArr(apiURL, apiKey, itemType string) ([]map[string]interface{}, er
 		path = "/api/v3/movie"
 	case "lidarr":
 		path = "/api/v1/artist"
-	case "readarr":
-		path = "/api/v1/book"
 	default: // sonarr
 		path = "/api/v3/series"
 	}

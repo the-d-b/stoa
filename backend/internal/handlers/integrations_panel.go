@@ -18,7 +18,6 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"sonarr":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSonarrPanelData(db, cfg) },
 	"radarr":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRadarrPanelData(db, cfg) },
 	"lidarr":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLidarrPanelData(db, cfg) },
-	"readarr": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchReadarrPanelData(db, cfg) },
 	"calendar": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCalendarData(db, cfg) },
 }
 

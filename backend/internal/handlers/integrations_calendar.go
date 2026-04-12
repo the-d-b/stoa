@@ -98,24 +98,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				})
 			}
 
-		case "readarr":
-			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v1/calendar?start=%s&end=%s&unmonitored=true&includeAuthor=true", calStart, calEnd))
-			if err != nil { continue }
-			var books []map[string]interface{}
-			json.Unmarshal(upcoming, &books)
-			for _, b := range books {
-				title, _ := b["title"].(string)
-				date, _ := b["releaseDate"].(string)
-				author, _ := b["author"].(map[string]interface{})
-				authorName := ""
-				if author != nil { authorName, _ = author["authorName"].(string) }
-				events = append(events, map[string]interface{}{
-					"source": "readarr", "date": date,
-					"title": fmt.Sprintf("%s — %s", authorName, title),
-					"uiUrl": uiURL, "color": "#34d399",
-				})
-			}
 		}
 	}
 

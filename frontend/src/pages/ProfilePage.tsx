@@ -1924,7 +1924,6 @@ const INTEGRATION_TYPES = [
   { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
   { id: 'radarr',  label: 'Radarr',  desc: 'Movie management' },
   { id: 'lidarr',  label: 'Lidarr',  desc: 'Music management' },
-  { id: 'readarr', label: 'Readarr', desc: 'Book management' },
   { id: 'plex',    label: 'Plex',    desc: 'Media server' },
   { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },
@@ -2455,7 +2454,6 @@ const PANEL_TYPES = [
   { id: 'sonarr',    label: 'Sonarr',     desc: 'TV show tracking' },
   { id: 'radarr',    label: 'Radarr',     desc: 'Movie tracking' },
   { id: 'lidarr',    label: 'Lidarr',     desc: 'Music tracking' },
-  { id: 'readarr',   label: 'Readarr',    desc: 'Book tracking' },
   { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
   { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
   { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
@@ -2536,7 +2534,7 @@ function MyPanelsTab() {
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
-  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'readarr'].includes(newType)
+  const needsIntegration = ['sonarr', 'radarr', 'lidarr'].includes(newType)
   const compatibleIntegrations = integrations.filter(i =>
     newType === 'calendar' ? true : i.type === newType
   )
@@ -2734,7 +2732,7 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','lidarr','readarr'].includes(p.type) && (
+                  {['sonarr','radarr','lidarr'].includes(p.type) && (
                     <div>
                       <label className="label">Integration</label>
                       <select className="input" style={{ cursor: 'pointer' }}
@@ -2756,7 +2754,7 @@ function MyPanelsTab() {
                   {/* Calendar sources */}
                   {p.type === 'calendar' && (() => {
                     const existingSources: any[] = (() => { try { return JSON.parse(p.config || '{}').sources || [] } catch { return [] } })()
-                    const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr','readarr'].includes(i.type))
+                    const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr'].includes(i.type))
                     return (
                       <div>
                         <label className="label">Calendar sources</label>
@@ -2838,7 +2836,7 @@ function MyPanelsTab() {
                           const newCfg = { ...cfg, height: editHeight }
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
-                          if (['sonarr','radarr','lidarr','readarr'].includes(p.type)) newCfg.integrationId = editIntegrationId
+                          if (['sonarr','radarr','lidarr'].includes(p.type)) newCfg.integrationId = editIntegrationId
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
                           setExpandedPanelId(null)
                           await load()

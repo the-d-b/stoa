@@ -162,7 +162,7 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		var err error
 		switch req.Type {
-		case "sonarr", "radarr", "lidarr", "readarr":
+		case "sonarr", "radarr", "lidarr":
 			err = testArrConnection(req.APIURL, apiKey, req.Type)
 		default:
 			err = testGenericConnection(req.APIURL)
@@ -268,9 +268,9 @@ func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, er
 }
 
 func testArrConnection(apiURL, apiKey, intType string) error {
-	// Sonarr/Radarr use v3, Lidarr/Readarr use v1
+	// Sonarr/Radarr use v3, Lidarr uses v1
 	apiVersion := "v3"
-	if intType == "lidarr" || intType == "readarr" {
+	if intType == "lidarr" {
 		apiVersion = "v1"
 	}
 	body, err := arrGet(apiURL, apiKey, "/api/"+apiVersion+"/system/status")

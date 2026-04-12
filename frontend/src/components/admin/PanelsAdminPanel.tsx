@@ -58,7 +58,7 @@ export default function PanelsAdminPanel() {
   const create = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
-    const config = ['sonarr','radarr','lidarr','readarr'].includes(newType)
+    const config = ['sonarr','radarr','lidarr'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300 })
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
@@ -115,7 +115,6 @@ export default function PanelsAdminPanel() {
                 <option value="sonarr">Sonarr</option>
                 <option value="radarr">Radarr</option>
                 <option value="lidarr">Lidarr</option>
-                <option value="readarr">Readarr</option>
               </select>
             </div>
             {newType === 'bookmarks' && (
@@ -131,7 +130,7 @@ export default function PanelsAdminPanel() {
                 </select>
               </div>
             )}
-            {['sonarr','radarr','lidarr','readarr'].includes(newType) && (
+            {['sonarr','radarr','lidarr'].includes(newType) && (
               <div style={{ flex: 1 }}>
                 <label className="label">Integration</label>
                 <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
@@ -219,7 +218,7 @@ export default function PanelsAdminPanel() {
 
               {/* Calendar sources - inline */}
               {p.type === 'calendar' && (() => {
-                const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr','readarr'].includes(i.type))
+                const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr'].includes(i.type))
                 const existingSources: any[] = (() => { try { return JSON.parse(p.config||'{}').sources || [] } catch { return [] } })()
                 return (
                   <div style={{ marginTop: 8 }}>

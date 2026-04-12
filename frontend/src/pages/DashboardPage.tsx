@@ -7,7 +7,6 @@ import CalendarPanel from '../components/panels/CalendarPanel'
 import SonarrPanel from '../components/panels/SonarrPanel'
 import RadarrPanel from '../components/panels/RadarrPanel'
 import LidarrPanel from '../components/panels/LidarrPanel'
-import ReadarrPanel from '../components/panels/ReadarrPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -620,7 +619,6 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
           {panel.type === 'sonarr' && <SonarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'radarr' && <RadarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'lidarr' && <LidarrPanel panel={panel} heightUnits={heightUnits} />}
-          {panel.type === 'readarr' && <ReadarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

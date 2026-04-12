@@ -5,7 +5,6 @@ const INTEGRATION_TYPES = [
   { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
   { id: 'radarr',  label: 'Radarr',  desc: 'Movie management' },
   { id: 'lidarr',  label: 'Lidarr',  desc: 'Music management' },
-  { id: 'readarr', label: 'Readarr', desc: 'Book management' },
   { id: 'plex',    label: 'Plex',    desc: 'Media server' },
   { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },

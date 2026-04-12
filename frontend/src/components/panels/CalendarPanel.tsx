@@ -231,7 +231,6 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
             if (ev.source === 'sonarr' && ev.titleSlug) return `${ev.uiUrl}/series/${ev.titleSlug}`
             if (ev.source === 'radarr' && ev.titleSlug) return `${ev.uiUrl}/movie/${ev.titleSlug}`
             if (ev.source === 'lidarr' && ev.foreignArtistId) return `${ev.uiUrl}/artist/${ev.foreignArtistId}`
-            if (ev.source === 'readarr') return ev.uiUrl
             return null
           })()
           const displayTitle = ev.source === 'sonarr' ? (ev.seriesTitle || ev.title) : ev.title
