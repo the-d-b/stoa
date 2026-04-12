@@ -8,13 +8,14 @@ import (
 )
 
 type SonarrPanelData struct {
-	UIURL        string          `json:"uiUrl"`
-	Upcoming     []SonarrEpisode `json:"upcoming"`
-	History      []SonarrHistory `json:"history"`
-	ZeroByte     []SonarrSeries  `json:"zeroByte"`
-	SeriesCount  int             `json:"seriesCount"`
-	EpisodeCount int             `json:"episodeCount"`
-	OnDiskCount  int             `json:"onDiskCount"`
+	UIURL          string          `json:"uiUrl"`
+	Upcoming       []SonarrEpisode `json:"upcoming"`
+	History        []SonarrHistory `json:"history"`
+	ZeroByte       []SonarrSeries  `json:"zeroByte"`
+	ZeroByteCount  int             `json:"zeroByteCount"`
+	SeriesCount    int             `json:"seriesCount"`
+	EpisodeCount   int             `json:"episodeCount"`
+	OnDiskCount    int             `json:"onDiskCount"`
 }
 
 type SonarrEpisode struct {
@@ -147,5 +148,6 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			}
 		}
 	}
+	data.ZeroByteCount = len(data.ZeroByte)
 	return data, nil
 }

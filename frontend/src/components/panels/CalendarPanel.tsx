@@ -167,13 +167,31 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
               transition: 'all 0.1s', position: 'relative',
             }}>
             {cell.day}
-            {cell.current && eventsForDate(year, month, cell.day).length > 0 && (
-              <span style={{
-                position: 'absolute', bottom: 1, left: '50%', transform: 'translateX(-50%)',
-                width: 3, height: 3, borderRadius: '50%',
-                background: todayFlag ? 'white' : eventsForDate(year, month, cell.day)[0].color,
-              }} />
-            )}
+            {cell.current && (() => {
+              const dayEvs = eventsForDate(year, month, cell.day)
+              if (dayEvs.length === 0) return null
+              // Deduplicate by source color, show up to 3 dots
+              const seen = new Set<string>()
+              const dots: string[] = []
+              for (const ev of dayEvs) {
+                if (!seen.has(ev.color)) { seen.add(ev.color); dots.push(ev.color) }
+                if (dots.length >= 3) break
+              }
+              return (
+                <span style={{
+                  position: 'absolute', bottom: 1, left: '50%', transform: 'translateX(-50%)',
+                  display: 'flex', gap: 2,
+                }}>
+                  {dots.map((color, di) => (
+                    <span key={di} style={{
+                      width: 3, height: 3, borderRadius: '50%',
+                      background: todayFlag ? 'white' : color,
+                      flexShrink: 0,
+                    }} />
+                  ))}
+                </span>
+              )
+            })()}
           </div>
         )
       })}

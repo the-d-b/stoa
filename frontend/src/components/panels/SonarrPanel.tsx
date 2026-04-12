@@ -12,7 +12,7 @@ interface SonarrHistory {
 interface SonarrSeries { id: number; title: string; titleSlug: string; year: number }
 interface SonarrData {
   upcoming: SonarrEpisode[]; history: SonarrHistory[]
-  zeroByte: SonarrSeries[]; uiUrl: string
+  zeroByte: SonarrSeries[]; zeroByteCount: number; uiUrl: string
   seriesCount: number; episodeCount: number; onDiskCount: number
 }
 
@@ -90,8 +90,16 @@ function HistoryGroups({ groups, uiUrl }: {
 
 export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<SonarrData | null>(null)
+  const [zeroByteSample, setZeroByteSample] = useState<SonarrSeries[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+
+  const SAMPLE_SIZE = 8
+
+  const resample = (zeroByte: SonarrSeries[]) => {
+    const shuffled = [...zeroByte].sort(() => Math.random() - 0.5)
+    setZeroByteSample(shuffled.slice(0, SAMPLE_SIZE))
+  }
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const refreshSecs = config.refreshSecs || 300
@@ -100,6 +108,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     try {
       const res = await integrationsApi.getPanelData(panel.id)
       setData(res.data)
+      resample(res.data.zeroByte || [])
       setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
@@ -168,7 +177,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   // ── 1x — stats bar only ─────────────────────────────────────────────────
   if (heightUnits <= 1) {
     return (
-      <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {statsBar}
       </div>
     )
@@ -178,7 +187,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   if (heightUnits < 3) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
-        {statsBar}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
@@ -192,16 +201,16 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   if (heightUnits < 4) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
-        {statsBar}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
           : <HistoryGroups groups={groupedHistory} uiUrl={uiUrl} />
         }
-        {(data.zeroByte || []).length > 0 && (
+        {(data.zeroByteCount || 0) > 0 && (
           <>
-            {sectionTitle(`Missing on disk (${data.zeroByte.length})`)}
-            {data.zeroByte.map(s => (
+            {sectionTitle(`Missing on disk — ${data.zeroByteCount} total`)}
+            {zeroByteSample.map(s => (
               <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8,
                 padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
                 <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -219,7 +228,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   // ── 4x — stats + recently downloaded + missing on disk ─────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      {statsBar}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
 
       {sectionTitle('Recently downloaded')}
       {groupedHistory.length === 0
@@ -227,10 +236,10 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
         : <HistoryGroups groups={groupedHistory} uiUrl={uiUrl} />
       }
 
-      {(data.zeroByte || []).length > 0 && (
+      {(data.zeroByteCount || 0) > 0 && (
         <>
-          {sectionTitle(`Missing on disk (${data.zeroByte.length})`)}
-          {data.zeroByte.map(s => (
+          {sectionTitle(`Missing on disk — ${data.zeroByteCount} total`)}
+          {zeroByteSample.map(s => (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 8,
               padding: '3px 0', borderBottom: '1px solid var(--border)' }}>
               <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

@@ -137,12 +137,12 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
     </div>
   )
 
-  if (heightUnits <= 1) return <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>{statsBar}</div>
+  if (heightUnits <= 1) return <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{statsBar}</div>
 
   // 2x and above — stats + history grouped by artist
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      {statsBar}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
       {sectionTitle('Recently downloaded')}
       {historyGroups.length === 0
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>

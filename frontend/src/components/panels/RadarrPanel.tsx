@@ -136,11 +136,28 @@ export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  if (heightUnits <= 1) return <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>{statsBar}</div>
+  if (heightUnits <= 1) return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {statsBar}
+    </div>
+  )
 
+  // 2x — history only, no missing (not enough room)
+  if (heightUnits < 4) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
+      {sectionTitle('Recently downloaded')}
+      {(data.history || []).length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
+        : (data.history || []).slice(0, 5).map((m, i) => <HistoryRow key={i} m={m} />)
+      }
+    </div>
+  )
+
+  // 4x — history + missing sample
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      {statsBar}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
       {sectionTitle('Recently downloaded')}
       {(data.history || []).length === 0
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
