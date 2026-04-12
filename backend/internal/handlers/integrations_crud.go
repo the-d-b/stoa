@@ -15,15 +15,16 @@ import (
 
 // Integration is the shared struct used across all integration handlers.
 type Integration struct {
-	ID        string     `json:"id"`
-	Name      string     `json:"name"`
-	Type      string     `json:"type"`
-	APIURL    string     `json:"apiUrl"`
-	UIURL     string     `json:"uiUrl"`
-	SecretID  *string    `json:"secretId,omitempty"`
-	Enabled   bool       `json:"enabled"`
-	CreatedBy string     `json:"createdBy"`
-	CreatedAt time.Time  `json:"createdAt"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Type      string    `json:"type"`
+	APIURL    string    `json:"apiUrl"`
+	UIURL     string    `json:"uiUrl"`
+	SecretID  *string   `json:"secretId,omitempty"`
+	SkipTLS   bool      `json:"skipTls"`
+	Enabled   bool      `json:"enabled"`
+	CreatedBy string    `json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
 }
 
 func ListIntegrations(db *sql.DB) http.HandlerFunc {
@@ -33,13 +34,13 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 		var err error
 		if claims.Role == models.RoleAdmin {
 			rows, err = db.Query(`
-				SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
+				SELECT id, name, type, api_url, ui_url, secret_id, enabled, skip_tls, created_by, created_at
 				FROM integrations WHERE created_by = 'SYSTEM' ORDER BY name ASC
 			`)
 		} else {
 			rows, err = db.Query(`
 				SELECT DISTINCT i.id, i.name, i.type, i.api_url, i.ui_url,
-				       i.secret_id, i.enabled, i.created_by, i.created_at
+				       i.secret_id, i.enabled, i.skip_tls, i.created_by, i.created_at
 				FROM integrations i
 				WHERE
 					i.created_by = ?
@@ -64,9 +65,11 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 			var ig Integration
 			var enabled int
 			var secretID sql.NullString
+			var skipTLS int
 			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL,
-				&secretID, &enabled, &ig.CreatedBy, &ig.CreatedAt)
+				&secretID, &enabled, &skipTLS, &ig.CreatedBy, &ig.CreatedAt)
 			ig.Enabled = enabled == 1
+			ig.SkipTLS = skipTLS == 1
 			if secretID.Valid {
 				ig.SecretID = &secretID.String
 			}
@@ -85,6 +88,7 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 			APIURL   string  `json:"apiUrl"`
 			UIURL    string  `json:"uiUrl"`
 			SecretID *string `json:"secretId"`
+			SkipTLS  bool    `json:"skipTls"`
 			Scope    string  `json:"scope"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
@@ -101,10 +105,12 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		if req.SecretID != nil && *req.SecretID != "" {
 			secretID = *req.SecretID
 		}
+		skipTLSInt := 0
+		if req.SkipTLS { skipTLSInt = 1 }
 		_, err := db.Exec(`
-			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, created_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
-		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, ownerID)
+			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, skip_tls, created_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, skipTLSInt, ownerID)
 		if err != nil {
 			log.Printf("[INTEGRATIONS] create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create integration")
@@ -122,14 +128,22 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 			APIURL   string  `json:"apiUrl"`
 			UIURL    string  `json:"uiUrl"`
 			SecretID *string `json:"secretId"`
+			SkipTLS  bool    `json:"skipTls"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
 			secretID = *req.SecretID
 		}
-		db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=? WHERE id=?`,
-			req.Name, req.APIURL, req.UIURL, secretID, id)
+		skipTLSInt := 0
+		if req.SkipTLS { skipTLSInt = 1 }
+		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=? WHERE id=?`,
+			req.Name, req.APIURL, req.UIURL, secretID, skipTLSInt, id)
+		if uerr != nil {
+			log.Printf("[INTEGRATIONS] update error: %v", uerr)
+			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -148,6 +162,7 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			Type     string `json:"type"`
 			APIURL   string `json:"apiUrl"`
 			SecretID string `json:"secretId"`
+			SkipTLS  bool   `json:"skipTls"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.APIURL == "" {
 			writeError(w, http.StatusBadRequest, "apiUrl required")
@@ -163,11 +178,11 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 		var err error
 		switch req.Type {
 		case "sonarr", "radarr", "lidarr":
-			err = testArrConnection(req.APIURL, apiKey, req.Type)
+			err = testArrConnection(req.APIURL, apiKey, req.Type, req.SkipTLS)
 		case "plex":
-			err = testPlexConnection(req.APIURL, apiKey)
+			err = testPlexConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tautulli":
-			err = testTautulliConnection(req.APIURL, apiKey)
+			err = testTautulliConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}
@@ -219,7 +234,7 @@ func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		rows, err := db.Query(`
-			SELECT id, name, type, api_url, ui_url, secret_id, enabled, created_by, created_at
+			SELECT id, name, type, api_url, ui_url, secret_id, enabled, skip_tls, created_by, created_at
 			FROM integrations WHERE created_by = ? ORDER BY name ASC
 		`, claims.UserID)
 		if err != nil {
@@ -232,9 +247,11 @@ func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
 			var ig Integration
 			var enabled int
 			var secretID sql.NullString
+			var skipTLS int
 			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL,
-				&secretID, &enabled, &ig.CreatedBy, &ig.CreatedAt)
+				&secretID, &enabled, &skipTLS, &ig.CreatedBy, &ig.CreatedAt)
 			ig.Enabled = enabled == 1
+			ig.SkipTLS = skipTLS == 1
 			if secretID.Valid {
 				ig.SecretID = &secretID.String
 			}
@@ -254,14 +271,16 @@ func DeleteMyIntegration(db *sql.DB) http.HandlerFunc {
 }
 
 // resolveIntegration fetches the API URL, UI URL, and decrypted API key for an integration.
-func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, err error) {
+func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, skipTLS bool, err error) {
 	var secretID sql.NullString
+	var skipTLSInt int
 	err = db.QueryRow(`
-		SELECT api_url, ui_url, secret_id FROM integrations WHERE id=? AND enabled=1
-	`, id).Scan(&apiURL, &uiURL, &secretID)
+		SELECT api_url, ui_url, secret_id, skip_tls FROM integrations WHERE id=? AND enabled=1
+	`, id).Scan(&apiURL, &uiURL, &secretID, &skipTLSInt)
 	if err != nil {
-		return "", "", "", fmt.Errorf("integration not found")
+		return "", "", "", false, fmt.Errorf("integration not found")
 	}
+	skipTLS = skipTLSInt == 1
 	if secretID.Valid {
 		var enc string
 		if dbErr := db.QueryRow("SELECT value FROM secrets WHERE id=?", secretID.String).Scan(&enc); dbErr == nil {
@@ -271,13 +290,13 @@ func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, er
 	return
 }
 
-func testArrConnection(apiURL, apiKey, intType string) error {
+func testArrConnection(apiURL, apiKey, intType string, skipTLS ...bool) error {
 	// Sonarr/Radarr use v3, Lidarr uses v1
 	apiVersion := "v3"
 	if intType == "lidarr" {
 		apiVersion = "v1"
 	}
-	body, err := arrGet(apiURL, apiKey, "/api/"+apiVersion+"/system/status")
+	body, err := arrGet(apiURL, apiKey, "/api/"+apiVersion+"/system/status", len(skipTLS) > 0 && skipTLS[0])
 	if err != nil {
 		return err
 	}
@@ -288,8 +307,8 @@ func testArrConnection(apiURL, apiKey, intType string) error {
 	return nil
 }
 
-func testGenericConnection(apiURL string) error {
-	client := &http.Client{Timeout: 10 * time.Second}
+func testGenericConnection(apiURL string, skipTLS ...bool) error {
+	client := httpClient(len(skipTLS) > 0 && skipTLS[0])
 	resp, err := client.Get(apiURL)
 	if err != nil {
 		return err
