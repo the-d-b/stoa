@@ -51,12 +51,10 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
-	_, skipTLS := config["skipTls"].(bool)
-
 	data := &TrueNASPanelData{UIURL: uiURL}
 
 	// System info

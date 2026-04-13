@@ -48,12 +48,10 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
-	_, skipTLS := config["skipTls"].(bool)
-
 	// API token format: "PVEAPIToken=user@realm!tokenid=secret"
 	data := &ProxmoxPanelData{UIURL: uiURL}
 
