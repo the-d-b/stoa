@@ -248,10 +248,10 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
           </div>
         </>
       )}
-      {sectionTitle('Storage')}
-      <StorageSection />
       {sectionTitle('VMs & Containers')}
       <VMList />
+      {sectionTitle('Storage')}
+      <StorageSection />
       {(data.temps || []).length > 0 && (
         <>
           {sectionTitle('Temperatures')}

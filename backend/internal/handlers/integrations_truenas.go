@@ -49,8 +49,9 @@ type TrueNASVM struct {
 }
 
 type TrueNASApp struct {
-	Name   string `json:"name"`
-	Status string `json:"status"`
+	Name            string `json:"name"`
+	Status          string `json:"status"`
+	UpdateAvailable bool   `json:"updateAvailable"`
 }
 
 func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASPanelData, error) {
@@ -173,16 +174,18 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 	}
 
 	// Apps (Docker containers via TrueNAS Scale apps)
-	if body, err := truenasGet(apiURL, apiKey, "/app?limit=30", skipTLS); err == nil {
+	if body, err := truenasGet(apiURL, apiKey, "/app?limit=50", skipTLS); err == nil {
 		var apps []struct {
-			Name  string `json:"name"`
-			State string `json:"state"`
+			Name            string `json:"name"`
+			State           string `json:"state"`
+			UpdateAvailable bool   `json:"update_available"`
 		}
 		if json.Unmarshal(body, &apps) == nil {
 			for _, a := range apps {
 				data.Apps = append(data.Apps, TrueNASApp{
-					Name:   a.Name,
-					Status: a.State,
+					Name:            a.Name,
+					Status:          a.State,
+					UpdateAvailable: a.UpdateAvailable,
 				})
 			}
 		}

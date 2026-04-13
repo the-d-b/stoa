@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
-import ArcGauge from './ArcGauge'
 
 interface TrueNASPool {
   name: string; status: string
@@ -9,7 +8,7 @@ interface TrueNASPool {
 interface TrueNASAlert { level: string; message: string }
 interface TrueNASDisk { name: string; tempC: number }
 interface TrueNASVM { name: string; status: string }
-interface TrueNASApp { name: string; status: string }
+interface TrueNASApp { name: string; status: string; updateAvailable: boolean }
 interface TrueNASData {
   uiUrl: string; hostname: string; version: string
   totalRam: string; cpuModel: string; cpuCores: number
@@ -68,46 +67,24 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   const pools = data.pools || []
   const alerts = (data.alerts || []).filter(a => a.level !== 'INFO')
   const disks = (data.disks || []).filter(d => d.tempC > 0)
+  const vms = data.vms || []
+  const apps = data.apps || []
+
+  // VM counts
+  const vmRunning = vms.filter(v => ['RUNNING','running'].includes(v.status)).length
+  const vmStopped = vms.length - vmRunning
+
+  // App counts
+  const appRunning = apps.filter(a => ['RUNNING','running','active','ACTIVE'].includes(a.status)).length
+  const appStopped = apps.filter(a => !['RUNNING','running','active','ACTIVE'].includes(a.status)).length
+  const appUpdates = apps.filter(a => a.updateAvailable).length
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
-  // ── Pool gauges — one arc per pool ───────────────────────────────────────
-  const PoolGauges = ({ size }: { size?: number }) => (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
-      {pools.map(p => (
-        <ArcGauge key={p.name} value={p.percent} size={size}
-          title={p.name}
-          label={`${fmtSize(p.usedGb)} / ${fmtSize(p.totalGb)}`} />
-      ))}
-    </div>
-  )
-
-  // ── Pool detail rows (2x+) ────────────────────────────────────────────────
-  const PoolRows = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      {pools.map(p => (
-        <div key={p.name}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-              background: STATUS_COLOR[p.status] || 'var(--text-dim)' }} />
-            <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{p.name}</span>
-            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-              {fmtSize(p.usedGb)} / {fmtSize(p.totalGb)}
-            </span>
-            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-              color: p.percent >= 90 ? 'var(--red)' : p.percent >= 75 ? 'var(--amber)' : 'var(--text-muted)',
-              width: 32, textAlign: 'right' }}>{p.percent.toFixed(0)}%</span>
-          </div>
-          <div style={{ paddingLeft: 14 }}><MiniBar pct={p.percent} /></div>
-        </div>
-      ))}
-    </div>
-  )
-
-  // ── System info strip ─────────────────────────────────────────────────────
+  // ── System info strip — shown on all sizes ────────────────────────────────
   const SysInfo = () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
@@ -141,6 +118,29 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
     </div>
   )
 
+  // ── Pool detail rows ──────────────────────────────────────────────────────
+  const PoolRows = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {pools.map(p => (
+        <div key={p.name}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+              background: STATUS_COLOR[p.status] || 'var(--text-dim)' }} />
+            <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{p.name}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+              {fmtSize(p.usedGb)} / {fmtSize(p.totalGb)}
+            </span>
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
+              color: p.percent >= 90 ? 'var(--red)' : p.percent >= 75 ? 'var(--amber)' : 'var(--text-muted)' }}>
+              {p.percent.toFixed(0)}%
+            </span>
+          </div>
+          <div style={{ paddingLeft: 14 }}><MiniBar pct={p.percent} /></div>
+        </div>
+      ))}
+    </div>
+  )
+
   // ── Alerts ────────────────────────────────────────────────────────────────
   const Alerts = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -166,68 +166,70 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {rows.map((row, ri) => (
           <div key={ri} style={{ display: 'flex', gap: 5 }}>
-            {row.map((d, di) => {
-              const hot = d.tempC >= 55
-              const warm = d.tempC >= 45
-              return (
-                <div key={di} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-                  padding: '2px 6px', borderRadius: 5,
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  fontSize: 10, fontFamily: 'DM Mono, monospace' }}>
-                  <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>{d.name}</span>
-                  <span style={{ fontWeight: 600,
-                    color: hot ? 'var(--red)' : warm ? 'var(--amber)' : 'var(--text)' }}>
-                    {d.tempC.toFixed(0)}°
-                  </span>
-                </div>
-              )
-            })}
+            {row.map((d, di) => (
+              <div key={di} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4,
+                padding: '2px 6px', borderRadius: 5,
+                background: 'var(--surface2)', border: '1px solid var(--border)',
+                fontSize: 10, fontFamily: 'DM Mono, monospace' }}>
+                <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>{d.name}</span>
+                <span style={{ fontWeight: 600,
+                  color: d.tempC >= 55 ? 'var(--red)' : d.tempC >= 45 ? 'var(--amber)' : 'var(--text)' }}>
+                  {d.tempC.toFixed(0)}°
+                </span>
+              </div>
+            ))}
           </div>
         ))}
       </div>
     )
   }
 
-  // ── VM / App pill list ────────────────────────────────────────────────────
-  const PillList = ({ items }: { items: { name: string; status: string }[] }) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-      {items.map((v, i) => {
-        const running = ['RUNNING','running','active','ACTIVE'].includes(v.status)
-        return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5,
-            padding: '2px 8px', borderRadius: 6,
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-            fontSize: 11, opacity: running ? 1 : 0.5 }}>
-            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-              background: running ? 'var(--green)' : 'var(--text-dim)' }} />
-            <span style={{ color: 'var(--text-muted)' }}>{v.name}</span>
-          </div>
-        )
-      })}
+  // ── Summary pills for VMs / Apps ─────────────────────────────────────────
+  const Pill = ({ label, value, color }: { label: string; value: number; color?: string }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+      borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+      <span style={{ color: 'var(--text-dim)' }}>{label}</span>
+      <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+        color: color || 'var(--text)' }}>{value}</span>
     </div>
   )
 
-  // ── 1x — pool gauges only ─────────────────────────────────────────────────
+  const VMSummary = () => vms.length === 0 ? null : (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      <Pill label="running" value={vmRunning} color="var(--green)" />
+      {vmStopped > 0 && <Pill label="stopped" value={vmStopped} color="var(--text-dim)" />}
+    </div>
+  )
+
+  const AppSummary = () => apps.length === 0 ? null : (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      <Pill label="running" value={appRunning} color="var(--green)" />
+      {appStopped > 0 && <Pill label="stopped" value={appStopped} color="var(--text-dim)" />}
+      {appUpdates > 0 && <Pill label="updates" value={appUpdates} color="var(--amber)" />}
+    </div>
+  )
+
+  // ── 1x — sys info + pools ─────────────────────────────────────────────────
   if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <PoolGauges size={pools.length > 2 ? 60 : 72} />
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <SysInfo />
+      <PoolRows />
     </div>
   )
 
-  // ── 2x — gauges + pool detail rows ───────────────────────────────────────
+  // ── 2x — sys info + pools ────────────────────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <PoolGauges />
+      <SysInfo />
       {sectionTitle('Pools')}
       <PoolRows />
     </div>
   )
 
-  // ── 4x — full: sys info + gauges + pools + alerts + disks + vms + apps ───
+  // ── 4x — everything ──────────────────────────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <SysInfo />
-      <PoolGauges />
       {sectionTitle('Pools')}
       <PoolRows />
       {alerts.length > 0 && (
@@ -242,16 +244,16 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
           <Disks />
         </>
       )}
-      {(data.vms || []).length > 0 && (
+      {vms.length > 0 && (
         <>
           {sectionTitle('Virtual machines')}
-          <PillList items={data.vms} />
+          <VMSummary />
         </>
       )}
-      {(data.apps || []).length > 0 && (
+      {apps.length > 0 && (
         <>
           {sectionTitle('Apps')}
-          <PillList items={data.apps} />
+          <AppSummary />
         </>
       )}
     </div>
