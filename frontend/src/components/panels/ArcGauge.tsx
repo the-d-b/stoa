@@ -17,9 +17,9 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
   const r = (size - 10) / 2
   const cx = size / 2
   const cy = size / 2
-  // Arc goes from 210° to 330° (bottom-left to bottom-right, 240° sweep)
-  const startAngle = 210
-  const sweepAngle = 240
+  // Arc goes from 180° to 360° (9 o'clock to 3 o'clock, 180° sweep)
+  const startAngle = 180
+  const sweepAngle = 180
   const pct = Math.min(Math.max(value, 0), 100)
   const filled = (pct / 100) * sweepAngle
 
@@ -51,7 +51,7 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
           {title}
         </div>
       )}
-      <div style={{ position: 'relative', width: size, height: size * 0.8 }}>
+      <div style={{ position: 'relative', width: size, height: size * 0.6 }}>
         <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
           {/* Track */}
           <path d={trackPath} fill="none" stroke="var(--surface2)" strokeWidth={strokeWidth}
@@ -64,7 +64,7 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
         </svg>
         {/* Center text */}
         <div style={{
-          position: 'absolute', top: '38%', left: 0, right: 0,
+          position: 'absolute', top: '45%', left: 0, right: 0,
           display: 'flex', flexDirection: 'column', alignItems: 'center',
         }}>
           <span style={{ fontSize: size < 60 ? 13 : 16, fontWeight: 700,
@@ -74,7 +74,7 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
         </div>
       </div>
       <div style={{ fontSize: 10, color: 'var(--text-dim)', textAlign: 'center',
-        marginTop: -size * 0.15, fontFamily: 'DM Mono, monospace' }}>
+        marginTop: 2, fontFamily: 'DM Mono, monospace' }}>
         {label}
       </div>
     </div>
