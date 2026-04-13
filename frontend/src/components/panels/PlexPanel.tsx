@@ -5,7 +5,7 @@ interface PlexLibrary { title: string; type: string; count: number }
 interface PlexSession {
   user: string; title: string; grandparentTitle: string; type: string
   state: string; progress: number; transcodeDecision: string
-  quality: string; player: string; ratingKey: string; grandparentKey: string
+  quality: string; player: string
 }
 interface PlexData {
   uiUrl: string; serverName: string; version: string
@@ -20,10 +20,6 @@ const TYPE_ICON: Record<string, string> = {
 const STATE_COLOR: Record<string, string> = {
   playing: 'var(--green)', paused: 'var(--amber)', buffering: 'var(--text-dim)'
 }
-
-const ls: React.CSSProperties = { color: 'inherit', textDecoration: 'none' }
-const lh = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = 'underline' }
-const lo = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = 'none' }
 
 export default function PlexPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<PlexData | null>(null)
@@ -62,11 +58,16 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
 
   const StreamBar = () => (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-        borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+          fontSize: 11, textDecoration: 'none',
+          color: 'inherit' }}
+        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+        onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
         <span style={{ color: sessions.length > 0 ? 'var(--green)' : 'var(--text-dim)' }}>●</span>
         <span style={{ color: 'var(--text-muted)' }}>{sessions.length} streaming</span>
-      </div>
+      </a>
       {data.directCount > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
           borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
@@ -86,8 +87,6 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
 
   const SessionRow = ({ s }: { s: PlexSession }) => {
     const isDirect = s.transcodeDecision === 'directplay' || s.transcodeDecision === 'copy'
-    const key = s.grandparentKey || s.ratingKey
-    const href = uiUrl && key ? `${uiUrl}/web/index.html#!/server/${key}/details` : null
     const displayTitle = s.grandparentTitle || s.title
     const subTitle = s.grandparentTitle ? s.title : null
     return (
@@ -97,9 +96,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
             background: STATE_COLOR[s.state] || 'var(--text-dim)' }} />
           <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden',
             textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {href
-              ? <a href={href} target="_blank" rel="noopener noreferrer" style={ls} onMouseOver={lh} onMouseOut={lo}>{displayTitle}</a>
-              : displayTitle}
+            {displayTitle}
             {subTitle && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> — {subTitle}</span>}
           </span>
           <span style={{ fontSize: 10, color: isDirect ? 'var(--green)' : 'var(--amber)',
@@ -120,30 +117,19 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     )
   }
 
-  const LibraryGrid = ({ linked }: { linked?: boolean }) => (
+  const LibraryGrid = () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-      {(data.libraries || []).map((lib, i) => {
-        const href = uiUrl ? `${uiUrl}/web/index.html#!/` : null
-        const inner = (
-          <>
-            <span style={{ fontSize: 12 }}>{TYPE_ICON[lib.type] || TYPE_ICON.other}</span>
-            <span style={{ color: 'var(--text-muted)' }}>{lib.title}</span>
-            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
-              {lib.count.toLocaleString()}
-            </span>
-          </>
-        )
-        return linked && href
-          ? <a key={i} href={href} target="_blank" rel="noopener noreferrer"
-              style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-                borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-                fontSize: 11, textDecoration: 'none' }}
-              onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-              onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>{inner}</a>
-          : <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-              borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-              fontSize: 11 }}>{inner}</div>
-      })}
+      {(data.libraries || []).map((lib, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+          fontSize: 11 }}>
+          <span style={{ fontSize: 12 }}>{TYPE_ICON[lib.type] || TYPE_ICON.other}</span>
+          <span style={{ color: 'var(--text-muted)' }}>{lib.title}</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
+            {lib.count.toLocaleString()}
+          </span>
+        </div>
+      ))}
     </div>
   )
 
@@ -191,7 +177,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
       {sessions.length > 0 && sessions.map((s, i) => <SessionRow key={i} s={s} />)}
       {sessions.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>○ Nothing playing</div>}
       {sectionTitle('Libraries')}
-      <LibraryGrid linked />
+      <LibraryGrid />
     </div>
   )
 }

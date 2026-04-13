@@ -39,8 +39,6 @@ type PlexSession struct {
 	TranscodeDecision string  `json:"transcodeDecision"`
 	Quality           string  `json:"quality"`
 	Player            string  `json:"player"`
-	RatingKey         string  `json:"ratingKey"`
-	GrandparentKey    string  `json:"grandparentKey"`
 }
 
 
@@ -79,8 +77,7 @@ type plexVideo struct {
 	AddedAt          int64          `xml:"addedAt,attr"`
 	Year             int            `xml:"year,attr"`
 	Thumb            string         `xml:"thumb,attr"`
-	RatingKey        string         `xml:"ratingKey,attr"`
-	GrandparentRatingKey string     `xml:"grandparentRatingKey,attr"`
+
 	ViewOffset       int64          `xml:"viewOffset,attr"`
 	Duration         int64          `xml:"duration,attr"`
 	User             *plexUser      `xml:"User"`
@@ -236,8 +233,6 @@ func plexSessionFromVideo(v plexVideo) PlexSession {
 	if len(v.Media) > 0 {
 		sess.Quality = v.Media[0].VideoResolution
 	}
-	sess.RatingKey = v.RatingKey
-	sess.GrandparentKey = v.GrandparentRatingKey
 	return sess
 }
 

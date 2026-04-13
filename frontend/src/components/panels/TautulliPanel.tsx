@@ -91,7 +91,7 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
   )
 
   const TimeRangePills = () => (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+    <div style={{ display: 'flex', gap: 4, marginBottom: 8, alignItems: 'center' }}>
       {TIME_RANGES.map(tr => (
         <button key={tr.value} onClick={() => changeTimeRange(tr.value)} disabled={saving}
           style={{
@@ -104,6 +104,10 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
         </button>
       ))}
       {saving && <span style={{ fontSize: 10, color: 'var(--text-dim)', alignSelf: 'center' }}>…</span>}
+      {uiUrl && <a href={uiUrl} target="_blank" rel="noopener noreferrer"
+        style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--text-dim)', textDecoration: 'none' }}
+        onMouseOver={e => e.currentTarget.style.color = 'var(--accent2)'}
+        onMouseOut={e => e.currentTarget.style.color = 'var(--text-dim)'}>↗</a>}
     </div>
   )
 
@@ -118,7 +122,6 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
           <div key={ri} style={{ display: 'flex', gap: 5 }}>
             {row.map((m, mi) => {
               const title = m.grandparentTitle || m.title
-              const href = uiUrl ? `${uiUrl}/history?search_value=${encodeURIComponent(title)}` : null
               return (
                 <div key={mi} style={{
                   flex: 1, display: 'flex', alignItems: 'center', gap: 5,
@@ -126,16 +129,8 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
                   background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 0,
                 }}>
                   <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[m.mediaType] || '▶'}</span>
-                  {href
-                    ? <a href={href} target="_blank" rel="noopener noreferrer"
-                        style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap', color: 'var(--text-muted)', textDecoration: 'none' }}
-                        title={title}
-                        onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                        onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>{title}</a>
-                    : <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
-                  }
+                  <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
                   <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
                     color: 'var(--text)', flexShrink: 0 }}>{m.playCount}</span>
                 </div>
@@ -154,20 +149,11 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {users.map((u, i) => {
-          const href = uiUrl ? `${uiUrl}/user?user=${encodeURIComponent(u.user)}` : null
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              {href
-                ? <a href={href} target="_blank" rel="noopener noreferrer"
-                    style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      flexShrink: 0, textDecoration: 'none' }}
-                    onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                    onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>{u.user}</a>
-                : <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    flexShrink: 0 }}>{u.user}</span>
-              }
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                flexShrink: 0 }}>{u.user}</span>
               <div style={{ flex: 1, height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
                 <div style={{ width: `${(u.playCount / maxPlays) * 100}%`, height: '100%',
                   background: 'var(--accent)', borderRadius: 2 }} />
@@ -187,7 +173,6 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {(data.history || []).map((h, i) => {
         const title = h.grandparentTitle ? `${h.grandparentTitle} — ${h.title}` : h.title
-        const href = uiUrl ? `${uiUrl}/history?search_value=${encodeURIComponent(h.grandparentTitle || h.title)}` : null
         return (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -195,16 +180,8 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
             background: 'var(--surface2)', border: '1px solid var(--border)',
           }}>
             <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[h.mediaType] || '▶'}</span>
-            {href
-              ? <a href={href} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap', color: 'var(--text-muted)', textDecoration: 'none' }}
-                  title={title}
-                  onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-                  onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>{title}</a>
-              : <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
-            }
+            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{h.user}</span>
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', flexShrink: 0,
               color: h.percentComplete >= 90 ? 'var(--green)' : 'var(--text-dim)' }}>
