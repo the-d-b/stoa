@@ -137,8 +137,13 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		skipTLSInt := 0
 		if req.SkipTLS { skipTLSInt = 1 }
-		db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=? WHERE id=?`,
+		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=? WHERE id=?`,
 			req.Name, req.APIURL, req.UIURL, secretID, skipTLSInt, id)
+		if uerr != nil {
+			log.Printf("[INTEGRATIONS] update error: %v", uerr)
+			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -178,6 +183,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testPlexConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tautulli":
 			err = testTautulliConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "truenas":
+			err = testTrueNASConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "proxmox":
+			err = testProxmoxConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}
