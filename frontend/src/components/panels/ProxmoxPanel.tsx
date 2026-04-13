@@ -16,6 +16,8 @@ interface ProxmoxData {
   cpu: ProxmoxGauge; memory: ProxmoxGauge
   storage: ProxmoxStorage[]; vms: ProxmoxVM[]; temps: ProxmoxTemp[]
   netIn: number; netOut: number
+  loadAvg: number; ioWait: number
+  cpuPressure: number; memPressure: number; ioPressure: number
 }
 
 function fmtSize(gb: number) {
@@ -184,6 +186,68 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
         )}
       </div>
       <Gauges />
+      {(data.loadAvg > 0 || data.ioWait > 0 || data.cpuPressure > 0) && (
+        <>
+          {sectionTitle('System')}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {data.loadAvg > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px',
+                borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+                fontSize: 11 }}>
+                <span style={{ color: 'var(--text-dim)' }}>load</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                  color: data.loadAvg > 2 ? 'var(--amber)' : 'var(--text)' }}>
+                  {data.loadAvg.toFixed(2)}
+                </span>
+              </div>
+            )}
+            {data.ioWait > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px',
+                borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+                fontSize: 11 }}>
+                <span style={{ color: 'var(--text-dim)' }}>iowait</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                  color: data.ioWait > 20 ? 'var(--amber)' : 'var(--text)' }}>
+                  {data.ioWait.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {data.cpuPressure > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px',
+                borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+                fontSize: 11 }}>
+                <span style={{ color: 'var(--text-dim)' }}>cpu psi</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                  color: data.cpuPressure > 30 ? 'var(--amber)' : 'var(--text)' }}>
+                  {data.cpuPressure.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {data.memPressure > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px',
+                borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+                fontSize: 11 }}>
+                <span style={{ color: 'var(--text-dim)' }}>mem psi</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                  color: data.memPressure > 20 ? 'var(--amber)' : 'var(--text)' }}>
+                  {data.memPressure.toFixed(1)}%
+                </span>
+              </div>
+            )}
+            {data.ioPressure > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 8px',
+                borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+                fontSize: 11 }}>
+                <span style={{ color: 'var(--text-dim)' }}>io psi</span>
+                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                  color: data.ioPressure > 20 ? 'var(--amber)' : 'var(--text)' }}>
+                  {data.ioPressure.toFixed(1)}%
+                </span>
+              </div>
+            )}
+          </div>
+        </>
+      )}
       {sectionTitle('Storage')}
       <StorageSection />
       {sectionTitle('VMs & Containers')}

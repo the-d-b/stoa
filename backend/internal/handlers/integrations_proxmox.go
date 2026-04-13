@@ -13,15 +13,20 @@ import (
 // ── Proxmox types ─────────────────────────────────────────────────────────────
 
 type ProxmoxPanelData struct {
-	UIURL   string           `json:"uiUrl"`
-	Node    string           `json:"node"`
-	CPU     ProxmoxGauge     `json:"cpu"`
-	Memory  ProxmoxGauge     `json:"memory"`
-	Storage []ProxmoxStorage `json:"storage"`
-	VMs     []ProxmoxVM      `json:"vms"`
-	Temps   []ProxmoxTemp    `json:"temps"`
-	NetIn   float64          `json:"netIn"`   // bytes/sec
-	NetOut  float64          `json:"netOut"`  // bytes/sec
+	UIURL        string           `json:"uiUrl"`
+	Node         string           `json:"node"`
+	CPU          ProxmoxGauge     `json:"cpu"`
+	Memory       ProxmoxGauge     `json:"memory"`
+	Storage      []ProxmoxStorage `json:"storage"`
+	VMs          []ProxmoxVM      `json:"vms"`
+	Temps        []ProxmoxTemp    `json:"temps"`
+	NetIn        float64          `json:"netIn"`
+	NetOut       float64          `json:"netOut"`
+	LoadAvg      float64          `json:"loadAvg"`
+	IOWait       float64          `json:"ioWait"`       // percentage
+	CPUPressure  float64          `json:"cpuPressure"`  // PSI some %
+	MemPressure  float64          `json:"memPressure"`  // PSI some %
+	IOPressure   float64          `json:"ioPressure"`   // PSI some %
 }
 
 type ProxmoxGauge struct {
@@ -211,6 +216,11 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 				}())
 				if v, ok := last["netin"].(float64); ok { data.NetIn = v }
 				if v, ok := last["netout"].(float64); ok { data.NetOut = v }
+				if v, ok := last["loadavg"].(float64); ok { data.LoadAvg = v }
+				if v, ok := last["iowait"].(float64); ok { data.IOWait = v * 100 }
+				if v, ok := last["pressurecpusome"].(float64); ok { data.CPUPressure = v }
+				if v, ok := last["pressurememorysome"].(float64); ok { data.MemPressure = v }
+				if v, ok := last["pressureiosome"].(float64); ok { data.IOPressure = v }
 				for k, v := range last {
 					if strings.Contains(strings.ToLower(k), "temp") {
 						if f, ok := v.(float64); ok && f > 0 {
