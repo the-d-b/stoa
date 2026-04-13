@@ -56,30 +56,6 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
-  // ── Server header ─────────────────────────────────────────────────────────
-  const ServerHeader = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-        style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}
-        onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
-        onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
-        {data.serverName || 'Plex'}
-      </a>
-      {data.version && (
-        <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-          {data.version}
-        </span>
-      )}
-      {data.updateAvail && (
-        <span title={`Update available: ${data.latestVersion}`} style={{
-          fontSize: 10, padding: '1px 6px', borderRadius: 10,
-          background: '#f59e0b18', border: '1px solid #f59e0b40',
-          color: 'var(--amber)', fontWeight: 600, cursor: 'help',
-        }}>↑ update</span>
-      )}
-    </div>
-  )
-
   // ── Streaming status bar ──────────────────────────────────────────────────
   const StreamBar = () => (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
@@ -158,14 +134,14 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     </div>
   )
 
-  // ── 1x — streaming status + session list ─────────────────────────────────
+  // ── 1x — sessions only, no header ───────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <StreamBar />
-      {sessions.length > 0 && sessions.map((s, i) => <SessionRow key={i} s={s} />)}
-      {sessions.length === 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>Nothing playing</div>
-      )}
+      {sessions.length > 0
+        ? sessions.map((s, i) => <SessionRow key={i} s={s} />)
+        : <div style={{ display: 'flex', alignItems: 'center', height: '100%',
+            fontSize: 12, color: 'var(--text-dim)' }}>○ Nothing playing</div>
+      }
     </div>
   )
 
@@ -182,14 +158,29 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     </div>
   )
 
-  // ── 4x — header + streaming + libraries ──────────────────────────────────
+  // ── 4x — update notice (if any) + streaming + libraries ────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <ServerHeader />
+      {data.updateAvail && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+          padding: '6px 10px', borderRadius: 7,
+          background: '#f59e0b10', border: '1px solid #f59e0b30',
+        }}>
+          <span style={{ fontSize: 13 }}>↑</span>
+          <span style={{ fontSize: 12, color: 'var(--amber)', flex: 1 }}>
+            Plex update available
+          </span>
+          <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
+            style={{ fontSize: 11, color: 'var(--amber)', textDecoration: 'underline' }}>
+            {data.latestVersion}
+          </a>
+        </div>
+      )}
       <StreamBar />
       {sessions.length > 0 && sessions.map((s, i) => <SessionRow key={i} s={s} />)}
       {sessions.length === 0 && (
-        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>Nothing playing</div>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>○ Nothing playing</div>
       )}
       {sectionTitle('Libraries')}
       <LibraryGrid />

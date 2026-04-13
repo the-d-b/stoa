@@ -23,7 +23,7 @@ const TIME_RANGES = [
   { label: '1d', value: 1 },
   { label: '7d', value: 7 },
   { label: '30d', value: 30 },
-  { label: 'All', value: 0 },
+  { label: '∞', value: 0 },
 ]
 
 const MEDIA_ICON: Record<string, string> = {
@@ -211,7 +211,7 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
       {sectionTitle('Most played')}
-      <MostPlayedSection limit={8} />
+      <MostPlayedSection limit={4} />
       {sectionTitle('Top viewers')}
       <UserStatsSection limit={4} />
       {sectionTitle('Recent plays')}

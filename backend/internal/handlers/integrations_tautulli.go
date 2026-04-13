@@ -58,6 +58,10 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	if v, ok := config["timeRange"].(float64); ok {
 		timeRange = int(v)
 	}
+	// Tautulli doesn't support time_range=0; use large number for "all time"
+	if timeRange == 0 {
+		timeRange = 36500
+	}
 
 	data := &TautulliPanelData{UIURL: uiURL}
 
