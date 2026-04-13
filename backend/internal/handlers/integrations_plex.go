@@ -5,9 +5,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
-	"net/http"
 	"strings"
-	"time"
 )
 
 // ── Plex types ────────────────────────────────────────────────────────────────
