@@ -15,10 +15,17 @@ interface ProxmoxData {
   uiUrl: string; node: string
   cpu: ProxmoxGauge; memory: ProxmoxGauge
   storage: ProxmoxStorage[]; vms: ProxmoxVM[]; temps: ProxmoxTemp[]
+  netIn: number; netOut: number
 }
 
 function fmtSize(gb: number) {
   return gb >= 1024 ? `${(gb / 1024).toFixed(1)} TB` : `${gb.toFixed(0)} GB`
+}
+
+function fmtNet(bytesPerSec: number) {
+  if (bytesPerSec >= 1048576) return `${(bytesPerSec / 1048576).toFixed(1)} MB/s`
+  if (bytesPerSec >= 1024) return `${(bytesPerSec / 1024).toFixed(0)} KB/s`
+  return `${bytesPerSec.toFixed(0)} B/s`
 }
 
 function fmtUptime(secs: number) {
@@ -160,16 +167,21 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
   // ── 4x — node header + gauges + storage + VMs ────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
         <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
           style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', textDecoration: 'none' }}
           onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
           onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
           {data.node || 'Proxmox'}
         </a>
-        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-          {running}/{total} running
-        </span>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{running}/{total} running</span>
+        {(data.netIn > 0 || data.netOut > 0) && (
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: 8, fontSize: 10,
+            fontFamily: 'DM Mono, monospace', color: 'var(--text-dim)' }}>
+            <span>↓ <span style={{ color: 'var(--green)' }}>{fmtNet(data.netIn)}</span></span>
+            <span>↑ <span style={{ color: 'var(--amber)' }}>{fmtNet(data.netOut)}</span></span>
+          </span>
+        )}
       </div>
       <Gauges />
       {sectionTitle('Storage')}

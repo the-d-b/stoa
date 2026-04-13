@@ -20,6 +20,8 @@ type ProxmoxPanelData struct {
 	Storage []ProxmoxStorage `json:"storage"`
 	VMs     []ProxmoxVM      `json:"vms"`
 	Temps   []ProxmoxTemp    `json:"temps"`
+	NetIn   float64          `json:"netIn"`   // bytes/sec
+	NetOut  float64          `json:"netOut"`  // bytes/sec
 }
 
 type ProxmoxGauge struct {
@@ -185,25 +187,35 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 		}
 	}
 
-	// Temperature via hardware sensors (requires lm-sensors on node)
-	tempBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/hardware/pci", node.Node), skipTLS)
-	_ = tempBody
-	// Hardware temps via RRD
-	rrdBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/rrddata?timeframe=hour&cf=AVERAGE", node.Node), skipTLS)
-	if err == nil {
+	// RRD data — network and temperature (last data point from hour window)
+	rrdBody, rrdErr := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/rrddata?timeframe=hour&cf=AVERAGE", node.Node), skipTLS)
+	log.Printf("[PROXMOX] rrd err=%v bodylen=%d", rrdErr, len(rrdBody))
+	if rrdErr == nil && len(rrdBody) > 10 {
 		var rrdResp struct {
 			Data []map[string]interface{} `json:"data"`
 		}
 		if json.Unmarshal(rrdBody, &rrdResp) == nil && len(rrdResp.Data) > 0 {
-			last := rrdResp.Data[len(rrdResp.Data)-1]
-			// Look for temperature fields (Proxmox exposes them when sensors are available)
-			for k, v := range last {
-				if strings.Contains(strings.ToLower(k), "temp") {
-					if f, ok := v.(float64); ok && f > 0 {
-						data.Temps = append(data.Temps, ProxmoxTemp{
-							Name:  k,
-							TempC: f,
-						})
+			// Find last non-null data point
+			var last map[string]interface{}
+			for i := len(rrdResp.Data) - 1; i >= 0; i-- {
+				if rrdResp.Data[i]["cpu"] != nil {
+					last = rrdResp.Data[i]
+					break
+				}
+			}
+			if last != nil {
+				log.Printf("[PROXMOX] rrd keys: %v", func() []string {
+					keys := []string{}
+					for k := range last { keys = append(keys, k) }
+					return keys
+				}())
+				if v, ok := last["netin"].(float64); ok { data.NetIn = v }
+				if v, ok := last["netout"].(float64); ok { data.NetOut = v }
+				for k, v := range last {
+					if strings.Contains(strings.ToLower(k), "temp") {
+						if f, ok := v.(float64); ok && f > 0 {
+							data.Temps = append(data.Temps, ProxmoxTemp{Name: k, TempC: f})
+						}
 					}
 				}
 			}

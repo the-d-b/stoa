@@ -17,8 +17,8 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
   const r = (size - 10) / 2
   const cx = size / 2
   const cy = size / 2
-  // Arc goes from 180° to 360° (9 o'clock to 3 o'clock, 180° sweep)
-  const startAngle = 180
+  // Arc: 270° (9 o'clock) sweeping 180° clockwise to 90° (3 o'clock), through 12
+  const startAngle = 270
   const sweepAngle = 180
   const pct = Math.min(Math.max(value, 0), 100)
   const filled = (pct / 100) * sweepAngle
