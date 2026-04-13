@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -190,11 +189,6 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 	}
 
 	return data, nil
-}
-
-func min(a, b int) int {
-	if a < b { return a }
-	return b
 }
 
 func truenasGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {

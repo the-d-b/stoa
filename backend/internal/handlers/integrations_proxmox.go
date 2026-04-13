@@ -85,13 +85,14 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	log.Printf("[PROXMOX] node=%s cpu=%.3f maxcpu=%d mem=%d maxmem=%d", node.Node, node.CPU, node.MaxCPU, node.Mem, node.MaxMem)
 	data.Node = node.Node
 
-	// CPU — node list gives aggregate, fetch node status for more detail
-	nodeStatusBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/status", node.Node), skipTLS)
-	if err == nil {
+	// Try /nodes/{node}/status first (requires Sys.Audit)
+	nodeStatusBody, _ := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/status", node.Node), skipTLS)
+	log.Printf("[PROXMOX] node status bodylen=%d", len(nodeStatusBody))
+	parsedStatus := false
+	if len(nodeStatusBody) > 10 {
 		var statusResp struct {
 			Data struct {
 				CPU    float64 `json:"cpu"`
-				CPUMax int     `json:"cpuinfo"`
 				Memory struct {
 					Used  int64 `json:"used"`
 					Total int64 `json:"total"`
@@ -101,40 +102,53 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 				} `json:"cpuinfo"`
 			} `json:"data"`
 		}
-		log.Printf("[PROXMOX] node status body len=%d", len(nodeStatusBody))
-		if json.Unmarshal(nodeStatusBody, &statusResp) == nil {
-			log.Printf("[PROXMOX] status cpu=%.3f cpus=%d mem=%d/%d", statusResp.Data.CPU, statusResp.Data.CPUInfo.CPUs, statusResp.Data.Memory.Used, statusResp.Data.Memory.Total)
+		if json.Unmarshal(nodeStatusBody, &statusResp) == nil && statusResp.Data.Memory.Total > 0 {
+			log.Printf("[PROXMOX] status cpu=%.3f cpus=%d mem=%d/%d",
+				statusResp.Data.CPU, statusResp.Data.CPUInfo.CPUs,
+				statusResp.Data.Memory.Used, statusResp.Data.Memory.Total)
 			cpuPct := statusResp.Data.CPU * 100
 			cpus := statusResp.Data.CPUInfo.CPUs
 			if cpus == 0 { cpus = node.MaxCPU }
-			data.CPU = ProxmoxGauge{
-				Used:  cpuPct,
-				Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, cpus),
-			}
+			data.CPU = ProxmoxGauge{Used: cpuPct, Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, cpus)}
 			mem := statusResp.Data.Memory
-			if mem.Total > 0 {
-				usedGB := float64(mem.Used) / 1073741824
-				totalGB := float64(mem.Total) / 1073741824
-				pct := float64(mem.Used) / float64(mem.Total) * 100
-				data.Memory = ProxmoxGauge{
-					Used:  pct,
-					Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
-				}
-			}
-		}
-	} else {
-		// Fallback to node list values
-		cpuPct := node.CPU * 100
-		data.CPU = ProxmoxGauge{
-			Used:  cpuPct,
-			Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, node.MaxCPU),
-		}
-		if node.MaxMem > 0 {
-			usedGB := float64(node.Mem) / 1073741824
-			totalGB := float64(node.MaxMem) / 1073741824
+			usedGB := float64(mem.Used) / 1073741824
+			totalGB := float64(mem.Total) / 1073741824
 			data.Memory = ProxmoxGauge{
-				Used:  float64(node.Mem) / float64(node.MaxMem) * 100,
+				Used:  float64(mem.Used) / float64(mem.Total) * 100,
 				Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
+			}
+			parsedStatus = true
+		}
+	}
+	// Fallback: try /cluster/resources which works with lower permissions
+	if !parsedStatus {
+		clusterBody, cerr := proxmoxGet(apiURL, apiKey, "/cluster/resources?type=node", skipTLS)
+		log.Printf("[PROXMOX] cluster/resources err=%v bodylen=%d", cerr, len(clusterBody))
+		if cerr == nil {
+			var cr struct {
+				Data []struct {
+					Node   string  `json:"node"`
+					CPU    float64 `json:"cpu"`
+					MaxCPU int     `json:"maxcpu"`
+					Mem    int64   `json:"mem"`
+					MaxMem int64   `json:"maxmem"`
+				} `json:"data"`
+			}
+			if json.Unmarshal(clusterBody, &cr) == nil {
+				for _, n := range cr.Data {
+					if n.Node == node.Node && n.MaxMem > 0 {
+						log.Printf("[PROXMOX] cluster cpu=%.3f maxcpu=%d mem=%d maxmem=%d",
+							n.CPU, n.MaxCPU, n.Mem, n.MaxMem)
+						cpuPct := n.CPU * 100
+						data.CPU = ProxmoxGauge{Used: cpuPct, Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, n.MaxCPU)}
+						usedGB := float64(n.Mem) / 1073741824
+						totalGB := float64(n.MaxMem) / 1073741824
+						data.Memory = ProxmoxGauge{
+							Used:  float64(n.Mem) / float64(n.MaxMem) * 100,
+							Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
+						}
+					}
+				}
 			}
 		}
 	}
@@ -268,11 +282,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	data.VMs = append(running, stopped...)
 
 	return data, nil
-}
-
-func min(a, b int) int {
-	if a < b { return a }
-	return b
 }
 
 func proxmoxGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
