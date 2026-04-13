@@ -6,13 +6,10 @@ interface PlexSession {
   user: string; title: string; grandparentTitle: string; type: string
   state: string; progress: number; transcodeDecision: string; quality: string; player: string
 }
-interface PlexMedia {
-  title: string; grandparentTitle: string; type: string; addedAt: number; year: number
-}
 interface PlexData {
   uiUrl: string; serverName: string; version: string
   latestVersion: string; updateAvail: boolean
-  libraries: PlexLibrary[]; sessions: PlexSession[]; recentlyAdded: PlexMedia[]
+  libraries: PlexLibrary[]; sessions: PlexSession[]
 }
 
 const TYPE_ICON: Record<string, string> = {
@@ -23,21 +20,13 @@ const STATE_COLOR: Record<string, string> = {
   playing: 'var(--green)', paused: 'var(--amber)', buffering: 'var(--text-dim)'
 }
 
-
-function timeAgo(unixSecs: number) {
-  const diff = Date.now() / 1000 - unixSecs
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
-}
-
 export default function PlexPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<PlexData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const refreshSecs = config.refreshSecs || 30  // Plex sessions refresh fast
+  const refreshSecs = config.refreshSecs || 30
 
   const load = useCallback(async () => {
     try {
@@ -62,20 +51,22 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
-      letterSpacing: '0.07em', marginBottom: 6, marginTop: 10 }}>{text}</div>
+      letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
-  // ── Library grid ────────────────────────────────────────────────────────────
+  // ── Condensed library grid — wrapping pills ───────────────────────────────
   const LibraryGrid = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
       {(data.libraries || []).map(lib => (
-        <div key={lib.title} style={{ display: 'flex', alignItems: 'center', gap: 8,
-          padding: '4px 8px', borderRadius: 6, background: 'var(--surface2)', fontSize: 12 }}>
-          <span style={{ fontSize: 14, width: 20, textAlign: 'center', flexShrink: 0 }}>
-            {TYPE_ICON[lib.type] || TYPE_ICON.other}
-          </span>
-          <span style={{ flex: 1, fontWeight: 500 }}>{lib.title}</span>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--text-muted)' }}>
+        <div key={lib.title} style={{
+          display: 'flex', alignItems: 'center', gap: 5,
+          padding: '3px 8px', borderRadius: 6,
+          background: 'var(--surface2)', border: '1px solid var(--border)',
+          fontSize: 11,
+        }}>
+          <span style={{ fontSize: 12 }}>{TYPE_ICON[lib.type] || TYPE_ICON.other}</span>
+          <span style={{ color: 'var(--text-muted)' }}>{lib.title}</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
             {lib.count.toLocaleString()}
           </span>
         </div>
@@ -83,7 +74,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     </div>
   )
 
-  // ── Server header with optional update badge ─────────────────────────────
+  // ── Server header ─────────────────────────────────────────────────────────
   const ServerHeader = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
@@ -102,25 +93,22 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
           fontSize: 10, padding: '1px 6px', borderRadius: 10,
           background: '#f59e0b18', border: '1px solid #f59e0b40',
           color: 'var(--amber)', fontWeight: 600, cursor: 'help',
-        }}>
-          ↑ update
-        </span>
+        }}>↑ update</span>
       )}
       <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-dim)' }}>
         {(data.sessions || []).length > 0
           ? <span style={{ color: 'var(--green)' }}>● {data.sessions.length} streaming</span>
-          : <span>○ idle</span>
-        }
+          : <span>○ idle</span>}
       </span>
     </div>
   )
 
-  // ── Session rows ─────────────────────────────────────────────────────────
+  // ── Session rows ──────────────────────────────────────────────────────────
   const SessionRow = ({ s }: { s: PlexSession }) => {
     const isDirect = s.transcodeDecision === 'directplay' || s.transcodeDecision === 'copy'
     const displayTitle = s.grandparentTitle ? `${s.grandparentTitle} — ${s.title}` : s.title
     return (
-      <div style={{ padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
           <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
             background: STATE_COLOR[s.state] || 'var(--text-dim)' }} />
@@ -146,14 +134,14 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     )
   }
 
-  // ── 1x — libraries only ──────────────────────────────────────────────────
+  // ── 1x — libraries only ───────────────────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <LibraryGrid />
     </div>
   )
 
-  // ── 2x — libraries + active sessions ────────────────────────────────────
+  // ── 2x — server header + libraries + sessions ────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <ServerHeader />
@@ -167,37 +155,15 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     </div>
   )
 
-  // ── 4x — everything ──────────────────────────────────────────────────────
+  // ── 4x — same as 2x (recently added removed, overlaps with Radarr/Sonarr) ─
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <ServerHeader />
       <LibraryGrid />
-
       {(data.sessions || []).length > 0 && (
         <>
           {sectionTitle('Now streaming')}
           {data.sessions.map((s, i) => <SessionRow key={i} s={s} />)}
-        </>
-      )}
-
-      {(data.recentlyAdded || []).length > 0 && (
-        <>
-          {sectionTitle('Recently added')}
-          {data.recentlyAdded.map((m, i) => {
-            const title = m.grandparentTitle ? `${m.grandparentTitle} — ${m.title}` : m.title
-            return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-                <span style={{ fontSize: 12, flexShrink: 0 }}>{TYPE_ICON[m.type] || '📁'}</span>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                  {title}
-                </span>
-                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
-                  {timeAgo(m.addedAt)}
-                </span>
-              </div>
-            )
-          })}
         </>
       )}
     </div>

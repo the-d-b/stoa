@@ -52,13 +52,14 @@ type PlexMedia struct {
 // ── Plex XML response types ───────────────────────────────────────────────────
 
 type plexMediaContainer struct {
-	XMLName   xml.Name       `xml:"MediaContainer"`
-	Size      int            `xml:"size,attr"`
-	Version   string         `xml:"version,attr"`
+	XMLName      xml.Name    `xml:"MediaContainer"`
+	Size         int         `xml:"size,attr"`
+	TotalSize    int         `xml:"totalSize,attr"`
+	Version      string      `xml:"version,attr"`
 	FriendlyName string      `xml:"friendlyName,attr"`
-	Directories []plexDir    `xml:"Directory"`
-	Videos    []plexVideo    `xml:"Video"`
-	Tracks    []plexTrack    `xml:"Track"`
+	Directories  []plexDir   `xml:"Directory"`
+	Videos       []plexVideo `xml:"Video"`
+	Tracks       []plexTrack `xml:"Track"`
 }
 
 type plexDir struct {
@@ -163,7 +164,10 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 				if serr == nil {
 					var sc plexMediaContainer
 					if xml.Unmarshal(secBody, &sc) == nil {
-						count = sc.Size
+						count = sc.TotalSize
+						if count == 0 {
+							count = sc.Size // fallback
+						}
 					}
 				}
 				data.Libraries = append(data.Libraries, PlexLibrary{
@@ -187,23 +191,6 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 			for _, t := range mc.Tracks {
 				sess := plexSessionFromTrack(t)
 				data.Sessions = append(data.Sessions, sess)
-			}
-		}
-	}
-
-	// Recently added — last 8 items across all libraries
-	recentBody, err := plexGet(apiURL, apiKey, "/library/recentlyAdded?X-Plex-Container-Start=0&X-Plex-Container-Size=8", skipTLS)
-	if err == nil {
-		var mc plexMediaContainer
-		if xml.Unmarshal(recentBody, &mc) == nil {
-			for _, v := range mc.Videos {
-				data.RecentlyAdded = append(data.RecentlyAdded, PlexMedia{
-					Title:            v.Title,
-					GrandparentTitle: v.GrandparentTitle,
-					Type:             v.Type,
-					AddedAt:          v.AddedAt,
-					Year:             v.Year,
-				})
 			}
 		}
 	}

@@ -20,8 +20,8 @@ interface TautulliData {
 }
 
 const TIME_RANGES = [
-  { label: '1d',  value: 1 },
-  { label: '7d',  value: 7 },
+  { label: '1d', value: 1 },
+  { label: '7d', value: 7 },
   { label: '30d', value: 30 },
   { label: 'All', value: 0 },
 ]
@@ -30,17 +30,17 @@ const MEDIA_ICON: Record<string, string> = {
   movie: '🎬', episode: '📺', track: '🎵', photo: '📷'
 }
 
+function timeAgo(unixSecs: number) {
+  const diff = Date.now() / 1000 - unixSecs
+  if (diff < 3600) return `${Math.floor(diff / 60)}m`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h`
+  return `${Math.floor(diff / 86400)}d`
+}
+
 function formatDuration(secs: number) {
   const h = Math.floor(secs / 3600)
   const m = Math.floor((secs % 3600) / 60)
   return h > 0 ? `${h}h ${m}m` : `${m}m`
-}
-
-function timeAgo(unixSecs: number) {
-  const diff = Date.now() / 1000 - unixSecs
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
-  return `${Math.floor(diff / 86400)}d ago`
 }
 
 export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -62,7 +62,6 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     } finally { setLoading(false) }
   }, [panel.id])
 
-  // Save timeRange to panel config and reload
   const changeTimeRange = async (val: number) => {
     setTimeRange(val)
     setSaving(true)
@@ -70,14 +69,13 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
       const newConfig = JSON.stringify({ ...config, timeRange: val })
       if (isSystem) await panelsApi.update(panel.id, { title: panel.title, config: newConfig })
       else await myPanelsApi.update(panel.id, { title: panel.title, config: newConfig })
-      // Small delay then reload with new range
       setTimeout(load, 300)
     } finally { setSaving(false) }
   }
 
   useEffect(() => {
     load()
-    const interval = setInterval(load, 300 * 1000) // 5min refresh
+    const interval = setInterval(load, 300 * 1000)
     return () => clearInterval(interval)
   }, [load])
 
@@ -87,15 +85,14 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
-      letterSpacing: '0.07em', marginBottom: 6, marginTop: 10 }}>{text}</div>
+      letterSpacing: '0.07em', marginBottom: 5, marginTop: 8 }}>{text}</div>
   )
 
   // ── Time range pills ──────────────────────────────────────────────────────
   const TimeRangePills = () => (
     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
       {TIME_RANGES.map(tr => (
-        <button key={tr.value} onClick={() => changeTimeRange(tr.value)}
-          disabled={saving}
+        <button key={tr.value} onClick={() => changeTimeRange(tr.value)} disabled={saving}
           style={{
             padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
             cursor: 'pointer', border: 'none', transition: 'all 0.12s',
@@ -109,98 +106,107 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── Most played rows ──────────────────────────────────────────────────────
+  // ── Most played — two columns ─────────────────────────────────────────────
   const MostPlayedSection = ({ limit }: { limit: number }) => {
     const items = (data.mostPlayed || []).slice(0, limit)
     if (items.length === 0) return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No plays in this period</div>
+    // Pair items into rows of 2
+    const rows: TautulliMediaStat[][] = []
+    for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2))
     return (
-      <>
-        {items.map((m, i) => {
-          const displayTitle = m.grandparentTitle || m.title
-          const displaySub = m.grandparentTitle ? m.title : null
-          return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-              padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-              <span style={{ fontSize: 12, flexShrink: 0 }}>{MEDIA_ICON[m.mediaType] || '▶'}</span>
-              <span style={{ flex: 1, overflow: 'hidden' }}>
-                <span style={{ fontWeight: 500, display: 'block', overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</span>
-                {displaySub && <span style={{ fontSize: 10, color: 'var(--text-dim)', overflow: 'hidden',
-                  textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{displaySub}</span>}
-              </span>
-              <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0, textAlign: 'right' }}>
-                <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>{m.playCount}</span>
-                <span style={{ color: 'var(--text-dim)' }}> plays</span>
-              </span>
-            </div>
-          )
-        })}
-      </>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {rows.map((row, ri) => (
+          <div key={ri} style={{ display: 'flex', gap: 6 }}>
+            {row.map((m, mi) => {
+              const title = m.grandparentTitle || m.title
+              return (
+                <div key={mi} style={{
+                  flex: 1, display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '3px 7px', borderRadius: 6,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  minWidth: 0,
+                }}>
+                  <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[m.mediaType] || '▶'}</span>
+                  <span style={{ fontSize: 11, flex: 1, overflow: 'hidden',
+                    textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}
+                    title={title}>{title}</span>
+                  <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
+                    fontWeight: 600, color: 'var(--text)', flexShrink: 0 }}>{m.playCount}</span>
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
     )
   }
 
-  // ── User stats ────────────────────────────────────────────────────────────
+  // ── User stats — top 5, relative bar ─────────────────────────────────────
   const UserStatsSection = () => {
-    const users = data.userStats || []
+    const users = (data.userStats || []).slice(0, 5)
     if (users.length === 0) return null
     const maxPlays = Math.max(...users.map(u => u.playCount), 1)
     return (
-      <>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {users.map((u, i) => (
-          <div key={i} style={{ padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-              <span style={{ fontSize: 12, flex: 1, fontWeight: 500 }}>{u.user}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-                {u.playCount} plays · {formatDuration(u.totalDuration)}
-              </span>
-            </div>
-            <div style={{ height: 2, background: 'var(--surface2)', borderRadius: 1 }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              flexShrink: 0 }}>{u.user}</span>
+            <div style={{ flex: 1, height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
               <div style={{ width: `${(u.playCount / maxPlays) * 100}%`, height: '100%',
-                background: 'var(--accent)', borderRadius: 1 }} />
+                background: 'var(--accent)', borderRadius: 2 }} />
             </div>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+              fontFamily: 'DM Mono, monospace', width: 50, textAlign: 'right' }}>
+              {u.playCount} · {formatDuration(u.totalDuration)}
+            </span>
           </div>
         ))}
-      </>
+      </div>
     )
   }
 
-  // ── History rows ──────────────────────────────────────────────────────────
+  // ── History — compact two-line rows ──────────────────────────────────────
   const HistorySection = () => (
-    <>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {(data.history || []).map((h, i) => {
-        const displayTitle = h.grandparentTitle ? `${h.grandparentTitle} — ${h.title}` : h.title
+        const title = h.grandparentTitle ? `${h.grandparentTitle} — ${h.title}` : h.title
         return (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-            padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-            <span style={{ fontSize: 12, flexShrink: 0 }}>{MEDIA_ICON[h.mediaType] || '▶'}</span>
-            <span style={{ flex: 1, overflow: 'hidden' }}>
-              <span style={{ fontWeight: 500, display: 'block', overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayTitle}</span>
-              <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{h.user}</span>
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '3px 7px', borderRadius: 6,
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+          }}>
+            <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[h.mediaType] || '▶'}</span>
+            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}
+              title={title}>{title}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
+              {h.user}
             </span>
-            <span style={{ flexShrink: 0, textAlign: 'right' }}>
-              <span style={{ display: 'block', fontSize: 10, color: 'var(--text-dim)',
-                fontFamily: 'DM Mono, monospace' }}>{timeAgo(h.date)}</span>
-              <span style={{ display: 'block', fontSize: 10,
-                color: h.percentComplete >= 90 ? 'var(--green)' : 'var(--text-dim)' }}>
-                {Math.round(h.percentComplete)}%
-              </span>
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
+              color: h.percentComplete >= 90 ? 'var(--green)' : 'var(--text-dim)',
+              flexShrink: 0 }}>
+              {Math.round(h.percentComplete)}%
             </span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+              fontFamily: 'DM Mono, monospace' }}>{timeAgo(h.date)}</span>
           </div>
         )
       })}
-    </>
-  )
-
-  // ── 1x — most played (top 5) ──────────────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <TimeRangePills />
-      <MostPlayedSection limit={5} />
     </div>
   )
 
-  // ── 2x — most played + user stats ────────────────────────────────────────
+  // ── 1x — most played 2-col, 6 items ──────────────────────────────────────
+  if (heightUnits <= 1) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <TimeRangePills />
+      <MostPlayedSection limit={6} />
+    </div>
+  )
+
+  // ── 2x — most played + top viewers ───────────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
