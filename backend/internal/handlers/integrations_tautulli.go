@@ -50,7 +50,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	// Most played — top 10 across all media types
 	mostPlayedBody, err := tautulliGet(apiURL, apiKey, "get_home_stats", fmt.Sprintf(
 		"&time_range=%d&stats_count=10&stats_type=plays", timeRange,
-	))
+	), skipTLS)
 	if err == nil {
 		var resp struct {
 			Response struct {
@@ -102,7 +102,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	// User stats
 	userStatsBody, err := tautulliGet(apiURL, apiKey, "get_home_stats", fmt.Sprintf(
 		"&time_range=%d&stats_count=8&stats_type=plays", timeRange,
-	))
+	), skipTLS)
 	if err == nil {
 		var resp struct {
 			Response struct {
@@ -134,7 +134,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	// Recent history — last 8 plays
 	histBody, err := tautulliGet(apiURL, apiKey, "get_history",
 		"&length=8&order_column=date&order_dir=desc",
-	)
+		skipTLS)
 	if err == nil {
 		var resp struct {
 			Response struct {
@@ -169,10 +169,10 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	return data, nil
 }
 
-func tautulliGet(baseURL, apiKey, cmd, extraParams string) ([]byte, error) {
+func tautulliGet(baseURL, apiKey, cmd, extraParams string, skipTLS ...bool) ([]byte, error) {
 	url := fmt.Sprintf("%s/api/v2?apikey=%s&cmd=%s%s",
 		strings.TrimRight(baseURL, "/"), apiKey, cmd, extraParams)
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httpClient(len(skipTLS) > 0 && skipTLS[0])
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -184,8 +184,8 @@ func tautulliGet(baseURL, apiKey, cmd, extraParams string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func testTautulliConnection(apiURL, apiKey string) error {
-	body, err := tautulliGet(apiURL, apiKey, "arnold", "")
+func testTautulliConnection(apiURL, apiKey string, skipTLS ...bool) error {
+	body, err := tautulliGet(apiURL, apiKey, "arnold", "", (len(skipTLS) > 0 && skipTLS[0]))
 	if err != nil {
 		return err
 	}

@@ -32,7 +32,7 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -40,7 +40,7 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 
 	// Recent history
 	hist, err := arrGet(apiURL, apiKey,
-		"/api/v3/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=1&includeMovie=true")
+		"/api/v3/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=1&includeMovie=true", skipTLS)
 	if err == nil {
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
@@ -58,7 +58,7 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 	}
 
 	// Library stats via cache
-	movieList, err := getCachedArr(apiURL, apiKey, "radarr")
+	movieList, err := getCachedArr(apiURL, apiKey, "radarr", skipTLS)
 	if err != nil {
 		log.Printf("[RADARR] movie fetch error: %v", err)
 	} else {

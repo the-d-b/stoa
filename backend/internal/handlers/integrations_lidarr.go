@@ -33,7 +33,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	upcStart := timeNow().Format("2006-01-02")
 	upcEnd := timeNow().AddDate(0, 0, 90).Format("2006-01-02")
 	upcoming, err := arrGet(apiURL, apiKey,
-		fmt.Sprintf("/api/v1/calendar?start=%s&end=%s&unmonitored=true&includeArtist=true", upcStart, upcEnd))
+		fmt.Sprintf("/api/v1/calendar?start=%s&end=%s&unmonitored=true&includeArtist=true", upcStart, upcEnd), skipTLS)
 	if err == nil {
 		var albums []map[string]interface{}
 		json.Unmarshal(upcoming, &albums)
@@ -54,7 +54,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 
 	// Recent history
 	hist, err := arrGet(apiURL, apiKey,
-		"/api/v1/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=3&includeArtist=true&includeAlbum=true")
+		"/api/v1/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=3&includeArtist=true&includeAlbum=true", skipTLS)
 	if err == nil {
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
@@ -72,7 +72,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	}
 
 	// Artist/album counts
-	artists, err := getCachedArr(apiURL, apiKey, "lidarr")
+	artists, err := getCachedArr(apiURL, apiKey, "lidarr", skipTLS)
 	if err != nil {
 		log.Printf("[LIDARR] artist fetch error: %v", err)
 	} else {
@@ -87,7 +87,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	}
 
 	// Missing albums
-	missing, err := arrGet(apiURL, apiKey, "/api/v1/wanted/missing?pageSize=10&sortKey=releaseDate&sortDirection=descending")
+	missing, err := arrGet(apiURL, apiKey, "/api/v1/wanted/missing?pageSize=10&sortKey=releaseDate&sortDirection=descending", skipTLS)
 	if err == nil {
 		var wantedResp map[string]interface{}
 		json.Unmarshal(missing, &wantedResp)

@@ -121,14 +121,14 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
 	data := &PlexPanelData{UIURL: uiURL}
 
 	// Server identity + version
-	body, err := plexGet(apiURL, apiKey, "/")
+	body, err := plexGet(apiURL, apiKey, "/", skipTLS)
 	if err == nil {
 		var mc plexMediaContainer
 		if xml.Unmarshal(body, &mc) == nil {
@@ -138,7 +138,7 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 	}
 
 	// Check for updates — Plex embeds latest version in their update endpoint
-	updateBody, err := plexGet(apiURL, apiKey, "/updater/status")
+	updateBody, err := plexGet(apiURL, apiKey, "/updater/status", skipTLS)
 	if err == nil {
 		var uc plexMediaContainer
 		if xml.Unmarshal(updateBody, &uc) == nil && len(uc.Directories) > 0 {
@@ -154,13 +154,13 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 	}
 
 	// Libraries
-	libBody, err := plexGet(apiURL, apiKey, "/library/sections")
+	libBody, err := plexGet(apiURL, apiKey, "/library/sections", skipTLS)
 	if err == nil {
 		var mc plexMediaContainer
 		if xml.Unmarshal(libBody, &mc) == nil {
 			for _, dir := range mc.Directories {
 				// Get section size
-				secBody, serr := plexGet(apiURL, apiKey, fmt.Sprintf("/library/sections/%s/all?includeCollections=0&X-Plex-Container-Start=0&X-Plex-Container-Size=0", dir.Key))
+				secBody, serr := plexGet(apiURL, apiKey, fmt.Sprintf("/library/sections/%s/all?includeCollections=0&X-Plex-Container-Start=0&X-Plex-Container-Size=0", dir.Key), skipTLS)
 				count := 0
 				if serr == nil {
 					var sc plexMediaContainer
@@ -178,7 +178,7 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 	}
 
 	// Active sessions
-	sessBody, err := plexGet(apiURL, apiKey, "/status/sessions")
+	sessBody, err := plexGet(apiURL, apiKey, "/status/sessions", skipTLS)
 	if err == nil {
 		var mc plexMediaContainer
 		if xml.Unmarshal(sessBody, &mc) == nil {
@@ -194,7 +194,7 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 	}
 
 	// Recently added — last 8 items across all libraries
-	recentBody, err := plexGet(apiURL, apiKey, "/library/recentlyAdded?X-Plex-Container-Start=0&X-Plex-Container-Size=8")
+	recentBody, err := plexGet(apiURL, apiKey, "/library/recentlyAdded?X-Plex-Container-Start=0&X-Plex-Container-Size=8", skipTLS)
 	if err == nil {
 		var mc plexMediaContainer
 		if xml.Unmarshal(recentBody, &mc) == nil {
@@ -263,14 +263,14 @@ func plexSessionFromTrack(t plexTrack) PlexSession {
 	return sess
 }
 
-func plexGet(baseURL, token, path string) ([]byte, error) {
+func plexGet(baseURL, token, path string, skipTLS ...bool) ([]byte, error) {
 	url := strings.TrimRight(baseURL, "/") + path
 	if strings.Contains(url, "?") {
 		url += "&X-Plex-Token=" + token
 	} else {
 		url += "?X-Plex-Token=" + token
 	}
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httpClient(len(skipTLS) > 0 && skipTLS[0])
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -282,8 +282,8 @@ func plexGet(baseURL, token, path string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-func testPlexConnection(apiURL, token string) error {
-	body, err := plexGet(apiURL, token, "/")
+func testPlexConnection(apiURL, token string, skipTLS ...bool) error {
+	body, err := plexGet(apiURL, token, "/", (len(skipTLS) > 0 && skipTLS[0]))
 	if err != nil {
 		return err
 	}

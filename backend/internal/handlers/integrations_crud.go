@@ -137,13 +137,8 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		skipTLSInt := 0
 		if req.SkipTLS { skipTLSInt = 1 }
-		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=? WHERE id=?`,
+		db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=? WHERE id=?`,
 			req.Name, req.APIURL, req.UIURL, secretID, skipTLSInt, id)
-		if uerr != nil {
-			log.Printf("[INTEGRATIONS] update error: %v", uerr)
-			writeError(w, http.StatusInternalServerError, "update failed")
-			return
-		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

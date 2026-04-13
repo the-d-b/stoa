@@ -50,7 +50,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integration configured")
 	}
-	apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	upcStart := timeNow().Format("2006-01-02")
 	upcEnd := timeNow().AddDate(0, 0, 90).Format("2006-01-02")
 	upcoming, err := arrGet(apiURL, apiKey,
-		fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", upcStart, upcEnd))
+		fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", upcStart, upcEnd), skipTLS)
 	if err == nil {
 		var episodes []map[string]interface{}
 		json.Unmarshal(upcoming, &episodes)
@@ -87,7 +87,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 
 	// Recent history
 	hist, err := arrGet(apiURL, apiKey,
-		"/api/v3/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=1&includeSeries=true&includeEpisode=true")
+		"/api/v3/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=1&includeSeries=true&includeEpisode=true", skipTLS)
 	if err == nil {
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
@@ -125,7 +125,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	}
 
 	// Library stats via cache
-	seriesList, seriesErr := getCachedArr(apiURL, apiKey, "sonarr")
+	seriesList, seriesErr := getCachedArr(apiURL, apiKey, "sonarr", skipTLS)
 	if seriesErr != nil {
 		log.Printf("[SONARR] series fetch error: %v", seriesErr)
 	} else {

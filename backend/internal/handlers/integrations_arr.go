@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -11,9 +12,21 @@ import (
 	"time"
 )
 
+func httpClient(skipTLS bool) *http.Client {
+	if skipTLS {
+		return &http.Client{
+			Timeout: 15 * time.Second,
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
+			},
+		}
+	}
+	return &http.Client{Timeout: 15 * time.Second}
+}
+
 // ── Shared arr HTTP helper ────────────────────────────────────────────────────
 
-func arrGet(apiURL, apiKey, path string) ([]byte, error) {
+func arrGet(apiURL, apiKey, path string, skipTLS ...bool) ([]byte, error) {
 	url := strings.TrimRight(apiURL, "/") + path
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -22,7 +35,7 @@ func arrGet(apiURL, apiKey, path string) ([]byte, error) {
 	if apiKey != "" {
 		req.Header.Set("X-Api-Key", apiKey)
 	}
-	client := &http.Client{Timeout: 15 * time.Second}
+	client := httpClient(len(skipTLS) > 0 && skipTLS[0])
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
@@ -50,7 +63,8 @@ var (
 
 const arrCacheTTL = 5 * time.Minute
 
-func getCachedArr(apiURL, apiKey, itemType string) ([]map[string]interface{}, error) {
+func getCachedArr(apiURL, apiKey, itemType string, skipTLS ...bool) ([]map[string]interface{}, error) {
+	skip := len(skipTLS) > 0 && skipTLS[0]
 	key := apiURL + "|" + itemType
 	arrCacheMu.Lock()
 	entry := arrCache[key]
@@ -73,7 +87,7 @@ func getCachedArr(apiURL, apiKey, itemType string) ([]map[string]interface{}, er
 		path = "/api/v3/series"
 	}
 
-	data, err := arrGet(apiURL, apiKey, path)
+	data, err := arrGet(apiURL, apiKey, path, skip)
 	if err != nil {
 		if entry != nil {
 			log.Printf("[%s] fetch failed, using stale cache: %v", strings.ToUpper(itemType), err)

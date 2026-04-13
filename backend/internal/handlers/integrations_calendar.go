@@ -20,7 +20,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		daysAhead := 30
 		if v, ok := source["daysAhead"].(float64); ok { daysAhead = int(v) }
 
-		apiURL, uiURL, apiKey, err := resolveIntegration(db, integrationID)
+		apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 		if err != nil { continue }
 
 		calStart := timeNow().Format("2006-01-02")
@@ -29,7 +29,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		switch srcType {
 		case "sonarr":
 			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", calStart, calEnd))
+		fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
 			if err != nil { continue }
 			var episodes []map[string]interface{}
 			json.Unmarshal(upcoming, &episodes)
@@ -53,7 +53,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 		case "radarr":
 			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?start=%s&end=%s&unmonitored=true", calStart, calEnd))
+		fmt.Sprintf("/api/v3/calendar?start=%s&end=%s&unmonitored=true", calStart, calEnd), skipTLS)
 			if err != nil { continue }
 			var movies []map[string]interface{}
 			json.Unmarshal(upcoming, &movies)
@@ -74,7 +74,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 		case "lidarr":
 			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v1/calendar?start=%s&end=%s&unmonitored=true&includeArtist=true", calStart, calEnd))
+		fmt.Sprintf("/api/v1/calendar?start=%s&end=%s&unmonitored=true&includeArtist=true", calStart, calEnd), skipTLS)
 			if err != nil { continue }
 			var albums []map[string]interface{}
 			json.Unmarshal(upcoming, &albums)
