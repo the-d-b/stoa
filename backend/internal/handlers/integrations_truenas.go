@@ -16,18 +16,14 @@ type TrueNASPanelData struct {
 	UIURL     string         `json:"uiUrl"`
 	Hostname  string         `json:"hostname"`
 	Version   string         `json:"version"`
-	CPU       TrueNASGauge   `json:"cpu"`
-	Memory    TrueNASGauge   `json:"memory"`
+	TotalRAM  string         `json:"totalRam"`
+	CPUModel  string         `json:"cpuModel"`
+	CPUCores  int            `json:"cpuCores"`
 	Pools     []TrueNASPool  `json:"pools"`
 	Alerts    []TrueNASAlert `json:"alerts"`
 	Disks     []TrueNASDisk  `json:"disks"`
 	VMs       []TrueNASVM    `json:"vms"`
 	Apps      []TrueNASApp   `json:"apps"`
-}
-
-type TrueNASGauge struct {
-	Used  float64 `json:"used"`
-	Label string  `json:"label"`
 }
 
 type TrueNASPool struct {
@@ -69,79 +65,23 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 	}
 	data := &TrueNASPanelData{UIURL: uiURL}
 
-	// System info — hostname, version, physmem
-	var totalMemBytes int64
+	// System info
 	if body, err := truenasGet(apiURL, apiKey, "/system/info", skipTLS); err == nil {
 		var info struct {
 			Hostname string `json:"hostname"`
 			Version  string `json:"version"`
 			PhysMem  int64  `json:"physmem"`
+			Model    string `json:"model"`
+			Cores    int    `json:"cores"`
 		}
 		if json.Unmarshal(body, &info) == nil {
 			data.Hostname = info.Hostname
 			data.Version = info.Version
-			totalMemBytes = info.PhysMem
-		}
-	}
-
-	// CPU — use /api/v2.0/reporting/get_data with POST
-	log.Printf("[TRUENAS] fetching CPU for %s", data.Hostname)
-	cpuBody, err := truenasPost(apiURL, apiKey, "/reporting/get_data", `{
-		"graphs": [{"name": "cpu", "identifier": null}],
-		"reporting_query": {"start": "now-5s", "end": "now", "aggregate": true, "unit": "SECONDS", "step": 10}
-	}`, skipTLS)
-	if err != nil { log.Printf("[TRUENAS] cpu POST error: %v", err) }
-	if err == nil {
-		var resp []struct {
-			Legend []string    `json:"legend"`
-			Data   [][]float64 `json:"data"`
-		}
-		log.Printf("[TRUENAS] cpu body len=%d", len(cpuBody))
-		if json.Unmarshal(cpuBody, &resp) == nil && len(resp) > 0 && len(resp[0].Data) > 0 {
-			row := resp[0].Data[len(resp[0].Data)-1]
-			legend := resp[0].Legend
-			// Sum everything except "idle"
-			used := 0.0
-			for i, l := range legend {
-				if i < len(row) && !strings.EqualFold(l, "idle") {
-					used += row[i]
-				}
-			}
-			log.Printf("[TRUENAS] cpu used=%.1f%%", used)
-			data.CPU = TrueNASGauge{Used: used, Label: fmt.Sprintf("%.0f%%", used)}
-		}
-	}
-
-	// Memory — POST reporting
-	if totalMemBytes > 0 {
-		memBody, err := truenasPost(apiURL, apiKey, "/reporting/get_data", `{
-			"graphs": [{"name": "memory", "identifier": null}],
-			"reporting_query": {"start": "now-5s", "end": "now", "aggregate": true, "unit": "SECONDS", "step": 10}
-		}`, skipTLS)
-		if err != nil { log.Printf("[TRUENAS] mem POST error: %v", err) }
-		if err == nil {
-			var resp []struct {
-				Legend []string    `json:"legend"`
-				Data   [][]float64 `json:"data"`
-			}
-			if json.Unmarshal(memBody, &resp) == nil && len(resp) > 0 && len(resp[0].Data) > 0 {
-				row := resp[0].Data[len(resp[0].Data)-1]
-				legend := resp[0].Legend
-				usedBytes := 0.0
-				for i, l := range legend {
-					if i < len(row) && strings.EqualFold(l, "used") {
-						usedBytes = row[i]
-						break
-					}
-				}
-				totalGB := float64(totalMemBytes) / 1073741824
-				usedGB := usedBytes / 1073741824
-				pct := usedGB / totalGB * 100
-				log.Printf("[TRUENAS] mem used=%.1f%% (%.1f/%.0f GB)", pct, usedGB, totalGB)
-				data.Memory = TrueNASGauge{
-					Used:  pct,
-					Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
-				}
+			data.CPUModel = info.Model
+			data.CPUCores = info.Cores
+			if info.PhysMem > 0 {
+				gb := float64(info.PhysMem) / 1073741824
+				data.TotalRAM = fmt.Sprintf("%.0f GB RAM", gb)
 			}
 		}
 	}
@@ -250,6 +190,11 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 	}
 
 	return data, nil
+}
+
+func min(a, b int) int {
+	if a < b { return a }
+	return b
 }
 
 func truenasGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
