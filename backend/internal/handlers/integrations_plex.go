@@ -18,7 +18,8 @@ type PlexPanelData struct {
 	UpdateAvail    bool          `json:"updateAvail"`
 	Libraries      []PlexLibrary `json:"libraries"`
 	Sessions       []PlexSession `json:"sessions"`
-	RecentlyAdded  []PlexMedia   `json:"recentlyAdded"`
+	TranscodeCount int           `json:"transcodeCount"`
+	DirectCount    int           `json:"directCount"`
 }
 
 type PlexLibrary struct {
@@ -40,14 +41,7 @@ type PlexSession struct {
 	Player      string  `json:"player"`
 }
 
-type PlexMedia struct {
-	Title            string `json:"title"`
-	GrandparentTitle string `json:"grandparentTitle"`
-	Type             string `json:"type"`
-	AddedAt          int64  `json:"addedAt"`
-	Year             int    `json:"year"`
-	ThumbKey         string `json:"thumbKey"`
-}
+
 
 // ── Plex XML response types ───────────────────────────────────────────────────
 
@@ -195,6 +189,14 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 		}
 	}
 
+	// Tally transcode vs direct from sessions
+	for _, s := range data.Sessions {
+		if s.TranscodeDecision == "directplay" || s.TranscodeDecision == "copy" {
+			data.DirectCount++
+		} else {
+			data.TranscodeCount++
+		}
+	}
 	return data, nil
 }
 

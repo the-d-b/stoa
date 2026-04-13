@@ -10,7 +10,7 @@ interface TautulliUserStat {
 }
 interface TautulliHistory {
   user: string; title: string; grandparentTitle: string
-  mediaType: string; date: number; duration: number; percentComplete: number
+  mediaType: string; date: number; percentComplete: number
 }
 interface TautulliData {
   uiUrl: string
@@ -88,7 +88,6 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
       letterSpacing: '0.07em', marginBottom: 5, marginTop: 8 }}>{text}</div>
   )
 
-  // ── Time range pills ──────────────────────────────────────────────────────
   const TimeRangePills = () => (
     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
       {TIME_RANGES.map(tr => (
@@ -106,32 +105,28 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── Most played — two columns ─────────────────────────────────────────────
   const MostPlayedSection = ({ limit }: { limit: number }) => {
     const items = (data.mostPlayed || []).slice(0, limit)
     if (items.length === 0) return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No plays in this period</div>
-    // Pair items into rows of 2
     const rows: TautulliMediaStat[][] = []
     for (let i = 0; i < items.length; i += 2) rows.push(items.slice(i, i + 2))
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {rows.map((row, ri) => (
-          <div key={ri} style={{ display: 'flex', gap: 6 }}>
+          <div key={ri} style={{ display: 'flex', gap: 5 }}>
             {row.map((m, mi) => {
               const title = m.grandparentTitle || m.title
               return (
                 <div key={mi} style={{
                   flex: 1, display: 'flex', alignItems: 'center', gap: 5,
                   padding: '3px 7px', borderRadius: 6,
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  minWidth: 0,
+                  background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 0,
                 }}>
                   <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[m.mediaType] || '▶'}</span>
-                  <span style={{ fontSize: 11, flex: 1, overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}
-                    title={title}>{title}</span>
-                  <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-                    fontWeight: 600, color: 'var(--text)', flexShrink: 0 }}>{m.playCount}</span>
+                  <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
+                  <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                    color: 'var(--text)', flexShrink: 0 }}>{m.playCount}</span>
                 </div>
               )
             })}
@@ -141,9 +136,8 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     )
   }
 
-  // ── User stats — top 5, relative bar ─────────────────────────────────────
-  const UserStatsSection = () => {
-    const users = (data.userStats || []).slice(0, 5)
+  const UserStatsSection = ({ limit }: { limit: number }) => {
+    const users = (data.userStats || []).slice(0, limit)
     if (users.length === 0) return null
     const maxPlays = Math.max(...users.map(u => u.playCount), 1)
     return (
@@ -151,14 +145,15 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
         {users.map((u, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              flexShrink: 0 }}>{u.user}</span>
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {u.user}
+            </span>
             <div style={{ flex: 1, height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
               <div style={{ width: `${(u.playCount / maxPlays) * 100}%`, height: '100%',
                 background: 'var(--accent)', borderRadius: 2 }} />
             </div>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-              fontFamily: 'DM Mono, monospace', width: 50, textAlign: 'right' }}>
+              fontFamily: 'DM Mono, monospace', textAlign: 'right', width: 60 }}>
               {u.playCount} · {formatDuration(u.totalDuration)}
             </span>
           </div>
@@ -167,7 +162,6 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     )
   }
 
-  // ── History — compact two-line rows ──────────────────────────────────────
   const HistorySection = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {(data.history || []).map((h, i) => {
@@ -179,15 +173,11 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
             background: 'var(--surface2)', border: '1px solid var(--border)',
           }}>
             <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[h.mediaType] || '▶'}</span>
-            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden',
-              textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }}
-              title={title}>{title}</span>
-            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
-              {h.user}
-            </span>
-            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-              color: h.percentComplete >= 90 ? 'var(--green)' : 'var(--text-dim)',
-              flexShrink: 0 }}>
+            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{h.user}</span>
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', flexShrink: 0,
+              color: h.percentComplete >= 90 ? 'var(--green)' : 'var(--text-dim)' }}>
               {Math.round(h.percentComplete)}%
             </span>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
@@ -198,33 +188,32 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── 1x — most played 2-col, 6 items ──────────────────────────────────────
+  // ── 1x — most played only, locked at 1d, no filter ───────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <TimeRangePills />
       <MostPlayedSection limit={6} />
     </div>
   )
 
-  // ── 2x — most played + top viewers ───────────────────────────────────────
+  // ── 2x — filter + 4 most played + 4 top viewers ──────────────────────────
   if (heightUnits < 4) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <TimeRangePills />
+      {sectionTitle('Most played')}
+      <MostPlayedSection limit={4} />
+      {sectionTitle('Top viewers')}
+      <UserStatsSection limit={4} />
+    </div>
+  )
+
+  // ── 4x — filter + most played + top viewers + recent plays ───────────────
+  return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
       {sectionTitle('Most played')}
       <MostPlayedSection limit={8} />
       {sectionTitle('Top viewers')}
-      <UserStatsSection />
-    </div>
-  )
-
-  // ── 4x — everything ──────────────────────────────────────────────────────
-  return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <TimeRangePills />
-      {sectionTitle('Most played')}
-      <MostPlayedSection limit={10} />
-      {sectionTitle('Top viewers')}
-      <UserStatsSection />
+      <UserStatsSection limit={4} />
       {sectionTitle('Recent plays')}
       <HistorySection />
     </div>

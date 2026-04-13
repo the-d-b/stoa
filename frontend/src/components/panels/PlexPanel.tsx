@@ -10,12 +10,12 @@ interface PlexData {
   uiUrl: string; serverName: string; version: string
   latestVersion: string; updateAvail: boolean
   libraries: PlexLibrary[]; sessions: PlexSession[]
+  transcodeCount: number; directCount: number
 }
 
 const TYPE_ICON: Record<string, string> = {
   movie: '🎬', show: '📺', artist: '🎵', photo: '📷', other: '📁'
 }
-
 const STATE_COLOR: Record<string, string> = {
   playing: 'var(--green)', paused: 'var(--amber)', buffering: 'var(--text-dim)'
 }
@@ -48,30 +48,12 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
   if (!data)   return null
 
   const uiUrl = data.uiUrl || ''
+  const sessions = data.sessions || []
+  const sessionCount = sessions.length
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
-  )
-
-  // ── Condensed library grid — wrapping pills ───────────────────────────────
-  const LibraryGrid = () => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-      {(data.libraries || []).map(lib => (
-        <div key={lib.title} style={{
-          display: 'flex', alignItems: 'center', gap: 5,
-          padding: '3px 8px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11,
-        }}>
-          <span style={{ fontSize: 12 }}>{TYPE_ICON[lib.type] || TYPE_ICON.other}</span>
-          <span style={{ color: 'var(--text-muted)' }}>{lib.title}</span>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
-            {lib.count.toLocaleString()}
-          </span>
-        </div>
-      ))}
-    </div>
   )
 
   // ── Server header ─────────────────────────────────────────────────────────
@@ -95,11 +77,35 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
           color: 'var(--amber)', fontWeight: 600, cursor: 'help',
         }}>↑ update</span>
       )}
-      <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-dim)' }}>
-        {(data.sessions || []).length > 0
-          ? <span style={{ color: 'var(--green)' }}>● {data.sessions.length} streaming</span>
-          : <span>○ idle</span>}
-      </span>
+    </div>
+  )
+
+  // ── Streaming status bar ──────────────────────────────────────────────────
+  const StreamBar = () => (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+        borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+        <span style={{ color: sessionCount > 0 ? 'var(--green)' : 'var(--text-dim)' }}>●</span>
+        <span style={{ color: 'var(--text-muted)' }}>{sessionCount} streaming</span>
+      </div>
+      {sessionCount > 0 && (
+        <>
+          {data.directCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+              borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+              <span style={{ color: 'var(--green)', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.directCount}</span>
+              <span style={{ color: 'var(--text-dim)' }}>direct</span>
+            </div>
+          )}
+          {data.transcodeCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+              borderRadius: 6, background: 'var(--surface2)', border: '1px solid #f59e0b30', fontSize: 11 }}>
+              <span style={{ color: 'var(--amber)', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.transcodeCount}</span>
+              <span style={{ color: 'var(--text-dim)' }}>transcode</span>
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 
@@ -134,38 +140,59 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     )
   }
 
-  // ── 1x — libraries only ───────────────────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <LibraryGrid />
+  // ── Library pills ─────────────────────────────────────────────────────────
+  const LibraryGrid = () => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      {(data.libraries || []).map(lib => (
+        <div key={lib.title} style={{
+          display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11,
+        }}>
+          <span style={{ fontSize: 12 }}>{TYPE_ICON[lib.type] || TYPE_ICON.other}</span>
+          <span style={{ color: 'var(--text-muted)' }}>{lib.title}</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
+            {lib.count.toLocaleString()}
+          </span>
+        </div>
+      ))}
     </div>
   )
 
-  // ── 2x — server header + libraries + sessions ────────────────────────────
-  if (heightUnits < 4) return (
+  // ── 1x — streaming status + session list ─────────────────────────────────
+  if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <ServerHeader />
-      <LibraryGrid />
-      {(data.sessions || []).length > 0 && (
-        <>
-          {sectionTitle('Now streaming')}
-          {data.sessions.map((s, i) => <SessionRow key={i} s={s} />)}
-        </>
+      <StreamBar />
+      {sessions.length > 0 && sessions.map((s, i) => <SessionRow key={i} s={s} />)}
+      {sessions.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>Nothing playing</div>
       )}
     </div>
   )
 
-  // ── 4x — same as 2x (recently added removed, overlaps with Radarr/Sonarr) ─
+  // ── 2x — streaming + libraries ───────────────────────────────────────────
+  if (heightUnits < 4) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <StreamBar />
+      {sessions.length > 0 && sessions.map((s, i) => <SessionRow key={i} s={s} />)}
+      {sessions.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>Nothing playing</div>
+      )}
+      {sectionTitle('Libraries')}
+      <LibraryGrid />
+    </div>
+  )
+
+  // ── 4x — header + streaming + libraries ──────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <ServerHeader />
-      <LibraryGrid />
-      {(data.sessions || []).length > 0 && (
-        <>
-          {sectionTitle('Now streaming')}
-          {data.sessions.map((s, i) => <SessionRow key={i} s={s} />)}
-        </>
+      <StreamBar />
+      {sessions.length > 0 && sessions.map((s, i) => <SessionRow key={i} s={s} />)}
+      {sessions.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 8 }}>Nothing playing</div>
       )}
+      {sectionTitle('Libraries')}
+      <LibraryGrid />
     </div>
   )
 }
