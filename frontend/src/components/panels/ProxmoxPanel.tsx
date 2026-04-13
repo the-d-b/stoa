@@ -10,10 +10,11 @@ interface ProxmoxVM {
   id: number; name: string; type: string
   status: string; cpu: number; memPct: number; uptime: number
 }
+interface ProxmoxTemp { name: string; tempC: number }
 interface ProxmoxData {
   uiUrl: string; node: string
   cpu: ProxmoxGauge; memory: ProxmoxGauge
-  storage: ProxmoxStorage[]; vms: ProxmoxVM[]
+  storage: ProxmoxStorage[]; vms: ProxmoxVM[]; temps: ProxmoxTemp[]
 }
 
 function fmtSize(gb: number) {
@@ -175,6 +176,30 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
       <StorageSection />
       {sectionTitle('VMs & Containers')}
       <VMList />
+      {(data.temps || []).length > 0 && (
+        <>
+          {sectionTitle('Temperatures')}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+            {data.temps.map((t, i) => {
+              const hot = t.tempC >= 80
+              const warm = t.tempC >= 65
+              return (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '2px 8px', borderRadius: 6,
+                  background: 'var(--surface2)', border: '1px solid var(--border)',
+                  fontSize: 10, fontFamily: 'DM Mono, monospace',
+                }}>
+                  <span style={{ color: 'var(--text-dim)' }}>{t.name}</span>
+                  <span style={{ fontWeight: 600, color: hot ? 'var(--red)' : warm ? 'var(--amber)' : 'var(--text)' }}>
+                    {t.tempC.toFixed(0)}°
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
     </div>
   )
 }

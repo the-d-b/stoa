@@ -9,10 +9,13 @@ interface TrueNASPool {
 }
 interface TrueNASAlert { level: string; message: string }
 interface TrueNASDisk { name: string; tempC: number; serial: string }
+interface TrueNASVM { name: string; status: string }
+interface TrueNASApp { name: string; status: string }
 interface TrueNASData {
   uiUrl: string; hostname: string; version: string
   cpu: TrueNASGauge; memory: TrueNASGauge
   pools: TrueNASPool[]; alerts: TrueNASAlert[]; disks: TrueNASDisk[]
+  vms: TrueNASVM[]; apps: TrueNASApp[]
 }
 
 const ALERT_COLOR: Record<string, string> = {
@@ -155,6 +158,27 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
     )
   }
 
+  // ── VM / App list ────────────────────────────────────────────────────────
+  const VMList = ({ items }: { items: { name: string; status: string }[] }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+      {items.map((v, i) => {
+        const running = v.status === 'RUNNING' || v.status === 'running' || v.status === 'active' || v.status === 'ACTIVE'
+        return (
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '2px 8px', borderRadius: 6,
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11, opacity: running ? 1 : 0.5,
+          }}>
+            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+              background: running ? 'var(--green)' : 'var(--text-dim)' }} />
+            <span style={{ color: 'var(--text-muted)' }}>{v.name}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+
   // ── Header link ───────────────────────────────────────────────────────────
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
@@ -203,6 +227,18 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
         <>
           {sectionTitle('Alerts')}
           <Alerts />
+        </>
+      )}
+      {(data.vms || []).length > 0 && (
+        <>
+          {sectionTitle('Virtual machines')}
+          <VMList items={data.vms} />
+        </>
+      )}
+      {(data.apps || []).length > 0 && (
+        <>
+          {sectionTitle('Apps')}
+          <VMList items={data.apps} />
         </>
       )}
       {(data.disks || []).some(d => d.tempC > 0) && (

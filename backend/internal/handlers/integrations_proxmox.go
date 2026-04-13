@@ -12,16 +12,17 @@ import (
 // ── Proxmox types ─────────────────────────────────────────────────────────────
 
 type ProxmoxPanelData struct {
-	UIURL   string          `json:"uiUrl"`
-	Node    string          `json:"node"`
-	CPU     ProxmoxGauge    `json:"cpu"`
-	Memory  ProxmoxGauge    `json:"memory"`
+	UIURL   string           `json:"uiUrl"`
+	Node    string           `json:"node"`
+	CPU     ProxmoxGauge     `json:"cpu"`
+	Memory  ProxmoxGauge     `json:"memory"`
 	Storage []ProxmoxStorage `json:"storage"`
-	VMs     []ProxmoxVM     `json:"vms"`
+	VMs     []ProxmoxVM      `json:"vms"`
+	Temps   []ProxmoxTemp    `json:"temps"`
 }
 
 type ProxmoxGauge struct {
-	Used  float64 `json:"used"`  // percentage 0-100
+	Used  float64 `json:"used"`
 	Label string  `json:"label"`
 }
 
@@ -34,13 +35,18 @@ type ProxmoxStorage struct {
 }
 
 type ProxmoxVM struct {
-	ID      int     `json:"id"`
-	Name    string  `json:"name"`
-	Type    string  `json:"type"`    // qemu or lxc
-	Status  string  `json:"status"`  // running, stopped
-	CPU     float64 `json:"cpu"`     // 0-100
-	MemPct  float64 `json:"memPct"`  // 0-100
-	Uptime  int64   `json:"uptime"`  // seconds
+	ID     int     `json:"id"`
+	Name   string  `json:"name"`
+	Type   string  `json:"type"`
+	Status string  `json:"status"`
+	CPU    float64 `json:"cpu"`
+	MemPct float64 `json:"memPct"`
+	Uptime int64   `json:"uptime"`
+}
+
+type ProxmoxTemp struct {
+	Name  string  `json:"name"`
+	TempC float64 `json:"tempC"`
 }
 
 func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxPanelData, error) {
@@ -52,10 +58,9 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	if err != nil {
 		return nil, err
 	}
-	// API token format: "PVEAPIToken=user@realm!tokenid=secret"
 	data := &ProxmoxPanelData{UIURL: uiURL}
 
-	// Get node list — pick first node
+	// Get node list
 	nodesBody, err := proxmoxGet(apiURL, apiKey, "/nodes", skipTLS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Proxmox: %v", err)
@@ -77,21 +82,55 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	node := nodesResp.Data[0]
 	data.Node = node.Node
 
-	// CPU
-	cpuPct := node.CPU * 100
-	data.CPU = ProxmoxGauge{
-		Used:  cpuPct,
-		Label: fmt.Sprintf("%.0f%% of %d cores", cpuPct, node.MaxCPU),
-	}
-
-	// Memory
-	if node.MaxMem > 0 {
-		usedGB := float64(node.Mem) / 1024 / 1024 / 1024
-		totalGB := float64(node.MaxMem) / 1024 / 1024 / 1024
-		pct := float64(node.Mem) / float64(node.MaxMem) * 100
-		data.Memory = ProxmoxGauge{
-			Used:  pct,
-			Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
+	// CPU — node list gives aggregate, fetch node status for more detail
+	nodeStatusBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/status", node.Node), skipTLS)
+	if err == nil {
+		var statusResp struct {
+			Data struct {
+				CPU    float64 `json:"cpu"`
+				CPUMax int     `json:"cpuinfo"`
+				Memory struct {
+					Used  int64 `json:"used"`
+					Total int64 `json:"total"`
+				} `json:"memory"`
+				CPUInfo struct {
+					CPUs int `json:"cpus"`
+				} `json:"cpuinfo"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(nodeStatusBody, &statusResp) == nil {
+			cpuPct := statusResp.Data.CPU * 100
+			cpus := statusResp.Data.CPUInfo.CPUs
+			if cpus == 0 { cpus = node.MaxCPU }
+			data.CPU = ProxmoxGauge{
+				Used:  cpuPct,
+				Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, cpus),
+			}
+			mem := statusResp.Data.Memory
+			if mem.Total > 0 {
+				usedGB := float64(mem.Used) / 1073741824
+				totalGB := float64(mem.Total) / 1073741824
+				pct := float64(mem.Used) / float64(mem.Total) * 100
+				data.Memory = ProxmoxGauge{
+					Used:  pct,
+					Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
+				}
+			}
+		}
+	} else {
+		// Fallback to node list values
+		cpuPct := node.CPU * 100
+		data.CPU = ProxmoxGauge{
+			Used:  cpuPct,
+			Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, node.MaxCPU),
+		}
+		if node.MaxMem > 0 {
+			usedGB := float64(node.Mem) / 1073741824
+			totalGB := float64(node.MaxMem) / 1073741824
+			data.Memory = ProxmoxGauge{
+				Used:  float64(node.Mem) / float64(node.MaxMem) * 100,
+				Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),
+			}
 		}
 	}
 
@@ -105,13 +144,16 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 				Total   int64   `json:"total"`
 				Active  int     `json:"active"`
 				Enabled int     `json:"enabled"`
+				Type    string  `json:"type"`
 			} `json:"data"`
 		}
 		if json.Unmarshal(storageBody, &storageResp) == nil {
 			for _, s := range storageResp.Data {
-				if s.Enabled == 0 || s.Total == 0 { continue }
-				usedGB := float64(s.Used) / 1024 / 1024 / 1024
-				totalGB := float64(s.Total) / 1024 / 1024 / 1024
+				if s.Enabled == 0 || s.Total == 0 {
+					continue
+				}
+				usedGB := float64(s.Used) / 1073741824
+				totalGB := float64(s.Total) / 1073741824
 				data.Storage = append(data.Storage, ProxmoxStorage{
 					Name:    s.Storage,
 					UsedGB:  usedGB,
@@ -119,6 +161,31 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 					Percent: float64(s.Used) / float64(s.Total) * 100,
 					Active:  s.Active == 1,
 				})
+			}
+		}
+	}
+
+	// Temperature via hardware sensors (requires lm-sensors on node)
+	tempBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/hardware/pci", node.Node), skipTLS)
+	_ = tempBody
+	// Hardware temps via RRD
+	rrdBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/rrddata?timeframe=hour&cf=AVERAGE", node.Node), skipTLS)
+	if err == nil {
+		var rrdResp struct {
+			Data []map[string]interface{} `json:"data"`
+		}
+		if json.Unmarshal(rrdBody, &rrdResp) == nil && len(rrdResp.Data) > 0 {
+			last := rrdResp.Data[len(rrdResp.Data)-1]
+			// Look for temperature fields (Proxmox exposes them when sensors are available)
+			for k, v := range last {
+				if strings.Contains(strings.ToLower(k), "temp") {
+					if f, ok := v.(float64); ok && f > 0 {
+						data.Temps = append(data.Temps, ProxmoxTemp{
+							Name:  k,
+							TempC: f,
+						})
+					}
+				}
 			}
 		}
 	}
@@ -144,13 +211,9 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 					memPct = float64(vm.Mem) / float64(vm.MaxMem) * 100
 				}
 				data.VMs = append(data.VMs, ProxmoxVM{
-					ID:     vm.VMID,
-					Name:   vm.Name,
-					Type:   "qemu",
-					Status: vm.Status,
-					CPU:    vm.CPU * 100,
-					MemPct: memPct,
-					Uptime: vm.Uptime,
+					ID: vm.VMID, Name: vm.Name, Type: "qemu",
+					Status: vm.Status, CPU: vm.CPU * 100,
+					MemPct: memPct, Uptime: vm.Uptime,
 				})
 			}
 		}
@@ -177,13 +240,9 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 					memPct = float64(ct.Mem) / float64(ct.MaxMem) * 100
 				}
 				data.VMs = append(data.VMs, ProxmoxVM{
-					ID:     ct.VMID,
-					Name:   ct.Name,
-					Type:   "lxc",
-					Status: ct.Status,
-					CPU:    ct.CPU * 100,
-					MemPct: memPct,
-					Uptime: ct.Uptime,
+					ID: ct.VMID, Name: ct.Name, Type: "lxc",
+					Status: ct.Status, CPU: ct.CPU * 100,
+					MemPct: memPct, Uptime: ct.Uptime,
 				})
 			}
 		}
@@ -210,7 +269,7 @@ func proxmoxGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", apiKey) // "PVEAPIToken=user@realm!tokenid=secret"
+	req.Header.Set("Authorization", apiKey)
 	client := httpClient(skipTLS)
 	resp, err := client.Do(req)
 	if err != nil {
