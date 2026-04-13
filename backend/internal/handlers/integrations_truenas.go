@@ -84,15 +84,18 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 	}
 
 	// CPU — use /api/v2.0/reporting/get_data with POST
+	log.Printf("[TRUENAS] fetching CPU for %s", data.Hostname)
 	cpuBody, err := truenasPost(apiURL, apiKey, "/reporting/get_data", `{
 		"graphs": [{"name": "cpu", "identifier": null}],
 		"reporting_query": {"start": "now-5s", "end": "now", "aggregate": true, "unit": "SECONDS", "step": 10}
 	}`, skipTLS)
+	if err != nil { log.Printf("[TRUENAS] cpu POST error: %v", err) }
 	if err == nil {
 		var resp []struct {
 			Legend []string    `json:"legend"`
 			Data   [][]float64 `json:"data"`
 		}
+		log.Printf("[TRUENAS] cpu body len=%d", len(cpuBody))
 		if json.Unmarshal(cpuBody, &resp) == nil && len(resp) > 0 && len(resp[0].Data) > 0 {
 			row := resp[0].Data[len(resp[0].Data)-1]
 			legend := resp[0].Legend
@@ -103,6 +106,7 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 					used += row[i]
 				}
 			}
+			log.Printf("[TRUENAS] cpu used=%.1f%%", used)
 			data.CPU = TrueNASGauge{Used: used, Label: fmt.Sprintf("%.0f%%", used)}
 		}
 	}
@@ -113,6 +117,7 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 			"graphs": [{"name": "memory", "identifier": null}],
 			"reporting_query": {"start": "now-5s", "end": "now", "aggregate": true, "unit": "SECONDS", "step": 10}
 		}`, skipTLS)
+		if err != nil { log.Printf("[TRUENAS] mem POST error: %v", err) }
 		if err == nil {
 			var resp []struct {
 				Legend []string    `json:"legend"`
@@ -131,6 +136,7 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 				totalGB := float64(totalMemBytes) / 1073741824
 				usedGB := usedBytes / 1073741824
 				pct := usedGB / totalGB * 100
+				log.Printf("[TRUENAS] mem used=%.1f%% (%.1f/%.0f GB)", pct, usedGB, totalGB)
 				data.Memory = TrueNASGauge{
 					Used:  pct,
 					Label: fmt.Sprintf("%.1f / %.0f GB", usedGB, totalGB),

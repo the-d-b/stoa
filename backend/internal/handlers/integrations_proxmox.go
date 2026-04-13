@@ -76,10 +76,12 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 		} `json:"data"`
 	}
 	if err := json.Unmarshal(nodesBody, &nodesResp); err != nil || len(nodesResp.Data) == 0 {
+		log.Printf("[PROXMOX] nodes parse error or empty: %v (body=%s)", err, string(nodesBody[:min(200, len(nodesBody))]))
 		return nil, fmt.Errorf("no Proxmox nodes found")
 	}
 
 	node := nodesResp.Data[0]
+	log.Printf("[PROXMOX] node=%s cpu=%.3f maxcpu=%d mem=%d maxmem=%d", node.Node, node.CPU, node.MaxCPU, node.Mem, node.MaxMem)
 	data.Node = node.Node
 
 	// CPU — node list gives aggregate, fetch node status for more detail
@@ -98,7 +100,9 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 				} `json:"cpuinfo"`
 			} `json:"data"`
 		}
+		log.Printf("[PROXMOX] node status body len=%d", len(nodeStatusBody))
 		if json.Unmarshal(nodeStatusBody, &statusResp) == nil {
+			log.Printf("[PROXMOX] status cpu=%.3f cpus=%d mem=%d/%d", statusResp.Data.CPU, statusResp.Data.CPUInfo.CPUs, statusResp.Data.Memory.Used, statusResp.Data.Memory.Total)
 			cpuPct := statusResp.Data.CPU * 100
 			cpus := statusResp.Data.CPUInfo.CPUs
 			if cpus == 0 { cpus = node.MaxCPU }
@@ -136,6 +140,7 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 
 	// Storage
 	storageBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/storage", node.Node), skipTLS)
+	if err != nil { log.Printf("[PROXMOX] storage error: %v", err) }
 	if err == nil {
 		var storageResp struct {
 			Data []struct {
@@ -192,6 +197,7 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 
 	// VMs (qemu)
 	qemuBody, err := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/qemu", node.Node), skipTLS)
+	if err != nil { log.Printf("[PROXMOX] qemu error: %v", err) }
 	if err == nil {
 		var qemuResp struct {
 			Data []struct {
@@ -261,6 +267,11 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	data.VMs = append(running, stopped...)
 
 	return data, nil
+}
+
+func min(a, b int) int {
+	if a < b { return a }
+	return b
 }
 
 func proxmoxGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
