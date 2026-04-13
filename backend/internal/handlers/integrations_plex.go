@@ -30,15 +30,17 @@ type PlexLibrary struct {
 }
 
 type PlexSession struct {
-	User        string  `json:"user"`
-	Title       string  `json:"title"`
-	GrandparentTitle string `json:"grandparentTitle"` // series/artist name
-	Type        string  `json:"type"`
-	State       string  `json:"state"` // playing, paused, buffering
-	Progress    float64 `json:"progress"` // 0-100
-	TranscodeDecision string `json:"transcodeDecision"` // directplay, transcode, copy
-	Quality     string  `json:"quality"`
-	Player      string  `json:"player"`
+	User              string  `json:"user"`
+	Title             string  `json:"title"`
+	GrandparentTitle  string  `json:"grandparentTitle"`
+	Type              string  `json:"type"`
+	State             string  `json:"state"`
+	Progress          float64 `json:"progress"`
+	TranscodeDecision string  `json:"transcodeDecision"`
+	Quality           string  `json:"quality"`
+	Player            string  `json:"player"`
+	RatingKey         string  `json:"ratingKey"`
+	GrandparentKey    string  `json:"grandparentKey"`
 }
 
 
@@ -46,14 +48,21 @@ type PlexSession struct {
 // ── Plex XML response types ───────────────────────────────────────────────────
 
 type plexMediaContainer struct {
-	XMLName      xml.Name    `xml:"MediaContainer"`
-	Size         int         `xml:"size,attr"`
-	TotalSize    int         `xml:"totalSize,attr"`
-	Version      string      `xml:"version,attr"`
-	FriendlyName string      `xml:"friendlyName,attr"`
-	Directories  []plexDir   `xml:"Directory"`
-	Videos       []plexVideo `xml:"Video"`
-	Tracks       []plexTrack `xml:"Track"`
+	XMLName         xml.Name     `xml:"MediaContainer"`
+	Size            int          `xml:"size,attr"`
+	TotalSize       int          `xml:"totalSize,attr"`
+	Version         string       `xml:"version,attr"`
+	FriendlyName    string       `xml:"friendlyName,attr"`
+	CanInstallUpdate string      `xml:"canInstallUpdate,attr"`
+	Directories     []plexDir    `xml:"Directory"`
+	Videos          []plexVideo  `xml:"Video"`
+	Tracks          []plexTrack  `xml:"Track"`
+	Releases        []plexRelease `xml:"Release"`
+}
+
+type plexRelease struct {
+	Version string `xml:"version,attr"`
+	Fixed   string `xml:"fixed,attr"`
 }
 
 type plexDir struct {
@@ -64,16 +73,18 @@ type plexDir struct {
 }
 
 type plexVideo struct {
-	Title            string      `xml:"title,attr"`
-	GrandparentTitle string      `xml:"grandparentTitle,attr"`
-	Type             string      `xml:"type,attr"`
-	AddedAt          int64       `xml:"addedAt,attr"`
-	Year             int         `xml:"year,attr"`
-	Thumb            string      `xml:"thumb,attr"`
-	ViewOffset       int64       `xml:"viewOffset,attr"`
-	Duration         int64       `xml:"duration,attr"`
-	User             *plexUser   `xml:"User"`
-	Player           *plexPlayer `xml:"Player"`
+	Title            string         `xml:"title,attr"`
+	GrandparentTitle string         `xml:"grandparentTitle,attr"`
+	Type             string         `xml:"type,attr"`
+	AddedAt          int64          `xml:"addedAt,attr"`
+	Year             int            `xml:"year,attr"`
+	Thumb            string         `xml:"thumb,attr"`
+	RatingKey        string         `xml:"ratingKey,attr"`
+	GrandparentRatingKey string     `xml:"grandparentRatingKey,attr"`
+	ViewOffset       int64          `xml:"viewOffset,attr"`
+	Duration         int64          `xml:"duration,attr"`
+	User             *plexUser      `xml:"User"`
+	Player           *plexPlayer    `xml:"Player"`
 	TranscodeSession *plexTranscode `xml:"TranscodeSession"`
 	Media            []plexMediaItem `xml:"Media"`
 }
@@ -130,18 +141,18 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 		}
 	}
 
-	// Check for updates — Plex embeds latest version in their update endpoint
+	// Check for updates via Plex updater API
 	updateBody, err := plexGet(apiURL, apiKey, "/updater/status", skipTLS)
 	if err == nil {
 		var uc plexMediaContainer
-		if xml.Unmarshal(updateBody, &uc) == nil && len(uc.Directories) > 0 {
-			// The update container has a "release" directory with the latest version as title
-			for _, d := range uc.Directories {
-				if d.Type == "release" && d.Title != "" {
-					data.LatestVersion = d.Title
-					data.UpdateAvail = data.LatestVersion != "" && data.Version != "" && data.LatestVersion != data.Version
-					break
-				}
+		if xml.Unmarshal(updateBody, &uc) == nil {
+			// Plex returns <Release version="x.y.z"> elements when updates are available
+			if len(uc.Releases) > 0 {
+				data.LatestVersion = uc.Releases[0].Version
+				data.UpdateAvail = data.LatestVersion != "" && data.LatestVersion != data.Version
+			} else if uc.CanInstallUpdate == "1" {
+				// canInstallUpdate=1 means update is available even if we can't parse the version
+				data.UpdateAvail = true
 			}
 		}
 	}
@@ -225,6 +236,8 @@ func plexSessionFromVideo(v plexVideo) PlexSession {
 	if len(v.Media) > 0 {
 		sess.Quality = v.Media[0].VideoResolution
 	}
+	sess.RatingKey = v.RatingKey
+	sess.GrandparentKey = v.GrandparentRatingKey
 	return sess
 }
 

@@ -83,6 +83,8 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
   if (!data)   return null
 
+  const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
+
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
       letterSpacing: '0.07em', marginBottom: 5, marginTop: 8 }}>{text}</div>
@@ -116,6 +118,7 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
           <div key={ri} style={{ display: 'flex', gap: 5 }}>
             {row.map((m, mi) => {
               const title = m.grandparentTitle || m.title
+              const href = uiUrl ? `${uiUrl}/history?search_value=${encodeURIComponent(title)}` : null
               return (
                 <div key={mi} style={{
                   flex: 1, display: 'flex', alignItems: 'center', gap: 5,
@@ -123,8 +126,16 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
                   background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 0,
                 }}>
                   <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[m.mediaType] || '▶'}</span>
-                  <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
+                  {href
+                    ? <a href={href} target="_blank" rel="noopener noreferrer"
+                        style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap', color: 'var(--text-muted)', textDecoration: 'none' }}
+                        title={title}
+                        onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                        onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>{title}</a>
+                    : <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
+                  }
                   <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
                     color: 'var(--text)', flexShrink: 0 }}>{m.playCount}</span>
                 </div>
@@ -142,22 +153,32 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     const maxPlays = Math.max(...users.map(u => u.playCount), 1)
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {users.map((u, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {u.user}
-            </span>
-            <div style={{ flex: 1, height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
-              <div style={{ width: `${(u.playCount / maxPlays) * 100}%`, height: '100%',
-                background: 'var(--accent)', borderRadius: 2 }} />
+        {users.map((u, i) => {
+          const href = uiUrl ? `${uiUrl}/user?user=${encodeURIComponent(u.user)}` : null
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {href
+                ? <a href={href} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      flexShrink: 0, textDecoration: 'none' }}
+                    onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                    onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>{u.user}</a>
+                : <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    flexShrink: 0 }}>{u.user}</span>
+              }
+              <div style={{ flex: 1, height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
+                <div style={{ width: `${(u.playCount / maxPlays) * 100}%`, height: '100%',
+                  background: 'var(--accent)', borderRadius: 2 }} />
+              </div>
+              <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+                fontFamily: 'DM Mono, monospace', textAlign: 'right', width: 60 }}>
+                {u.playCount} · {formatDuration(u.totalDuration)}
+              </span>
             </div>
-            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-              fontFamily: 'DM Mono, monospace', textAlign: 'right', width: 60 }}>
-              {u.playCount} · {formatDuration(u.totalDuration)}
-            </span>
-          </div>
-        ))}
+          )
+        })}
       </div>
     )
   }
@@ -166,6 +187,7 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {(data.history || []).map((h, i) => {
         const title = h.grandparentTitle ? `${h.grandparentTitle} — ${h.title}` : h.title
+        const href = uiUrl ? `${uiUrl}/history?search_value=${encodeURIComponent(h.grandparentTitle || h.title)}` : null
         return (
           <div key={i} style={{
             display: 'flex', alignItems: 'center', gap: 6,
@@ -173,8 +195,16 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
             background: 'var(--surface2)', border: '1px solid var(--border)',
           }}>
             <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[h.mediaType] || '▶'}</span>
-            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
+            {href
+              ? <a href={href} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap', color: 'var(--text-muted)', textDecoration: 'none' }}
+                  title={title}
+                  onMouseOver={e => e.currentTarget.style.textDecoration = 'underline'}
+                  onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>{title}</a>
+              : <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
+            }
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{h.user}</span>
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', flexShrink: 0,
               color: h.percentComplete >= 90 ? 'var(--green)' : 'var(--text-dim)' }}>
@@ -188,14 +218,12 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── 1x — most played only, locked at 1d, no filter ───────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <MostPlayedSection limit={6} />
     </div>
   )
 
-  // ── 2x — filter + 4 most played + 4 top viewers ──────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
@@ -206,7 +234,6 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── 4x — filter + most played + top viewers + recent plays ───────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
