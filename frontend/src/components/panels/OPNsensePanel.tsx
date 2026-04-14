@@ -145,7 +145,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     if (ip in geoData) return // already fetched or fetching
     setGeoData(g => ({ ...g, [ip]: null })) // mark as fetching
     try {
-      const res = await fetch(`https://ip-api.com/json/${ip}?fields=status,country,city,isp`)
+      const res = await fetch(`/api/geo?ip=${encodeURIComponent(ip)}`)
       const d = await res.json()
       setGeoData(g => ({ ...g, [ip]: d }))
     } catch {
@@ -183,28 +183,35 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
             </span>
           </div>
         ))}
-        {tooltip && geoData[tooltip.ip] && geoData[tooltip.ip]?.status === 'success' && (() => {
-          const g = geoData[tooltip.ip]!
-          return (
-            <div style={{
-              position: 'fixed', left: tooltip.x, top: tooltip.y,
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 7, padding: '6px 10px', fontSize: 11, zIndex: 9999,
-              boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
-              color: 'var(--text-muted)', pointerEvents: 'none',
-              display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160,
-            }}>
-              <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
-                color: 'var(--text)', fontSize: 10 }}>{tooltip.ip}</span>
-              {g.city && g.country && (
-                <span>📍 {g.city}, {g.country}</span>
-              )}
-              {g.isp && (
-                <span style={{ color: 'var(--text-dim)' }}>🏢 {g.isp}</span>
-              )}
-            </div>
-          )
-        })()}
+        {tooltip && (
+          <div style={{
+            position: 'fixed', left: tooltip.x, top: tooltip.y,
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 7, padding: '6px 10px', fontSize: 11, zIndex: 9999,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+            color: 'var(--text-muted)', pointerEvents: 'none',
+            display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160,
+          }}>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+              color: 'var(--text)', fontSize: 10 }}>{tooltip.ip}</span>
+            {!geoData[tooltip.ip] && (
+              <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>Looking up…</span>
+            )}
+            {geoData[tooltip.ip]?.status === 'success' && (
+              <>
+                {geoData[tooltip.ip]!.city && geoData[tooltip.ip]!.country && (
+                  <span>📍 {geoData[tooltip.ip]!.city}, {geoData[tooltip.ip]!.country}</span>
+                )}
+                {geoData[tooltip.ip]!.isp && (
+                  <span style={{ color: 'var(--text-dim)' }}>🏢 {geoData[tooltip.ip]!.isp}</span>
+                )}
+              </>
+            )}
+            {geoData[tooltip.ip]?.status === 'fail' && (
+              <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>No geo data</span>
+            )}
+          </div>
+        )}
       </div>
     )
   }

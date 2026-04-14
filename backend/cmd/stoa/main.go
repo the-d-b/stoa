@@ -126,6 +126,7 @@ func main() {
 	// Preferences (per-user)
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
+	protected.HandleFunc("/geo", handlers.GeoLookup()).Methods("GET")
 
 	// Users (read)
 	protected.HandleFunc("/users", handlers.ListUsers(database)).Methods("GET")
