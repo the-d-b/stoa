@@ -163,6 +163,14 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, map[string]interface{}{
 				"serverTime": time.Now().UTC(),
 			})
+		case "kuma":
+			data, err := fetchKumaGlyphData(db, config)
+			if err != nil {
+				log.Printf("[GLYPHS] kuma fetch error: %v", err)
+				writeError(w, http.StatusInternalServerError, err.Error())
+				return
+			}
+			writeJSON(w, http.StatusOK, data)
 		default:
 			writeError(w, http.StatusBadRequest, "unknown glyph type")
 		}
@@ -521,4 +529,19 @@ func fetchCryptoQuotes(symbols []string, apiKey string) ([]Quote, error) {
 		}
 	}
 	return quotes, nil
+}
+
+// ── Kuma glyph fetch ──────────────────────────────────────────────────────────
+
+func fetchKumaGlyphData(db *sql.DB, config map[string]interface{}) (interface{}, error) {
+	data, err := fetchKumaPanelData(db, config)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]interface{}{
+		"upCount":   data.UpCount,
+		"downCount": data.DownCount,
+		"pauseCount": data.PauseCount,
+		"total":     len(data.Monitors),
+	}, nil
 }

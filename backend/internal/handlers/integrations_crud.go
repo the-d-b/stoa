@@ -187,6 +187,12 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testTrueNASConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "proxmox":
 			err = testProxmoxConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "kuma":
+			err = testKumaConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "gluetun":
+			err = testGluetunConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "opnsense":
+			err = testOPNsenseConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}

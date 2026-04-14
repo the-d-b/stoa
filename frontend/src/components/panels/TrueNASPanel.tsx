@@ -86,7 +86,7 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
 
   // ── System info strip — shown on all sizes ────────────────────────────────
   const SysInfo = () => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8, justifyContent: 'center' }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
         style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
           padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
@@ -195,14 +195,14 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   )
 
   const VMSummary = () => vms.length === 0 ? null : (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
       <Pill label="running" value={vmRunning} color="var(--green)" />
       {vmStopped > 0 && <Pill label="stopped" value={vmStopped} color="var(--text-dim)" />}
     </div>
   )
 
   const AppSummary = () => apps.length === 0 ? null : (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
       <Pill label="running" value={appRunning} color="var(--green)" />
       {appStopped > 0 && <Pill label="stopped" value={appStopped} color="var(--text-dim)" />}
       {appUpdates > 0 && <Pill label="updates" value={appUpdates} color="var(--amber)" />}

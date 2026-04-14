@@ -11,6 +11,9 @@ import PlexPanel from '../components/panels/PlexPanel'
 import TautulliPanel from '../components/panels/TautulliPanel'
 import TrueNASPanel from '../components/panels/TrueNASPanel'
 import ProxmoxPanel from '../components/panels/ProxmoxPanel'
+import KumaPanel from '../components/panels/KumaPanel'
+import GluetunPanel from '../components/panels/GluetunPanel'
+import OPNsensePanel from '../components/panels/OPNsensePanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -627,6 +630,9 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
           {panel.type === 'tautulli' && <TautulliPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'proxmox' && <ProxmoxPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'kuma' && <KumaPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'gluetun' && <GluetunPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'opnsense' && <OPNsensePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

@@ -930,6 +930,7 @@ function SecretsTab() {
 const GLYPH_TYPES = [
   { id: 'clock',   label: 'Clock',   desc: 'Time and date display',          needsSecret: false },
   { id: 'weather', label: 'Weather', desc: 'Current conditions (OpenWeatherMap)', needsSecret: true  },
+  { id: 'kuma',    label: 'Uptime Kuma', desc: 'Monitor status summary',     needsSecret: false },
 ]
 
 const ZONES = [
@@ -1200,6 +1201,14 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
             )}
 
             {/* Weather config */}
+            {glyph.type === 'kuma' && (
+              <div>
+                <label className="label">Integration ID</label>
+                <input className="input" value={localConfig.integrationId || ''}
+                  onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
+                  placeholder="Paste the Kuma integration ID" />
+              </div>
+            )}
             {glyph.type === 'weather' && (
               <>
                 <div style={{ display: 'flex', gap: 10 }}>

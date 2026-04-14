@@ -2,6 +2,7 @@ import React from 'react'
 import { Glyph } from '../../api'
 import ClockGlyph from './ClockGlyph'
 import WeatherGlyph from './WeatherGlyph'
+import KumaGlyph from './KumaGlyph'
 
 // Error boundary — catches render errors in any glyph
 class GlyphErrorBoundary extends React.Component<
@@ -33,6 +34,7 @@ function GlyphRenderer({ glyph }: { glyph: Glyph }) {
   switch (glyph.type) {
     case 'clock':   return <ClockGlyph glyph={glyph} />
     case 'weather': return <WeatherGlyph glyph={glyph} />
+    case 'kuma':    return <KumaGlyph glyph={glyph} />
     default:
       console.warn(`[GlyphZone] unknown glyph type: ${glyph.type}`)
       return null

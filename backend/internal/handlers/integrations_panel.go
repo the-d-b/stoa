@@ -23,6 +23,9 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"tautulli": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTautulliPanelData(db, cfg) },
 	"truenas":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTrueNASPanelData(db, cfg) },
 	"proxmox":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchProxmoxPanelData(db, cfg) },
+	"kuma":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchKumaPanelData(db, cfg) },
+	"gluetun":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchGluetunPanelData(db, cfg) },
+	"opnsense": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOPNsensePanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
