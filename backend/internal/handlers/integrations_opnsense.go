@@ -186,7 +186,6 @@ func opnsenseGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 		req.Header.Set("Authorization", "Basic "+encoded)
 		log.Printf("[OPNSENSE] auth no colon found, using full string len=%d", len(apiKey))
 	}
-	req.Header.Set("Content-Type", "application/json")
 	client := httpClient(skipTLS)
 	resp, err := client.Do(req)
 	if err != nil {
