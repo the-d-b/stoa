@@ -138,7 +138,6 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
   )
 
   // ── Top talkers — with async geo-IP tooltip on hover ─────────────────────
-  const geoCache = useState<Record<string, GeoData | null>>(() => ({}))[0]
   const [geoData, setGeoData] = useState<Record<string, GeoData | null>>({})
   const [tooltip, setTooltip] = useState<{ ip: string; x: number; y: number } | null>(null)
 
