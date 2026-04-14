@@ -11,6 +11,7 @@ export default function PanelsAdminPanel() {
   const [newRootId, setNewRootId] = useState('')
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
+  const [editingMaxMbps, setEditingMaxMbps] = useState<{id: string; val: number} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -219,6 +220,30 @@ export default function PanelsAdminPanel() {
                     </button>
                   )}
 
+                  {p.type === 'opnsense' && (
+                    editingMaxMbps?.id === p.id ? (
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Max Mbps</span>
+                        <input type="number" className="input" style={{ fontSize: 12, width: 80, padding: '3px 6px' }}
+                          value={editingMaxMbps.val}
+                          onChange={e => setEditingMaxMbps(m => m ? { ...m, val: Number(e.target.value) } : null)} />
+                        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                          const cfg = safeParseConfig(p.config)
+                          cfg.maxMbps = editingMaxMbps.val
+                          await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
+                          setEditingMaxMbps(null); load()
+                        }}>Save</button>
+                        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingMaxMbps(null)}>Cancel</button>
+                      </div>
+                    ) : (
+                      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+                        const mbps = (() => { try { return JSON.parse(p.config||'{}').maxMbps||1000 } catch { return 1000 } })()
+                        setEditingMaxMbps({ id: p.id, val: mbps })
+                      }}>
+                        {(() => { try { return JSON.parse(p.config||'{}').maxMbps||1000 } catch { return 1000 } })()} Mbps
+                      </button>
+                    )
+                  )}
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
                 </div>
               </div>
