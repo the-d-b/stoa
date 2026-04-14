@@ -68,7 +68,8 @@ export default function TransmissionPanel({ panel, heightUnits }: { panel: Panel
 
   // ── Speed + status summary ────────────────────────────────────────────────
   const Summary = () => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+    <div style={{ display: 'flex', gap: 5, width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', alignItems: 'center' }}>
       {/* Speed pills */}
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px',
@@ -108,10 +109,11 @@ export default function TransmissionPanel({ panel, heightUnits }: { panel: Panel
           <span style={{ color: 'var(--text-dim)' }}>⏸</span>
         </div>
       )}
+      </div>
       {data.freeSpaceGB > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
           borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11, marginLeft: 'auto' }}>
+          fontSize: 11 }}>
           <span style={{ color: 'var(--text-dim)' }}>free</span>
           <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
             color: data.freeSpaceGB < 50 ? 'var(--amber)' : 'var(--text)' }}>
@@ -143,14 +145,18 @@ export default function TransmissionPanel({ panel, heightUnits }: { panel: Panel
                 <span style={{ fontSize: 10, color: 'var(--green)', flexShrink: 0,
                   fontFamily: 'DM Mono, monospace' }}>↓ {fmtSpeed(t.downMbps)}</span>
               )}
-              {t.eta > 0 && (
+              {t.upMbps > 0 && (
+                <span style={{ fontSize: 10, color: 'var(--amber)', flexShrink: 0,
+                  fontFamily: 'DM Mono, monospace' }}>↑ {fmtSpeed(t.upMbps)}</span>
+              )}
+              {t.eta > 0 && t.status === 4 && (
                 <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
                   fontFamily: 'DM Mono, monospace' }}>{fmtETA(t.eta)}</span>
               )}
             </div>
             <div style={{ height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
               <div style={{ width: `${Math.min(t.progress, 100)}%`, height: '100%',
-                background: 'var(--accent)', borderRadius: 2 }} />
+                background: t.status === 6 ? 'var(--amber)' : 'var(--accent)', borderRadius: 2 }} />
             </div>
           </div>
         ))}
@@ -202,7 +208,7 @@ export default function TransmissionPanel({ panel, heightUnits }: { panel: Panel
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Summary />
-      {sectionTitle('Active downloads')}
+      {sectionTitle('Active torrents')}
       <ActiveList />
     </div>
   )
@@ -211,7 +217,7 @@ export default function TransmissionPanel({ panel, heightUnits }: { panel: Panel
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Summary />
-      {sectionTitle('Active downloads')}
+      {sectionTitle('Active torrents')}
       <ActiveList />
       {(data.trackers || []).length > 0 && (
         <>

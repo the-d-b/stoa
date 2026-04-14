@@ -128,8 +128,8 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 			}
 		}
 
-		// Active torrents (downloading with rate > 0)
-		if t.Status == 4 {
+		// Active torrents — downloading or seeding with active transfer
+		if t.Status == 4 || (t.Status == 6 && t.RateUp > 0) {
 			data.Active = append(data.Active, TransmissionTorrent{
 				Name:     t.Name,
 				Status:   t.Status,
