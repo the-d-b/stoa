@@ -9,17 +9,6 @@ interface KumaData {
   monitors: KumaMonitor[]
 }
 
-function statusColor(s: number) {
-  if (s === 1) return 'var(--green)'
-  if (s === 0) return 'var(--red)'
-  return 'var(--text-dim)'
-}
-function statusLabel(s: number) {
-  if (s === 1) return 'up'
-  if (s === 0) return 'down'
-  return 'paused'
-}
-
 export default function KumaPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<KumaData | null>(null)
   const [error, setError] = useState('')
@@ -51,62 +40,45 @@ export default function KumaPanel({ panel, heightUnits }: { panel: Panel; height
   const monitors = data.monitors || []
   const down = monitors.filter(m => m.status === 0)
 
-  const sectionTitle = (text: string) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
-      letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
-  )
-
-  // ── Summary bar ───────────────────────────────────────────────────────────
+  // ── 1x — summary pills ───────────────────────────────────────────────────
   const Summary = () => (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11, textDecoration: 'none', color: 'inherit' }}
-        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-        onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-        <span style={{ color: 'var(--green)' }}>●</span>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.upCount}</span>
-        <span style={{ color: 'var(--text-dim)' }}>up</span>
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--green)',
+          fontSize: 12, textDecoration: 'none', color: 'inherit' }}>
+        <span style={{ color: 'var(--green)', fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>
+          {data.upCount}
+        </span>
+        <span style={{ color: 'var(--text-muted)' }}>up</span>
       </a>
-      {data.downCount > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
-          borderRadius: 6, background: '#f8717112', border: '1px solid #f8717130', fontSize: 11 }}>
-          <span style={{ color: 'var(--red)' }}>●</span>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--red)' }}>{data.downCount}</span>
-          <span style={{ color: 'var(--red)' }}>down</span>
-        </div>
-      )}
-      {data.pauseCount > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ color: 'var(--text-dim)' }}>⏸</span>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.pauseCount}</span>
-          <span style={{ color: 'var(--text-dim)' }}>paused</span>
-        </div>
-      )}
+      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
+        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 12px',
+          borderRadius: 6, background: 'var(--surface2)',
+          border: `1px solid ${data.downCount > 0 ? 'var(--red)' : 'var(--border)'}`,
+          fontSize: 12, textDecoration: 'none', color: 'inherit' }}>
+        <span style={{ color: data.downCount > 0 ? 'var(--red)' : 'var(--text-dim)',
+          fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>
+          {data.downCount}
+        </span>
+        <span style={{ color: data.downCount > 0 ? 'var(--red)' : 'var(--text-muted)' }}>down</span>
+      </a>
     </div>
   )
 
-  // ── Monitor list ─────────────────────────────────────────────────────────
-  const MonitorList = ({ items }: { items: KumaMonitor[] }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+  // ── Monitor pills — colored border by status ──────────────────────────────
+  const MonitorPills = ({ items }: { items: KumaMonitor[] }) => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
       {items.map((m, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-          padding: '3px 8px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: statusColor(m.status) }} />
-          <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', fontWeight: 500 }}>{m.name}</span>
-          {m.uptime > 0 && (
-            <span style={{ fontSize: 10, color: 'var(--text-dim)',
-              fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
-              {m.uptime.toFixed(1)}%
-            </span>
-          )}
-          <span style={{ fontSize: 10, color: statusColor(m.status),
-            flexShrink: 0, fontWeight: 600 }}>{statusLabel(m.status)}</span>
+        <div key={i} style={{
+          padding: '3px 8px', borderRadius: 6, fontSize: 11,
+          background: 'var(--surface2)',
+          border: `1px solid ${m.status === 1 ? 'var(--green)' : m.status === 0 ? 'var(--red)' : 'var(--border)'}`,
+          color: 'var(--text-muted)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          maxWidth: 160,
+        }} title={m.name}>
+          {m.name}
         </div>
       ))}
     </div>
@@ -119,35 +91,20 @@ export default function KumaPanel({ panel, heightUnits }: { panel: Panel; height
     </div>
   )
 
-  // ── 2x — summary + down monitors highlighted ──────────────────────────────
-  if (heightUnits < 4) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <Summary />
-      {down.length > 0 && (
-        <>
-          {sectionTitle('Down')}
-          <MonitorList items={down} />
-        </>
-      )}
-      {down.length === 0 && (
-        <div style={{ textAlign: 'center', marginTop: 12, fontSize: 12,
-          color: 'var(--green)' }}>✓ All monitors up</div>
-      )}
-    </div>
-  )
-
-  // ── 4x — summary + all monitors ──────────────────────────────────────────
+  // ── 2x and 4x — summary + all monitors as pills ───────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Summary />
       {down.length > 0 && (
-        <>
-          {sectionTitle('Down')}
-          <MonitorList items={down} />
-        </>
+        <div style={{ marginTop: 8, padding: '6px 8px', borderRadius: 6, fontSize: 11,
+          background: '#f8717112', border: '1px solid #f8717130', color: 'var(--red)',
+          marginBottom: 6 }}>
+          ● {down.map(m => m.name).join(', ')} — down
+        </div>
       )}
-      {sectionTitle(`All monitors (${monitors.length})`)}
-      <MonitorList items={monitors} />
+      <div style={{ marginTop: 8 }}>
+        <MonitorPills items={monitors} />
+      </div>
     </div>
   )
 }

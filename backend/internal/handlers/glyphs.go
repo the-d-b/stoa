@@ -539,9 +539,10 @@ func fetchKumaGlyphData(db *sql.DB, config map[string]interface{}) (interface{},
 		return nil, err
 	}
 	return map[string]interface{}{
-		"upCount":   data.UpCount,
-		"downCount": data.DownCount,
+		"upCount":    data.UpCount,
+		"downCount":  data.DownCount,
 		"pauseCount": data.PauseCount,
-		"total":     len(data.Monitors),
+		"total":      len(data.Monitors),
+		"uiUrl":      data.UIURL,
 	}, nil
 }

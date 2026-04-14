@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -51,7 +52,9 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 	data := &OPNsensePanelData{UIURL: uiURL}
 
 	// Firmware/version
-	if body, err := opnsenseGet(apiURL, apiKey, "/api/core/firmware/running", skipTLS); err == nil {
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/core/firmware/running", skipTLS); err != nil {
+		log.Printf("[OPNSENSE] firmware err: %v", err)
+	} else if true {
 		var fw struct {
 			Status  string `json:"status"`
 			Version string `json:"local_version"`
@@ -72,7 +75,9 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 	}
 
 	// Gateways
-	if body, err := opnsenseGet(apiURL, apiKey, "/api/routes/gateway/status", skipTLS); err == nil {
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/routes/gateway/status", skipTLS); err != nil {
+		log.Printf("[OPNSENSE] gateway err: %v", err)
+	} else if true {
 		var gw struct {
 			Items []struct {
 				Name    string `json:"name"`
@@ -99,50 +104,35 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		}
 	}
 
-	// Interfaces via traffic stats
-	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top/0.1", skipTLS); err == nil {
+	// Interface traffic - OPNsense uses /api/diagnostics/traffic/interface
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/interface", skipTLS); err == nil {
 		var traffic struct {
 			Interfaces map[string]struct {
-				Name    string  `json:"name"`
-				Inbytes float64 `json:"inbytes_rate"`
-				Outbytes float64 `json:"outbytes_rate"`
+				Name         string  `json:"name"`
+				InbytesRate  float64 `json:"inbytes_rate"`
+				OutbytesRate float64 `json:"outbytes_rate"`
+				IPv4         []struct {
+					IPAddr string `json:"ipaddr"`
+				} `json:"ipv4"`
 			} `json:"interfaces"`
 		}
 		if json.Unmarshal(body, &traffic) == nil {
-			for _, iface := range traffic.Interfaces {
-				if iface.Name == "" {
-					continue
-				}
+			for device, iface := range traffic.Interfaces {
+				name := iface.Name
+				if name == "" { name = device }
+				ipAddr := ""
+				if len(iface.IPv4) > 0 { ipAddr = iface.IPv4[0].IPAddr }
 				data.Interfaces = append(data.Interfaces, OPNsenseInterface{
-					Name:    iface.Name,
-					InMbps:  iface.Inbytes * 8 / 1000000,
-					OutMbps: iface.Outbytes * 8 / 1000000,
+					Name:    name,
+					Device:  device,
+					InMbps:  iface.InbytesRate * 8 / 1000000,
+					OutMbps: iface.OutbytesRate * 8 / 1000000,
+					IPAddr:  ipAddr,
 				})
 			}
 		}
-	}
-
-	// Interface details (IP, status)
-	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/interface/getInterfaceNames", skipTLS); err == nil {
-		var names map[string]string
-		if json.Unmarshal(body, &names) == nil {
-			// Match names to existing interfaces or add new ones
-			existing := map[string]*OPNsenseInterface{}
-			for i := range data.Interfaces {
-				existing[data.Interfaces[i].Device] = &data.Interfaces[i]
-			}
-			for device, name := range names {
-				if _, ok := existing[device]; !ok {
-					data.Interfaces = append(data.Interfaces, OPNsenseInterface{
-						Name:   name,
-						Device: device,
-					})
-				} else {
-					existing[device].Name = name
-					existing[device].Device = device
-				}
-			}
-		}
+	} else {
+		log.Printf("[OPNSENSE] traffic err: %v", err)
 	}
 
 	return data, nil

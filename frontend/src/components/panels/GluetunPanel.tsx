@@ -4,10 +4,10 @@ import { integrationsApi, Panel } from '../../api'
 interface GluetunData {
   uiUrl: string; status: string; publicIp: string
   country: string; city: string; hostname: string
-  provider: string; serverName: string
+  provider: string; serverName: string; port: number
 }
 
-export default function GluetunPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
+export default function GluetunPanel({ panel }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<GluetunData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -36,67 +36,50 @@ export default function GluetunPanel({ panel, heightUnits }: { panel: Panel; hei
 
   const connected = data.status === 'running' || data.status === 'connected'
   const statusColor = connected ? 'var(--green)' : 'var(--red)'
-  const statusText = connected ? 'Connected' : (data.status || 'Disconnected')
   const location = [data.city, data.country].filter(Boolean).join(', ')
 
-  const Pill = ({ label, value, mono }: { label?: string; value: string; mono?: boolean }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-      borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-      {label && <span style={{ color: 'var(--text-dim)' }}>{label}</span>}
-      <span style={{ fontFamily: mono ? 'DM Mono, monospace' : undefined,
-        fontWeight: mono ? 600 : 500, color: 'var(--text)' }}>{value}</span>
-    </div>
-  )
-
-  // ── 1x — status + location ────────────────────────────────────────────────
-  if (heightUnits <= 1) return (
+  // All sizes show the same compact layout — enough content for 1x
+  return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column',
       justifyContent: 'center', gap: 6 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%',
-          background: statusColor, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: statusColor }}>{statusText}</span>
-      </div>
-      {location && (
-        <div style={{ textAlign: 'center', fontSize: 11, color: 'var(--text-muted)' }}>{location}</div>
-      )}
-    </div>
-  )
-
-  // ── 2x — status + IP + location + provider ────────────────────────────────
-  if (heightUnits < 4) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%',
-          background: statusColor, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: statusColor }}>{statusText}</span>
-        {data.provider && (
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 'auto' }}>
-            {data.provider}
+      {/* Row 1: status + IP */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px',
+          borderRadius: 6, background: 'var(--surface2)', border: `1px solid ${statusColor}30`,
+          fontSize: 11, flex: 1 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%',
+            background: statusColor, flexShrink: 0 }} />
+          <span style={{ fontWeight: 600, color: statusColor }}>
+            {connected ? 'Connected' : (data.status || 'Disconnected')}
           </span>
+        </div>
+        {data.publicIp && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11, flex: 1 }}>
+            <span style={{ color: 'var(--text-dim)' }}>ip</span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+              fontSize: 10 }}>{data.publicIp}</span>
+          </div>
         )}
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-        {data.publicIp && <Pill label="ip" value={data.publicIp} mono />}
-        {location && <Pill value={location} />}
-      </div>
-    </div>
-  )
-
-  // ── 4x — full detail ──────────────────────────────────────────────────────
-  return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{ width: 8, height: 8, borderRadius: '50%',
-          background: statusColor, flexShrink: 0 }} />
-        <span style={{ fontSize: 13, fontWeight: 600, color: statusColor }}>{statusText}</span>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-        {data.publicIp && <Pill label="Public IP" value={data.publicIp} mono />}
-        {location && <Pill label="Location" value={location} />}
-        {data.hostname && <Pill label="Hostname" value={data.hostname} mono />}
-        {data.provider && <Pill label="Provider" value={data.provider} />}
-        {data.serverName && <Pill label="Server" value={data.serverName} mono />}
+      {/* Row 2: location + port */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {location && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11, flex: 1 }}>
+            <span style={{ color: 'var(--text-muted)' }}>{location}</span>
+          </div>
+        )}
+        {data.port > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11, flex: 1 }}>
+            <span style={{ color: 'var(--text-dim)' }}>port</span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.port}</span>
+          </div>
+        )}
       </div>
     </div>
   )

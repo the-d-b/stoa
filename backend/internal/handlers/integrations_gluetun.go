@@ -12,14 +12,15 @@ import (
 // ── Gluetun types ─────────────────────────────────────────────────────────────
 
 type GluetunPanelData struct {
-	UIURL     string `json:"uiUrl"`
-	Status    string `json:"status"`    // running, stopped
-	PublicIP  string `json:"publicIp"`
-	Country   string `json:"country"`
-	City      string `json:"city"`
-	Hostname  string `json:"hostname"`
-	Provider  string `json:"provider"`
+	UIURL      string `json:"uiUrl"`
+	Status     string `json:"status"`
+	PublicIP   string `json:"publicIp"`
+	Country    string `json:"country"`
+	City       string `json:"city"`
+	Hostname   string `json:"hostname"`
+	Provider   string `json:"provider"`
 	ServerName string `json:"serverName"`
+	Port       int    `json:"port"`
 }
 
 func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunPanelData, error) {
@@ -66,6 +67,16 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 			data.Country = ip.Country
 			data.City = ip.City
 			data.Hostname = ip.Hostname
+		}
+	}
+
+	// Port forwarding
+	if body, err := gluetunGet(apiURL, apiKey, "/v1/openvpn/portforwarded", skipTLS); err == nil {
+		var pf struct {
+			Port int `json:"port"`
+		}
+		if json.Unmarshal(body, &pf) == nil && pf.Port > 0 {
+			data.Port = pf.Port
 		}
 	}
 

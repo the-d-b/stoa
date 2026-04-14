@@ -15,7 +15,8 @@ interface OPNsenseData {
 function fmtMbps(mbps: number) {
   if (mbps >= 1000) return `${(mbps / 1000).toFixed(1)} Gbps`
   if (mbps >= 1) return `${mbps.toFixed(1)} Mbps`
-  return `${(mbps * 1000).toFixed(0)} Kbps`
+  if (mbps > 0) return `${(mbps * 1000).toFixed(0)} Kbps`
+  return '0'
 }
 
 export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -47,8 +48,8 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
   const gateways = data.gateways || []
-  const interfaces = data.interfaces || []
-  const allGatewaysUp = gateways.every(g => g.status === 'online')
+  const ifaces = (data.interfaces || []).filter(i => i.inMbps > 0 || i.outMbps > 0)
+  const anyDown = gateways.some(g => g.status === 'offline')
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
@@ -74,58 +75,69 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
           background: '#f59e0b18', border: '1px solid #f59e0b40',
           color: 'var(--amber)', fontWeight: 600 }}>↑ update</span>
       )}
-      <span style={{ marginLeft: 'auto', fontSize: 11,
-        color: allGatewaysUp ? 'var(--green)' : 'var(--red)' }}>
-        {allGatewaysUp ? '● All gateways up' : '● Gateway down'}
-      </span>
+      {gateways.length > 0 && (
+        <span style={{ marginLeft: 'auto', fontSize: 11,
+          color: anyDown ? 'var(--red)' : 'var(--green)' }}>
+          {anyDown ? '● Gateway down' : '● All gateways up'}
+        </span>
+      )}
     </div>
   )
 
   const GatewayList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {gateways.map((g, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-          padding: '4px 8px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: g.status === 'online' ? 'var(--green)' : 'var(--red)' }} />
-          <span style={{ flex: 1, fontWeight: 500 }}>{g.name}</span>
-          {g.address && (
-            <span style={{ fontSize: 10, color: 'var(--text-dim)',
-              fontFamily: 'DM Mono, monospace' }}>{g.address}</span>
-          )}
-          {g.rtt && g.rtt !== '~' && (
-            <span style={{ fontSize: 10, color: 'var(--text-dim)',
-              fontFamily: 'DM Mono, monospace' }}>{g.rtt}</span>
-          )}
-          {g.loss && g.loss !== '0.0 %' && (
-            <span style={{ fontSize: 10, color: 'var(--amber)',
-              fontFamily: 'DM Mono, monospace' }}>{g.loss} loss</span>
-          )}
-        </div>
-      ))}
+      {gateways.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No gateway data</div>
+        : gateways.map((g, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+            padding: '4px 8px', borderRadius: 6,
+            background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+              background: g.status === 'online' ? 'var(--green)' : 'var(--red)' }} />
+            <span style={{ flex: 1, fontWeight: 500 }}>{g.name}</span>
+            {g.address && (
+              <span style={{ fontSize: 10, color: 'var(--text-dim)',
+                fontFamily: 'DM Mono, monospace' }}>{g.address}</span>
+            )}
+            {g.rtt && g.rtt !== '~' && g.rtt !== '0' && (
+              <span style={{ fontSize: 10, color: 'var(--text-dim)',
+                fontFamily: 'DM Mono, monospace' }}>{g.rtt}</span>
+            )}
+            {g.loss && g.loss !== '0.0 %' && g.loss !== '0%' && (
+              <span style={{ fontSize: 10, color: 'var(--amber)',
+                fontFamily: 'DM Mono, monospace' }}>{g.loss} loss</span>
+            )}
+          </div>
+        ))
+      }
     </div>
   )
 
-  const InterfaceList = () => (
+  const TrafficList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {interfaces.filter(i => i.inMbps > 0 || i.outMbps > 0).map((iface, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-          padding: '3px 8px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iface.name}</span>
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-            color: 'var(--text-dim)' }}>
-            ↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(iface.inMbps)}</span>
-            {'  '}↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(iface.outMbps)}</span>
-          </span>
-        </div>
-      ))}
+      {ifaces.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No traffic data</div>
+        : ifaces.map((iface, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+            padding: '3px 8px', borderRadius: 6,
+            background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+            <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iface.name}</span>
+            {iface.ipAddr && (
+              <span style={{ fontSize: 10, color: 'var(--text-dim)',
+                fontFamily: 'DM Mono, monospace' }}>{iface.ipAddr}</span>
+            )}
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
+              color: 'var(--text-dim)', flexShrink: 0 }}>
+              ↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(iface.inMbps)}</span>
+              {'  '}↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(iface.outMbps)}</span>
+            </span>
+          </div>
+        ))
+      }
     </div>
   )
 
-  // ── 1x — gateway status summary ───────────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
@@ -133,29 +145,23 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── 2x — header + gateways + interfaces ──────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
       {sectionTitle('Gateways')}
       <GatewayList />
-      {interfaces.some(i => i.inMbps > 0 || i.outMbps > 0) && (
-        <>
-          {sectionTitle('Traffic')}
-          <InterfaceList />
-        </>
-      )}
+      {sectionTitle('Interface traffic')}
+      <TrafficList />
     </div>
   )
 
-  // ── 4x — full ─────────────────────────────────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
       {sectionTitle('Gateways')}
       <GatewayList />
       {sectionTitle('Interface traffic')}
-      <InterfaceList />
+      <TrafficList />
     </div>
   )
 }

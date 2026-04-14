@@ -7,15 +7,16 @@ interface KumaGlyphData {
 
 export default function KumaGlyph({ glyph }: { glyph: Glyph }) {
   const [data, setData] = useState<KumaGlyphData | null>(null)
+  const [uiUrl, setUiUrl] = useState('')
   const [error, setError] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const res = await glyphsApi.getData(glyph.id)
-      setData(res.data); setError(false)
-    } catch {
-      setError(true)
-    }
+      setData(res.data)
+      setUiUrl(res.data.uiUrl || '')
+      setError(false)
+    } catch { setError(true) }
   }, [glyph.id])
 
   useEffect(() => {
@@ -26,22 +27,30 @@ export default function KumaGlyph({ glyph }: { glyph: Glyph }) {
 
   if (error || !data) return null
 
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11,
+  const inner = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11,
       fontFamily: 'DM Mono, monospace' }}>
-      <span style={{ color: 'var(--green)' }}>●</span>
-      <span style={{ fontWeight: 600 }}>{data.upCount}</span>
-      {data.downCount > 0 && (
-        <>
-          <span style={{ color: 'var(--text-dim)', margin: '0 1px' }}>/</span>
-          <span style={{ color: 'var(--red)' }}>●</span>
-          <span style={{ fontWeight: 600, color: 'var(--red)' }}>{data.downCount}</span>
-          <span style={{ color: 'var(--red)', fontSize: 10 }}>down</span>
-        </>
-      )}
-      {data.downCount === 0 && (
-        <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>up</span>
-      )}
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ color: 'var(--green)' }}>●</span>
+        <span style={{ fontWeight: 600 }}>{data.upCount} up</span>
+      </span>
+      <span style={{ color: 'var(--text-dim)' }}>/</span>
+      <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <span style={{ color: data.downCount > 0 ? 'var(--red)' : 'var(--text-dim)' }}>●</span>
+        <span style={{ fontWeight: 600, color: data.downCount > 0 ? 'var(--red)' : 'var(--text-dim)' }}>
+          {data.downCount} down
+        </span>
+      </span>
     </div>
   )
+
+  if (uiUrl) {
+    return (
+      <a href={uiUrl} target="_blank" rel="noopener noreferrer"
+        style={{ textDecoration: 'none', color: 'inherit' }}>
+        {inner}
+      </a>
+    )
+  }
+  return inner
 }
