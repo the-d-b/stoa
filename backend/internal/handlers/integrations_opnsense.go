@@ -47,6 +47,7 @@ type OPNsenseInterface struct {
 
 type OPNsenseTalker struct {
 	Host    string  `json:"host"`
+	IP      string  `json:"ip"`
 	InMbps  float64 `json:"inMbps"`
 	OutMbps float64 `json:"outMbps"`
 }
@@ -221,6 +222,7 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 							if host == "" { host = rec.Address }
 							data.TopTalkers = append(data.TopTalkers, OPNsenseTalker{
 								Host:    host,
+								IP:      rec.Address,
 								InMbps:  rec.RateBitsIn / 1000000,
 								OutMbps: rec.RateBitsOut / 1000000,
 							})

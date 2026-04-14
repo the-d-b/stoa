@@ -8,7 +8,8 @@ interface OPNsenseGateway {
 interface OPNsenseInterface {
   name: string; device: string; status: string; inMbps: number; outMbps: number; ipAddr: string
 }
-interface OPNsenseTalker { host: string; inMbps: number; outMbps: number }
+interface OPNsenseTalker { host: string; ip: string; inMbps: number; outMbps: number }
+interface GeoData { country: string; city: string; isp: string; status: string }
 interface OPNsenseData {
   uiUrl: string; version: string; updateAvail: boolean
   gateways: OPNsenseGateway[]; interfaces: OPNsenseInterface[]
@@ -136,20 +137,45 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── Top talkers — condensed single line ───────────────────────────────────
+  // ── Top talkers — with async geo-IP tooltip on hover ─────────────────────
+  const geoCache = useState<Record<string, GeoData | null>>(() => ({}))[0]
+  const [geoData, setGeoData] = useState<Record<string, GeoData | null>>({})
+  const [tooltip, setTooltip] = useState<{ ip: string; x: number; y: number } | null>(null)
+
+  const fetchGeo = async (ip: string) => {
+    if (ip in geoData) return // already fetched or fetching
+    setGeoData(g => ({ ...g, [ip]: null })) // mark as fetching
+    try {
+      const res = await fetch(`https://ip-api.com/json/${ip}?fields=status,country,city,isp`)
+      const d = await res.json()
+      setGeoData(g => ({ ...g, [ip]: d }))
+    } catch {
+      setGeoData(g => ({ ...g, [ip]: null }))
+    }
+  }
+
   const TopTalkers = () => {
     const talkers = data.topTalkers || []
     if (talkers.length === 0) return null
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3, position: 'relative' }}>
         {talkers.map((t, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-            padding: '3px 8px', borderRadius: 6,
-            background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+          <div key={i}
+            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 8px',
+              borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+              fontSize: 11, cursor: t.ip ? 'help' : 'default', position: 'relative' }}
+            onMouseEnter={e => {
+              if (t.ip) {
+                fetchGeo(t.ip)
+                const rect = e.currentTarget.getBoundingClientRect()
+                setTooltip({ ip: t.ip, x: rect.left, y: rect.bottom + 4 })
+              }
+            }}
+            onMouseLeave={() => setTooltip(null)}>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
               fontFamily: 'DM Mono, monospace', width: 14, textAlign: 'right' }}>{i + 1}</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={t.host}>{t.host}</span>
+              whiteSpace: 'nowrap', color: 'var(--text-muted)' }}>{t.host}</span>
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
               color: 'var(--text-dim)', flexShrink: 0 }}>
               ↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(t.inMbps)}</span>
@@ -158,6 +184,28 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
             </span>
           </div>
         ))}
+        {tooltip && geoData[tooltip.ip] && geoData[tooltip.ip]?.status === 'success' && (() => {
+          const g = geoData[tooltip.ip]!
+          return (
+            <div style={{
+              position: 'fixed', left: tooltip.x, top: tooltip.y,
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 7, padding: '6px 10px', fontSize: 11, zIndex: 9999,
+              boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+              color: 'var(--text-muted)', pointerEvents: 'none',
+              display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160,
+            }}>
+              <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                color: 'var(--text)', fontSize: 10 }}>{tooltip.ip}</span>
+              {g.city && g.country && (
+                <span>📍 {g.city}, {g.country}</span>
+              )}
+              {g.isp && (
+                <span style={{ color: 'var(--text-dim)' }}>🏢 {g.isp}</span>
+              )}
+            </div>
+          )
+        })()}
       </div>
     )
   }
