@@ -2490,6 +2490,7 @@ const PANEL_TYPES = [
   { id: 'opnsense',      label: 'OPNsense',    desc: 'Firewall/router' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings' },
   { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
   { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
   { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
@@ -2787,6 +2788,48 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* OPNsense max link speed */}
+                  {p.type === 'customapi' && (
+                    <>
+                      <div>
+                        <label className="label">API URL</label>
+                        <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                          defaultValue={cfg.url || ''}
+                          onChange={e => { cfg.url = e.target.value }}
+                          placeholder="http://host:port/api/stats" />
+                      </div>
+                      <div>
+                        <label className="label">Bearer token (optional)</label>
+                        <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                          defaultValue={cfg.apiKey || ''}
+                          onChange={e => { cfg.apiKey = e.target.value }}
+                          placeholder="Leave blank if no auth required" />
+                      </div>
+                      <div>
+                        <label className="label">Field mappings</label>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+                          One per line: <code>path.to.value | Label</code> e.g. <code>photos.unsorted | Photos to sort</code>
+                        </div>
+                        <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace',
+                          minHeight: 100, resize: 'vertical' }}
+                          defaultValue={(cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n')}
+                          onChange={e => {
+                            cfg.mappings = e.target.value.split('\n')
+                              .map(line => line.trim())
+                              .filter(line => line.includes('|'))
+                              .map(line => {
+                                const [path, ...rest] = line.split('|')
+                                return { path: path.trim(), label: rest.join('|').trim() }
+                              })
+                          }} />
+                      </div>
+                      <div>
+                        <label className="label">Refresh interval (seconds)</label>
+                        <input className="input" type="number" style={{ fontSize: 12, width: 100 }}
+                          defaultValue={cfg.refreshSecs || 600}
+                          onChange={e => { cfg.refreshSecs = Number(e.target.value) }} />
+                      </div>
+                    </>
+                  )}
                   {p.type === 'opnsense' && (
                     <div>
                       <label className="label">Max link speed (Mbps)</label>
