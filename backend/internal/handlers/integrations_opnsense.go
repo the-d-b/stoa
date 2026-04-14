@@ -178,6 +178,7 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 	}
 
 	// Fetch traffic for all interfaces concurrently
+	// Use a shorter timeout for traffic calls — they do live packet inspection
 	t1 := time.Now()
 	type ifaceResult struct {
 		id   string
@@ -185,9 +186,13 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		out  float64
 	}
 	ifaceCh := make(chan ifaceResult, len(ifaceNames))
+	trafficClient := &http.Client{
+		Timeout: 4 * time.Second, // traffic/top does live inspection — cap it
+		Transport: httpClient(skipTLS).Transport,
+	}
 	for id := range ifaceNames {
 		go func(ifID string) {
-			body, ferr := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top/"+ifID, skipTLS)
+			body, ferr := opnsenseGetWithClient(trafficClient, apiURL, apiKey, "/api/diagnostics/traffic/top/"+ifID)
 			if ferr != nil {
 				ifaceCh <- ifaceResult{id: ifID}
 				return
@@ -271,6 +276,30 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 	}
 
 	return data, nil
+}
+
+func opnsenseGetWithClient(client *http.Client, baseURL, apiKey, path string) ([]byte, error) {
+	url := strings.TrimRight(baseURL, "/") + path
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	colonIdx := strings.Index(apiKey, ":")
+	if colonIdx >= 0 {
+		req.SetBasicAuth(apiKey[:colonIdx], apiKey[colonIdx+1:])
+	} else {
+		encoded := base64.StdEncoding.EncodeToString([]byte(apiKey))
+		req.Header.Set("Authorization", "Basic "+encoded)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("HTTP %d from OPNsense", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
 }
 
 func opnsenseGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
