@@ -8,7 +8,10 @@ const INTEGRATION_TYPES = [
   { id: 'plex',    label: 'Plex',    desc: 'Media server' },
   { id: 'tautulli', label: 'Tautulli', desc: 'Plex analytics' },
   { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
-  { id: 'proxmox', label: 'Proxmox', desc: 'Hypervisor' },
+  { id: 'proxmox',  label: 'Proxmox',     desc: 'Hypervisor' },
+  { id: 'kuma',     label: 'Uptime Kuma', desc: 'Status monitoring' },
+  { id: 'gluetun',  label: 'Gluetun',    desc: 'VPN container' },
+  { id: 'opnsense', label: 'OPNsense',   desc: 'Firewall/router' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },
 ]
 

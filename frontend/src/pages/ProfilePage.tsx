@@ -951,12 +951,17 @@ function GlyphsTab() {
   const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
+  const [integrations, setIntegrations] = useState<Integration[]>([])
+
   const load = async () => {
-    const [g, sysS, myS] = await Promise.all([glyphsApi.list(), secretsApi.list(), mySecretsApi.list()])
+    const [g, sysS, myS, sysI, myI] = await Promise.all([
+      glyphsApi.list(), secretsApi.list(), mySecretsApi.list(),
+      integrationsApi.list(), myIntegrationsApi.list(),
+    ])
     setGlyphs(g.data || [])
-    // Merge system + personal secrets for the dropdown
     const allSecrets = [...(sysS.data || []), ...(myS.data || [])]
     setSecrets(allSecrets)
+    setIntegrations([...(sysI.data || []), ...(myI.data || [])])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1022,7 +1027,7 @@ function GlyphsTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {glyphs.map(g => (
-          <GlyphRow key={g.id} glyph={g} secrets={secrets}
+          <GlyphRow key={g.id} glyph={g} secrets={secrets} integrations={integrations}
             editing={editId === g.id}
             onEdit={() => setEditId(editId === g.id ? null : g.id)}
             onToggle={() => toggleEnabled(g)}
@@ -1048,8 +1053,8 @@ function GlyphsTab() {
   )
 }
 
-function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave, onZoneChange, onSecretCreated }: {
-  glyph: Glyph; secrets: any[]; editing: boolean
+function GlyphRow({ glyph, secrets, integrations, editing, onEdit, onToggle, onDelete, onSave, onZoneChange, onSecretCreated }: {
+  glyph: Glyph; secrets: any[]; integrations: Integration[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: (config: string) => void; onZoneChange: (zone: string) => void
   onSecretCreated: (secret: any) => void
@@ -1203,10 +1208,15 @@ function GlyphRow({ glyph, secrets, editing, onEdit, onToggle, onDelete, onSave,
             {/* Weather config */}
             {glyph.type === 'kuma' && (
               <div>
-                <label className="label">Integration ID</label>
-                <input className="input" value={localConfig.integrationId || ''}
+                <label className="label">Kuma integration</label>
+                <select className="input" value={localConfig.integrationId || ''}
                   onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
-                  placeholder="Paste the Kuma integration ID" />
+                  style={{ cursor: 'pointer' }}>
+                  <option value="">— Select integration —</option>
+                  {integrations.filter((i: Integration) => i.type === 'kuma').map((i: Integration) => (
+                    <option key={i.id} value={i.id}>{i.name}</option>
+                  ))}
+                </select>
               </div>
             )}
             {glyph.type === 'weather' && (

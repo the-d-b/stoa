@@ -39,16 +39,16 @@ func fetchKumaPanelData(db *sql.DB, config map[string]interface{}) (*KumaPanelDa
 
 	// Kuma status page API — works without auth for public status pages
 	// For private instances with API key auth
-	body, err := kumaGet(apiURL, apiKey, "/api/status-page/heartbeat/default", skipTLS)
-	if err != nil {
-		// Try the metrics endpoint as fallback
-		body, err = kumaGet(apiURL, apiKey, "/metrics", skipTLS)
+	// Try metrics endpoint first (works with no auth, gives monitor_status)
+	body, err := kumaGet(apiURL, apiKey, "/metrics", skipTLS)
+	if err == nil && len(body) > 10 {
+		data.Monitors = parseKumaMetrics(string(body))
+	} else {
+		// Fall back to heartbeat API
+		body, err = kumaGet(apiURL, apiKey, "/api/status-page/heartbeat/default", skipTLS)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to Uptime Kuma: %v", err)
 		}
-		// Parse prometheus metrics
-		data.Monitors = parseKumaMetrics(string(body))
-	} else {
 		// Parse heartbeat JSON
 		var hb struct {
 			HeartbeatList map[string][]struct {
@@ -169,10 +169,15 @@ func kumaGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 }
 
 func testKumaConnection(apiURL, apiKey string, skipTLS bool) error {
-	_, err := kumaGet(apiURL, apiKey, "/api/status-page/default", skipTLS)
-	if err != nil {
-		// Try metrics endpoint
-		_, err = kumaGet(apiURL, apiKey, "/metrics", skipTLS)
+	// Try multiple endpoints since Kuma may have auth disabled
+	endpoints := []string{"/api/status-page/default", "/metrics", "/api/entry-page"}
+	var lastErr error
+	for _, ep := range endpoints {
+		_, err := kumaGet(apiURL, apiKey, ep, skipTLS)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
 	}
-	return err
+	return lastErr
 }
