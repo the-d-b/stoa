@@ -142,14 +142,25 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
   // ── Top talkers — with async geo-IP tooltip on hover ─────────────────────
 
   const fetchGeo = async (ip: string) => {
-    if (ip in geoData) return // already fetched or fetching
+    if (!ip || ip in geoData) return
     setGeoData(g => ({ ...g, [ip]: null })) // mark as fetching
     try {
-      const res = await fetch(`/api/geo?ip=${encodeURIComponent(ip)}`)
+      // Use XMLHttpRequest so it inherits cookies/auth automatically
+      const token = localStorage.getItem('stoa_token') || ''
+      const res = await fetch(`/api/geo?ip=${encodeURIComponent(ip)}`, {
+        headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        console.warn('[geo] fetch failed:', res.status, ip)
+        setGeoData(g => ({ ...g, [ip]: { status: 'fail', country: '', city: '', isp: '' } }))
+        return
+      }
       const d = await res.json()
+      console.log('[geo] result for', ip, d)
       setGeoData(g => ({ ...g, [ip]: d }))
-    } catch {
-      setGeoData(g => ({ ...g, [ip]: null }))
+    } catch (e) {
+      console.warn('[geo] error for', ip, e)
+      setGeoData(g => ({ ...g, [ip]: { status: 'fail', country: '', city: '', isp: '' } }))
     }
   }
 
