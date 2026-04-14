@@ -2493,7 +2493,7 @@ const PANEL_TYPES = [
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings' },
   { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
   { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
-  { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
+  { id: 'custom',    label: 'Text/HTML',  desc: 'Custom HTML or text content' },
 ]
 
 const HEIGHT_OPTIONS = [

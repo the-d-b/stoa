@@ -12,6 +12,7 @@ export default function PanelsAdminPanel() {
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [editingMaxMbps, setEditingMaxMbps] = useState<{id: string; val: number} | null>(null)
+  const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -247,6 +248,63 @@ export default function PanelsAdminPanel() {
                       }}>
                         {(() => { try { return JSON.parse(p.config||'{}').maxMbps||1000 } catch { return 1000 } })()} Mbps
                       </button>
+                    )
+                  )}
+                  {p.type === 'customapi' && (
+                    editingCustomAPI?.id === p.id ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0', width: '100%' }}>
+                        <div>
+                          <label className="label">API URL</label>
+                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                            value={editingCustomAPI.url}
+                            onChange={e => setEditingCustomAPI(c => c ? { ...c, url: e.target.value } : null)}
+                            placeholder="http://host:port/api/stats" />
+                        </div>
+                        <div>
+                          <label className="label">Bearer token (optional)</label>
+                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                            value={editingCustomAPI.apiKey}
+                            onChange={e => setEditingCustomAPI(c => c ? { ...c, apiKey: e.target.value } : null)}
+                            placeholder="Leave blank if no auth required" />
+                        </div>
+                        <div>
+                          <label className="label">Field mappings</label>
+                          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                            One per line: <code>path.to.value | Label</code>
+                          </div>
+                          <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
+                            value={editingCustomAPI.mappings}
+                            onChange={e => setEditingCustomAPI(c => c ? { ...c, mappings: e.target.value } : null)} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <label className="label" style={{ margin: 0 }}>Refresh (sec)</label>
+                          <input type="number" className="input" style={{ fontSize: 12, width: 80 }}
+                            value={editingCustomAPI.refreshSecs}
+                            onChange={e => setEditingCustomAPI(c => c ? { ...c, refreshSecs: Number(e.target.value) } : null)} />
+                          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                            const cfg = safeParseConfig(p.config)
+                            cfg.url = editingCustomAPI.url
+                            cfg.apiKey = editingCustomAPI.apiKey
+                            cfg.refreshSecs = editingCustomAPI.refreshSecs
+                            cfg.mappings = editingCustomAPI.mappings.split('\n')
+                              .map((line: string) => line.trim())
+                              .filter((line: string) => line.includes('|'))
+                              .map((line: string) => {
+                                const [path, ...rest] = line.split('|')
+                                return { path: path.trim(), label: rest.join('|').trim() }
+                              })
+                            await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
+                            setEditingCustomAPI(null); load()
+                          }}>Save</button>
+                          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingCustomAPI(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+                        const cfg = safeParseConfig(p.config)
+                        const mappings = (cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n')
+                        setEditingCustomAPI({ id: p.id, url: cfg.url || '', apiKey: cfg.apiKey || '', mappings, refreshSecs: cfg.refreshSecs || 600 })
+                      }}>Configure</button>
                     )
                   )}
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
