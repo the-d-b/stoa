@@ -13,6 +13,7 @@ const INTEGRATION_TYPES = [
   { id: 'gluetun',  label: 'Gluetun',    desc: 'VPN container' },
   { id: 'opnsense',     label: 'OPNsense',    desc: 'Firewall/router' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },
 ]
 

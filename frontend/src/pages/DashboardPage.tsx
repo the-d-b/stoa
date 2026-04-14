@@ -15,6 +15,7 @@ import KumaPanel from '../components/panels/KumaPanel'
 import GluetunPanel from '../components/panels/GluetunPanel'
 import OPNsensePanel from '../components/panels/OPNsensePanel'
 import TransmissionPanel from '../components/panels/TransmissionPanel'
+import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -635,6 +636,7 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
           {panel.type === 'gluetun' && <GluetunPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'opnsense' && <OPNsensePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'photoprism' && <PhotoPrismPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

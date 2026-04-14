@@ -2489,6 +2489,7 @@ const PANEL_TYPES = [
   { id: 'gluetun',   label: 'Gluetun',    desc: 'VPN container' },
   { id: 'opnsense',      label: 'OPNsense',    desc: 'Firewall/router' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
   { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
   { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
   { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
@@ -2569,7 +2570,7 @@ function MyPanelsTab() {
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
-  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'plex', 'tautulli', 'truenas', 'proxmox', 'kuma', 'gluetun', 'opnsense', 'transmission'].includes(newType)
+  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'plex', 'tautulli', 'truenas', 'proxmox', 'kuma', 'gluetun', 'opnsense', 'transmission', 'photoprism'].includes(newType)
   const compatibleIntegrations = integrations.filter(i =>
     newType === 'calendar' ? true : i.type === newType
   )
@@ -2767,7 +2768,7 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission'].includes(p.type) && (
+                  {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism'].includes(p.type) && (
                     <div>
                       <label className="label">Integration</label>
                       <select className="input" style={{ cursor: 'pointer' }}
@@ -2887,7 +2888,7 @@ function MyPanelsTab() {
                           const newCfg = { ...cfg, height: editHeight }
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
-                          if (['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission'].includes(p.type)) newCfg.integrationId = editIntegrationId
+                          if (['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism'].includes(p.type)) newCfg.integrationId = editIntegrationId
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
                           setExpandedPanelId(null)
                           await load()

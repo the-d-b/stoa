@@ -195,6 +195,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testOPNsenseConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "photoprism":
+			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}
