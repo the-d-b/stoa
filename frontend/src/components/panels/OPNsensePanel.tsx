@@ -28,6 +28,8 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
   const [data, setData] = useState<OPNsenseData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [geoData, setGeoData] = useState<Record<string, GeoData | null>>({})
+  const [tooltip, setTooltip] = useState<{ ip: string; x: number; y: number } | null>(null)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const refreshSecs = config.refreshSecs || 30
@@ -138,8 +140,6 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
   )
 
   // ── Top talkers — with async geo-IP tooltip on hover ─────────────────────
-  const [geoData, setGeoData] = useState<Record<string, GeoData | null>>({})
-  const [tooltip, setTooltip] = useState<{ ip: string; x: number; y: number } | null>(null)
 
   const fetchGeo = async (ip: string) => {
     if (ip in geoData) return // already fetched or fetching
