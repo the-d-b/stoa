@@ -18,9 +18,10 @@ function timeAgo(iso: string): string {
 }
 
 const DAY_OPTIONS = [
-  { label: '24h', days: 1 },
+  { label: '1d',  days: 1 },
   { label: '7d',  days: 7 },
   { label: '30d', days: 30 },
+  { label: '∞',   days: 36500 },
 ]
 
 export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -32,18 +33,8 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   const [days, setDays] = useState<number>(config.days || 7)
   const refreshSecs = config.refreshSecs || 120
 
-  const changeDays = async (d: number) => {
-    setDays(d)
-    setLoading(true)
-    try {
-      const res = await integrationsApi.getPanelData(panel.id, { days: d })
-      setData(res.data); setError('')
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Failed to load')
-    } finally { setLoading(false) }
-  }
-
   useEffect(() => {
+    setLoading(true)
     const loadWithDays = async () => {
       try {
         const res = await integrationsApi.getPanelData(panel.id, { days })
@@ -73,7 +64,7 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   const TimeRangePills = () => (
     <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
       {DAY_OPTIONS.map(opt => (
-        <button key={opt.days} onClick={() => changeDays(opt.days)}
+        <button key={opt.days} onClick={() => setDays(opt.days)}
           style={{ padding: '2px 8px', borderRadius: 5, fontSize: 10, cursor: 'pointer',
             fontWeight: days === opt.days ? 700 : 400,
             background: days === opt.days ? 'var(--accent)' : 'var(--surface2)',
