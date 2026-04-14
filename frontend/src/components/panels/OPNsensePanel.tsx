@@ -58,7 +58,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   // ── Header — same on all sizes ────────────────────────────────────────────
   const Header = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap', rowGap: 4 }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
         style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
           padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
@@ -129,9 +129,9 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
                 fontFamily: 'DM Mono, monospace' }}>{iface.ipAddr}</span>
             )}
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-              color: 'var(--text-dim)', flexShrink: 0 }}>
-              ↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(iface.inMbps)}</span>
-              {'  '}↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(iface.outMbps)}</span>
+              color: 'var(--text-dim)', flexShrink: 0, textAlign: 'right' }}>
+              <span style={{ display: 'block' }}>↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(iface.inMbps)}</span></span>
+              <span style={{ display: 'block' }}>↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(iface.outMbps)}</span></span>
             </span>
           </div>
         ))

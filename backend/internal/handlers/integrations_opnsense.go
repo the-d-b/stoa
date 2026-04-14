@@ -87,7 +87,10 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		}
 		if json.Unmarshal(body, &gw) == nil {
 			for _, g := range gw.Items {
-				// status_translated values: "Online", "Offline", "Loss", etc.
+				// Skip gateways with no IP address (e.g. IPv6 DHCPv6 with no lease)
+				if g.Address == "~" || g.Address == "" {
+					continue
+				}
 				status := "online"
 				sl := strings.ToLower(g.Status)
 				if sl != "online" && sl != "none" && sl != "" {
@@ -97,14 +100,12 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 				if rtt == "~" { rtt = "" }
 				loss := g.Loss
 				if loss == "~" { loss = "" }
-				addr := g.Address
-				if addr == "~" { addr = "" }
 				data.Gateways = append(data.Gateways, OPNsenseGateway{
 					Name:    g.Name,
 					Status:  status,
 					RTT:     rtt,
 					Loss:    loss,
-					Address: addr,
+					Address: g.Address,
 				})
 			}
 		}
