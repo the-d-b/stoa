@@ -85,15 +85,13 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 	var mu sync.Mutex
 	var wg sync.WaitGroup
 
-	t0 := time.Now()
 	for _, key := range endpoints {
 		wg.Add(1)
 		go func(k, path string) {
 			defer wg.Done()
-			t := time.Now()
 			body, ferr := opnsenseGet(apiURL, apiKey, path, skipTLS)
-			log.Printf("[OPNSENSE] %s took %dms err=%v", k, time.Since(t).Milliseconds(), ferr)
 			if ferr != nil {
+				log.Printf("[OPNSENSE] %s err: %v", k, ferr)
 				return
 			}
 			mu.Lock()
@@ -102,7 +100,6 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		}(key, paths[key])
 	}
 	wg.Wait()
-	log.Printf("[OPNSENSE] initial batch done in %dms", time.Since(t0).Milliseconds())
 
 	// ── Parse firmware version ─────────────────────────────────────────────
 	if body, ok := results["firmware"]; ok {
@@ -178,9 +175,7 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		}
 	}
 
-	// Fetch traffic for all interfaces concurrently
-	// Use a shorter timeout for traffic calls — they do live packet inspection
-	t1 := time.Now()
+	// Fetch traffic for all interfaces concurrently — use short timeout, live packet inspection is slow
 	type ifaceResult struct {
 		id   string
 		in   float64
@@ -246,8 +241,6 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 			})
 		}
 	}
-
-	log.Printf("[OPNSENSE] traffic batch done in %dms for %d interfaces", time.Since(t1).Milliseconds(), len(ifaceNames))
 
 	// ── Parse DNS stats ────────────────────────────────────────────────────
 	if body, ok := results["dns"]; ok {

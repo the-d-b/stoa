@@ -151,15 +151,12 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
         headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` },
       })
       if (!res.ok) {
-        console.warn('[geo] fetch failed:', res.status, ip)
         setGeoData(g => ({ ...g, [ip]: { status: 'fail', country: '', city: '', isp: '' } }))
         return
       }
       const d = await res.json()
-      console.log('[geo] result for', ip, d)
       setGeoData(g => ({ ...g, [ip]: d }))
     } catch (e) {
-      console.warn('[geo] error for', ip, e)
       setGeoData(g => ({ ...g, [ip]: { status: 'fail', country: '', city: '', isp: '' } }))
     }
   }

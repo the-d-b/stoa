@@ -89,7 +89,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	}
 
 	node := nodesResp.Data[0]
-	log.Printf("[PROXMOX] node=%s cpu=%.3f maxcpu=%d mem=%d maxmem=%d", node.Node, node.CPU, node.MaxCPU, node.Mem, node.MaxMem)
 	data.Node = node.Node
 
 	// Try /nodes/{node}/status first (requires Sys.Audit)
@@ -110,9 +109,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 			} `json:"data"`
 		}
 		if json.Unmarshal(nodeStatusBody, &statusResp) == nil && statusResp.Data.Memory.Total > 0 {
-			log.Printf("[PROXMOX] status cpu=%.3f cpus=%d mem=%d/%d",
-				statusResp.Data.CPU, statusResp.Data.CPUInfo.CPUs,
-				statusResp.Data.Memory.Used, statusResp.Data.Memory.Total)
 			cpuPct := statusResp.Data.CPU * 100
 			cpus := statusResp.Data.CPUInfo.CPUs
 			if cpus == 0 { cpus = node.MaxCPU }
@@ -130,7 +126,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 	// Fallback: try /cluster/resources which works with lower permissions
 	if !parsedStatus {
 		clusterBody, cerr := proxmoxGet(apiURL, apiKey, "/cluster/resources?type=node", skipTLS)
-		log.Printf("[PROXMOX] cluster/resources err=%v bodylen=%d", cerr, len(clusterBody))
 		if cerr == nil {
 			var cr struct {
 				Data []struct {
@@ -144,8 +139,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 			if json.Unmarshal(clusterBody, &cr) == nil {
 				for _, n := range cr.Data {
 					if n.Node == node.Node && n.MaxMem > 0 {
-						log.Printf("[PROXMOX] cluster cpu=%.3f maxcpu=%d mem=%d maxmem=%d",
-							n.CPU, n.MaxCPU, n.Mem, n.MaxMem)
 						cpuPct := n.CPU * 100
 						data.CPU = ProxmoxGauge{Used: cpuPct, Label: fmt.Sprintf("%.0f%% · %d cores", cpuPct, n.MaxCPU)}
 						usedGB := float64(n.Mem) / 1073741824
@@ -194,7 +187,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 
 	// RRD data — network and temperature (last data point from hour window)
 	rrdBody, rrdErr := proxmoxGet(apiURL, apiKey, fmt.Sprintf("/nodes/%s/rrddata?timeframe=hour&cf=AVERAGE", node.Node), skipTLS)
-	log.Printf("[PROXMOX] rrd err=%v bodylen=%d", rrdErr, len(rrdBody))
 	if rrdErr == nil && len(rrdBody) > 10 {
 		var rrdResp struct {
 			Data []map[string]interface{} `json:"data"`
@@ -209,11 +201,6 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 				}
 			}
 			if last != nil {
-				log.Printf("[PROXMOX] rrd keys: %v", func() []string {
-					keys := []string{}
-					for k := range last { keys = append(keys, k) }
-					return keys
-				}())
 				if v, ok := last["netin"].(float64); ok { data.NetIn = v }
 				if v, ok := last["netout"].(float64); ok { data.NetOut = v }
 				if v, ok := last["loadavg"].(float64); ok { data.LoadAvg = v }
