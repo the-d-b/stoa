@@ -2763,7 +2763,7 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox'].includes(p.type) && (
+                  {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense'].includes(p.type) && (
                     <div>
                       <label className="label">Integration</label>
                       <select className="input" style={{ cursor: 'pointer' }}
@@ -2779,6 +2779,22 @@ function MyPanelsTab() {
                           No {p.type} integrations found. Add one in My Integrations first.
                         </div>
                       )}
+                    </div>
+                  )}
+                  {/* OPNsense max link speed */}
+                  {p.type === 'opnsense' && (
+                    <div>
+                      <label className="label">Max link speed (Mbps)</label>
+                      <input className="input" type="number" style={{ fontSize: 12 }}
+                        defaultValue={cfg.maxMbps || 1000}
+                        onChange={e => {
+                          const v = Number(e.target.value)
+                          if (v > 0) cfg.maxMbps = v
+                        }}
+                        placeholder="e.g. 400 for 400 Mbps ISP cap" />
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                        Used to scale the interface arc gauges. Set to your ISP's speed cap.
+                      </div>
                     </div>
                   )}
 
@@ -2867,7 +2883,7 @@ function MyPanelsTab() {
                           const newCfg = { ...cfg, height: editHeight }
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
-                          if (['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox'].includes(p.type)) newCfg.integrationId = editIntegrationId
+                          if (['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense'].includes(p.type)) newCfg.integrationId = editIntegrationId
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
                           setExpandedPanelId(null)
                           await load()

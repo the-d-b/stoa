@@ -59,7 +59,7 @@ export default function PanelsAdminPanel() {
     if (!newTitle.trim()) return
     setCreating(true)
     const config = ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense'].includes(newType)
-      ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300 })
+      ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}) })
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
       : JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
