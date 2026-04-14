@@ -110,59 +110,60 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		}
 	}
 
-	// Interface traffic — try /top/0.1 first (live rates), fall back to statistics
-	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top", skipTLS); err != nil {
-		log.Printf("[OPNSENSE] traffic/top err: %v — trying statistics", err)
-		// Fallback: cumulative stats
-		if body2, err2 := opnsenseGet(apiURL, apiKey, "/api/diagnostics/interface/getInterfaceStatistics", skipTLS); err2 != nil {
-			log.Printf("[OPNSENSE] interface stats err: %v", err2)
-		} else {
-			var stats map[string]struct {
-				Interface string  `json:"interface"`
-				Inbytes   float64 `json:"inbytes"`
-				Outbytes  float64 `json:"outbytes"`
-				IPAddress string  `json:"ipaddress"`
-			}
-			if json.Unmarshal(body2, &stats) == nil {
-				for device, s := range stats {
-					if s.Inbytes == 0 && s.Outbytes == 0 {
-						continue
-					}
-					name := s.Interface
-					if name == "" {
-						name = device
-					}
-					data.Interfaces = append(data.Interfaces, OPNsenseInterface{
-						Name:    name,
-						Device:  device,
-						IPAddr:  s.IPAddress,
-						InMbps:  s.Inbytes / 1048576,
-						OutMbps: s.Outbytes / 1048576,
-					})
-				}
-			}
+	// Interface stats — getInterfaceStats gives cumulative bytes per interface
+	for _, statsPath := range []string{
+		"/api/diagnostics/interface/getInterfaceStats",
+		"/api/diagnostics/interface/getInterfaceStatistics",
+	} {
+		body, err := opnsenseGet(apiURL, apiKey, statsPath, skipTLS)
+		if err != nil {
+			log.Printf("[OPNSENSE] %s err: %v", statsPath, err)
+			continue
 		}
-	} else {
-		var traffic struct {
-			Interfaces map[string]struct {
-				Name         string  `json:"name"`
-				InbytesRate  float64 `json:"inbytes_rate"`
-				OutbytesRate float64 `json:"outbytes_rate"`
-			} `json:"interfaces"`
+		// Response is array of interface objects
+		var arr []struct {
+			Name      string  `json:"name"`
+			Interface string  `json:"interface"`
+			Inbytes   float64 `json:"inbytes"`
+			Outbytes  float64 `json:"outbytes"`
+			IPAddress string  `json:"ipaddress"`
 		}
-		if json.Unmarshal(body, &traffic) == nil {
-			for device, iface := range traffic.Interfaces {
-				name := iface.Name
-				if name == "" {
-					name = device
-				}
+		// Also try map format
+		var statsMap map[string]struct {
+			Interface string  `json:"interface"`
+			Inbytes   float64 `json:"inbytes"`
+			Outbytes  float64 `json:"outbytes"`
+			IPAddress string  `json:"ipaddress"`
+		}
+		if json.Unmarshal(body, &arr) == nil && len(arr) > 0 {
+			for _, s := range arr {
+				if s.Inbytes == 0 && s.Outbytes == 0 { continue }
+				name := s.Name
+				if name == "" { name = s.Interface }
+				data.Interfaces = append(data.Interfaces, OPNsenseInterface{
+					Name:    name,
+					IPAddr:  s.IPAddress,
+					InMbps:  s.Inbytes / 1048576,
+					OutMbps: s.Outbytes / 1048576,
+				})
+			}
+			break
+		} else if json.Unmarshal(body, &statsMap) == nil && len(statsMap) > 0 {
+			for device, s := range statsMap {
+				if s.Inbytes == 0 && s.Outbytes == 0 { continue }
+				name := s.Interface
+				if name == "" { name = device }
 				data.Interfaces = append(data.Interfaces, OPNsenseInterface{
 					Name:    name,
 					Device:  device,
-					InMbps:  iface.InbytesRate * 8 / 1000000,
-					OutMbps: iface.OutbytesRate * 8 / 1000000,
+					IPAddr:  s.IPAddress,
+					InMbps:  s.Inbytes / 1048576,
+					OutMbps: s.Outbytes / 1048576,
 				})
 			}
+			break
+		} else {
+			log.Printf("[OPNSENSE] %s body preview: %s", statsPath, string(body[:min(300, len(body))]))
 		}
 	}
 
