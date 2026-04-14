@@ -2485,6 +2485,9 @@ const PANEL_TYPES = [
   { id: 'truenas',   label: 'TrueNAS',    desc: 'NAS management' },
   { id: 'proxmox',   label: 'Proxmox',    desc: 'Hypervisor' },
   { id: 'tautulli',  label: 'Tautulli',   desc: 'Plex analytics' },
+  { id: 'kuma',      label: 'Uptime Kuma', desc: 'Status monitoring' },
+  { id: 'gluetun',   label: 'Gluetun',    desc: 'VPN container' },
+  { id: 'opnsense',  label: 'OPNsense',   desc: 'Firewall/router' },
   { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
   { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
   { id: 'custom',    label: 'Custom',     desc: 'Custom content' },
@@ -2565,7 +2568,7 @@ function MyPanelsTab() {
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
-  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'plex', 'tautulli', 'truenas', 'proxmox'].includes(newType)
+  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'plex', 'tautulli', 'truenas', 'proxmox', 'kuma', 'gluetun', 'opnsense'].includes(newType)
   const compatibleIntegrations = integrations.filter(i =>
     newType === 'calendar' ? true : i.type === newType
   )
