@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import ArcGauge from './ArcGauge'
 
 interface OPNsenseGateway {
   name: string; status: string; rtt: string; loss: string; address: string
@@ -29,6 +30,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const refreshSecs = config.refreshSecs || 30
+  const maxMbps = config.maxMbps || 1000 // configurable link speed, default 1 Gbps
 
   const load = useCallback(async () => {
     try {
@@ -59,9 +61,10 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
-  // ── Header — same on all sizes ────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────
   const Header = () => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap', rowGap: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
+      flexWrap: 'wrap', rowGap: 4 }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
         style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
           padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
@@ -71,9 +74,8 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
         OPNsense
       </a>
       {data.version && (
-        <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-          {data.version}
-        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)',
+          fontFamily: 'DM Mono, monospace' }}>{data.version}</span>
       )}
       {data.updateAvail && (
         <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10,
@@ -89,7 +91,25 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── Gateway rows ──────────────────────────────────────────────────────────
+  // ── Interface arc gauges ──────────────────────────────────────────────────
+  const InterfaceGauges = ({ size }: { size?: number }) => (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
+      {ifaces.map((iface, i) => {
+        const totalMbps = iface.inMbps + iface.outMbps
+        const pct = Math.min((totalMbps / maxMbps) * 100, 100)
+        const label = `↓${fmtMbps(iface.inMbps)} ↑${fmtMbps(iface.outMbps)}`
+        return (
+          <ArcGauge key={i} value={pct} label={label}
+            title={iface.name} size={size || 72} />
+        )
+      })}
+      {ifaces.length === 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No active traffic</div>
+      )}
+    </div>
+  )
+
+  // ── Gateway list ──────────────────────────────────────────────────────────
   const GatewayList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {gateways.map((g, i) => (
@@ -116,49 +136,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── Interface traffic ─────────────────────────────────────────────────────
-  const TrafficList = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {ifaces.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No active traffic</div>
-        : ifaces.map((iface, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-            padding: '3px 8px', borderRadius: 6,
-            background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-            <span style={{ flex: 1, fontWeight: 500, overflow: 'hidden',
-              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{iface.name}</span>
-            {iface.ipAddr && (
-              <span style={{ fontSize: 10, color: 'var(--text-dim)',
-                fontFamily: 'DM Mono, monospace' }}>{iface.ipAddr}</span>
-            )}
-            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-              color: 'var(--text-dim)', flexShrink: 0, textAlign: 'right' }}>
-              <span style={{ display: 'block' }}>↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(iface.inMbps)}</span></span>
-              <span style={{ display: 'block' }}>↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(iface.outMbps)}</span></span>
-            </span>
-          </div>
-        ))
-      }
-    </div>
-  )
-
-  // ── 1x — header only ─────────────────────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <Header />
-    </div>
-  )
-
-  // ── 2x — header + gateways ────────────────────────────────────────────────
-  if (heightUnits < 4) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <Header />
-      {sectionTitle('Gateways')}
-      <GatewayList />
-    </div>
-  )
-
-  // ── Top talkers ───────────────────────────────────────────────────────────
+  // ── Top talkers — condensed single line ───────────────────────────────────
   const TopTalkers = () => {
     const talkers = data.topTalkers || []
     if (talkers.length === 0) return null
@@ -169,15 +147,14 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
             padding: '3px 8px', borderRadius: 6,
             background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-              fontFamily: 'DM Mono, monospace', width: 16, textAlign: 'right' }}>
-              {i + 1}
-            </span>
+              fontFamily: 'DM Mono, monospace', width: 14, textAlign: 'right' }}>{i + 1}</span>
             <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
               whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={t.host}>{t.host}</span>
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-              color: 'var(--text-dim)', flexShrink: 0, textAlign: 'right' }}>
-              <span style={{ display: 'block' }}>↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(t.inMbps)}</span></span>
-              <span style={{ display: 'block' }}>↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(t.outMbps)}</span></span>
+              color: 'var(--text-dim)', flexShrink: 0 }}>
+              ↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(t.inMbps)}</span>
+              {' · '}
+              ↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(t.outMbps)}</span>
             </span>
           </div>
         ))}
@@ -220,14 +197,30 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     )
   }
 
-  // ── 4x — header + gateways + traffic + top talkers + dns ─────────────────
+  // ── 1x — interface arc gauges ─────────────────────────────────────────────
+  if (heightUnits <= 1) return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <InterfaceGauges size={68} />
+    </div>
+  )
+
+  // ── 2x — header + gateway status ─────────────────────────────────────────
+  if (heightUnits < 4) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <Header />
+      <InterfaceGauges />
+      {sectionTitle('Gateways')}
+      <GatewayList />
+    </div>
+  )
+
+  // ── 4x — full ─────────────────────────────────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
+      <InterfaceGauges />
       {sectionTitle('Gateways')}
       <GatewayList />
-      {sectionTitle('Interface traffic')}
-      <TrafficList />
       {(data.topTalkers || []).length > 0 && (
         <>
           {sectionTitle('Top talkers (WAN)')}
