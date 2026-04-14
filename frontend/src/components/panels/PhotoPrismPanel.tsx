@@ -81,50 +81,21 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
     </div>
   )
 
-  // ── 2x — + albums, people, places, labels ────────────────────────────────
-  if (heightUnits < 4) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
-        <Stat label="videos" value={data.videos} icon="🎬" />
-        </div>
-      {sectionTitle('Library')}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-        {data.albums > 0 && <Stat label="albums" value={data.albums} icon="🗂️" />}
-        {data.people > 0 && <Stat label="people" value={data.people} icon="👤" />}
-        {data.places > 0 && <Stat label="places" value={data.places} icon="📍" />}
-        {data.labels > 0 && <Stat label="labels" value={data.labels} icon="🏷️" />}
-      </div>
-    </div>
-  )
-
-  // ── 4x — + moments, folders, version ─────────────────────────────────────
+  // ── 2x and larger — same layout ─────────────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
-            padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
-            border: '1px solid var(--border)' }}
-          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-          onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-          PhotoPrism
-        </a>
-        {data.version && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)',
-            fontFamily: 'DM Mono, monospace' }}>{data.version}</span>
-        )}
-      </div>
       <div style={{ display: 'flex', gap: 6 }}>
         <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
         <Stat label="videos" value={data.videos} icon="🎬" />
-        </div>
+      </div>
       {sectionTitle('Library')}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', marginBottom: 5 }}>
         {data.albums > 0 && <Stat label="albums" value={data.albums} icon="🗂️" />}
         {data.people > 0 && <Stat label="people" value={data.people} icon="👤" />}
         {data.places > 0 && <Stat label="places" value={data.places} icon="📍" />}
         {data.labels > 0 && <Stat label="labels" value={data.labels} icon="🏷️" />}
+      </div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
         {data.moments > 0 && <Stat label="moments" value={data.moments} icon="⏰" />}
         {data.folders > 0 && <Stat label="folders" value={data.folders} icon="📁" />}
       </div>
