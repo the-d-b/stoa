@@ -193,6 +193,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testGluetunConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "opnsense":
 			err = testOPNsenseConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "transmission":
+			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}

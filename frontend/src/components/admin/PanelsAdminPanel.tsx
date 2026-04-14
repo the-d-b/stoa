@@ -59,7 +59,7 @@ export default function PanelsAdminPanel() {
   const create = async () => {
     if (!newTitle.trim()) return
     setCreating(true)
-    const config = ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense'].includes(newType)
+    const config = ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}) })
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
@@ -123,6 +123,7 @@ export default function PanelsAdminPanel() {
                 <option value="kuma">Uptime Kuma</option>
                 <option value="gluetun">Gluetun</option>
                 <option value="opnsense">OPNsense</option>
+                <option value="transmission">Transmission</option>
               </select>
             </div>
             {newType === 'bookmarks' && (
@@ -138,7 +139,7 @@ export default function PanelsAdminPanel() {
                 </select>
               </div>
             )}
-            {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense'].includes(newType) && (
+            {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission'].includes(newType) && (
               <div style={{ flex: 1 }}>
                 <label className="label">Integration</label>
                 <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}

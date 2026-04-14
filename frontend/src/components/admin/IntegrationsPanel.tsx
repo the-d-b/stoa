@@ -11,7 +11,8 @@ const INTEGRATION_TYPES = [
   { id: 'proxmox',  label: 'Proxmox',     desc: 'Hypervisor' },
   { id: 'kuma',     label: 'Uptime Kuma', desc: 'Status monitoring' },
   { id: 'gluetun',  label: 'Gluetun',    desc: 'VPN container' },
-  { id: 'opnsense', label: 'OPNsense',   desc: 'Firewall/router' },
+  { id: 'opnsense',     label: 'OPNsense',    desc: 'Firewall/router' },
+  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },
 ]
 
