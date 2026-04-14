@@ -70,13 +70,16 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 		}
 	}
 
-	// Port forwarding
-	if body, err := gluetunGet(apiURL, apiKey, "/v1/openvpn/portforwarded", skipTLS); err == nil {
-		var pf struct {
-			Port int `json:"port"`
-		}
-		if json.Unmarshal(body, &pf) == nil && pf.Port > 0 {
-			data.Port = pf.Port
+	// Port forwarding — try both endpoint variants
+	for _, pfPath := range []string{"/v1/portforward", "/v1/openvpn/portforwarded"} {
+		if body, err := gluetunGet(apiURL, apiKey, pfPath, skipTLS); err == nil {
+			var pf struct {
+				Port int `json:"port"`
+			}
+			if json.Unmarshal(body, &pf) == nil && pf.Port > 0 {
+				data.Port = pf.Port
+				break
+			}
 		}
 	}
 
