@@ -97,19 +97,21 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 				if rtt == "~" { rtt = "" }
 				loss := g.Loss
 				if loss == "~" { loss = "" }
+				addr := g.Address
+				if addr == "~" { addr = "" }
 				data.Gateways = append(data.Gateways, OPNsenseGateway{
 					Name:    g.Name,
 					Status:  status,
 					RTT:     rtt,
 					Loss:    loss,
-					Address: g.Address,
+					Address: addr,
 				})
 			}
 		}
 	}
 
 	// Interface traffic — try /top/0.1 first (live rates), fall back to statistics
-	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top/0.1", skipTLS); err != nil {
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top", skipTLS); err != nil {
 		log.Printf("[OPNSENSE] traffic/top err: %v — trying statistics", err)
 		// Fallback: cumulative stats
 		if body2, err2 := opnsenseGet(apiURL, apiKey, "/api/diagnostics/interface/getInterfaceStatistics", skipTLS); err2 != nil {

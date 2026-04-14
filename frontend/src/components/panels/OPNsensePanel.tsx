@@ -56,6 +56,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
+  // ── Header — same on all sizes ────────────────────────────────────────────
   const Header = () => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
@@ -67,8 +68,9 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
         OPNsense
       </a>
       {data.version && (
-        <span style={{ fontSize: 10, color: 'var(--text-dim)',
-          fontFamily: 'DM Mono, monospace' }}>{data.version}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+          {data.version}
+        </span>
       )}
       {data.updateAvail && (
         <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10,
@@ -84,39 +86,38 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
+  // ── Gateway rows ──────────────────────────────────────────────────────────
   const GatewayList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      {gateways.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No gateway data</div>
-        : gateways.map((g, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-            padding: '4px 8px', borderRadius: 6,
-            background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-              background: g.status === 'online' ? 'var(--green)' : 'var(--red)' }} />
-            <span style={{ flex: 1, fontWeight: 500 }}>{g.name}</span>
-            {g.address && (
-              <span style={{ fontSize: 10, color: 'var(--text-dim)',
-                fontFamily: 'DM Mono, monospace' }}>{g.address}</span>
-            )}
-            {g.rtt && g.rtt !== '~' && g.rtt !== '0' && (
-              <span style={{ fontSize: 10, color: 'var(--text-dim)',
-                fontFamily: 'DM Mono, monospace' }}>{g.rtt}</span>
-            )}
-            {g.loss && g.loss !== '0.0 %' && g.loss !== '0%' && (
-              <span style={{ fontSize: 10, color: 'var(--amber)',
-                fontFamily: 'DM Mono, monospace' }}>{g.loss} loss</span>
-            )}
-          </div>
-        ))
-      }
+      {gateways.map((g, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+          padding: '4px 8px', borderRadius: 6,
+          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+            background: g.status === 'online' ? 'var(--green)' : 'var(--red)' }} />
+          <span style={{ flex: 1, fontWeight: 500 }}>{g.name}</span>
+          {g.address && (
+            <span style={{ fontSize: 10, color: 'var(--text-dim)',
+              fontFamily: 'DM Mono, monospace' }}>{g.address}</span>
+          )}
+          {g.rtt && (
+            <span style={{ fontSize: 10, color: 'var(--text-dim)',
+              fontFamily: 'DM Mono, monospace' }}>{g.rtt}</span>
+          )}
+          {g.loss && (
+            <span style={{ fontSize: 10, color: 'var(--amber)',
+              fontFamily: 'DM Mono, monospace' }}>{g.loss} loss</span>
+          )}
+        </div>
+      ))}
     </div>
   )
 
+  // ── Interface traffic ─────────────────────────────────────────────────────
   const TrafficList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {ifaces.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No traffic data</div>
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No active traffic</div>
         : ifaces.map((iface, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
             padding: '3px 8px', borderRadius: 6,
@@ -138,23 +139,23 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
+  // ── 1x — header only ─────────────────────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
-      <GatewayList />
     </div>
   )
 
+  // ── 2x — header + gateways ────────────────────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
       {sectionTitle('Gateways')}
       <GatewayList />
-      {sectionTitle('Interface traffic')}
-      <TrafficList />
     </div>
   )
 
+  // ── 4x — header + gateways + traffic ─────────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
