@@ -110,61 +110,66 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		}
 	}
 
-	// Interface stats — getInterfaceStats gives cumulative bytes per interface
-	for _, statsPath := range []string{
-		"/api/diagnostics/interface/getInterfaceStats",
-		"/api/diagnostics/interface/getInterfaceStatistics",
-	} {
-		body, err := opnsenseGet(apiURL, apiKey, statsPath, skipTLS)
+	// Get interface list from overview — gives enabled interfaces with descriptions
+	ifaceNames := map[string]string{} // identifier -> description
+	ifaceAddrs := map[string]string{} // identifier -> ipv4
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/interfaces/overview/interfacesInfo", skipTLS); err == nil {
+		var overview struct {
+			Rows []struct {
+				Identifier  string `json:"identifier"`
+				Description string `json:"description"`
+				Enabled     bool   `json:"enabled"`
+				Status      string `json:"status"`
+				Addr4       string `json:"addr4"`
+			} `json:"rows"`
+		}
+		if json.Unmarshal(body, &overview) == nil {
+			for _, row := range overview.Rows {
+				if !row.Enabled || row.Identifier == "" { continue }
+				if row.Identifier == "lo0" { continue } // skip loopback
+				ifaceNames[row.Identifier] = row.Description
+				ifaceAddrs[row.Identifier] = strings.TrimSuffix(row.Addr4, "/24")
+				// trim subnet mask
+				if idx := strings.Index(row.Addr4, "/"); idx >= 0 {
+					ifaceAddrs[row.Identifier] = row.Addr4[:idx]
+				}
+			}
+		}
+	} else {
+		log.Printf("[OPNSENSE] interfacesInfo err: %v", err)
+	}
+
+	// Fetch live traffic rates per interface using /traffic/top/{id}
+	for id, desc := range ifaceNames {
+		body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top/"+id, skipTLS)
 		if err != nil {
-			log.Printf("[OPNSENSE] %s err: %v", statsPath, err)
+			log.Printf("[OPNSENSE] traffic/top/%s err: %v", id, err)
 			continue
 		}
-		// Response is array of interface objects
-		var arr []struct {
-			Name      string  `json:"name"`
-			Interface string  `json:"interface"`
-			Inbytes   float64 `json:"inbytes"`
-			Outbytes  float64 `json:"outbytes"`
-			IPAddress string  `json:"ipaddress"`
+		// Response: {"wan": {"records": [{"rate_bits_in": N, "rate_bits_out": N, ...}]}}
+		var result map[string]struct {
+			Records []struct {
+				RateBitsIn  float64 `json:"rate_bits_in"`
+				RateBitsOut float64 `json:"rate_bits_out"`
+			} `json:"records"`
+			Status string `json:"status"`
 		}
-		// Also try map format
-		var statsMap map[string]struct {
-			Interface string  `json:"interface"`
-			Inbytes   float64 `json:"inbytes"`
-			Outbytes  float64 `json:"outbytes"`
-			IPAddress string  `json:"ipaddress"`
+		if json.Unmarshal(body, &result) != nil { continue }
+		ifData, ok := result[id]
+		if !ok { continue }
+		// Sum rates across all active connections
+		var totalIn, totalOut float64
+		for _, rec := range ifData.Records {
+			totalIn += rec.RateBitsIn
+			totalOut += rec.RateBitsOut
 		}
-		if json.Unmarshal(body, &arr) == nil && len(arr) > 0 {
-			for _, s := range arr {
-				if s.Inbytes == 0 && s.Outbytes == 0 { continue }
-				name := s.Name
-				if name == "" { name = s.Interface }
-				data.Interfaces = append(data.Interfaces, OPNsenseInterface{
-					Name:    name,
-					IPAddr:  s.IPAddress,
-					InMbps:  s.Inbytes / 1048576,
-					OutMbps: s.Outbytes / 1048576,
-				})
-			}
-			break
-		} else if json.Unmarshal(body, &statsMap) == nil && len(statsMap) > 0 {
-			for device, s := range statsMap {
-				if s.Inbytes == 0 && s.Outbytes == 0 { continue }
-				name := s.Interface
-				if name == "" { name = device }
-				data.Interfaces = append(data.Interfaces, OPNsenseInterface{
-					Name:    name,
-					Device:  device,
-					IPAddr:  s.IPAddress,
-					InMbps:  s.Inbytes / 1048576,
-					OutMbps: s.Outbytes / 1048576,
-				})
-			}
-			break
-		} else {
-			log.Printf("[OPNSENSE] %s body preview: %s", statsPath, string(body[:min(300, len(body))]))
-		}
+		data.Interfaces = append(data.Interfaces, OPNsenseInterface{
+			Name:    desc,
+			Device:  id,
+			IPAddr:  ifaceAddrs[id],
+			InMbps:  totalIn / 1000000,
+			OutMbps: totalOut / 1000000,
+		})
 	}
 
 	return data, nil
