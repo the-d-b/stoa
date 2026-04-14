@@ -37,13 +37,12 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	if err != nil {
 		return nil, err
 	}
-	data := &AuthentikPanelData{UIURL: uiURL, Days: days}
-
 	// Time range from config — default 7 days
 	days := 7
 	if d, ok := config["days"].(float64); ok && d > 0 {
 		days = int(d)
 	}
+	data := &AuthentikPanelData{UIURL: uiURL, Days: days}
 	since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
 
 	type result struct {
