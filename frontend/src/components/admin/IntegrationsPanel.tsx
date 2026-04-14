@@ -14,6 +14,7 @@ const INTEGRATION_TYPES = [
   { id: 'opnsense',     label: 'OPNsense',    desc: 'Firewall/router' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
   { id: 'generic', label: 'Generic', desc: 'Other service' },
 ]
 

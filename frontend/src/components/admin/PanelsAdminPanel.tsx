@@ -62,7 +62,7 @@ export default function PanelsAdminPanel() {
     setCreating(true)
     const config = newType === 'customapi'
       ? JSON.stringify({ url: '', apiKey: '', mappings: [], refreshSecs: 600, height: newHeight })
-      : ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism'].includes(newType)
+      : ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}) })
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
@@ -129,6 +129,7 @@ export default function PanelsAdminPanel() {
                 <option value="transmission">Transmission</option>
                 <option value="photoprism">PhotoPrism</option>
                 <option value="customapi">Custom API</option>
+                <option value="authentik">Authentik</option>
               </select>
             </div>
             {newType === 'bookmarks' && (
@@ -144,7 +145,7 @@ export default function PanelsAdminPanel() {
                 </select>
               </div>
             )}
-            {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism'].includes(newType) && (
+            {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(newType) && (
               <div style={{ flex: 1 }}>
                 <label className="label">Integration</label>
                 <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
