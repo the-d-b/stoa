@@ -51,9 +51,9 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		}
 		// Allow query params to override config values (e.g. ?days=7 for time range)
 		if d := r.URL.Query().Get("days"); d != "" {
-			var days float64
-			if _, err := fmt.Sscanf(d, "%f", &days); err == nil {
-				config["days"] = days
+			var daysVal float64
+			if _, err := fmt.Sscanf(d, "%f", &daysVal); err == nil {
+				config["days"] = daysVal
 			}
 		}
 

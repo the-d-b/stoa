@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { integrationsApi, Panel } from '../../api'
 
 interface AuthentikFailure { username: string; clientIp: string; createdAt: string }
