@@ -7,9 +7,12 @@ interface OPNsenseGateway {
 interface OPNsenseInterface {
   name: string; device: string; status: string; inMbps: number; outMbps: number; ipAddr: string
 }
+interface OPNsenseTalker { host: string; inMbps: number; outMbps: number }
 interface OPNsenseData {
   uiUrl: string; version: string; updateAvail: boolean
   gateways: OPNsenseGateway[]; interfaces: OPNsenseInterface[]
+  topTalkers: OPNsenseTalker[]
+  dnsQueries: number; dnsCacheHits: number; dnsCacheMiss: number; pfStates: number
 }
 
 function fmtMbps(mbps: number) {
@@ -155,7 +158,69 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── 4x — header + gateways + traffic ─────────────────────────────────────
+  // ── Top talkers ───────────────────────────────────────────────────────────
+  const TopTalkers = () => {
+    const talkers = data.topTalkers || []
+    if (talkers.length === 0) return null
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {talkers.map((t, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+            padding: '3px 8px', borderRadius: 6,
+            background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+              fontFamily: 'DM Mono, monospace', width: 16, textAlign: 'right' }}>
+              {i + 1}
+            </span>
+            <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={t.host}>{t.host}</span>
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
+              color: 'var(--text-dim)', flexShrink: 0, textAlign: 'right' }}>
+              <span style={{ display: 'block' }}>↓ <span style={{ color: 'var(--green)' }}>{fmtMbps(t.inMbps)}</span></span>
+              <span style={{ display: 'block' }}>↑ <span style={{ color: 'var(--amber)' }}>{fmtMbps(t.outMbps)}</span></span>
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── DNS summary ───────────────────────────────────────────────────────────
+  const DNSSummary = () => {
+    if (!data.dnsQueries) return null
+    const hitPct = data.dnsQueries > 0 ? Math.round(data.dnsCacheHits / data.dnsQueries * 100) : 0
+    return (
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+          fontSize: 11 }}>
+          <span style={{ color: 'var(--text-dim)' }}>queries</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
+            {data.dnsQueries.toLocaleString()}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+          fontSize: 11 }}>
+          <span style={{ color: 'var(--text-dim)' }}>cache hit</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+            color: hitPct > 60 ? 'var(--green)' : 'var(--text)' }}>{hitPct}%</span>
+        </div>
+        {data.pfStates > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11 }}>
+            <span style={{ color: 'var(--text-dim)' }}>fw states</span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
+              {data.pfStates.toLocaleString()}
+            </span>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── 4x — header + gateways + traffic + top talkers + dns ─────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <Header />
@@ -163,6 +228,18 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
       <GatewayList />
       {sectionTitle('Interface traffic')}
       <TrafficList />
+      {(data.topTalkers || []).length > 0 && (
+        <>
+          {sectionTitle('Top talkers (WAN)')}
+          <TopTalkers />
+        </>
+      )}
+      {data.dnsQueries > 0 && (
+        <>
+          {sectionTitle('DNS')}
+          <DNSSummary />
+        </>
+      )}
     </div>
   )
 }

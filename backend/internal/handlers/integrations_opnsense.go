@@ -14,11 +14,22 @@ import (
 // ── OPNsense types ────────────────────────────────────────────────────────────
 
 type OPNsensePanelData struct {
-	UIURL       string               `json:"uiUrl"`
-	Version     string               `json:"version"`
-	UpdateAvail bool                 `json:"updateAvail"`
-	Gateways    []OPNsenseGateway    `json:"gateways"`
-	Interfaces  []OPNsenseInterface  `json:"interfaces"`
+	UIURL         string               `json:"uiUrl"`
+	Version       string               `json:"version"`
+	UpdateAvail   bool                 `json:"updateAvail"`
+	Gateways      []OPNsenseGateway    `json:"gateways"`
+	Interfaces    []OPNsenseInterface  `json:"interfaces"`
+	TopTalkers    []OPNsenseTalker     `json:"topTalkers"`
+	DNSQueries    int                  `json:"dnsQueries"`
+	DNSCacheHits  int                  `json:"dnsCacheHits"`
+	DNSCacheMiss  int                  `json:"dnsCacheMiss"`
+	PFStates      int                  `json:"pfStates"`
+}
+
+type OPNsenseTalker struct {
+	Host    string  `json:"host"`
+	InMbps  float64 `json:"inMbps"`
+	OutMbps float64 `json:"outMbps"`
 }
 
 type OPNsenseGateway struct {
@@ -171,6 +182,64 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 			InMbps:  totalIn / 1000000,
 			OutMbps: totalOut / 1000000,
 		})
+	}
+
+	// Top talkers on WAN interface
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/traffic/top/wan", skipTLS); err == nil {
+		var result map[string]struct {
+			Records []struct {
+				RateBitsIn  float64 `json:"rate_bits_in"`
+				RateBitsOut float64 `json:"rate_bits_out"`
+				Rname       string  `json:"rname"`
+				Address     string  `json:"address"`
+			} `json:"records"`
+		}
+		if json.Unmarshal(body, &result) == nil {
+			if wan, ok := result["wan"]; ok {
+				for i, rec := range wan.Records {
+					if i >= 5 { break }
+					host := rec.Rname
+					if host == "" { host = rec.Address }
+					// trim trailing dot from rname
+					host = strings.TrimSuffix(host, ".")
+					data.TopTalkers = append(data.TopTalkers, OPNsenseTalker{
+						Host:    host,
+						InMbps:  rec.RateBitsIn / 1000000,
+						OutMbps: rec.RateBitsOut / 1000000,
+					})
+				}
+			}
+		}
+	}
+
+	// Unbound DNS stats
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/unbound/diagnostics/stats", skipTLS); err == nil {
+		var stats struct {
+			Data struct {
+				Total struct {
+					Num struct {
+						Queries   string `json:"queries"`
+						CacheHits string `json:"cachehits"`
+						CacheMiss string `json:"cachemiss"`
+					} `json:"num"`
+				} `json:"total"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(body, &stats) == nil {
+			fmt.Sscanf(stats.Data.Total.Num.Queries, "%d", &data.DNSQueries)
+			fmt.Sscanf(stats.Data.Total.Num.CacheHits, "%d", &data.DNSCacheHits)
+			fmt.Sscanf(stats.Data.Total.Num.CacheMiss, "%d", &data.DNSCacheMiss)
+		}
+	}
+
+	// PF firewall states
+	if body, err := opnsenseGet(apiURL, apiKey, "/api/diagnostics/firewall/pf_states", skipTLS); err == nil {
+		var pf struct {
+			Current string `json:"current"`
+		}
+		if json.Unmarshal(body, &pf) == nil {
+			fmt.Sscanf(pf.Current, "%d", &data.PFStates)
+		}
 	}
 
 	return data, nil
