@@ -265,7 +265,8 @@ export const integrationsApi = {
   getGroups: (id: string) => api.get<string[]>(`/integrations/${id}/groups`),
   setGroups: (id: string, groupIds: string[]) =>
     api.put(`/integrations/${id}/groups`, { groupIds }),
-  getPanelData: (panelId: string) => api.get<any>(`/panels/${panelId}/data`),
+  getPanelData: (panelId: string, params?: Record<string, string | number>) =>
+    api.get<any>(`/panels/${panelId}/data`, { params }),
 }
 
 // ── Preferences ──────────────────────────────────────────────────────────────

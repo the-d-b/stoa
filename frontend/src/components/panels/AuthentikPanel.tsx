@@ -3,10 +3,8 @@ import { integrationsApi, Panel } from '../../api'
 
 interface AuthentikFailure { username: string; clientIp: string; createdAt: string }
 interface AuthentikData {
-  uiUrl: string
-  loginsTotal: number; loginsToday: number
-  failuresTotal: number; failuresToday: number
-  activeSessions: number
+  uiUrl: string; days: number
+  logins: number; failures: number; activeSessions: number
   recentFailures: AuthentikFailure[]
 }
 
@@ -19,44 +17,77 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
+const DAY_OPTIONS = [
+  { label: '24h', days: 1 },
+  { label: '7d',  days: 7 },
+  { label: '30d', days: 30 },
+]
+
 export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<AuthentikData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const [days, setDays] = useState<number>(config.days || 7)
   const refreshSecs = config.refreshSecs || 120
 
-  const load = useCallback(async () => {
+  const changeDays = async (d: number) => {
+    setDays(d)
+    setLoading(true)
     try {
-      const res = await integrationsApi.getPanelData(panel.id)
+      const res = await integrationsApi.getPanelData(panel.id, { days: d })
       setData(res.data); setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
-  }, [panel.id])
+  }
 
   useEffect(() => {
-    load()
-    const interval = setInterval(load, refreshSecs * 1000)
+    const loadWithDays = async () => {
+      try {
+        const res = await integrationsApi.getPanelData(panel.id, { days })
+        setData(res.data); setError('')
+      } catch (e: any) {
+        setError(e.response?.data?.error || 'Failed to load')
+      } finally { setLoading(false) }
+    }
+    loadWithDays()
+    const interval = setInterval(loadWithDays, refreshSecs * 1000)
     return () => clearInterval(interval)
-  }, [load, refreshSecs])
+  }, [panel.id, days, refreshSecs])
 
-  if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
-  if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
-  if (!data)   return null
+  if (error) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
+  if (!data && loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
+  if (!data) return null
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
-  const hasRecentFailures = (data.recentFailures || []).length > 0
+  const hasFailures = (data.recentFailures || []).length > 0
+  const alerting = data.failures > 10
+
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
-  // ── Summary pills ────────────────────────────────────────────────────────
+  const TimeRangePills = () => (
+    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
+      {DAY_OPTIONS.map(opt => (
+        <button key={opt.days} onClick={() => changeDays(opt.days)}
+          style={{ padding: '2px 8px', borderRadius: 5, fontSize: 10, cursor: 'pointer',
+            fontWeight: days === opt.days ? 700 : 400,
+            background: days === opt.days ? 'var(--accent)' : 'var(--surface2)',
+            color: days === opt.days ? '#fff' : 'var(--text-dim)',
+            border: `1px solid ${days === opt.days ? 'var(--accent)' : 'var(--border)'}` }}>
+          {opt.label}
+        </button>
+      ))}
+      {loading && <span style={{ fontSize: 10, color: 'var(--text-dim)', alignSelf: 'center' }}>…</span>}
+    </div>
+  )
+
   const Summary = () => (
     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-      {/* Logins */}
       <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login` : '#'}
         target="_blank" rel="noopener noreferrer"
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
@@ -65,38 +96,25 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
         onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
         onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
         <span style={{ color: 'var(--green)' }}>✓</span>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.loginsTotal.toLocaleString()}</span>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.logins.toLocaleString()}</span>
         <span style={{ color: 'var(--text-dim)' }}>logins</span>
-        {data.loginsToday > 0 && (
-          <span style={{ fontSize: 10, color: 'var(--green)', fontFamily: 'DM Mono, monospace' }}>
-            +{data.loginsToday} today
-          </span>
-        )}
       </a>
-      {/* Failures */}
       <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login_failed` : '#'}
         target="_blank" rel="noopener noreferrer"
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
           borderRadius: 6, background: 'var(--surface2)',
-          border: `1px solid ${data.failuresToday > 5 ? 'var(--red)' : 'var(--border)'}`,
+          border: `1px solid ${alerting ? 'var(--red)' : 'var(--border)'}`,
           fontSize: 11, textDecoration: 'none', color: 'inherit' }}
         onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-        onMouseOut={e => e.currentTarget.style.borderColor = data.failuresToday > 5 ? 'var(--red)' : 'var(--border)'}>
-        <span style={{ color: data.failuresTotal > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
+        onMouseOut={e => e.currentTarget.style.borderColor = alerting ? 'var(--red)' : 'var(--border)'}>
+        <span style={{ color: data.failures > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
         <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
-          color: data.failuresTotal > 0 ? 'var(--red)' : 'inherit' }}>{data.failuresTotal.toLocaleString()}</span>
+          color: data.failures > 0 ? 'var(--red)' : 'inherit' }}>{data.failures.toLocaleString()}</span>
         <span style={{ color: 'var(--text-dim)' }}>failed</span>
-        {data.failuresToday > 0 && (
-          <span style={{ fontSize: 10, color: 'var(--red)', fontFamily: 'DM Mono, monospace' }}>
-            +{data.failuresToday} today
-          </span>
-        )}
       </a>
-      {/* Sessions */}
       {data.activeSessions > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11 }}>
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
           <span style={{ color: 'var(--text-dim)' }}>⚡</span>
           <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.activeSessions}</span>
           <span style={{ color: 'var(--text-dim)' }}>sessions</span>
@@ -105,7 +123,6 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
     </div>
   )
 
-  // ── Recent failures list ──────────────────────────────────────────────────
   const FailureList = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {(data.recentFailures || []).map((f, i) => (
@@ -117,33 +134,31 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
             textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.username || '?'}</span>
           <span style={{ fontSize: 10, color: 'var(--text-dim)',
             fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>{f.clientIp}</span>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)',
-            flexShrink: 0 }}>{timeAgo(f.createdAt)}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{timeAgo(f.createdAt)}</span>
         </div>
       ))}
     </div>
   )
 
-  // ── 1x — summary pills only ───────────────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
       <Summary />
     </div>
   )
 
-  // ── 2x and larger — summary + recent failures ─────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
+      <TimeRangePills />
       <Summary />
-      {hasRecentFailures && (
+      {hasFailures && (
         <>
-          {sectionTitle('Recent failures')}
+          {sectionTitle(`Failed logins (${data.recentFailures.length} shown)`)}
           <FailureList />
         </>
       )}
-      {!hasRecentFailures && (
+      {!hasFailures && (
         <div style={{ marginTop: 10, fontSize: 12, color: 'var(--green)' }}>
-          ✓ No recent failed login attempts
+          ✓ No failed logins in this period
         </div>
       )}
     </div>

@@ -14,13 +14,12 @@ import (
 // ── Authentik types ───────────────────────────────────────────────────────────
 
 type AuthentikPanelData struct {
-	UIURL           string              `json:"uiUrl"`
-	LoginsTotal     int                 `json:"loginsTotal"`
-	LoginsToday     int                 `json:"loginsToday"`
-	FailuresTotal   int                 `json:"failuresTotal"`
-	FailuresToday   int                 `json:"failuresToday"`
-	ActiveSessions  int                 `json:"activeSessions"`
-	RecentFailures  []AuthentikFailure  `json:"recentFailures"`
+	UIURL          string             `json:"uiUrl"`
+	Days           int                `json:"days"`
+	Logins         int                `json:"logins"`
+	Failures       int                `json:"failures"`
+	ActiveSessions int                `json:"activeSessions"`
+	RecentFailures []AuthentikFailure `json:"recentFailures"`
 }
 
 type AuthentikFailure struct {
@@ -38,10 +37,14 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	if err != nil {
 		return nil, err
 	}
-	data := &AuthentikPanelData{UIURL: uiURL}
+	data := &AuthentikPanelData{UIURL: uiURL, Days: days}
 
-	// Date filter for "today" — last 24 hours
-	since := time.Now().UTC().Add(-24 * time.Hour).Format(time.RFC3339)
+	// Time range from config — default 7 days
+	days := 7
+	if d, ok := config["days"].(float64); ok && d > 0 {
+		days = int(d)
+	}
+	since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
 
 	type result struct {
 		key  string
@@ -50,11 +53,9 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	}
 
 	endpoints := map[string]string{
-		"logins_total":    "/api/v3/events/events/?action=login&page_size=1",
-		"logins_today":    "/api/v3/events/events/?action=login&page_size=1&created__gte=" + since,
-		"failures_total":  "/api/v3/events/events/?action=login_failed&page_size=1",
-		"failures_today":  "/api/v3/events/events/?action=login_failed&page_size=1&created__gte=" + since,
-		"failures_recent": "/api/v3/events/events/?action=login_failed&page_size=10&ordering=-created",
+		"logins":          "/api/v3/events/events/?action=login&page_size=1&created__gte=" + since,
+		"failures":        "/api/v3/events/events/?action=login_failed&page_size=1&created__gte=" + since,
+		"failures_recent": "/api/v3/events/events/?action=login_failed&page_size=10&ordering=-created&created__gte=" + since,
 		"sessions":        "/api/v3/core/authenticated_sessions/?page_size=1",
 	}
 
@@ -104,10 +105,8 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		return 0
 	}
 
-	data.LoginsTotal    = parseCount("logins_total")
-	data.LoginsToday    = parseCount("logins_today")
-	data.FailuresTotal  = parseCount("failures_total")
-	data.FailuresToday  = parseCount("failures_today")
+	data.Logins         = parseCount("logins")
+	data.Failures       = parseCount("failures")
 	data.ActiveSessions = parseCount("sessions")
 
 	// Parse recent failures detail

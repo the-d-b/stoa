@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -47,6 +48,13 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		json.Unmarshal([]byte(configStr), &config)
 		if config == nil {
 			config = map[string]interface{}{}
+		}
+		// Allow query params to override config values (e.g. ?days=7 for time range)
+		if d := r.URL.Query().Get("days"); d != "" {
+			var days float64
+			if _, err := fmt.Sscanf(d, "%f", &days); err == nil {
+				config["days"] = days
+			}
 		}
 
 		fetcher, ok := panelFetchers[panelType]
