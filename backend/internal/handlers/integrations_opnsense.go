@@ -81,21 +81,27 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 				Status  string `json:"status_translated"`
 				RTT     string `json:"delay"`
 				Loss    string `json:"loss"`
+				StdDev  string `json:"stddev"`
 				Address string `json:"address"`
 			} `json:"items"`
 		}
 		if json.Unmarshal(body, &gw) == nil {
 			for _, g := range gw.Items {
+				// status_translated values: "Online", "Offline", "Loss", etc.
 				status := "online"
 				sl := strings.ToLower(g.Status)
-				if strings.Contains(sl, "offline") || strings.Contains(sl, "down") || strings.Contains(sl, "loss") {
+				if sl != "online" && sl != "none" && sl != "" {
 					status = "offline"
 				}
+				rtt := g.RTT
+				if rtt == "~" { rtt = "" }
+				loss := g.Loss
+				if loss == "~" { loss = "" }
 				data.Gateways = append(data.Gateways, OPNsenseGateway{
 					Name:    g.Name,
 					Status:  status,
-					RTT:     g.RTT,
-					Loss:    g.Loss,
+					RTT:     rtt,
+					Loss:    loss,
 					Address: g.Address,
 				})
 			}
@@ -167,8 +173,19 @@ func opnsenseGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	encoded := base64.StdEncoding.EncodeToString([]byte(apiKey))
-	req.Header.Set("Authorization", "Basic "+encoded)
+	// OPNsense uses key:secret as Basic auth — split on first colon
+	colonIdx := strings.Index(apiKey, ":")
+	if colonIdx >= 0 {
+		key := apiKey[:colonIdx]
+		secret := apiKey[colonIdx+1:]
+		req.SetBasicAuth(key, secret)
+		log.Printf("[OPNSENSE] auth key len=%d secret len=%d", len(key), len(secret))
+	} else {
+		// Fallback: use whole string as username
+		encoded := base64.StdEncoding.EncodeToString([]byte(apiKey))
+		req.Header.Set("Authorization", "Basic "+encoded)
+		log.Printf("[OPNSENSE] auth no colon found, using full string len=%d", len(apiKey))
+	}
 	req.Header.Set("Content-Type", "application/json")
 	client := httpClient(skipTLS)
 	resp, err := client.Do(req)
@@ -177,6 +194,8 @@ func opnsenseGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("[OPNSENSE] HTTP %d for %s body=%s", resp.StatusCode, path, string(body[:min(200, len(body))]))
 		return nil, fmt.Errorf("HTTP %d from OPNsense", resp.StatusCode)
 	}
 	return io.ReadAll(resp.Body)
