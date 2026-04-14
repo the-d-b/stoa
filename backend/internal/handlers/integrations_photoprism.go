@@ -22,7 +22,6 @@ type PhotoPrismPanelData struct {
 	People      int     `json:"people"`
 	Places      int     `json:"places"`
 	Labels      int     `json:"labels"`
-	SizeGB      float64 `json:"sizeGb"`
 	Version     string  `json:"version"`
 }
 
@@ -53,42 +52,34 @@ func fetchPhotoPrismPanelData(db *sql.DB, config map[string]interface{}) (*Photo
 		}
 	}
 
-	// Stats
-	statsBody, err := ppGet(apiURL, token, "/api/v1/stats", skipTLS)
+	// All counts come from /api/v1/config in a single call — no pagination needed
+	cfgBody, err := ppGet(apiURL, token, "/api/v1/config", skipTLS)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch PhotoPrism stats: %v", err)
+		return nil, fmt.Errorf("failed to fetch PhotoPrism config: %v", err)
 	}
-	var stats struct {
-		Photos  int     `json:"photos"`
-		Videos  int     `json:"videos"`
-		Albums  int     `json:"albums"`
-		Folders int     `json:"folders"`
-		Moments int     `json:"moments"`
-		People  int     `json:"people"`
-		Places  int     `json:"places"`
-		Labels  int     `json:"labels"`
-		Usage   float64 `json:"usage"` // bytes
+	var cfg struct {
+		Version string `json:"version"`
+		Count   struct {
+			Photos  int `json:"photos"`
+			Videos  int `json:"videos"`
+			Albums  int `json:"albums"`
+			Folders int `json:"folders"`
+			Moments int `json:"moments"`
+			People  int `json:"people"`
+			Places  int `json:"places"`
+			Labels  int `json:"labels"`
+		} `json:"count"`
 	}
-	if err := json.Unmarshal(statsBody, &stats); err == nil {
-		data.Photos  = stats.Photos
-		data.Videos  = stats.Videos
-		data.Albums  = stats.Albums
-		data.Folders = stats.Folders
-		data.Moments = stats.Moments
-		data.People  = stats.People
-		data.Places  = stats.Places
-		data.Labels  = stats.Labels
-		data.SizeGB  = stats.Usage / 1073741824
-	}
-
-	// Version from config endpoint
-	if cfgBody, err := ppGet(apiURL, token, "/api/v1/config", skipTLS); err == nil {
-		var cfg struct {
-			Version string `json:"version"`
-		}
-		if json.Unmarshal(cfgBody, &cfg) == nil {
-			data.Version = cfg.Version
-		}
+	if err := json.Unmarshal(cfgBody, &cfg); err == nil {
+		data.Version = cfg.Version
+		data.Photos  = cfg.Count.Photos
+		data.Videos  = cfg.Count.Videos
+		data.Albums  = cfg.Count.Albums
+		data.Folders = cfg.Count.Folders
+		data.Moments = cfg.Count.Moments
+		data.People  = cfg.Count.People
+		data.Places  = cfg.Count.Places
+		data.Labels  = cfg.Count.Labels
 	}
 
 	return data, nil

@@ -5,7 +5,6 @@ interface PhotoPrismData {
   uiUrl: string; version: string
   photos: number; videos: number; albums: number; folders: number
   moments: number; people: number; places: number; labels: number
-  sizeGb: number
 }
 
 function fmt(n: number) {
@@ -14,10 +13,6 @@ function fmt(n: number) {
   return n.toLocaleString()
 }
 
-function fmtSize(gb: number) {
-  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`
-  return `${gb.toFixed(0)} GB`
-}
 
 export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<PhotoPrismData | null>(null)
@@ -83,7 +78,6 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
     <div style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
       <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
       <Stat label="videos" value={data.videos} icon="🎬" />
-      <Stat label="storage" value={fmtSize(data.sizeGb)} icon="💾" />
     </div>
   )
 
@@ -93,8 +87,7 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
       <div style={{ display: 'flex', gap: 6 }}>
         <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
         <Stat label="videos" value={data.videos} icon="🎬" />
-        <Stat label="storage" value={fmtSize(data.sizeGb)} icon="💾" />
-      </div>
+        </div>
       {sectionTitle('Library')}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {data.albums > 0 && <Stat label="albums" value={data.albums} icon="🗂️" />}
@@ -125,8 +118,7 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
       <div style={{ display: 'flex', gap: 6 }}>
         <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
         <Stat label="videos" value={data.videos} icon="🎬" />
-        <Stat label="storage" value={fmtSize(data.sizeGb)} icon="💾" />
-      </div>
+        </div>
       {sectionTitle('Library')}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {data.albums > 0 && <Stat label="albums" value={data.albums} icon="🗂️" />}
