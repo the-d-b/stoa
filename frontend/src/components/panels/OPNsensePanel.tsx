@@ -164,11 +164,9 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
               borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
               fontSize: 11, cursor: t.ip ? 'help' : 'default', position: 'relative' }}
             onMouseEnter={e => {
-              if (t.ip) {
-                fetchGeo(t.ip)
-                const rect = e.currentTarget.getBoundingClientRect()
-                setTooltip({ ip: t.ip, x: rect.left, y: rect.bottom + 4 })
-              }
+              if (t.ip) fetchGeo(t.ip)
+              const rect = e.currentTarget.getBoundingClientRect()
+              setTooltip({ ip: t.ip || '', x: rect.left, y: rect.bottom + 4 })
             }}
             onMouseLeave={() => setTooltip(null)}>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
@@ -193,11 +191,11 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
             display: 'flex', flexDirection: 'column', gap: 2, minWidth: 160,
           }}>
             <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
-              color: 'var(--text)', fontSize: 10 }}>{tooltip.ip}</span>
-            {!geoData[tooltip.ip] && (
+              color: 'var(--text)', fontSize: 10 }}>{tooltip.ip || 'No IP available'}</span>
+            {tooltip.ip && !geoData[tooltip.ip] && (
               <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>Looking up…</span>
             )}
-            {geoData[tooltip.ip]?.status === 'success' && (
+            {tooltip.ip && geoData[tooltip.ip]?.status === 'success' && (
               <>
                 {geoData[tooltip.ip]!.city && geoData[tooltip.ip]!.country && (
                   <span>📍 {geoData[tooltip.ip]!.city}, {geoData[tooltip.ip]!.country}</span>
@@ -207,7 +205,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
                 )}
               </>
             )}
-            {geoData[tooltip.ip]?.status === 'fail' && (
+            {tooltip.ip && geoData[tooltip.ip]?.status === 'fail' && (
               <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>No geo data</span>
             )}
           </div>
