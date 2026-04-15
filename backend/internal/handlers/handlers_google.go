@@ -99,13 +99,16 @@ func GoogleOAuthCallback(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Parse state: "scope:userID"
+		// Parse state: "scope:userID" (userID may be 'system' for system-level tokens)
 		parts := strings.SplitN(state, ":", 2)
 		if len(parts) != 2 {
 			writeError(w, http.StatusBadRequest, "invalid state")
 			return
 		}
 		scope, userID := parts[0], parts[1]
+		if scope == "system" {
+			userID = "" // system tokens have no user_id
+		}
 
 		clientID, clientSecret, err := getGoogleCreds(db)
 		if err != nil {

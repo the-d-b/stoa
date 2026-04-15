@@ -2292,7 +2292,11 @@ function PersonalGoogleCalendarSection() {
     googleApi.listTokens('personal').then(res => setTokens(res.data || []))
   }, [])
 
-  const handleConnect = () => { window.location.href = googleApi.connectUrl('personal') }
+  const handleConnect = async () => {
+    const res = await googleApi.getConfig()
+    const userRes = await import('../api').then(m => m.profileApi.get())
+    window.location.href = googleApi.buildConnectUrl(res.data.clientId, 'personal', String(userRes.data.id || ''))
+  }
   const handleDisconnect = async (id: string) => {
     await googleApi.deleteToken(id)
     const res = await googleApi.listTokens('personal')

@@ -222,7 +222,20 @@ export const googleApi = {
   listTokens: (scope: string) => api.get<any[]>(`/auth/google/tokens?scope=${scope}`),
   deleteToken: (id: string) => api.delete(`/auth/google/tokens?id=${id}`),
   listCalendars: (tokenId: string) => api.get<any[]>(`/auth/google/calendars?tokenId=${tokenId}`),
-  connectUrl: (scope: string) => `/api/auth/google/redirect?scope=${scope}`,
+  buildConnectUrl: (clientId: string, scope: string, userId: string) => {
+    const redirectUri = window.location.origin + '/api/auth/google/callback'
+    const state = `${scope}:${userId}`
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'code',
+      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email',
+      access_type: 'offline',
+      prompt: 'consent',
+      state,
+    })
+    return 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString()
+  },
 }
 
 export const glyphsApi = {

@@ -140,7 +140,8 @@ export function GoogleCalendarConfigPanel() {
   }
 
   const handleConnect = () => {
-    window.location.href = googleApi.connectUrl('system')
+    // clientId already in state, userId not needed for system scope (use 'system' placeholder)
+    window.location.href = googleApi.buildConnectUrl(clientId, 'system', 'system')
   }
 
   const handleDisconnect = async (id: string) => {
