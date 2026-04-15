@@ -340,18 +340,12 @@ export default function PanelsAdminPanel() {
                         </div>
                       )
                     })}
-                    {calIntegrations.length > 0 ? (
-                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
-                        <AdminCalendarSourceAdder
-                          panelId={p.id} panelTitle={p.title} panelConfig={p.config}
-                          integrations={calIntegrations} onAdded={load}
-                        />
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-                        No compatible integrations. Add Sonarr, Radarr, etc. in the Integrations tab first.
-                      </div>
-                    )}
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
+                      <AdminCalendarSourceAdder
+                        panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                        integrations={calIntegrations} onAdded={load}
+                      />
+                    </div>
                   </div>
                 )
               })()}
