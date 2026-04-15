@@ -28,6 +28,8 @@ type AuthentikFailure struct {
 	CreatedAt string `json:"createdAt"`
 }
 
+const authentikInfinityDays = 36500
+
 func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*AuthentikPanelData, error) {
 	integrationID := stringVal(config, "integrationId")
 	if integrationID == "" {
@@ -38,17 +40,87 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		return nil, err
 	}
 
-	// Time range from config — default 7 days
 	days := 7
 	if d, ok := config["days"].(float64); ok && d > 0 {
 		days = int(d)
 	}
 	data := &AuthentikPanelData{UIURL: uiURL, Days: days}
+	infinite := days >= authentikInfinityDays
+
+	if infinite {
+		// For all-time: use pagination count from list endpoint (returns total regardless of date)
+		// and fetch recent failures without time filtering
+		endpoints := map[string]string{
+			"logins":          "/api/v3/events/events/?action=login&page_size=1",
+			"failures":        "/api/v3/events/events/?action=login_failed&page_size=1",
+			"failures_recent": "/api/v3/events/events/?action=login_failed&page_size=10&ordering=-created",
+			"sessions":        "/api/v3/core/authenticated_sessions/?page_size=1",
+		}
+
+		results := make(map[string][]byte, len(endpoints))
+		var mu sync.Mutex
+		var wg sync.WaitGroup
+		for key, path := range endpoints {
+			wg.Add(1)
+			go func(k, p string) {
+				defer wg.Done()
+				body, ferr := authentikGet(apiURL, apiKey, p, skipTLS)
+				if ferr != nil {
+					return
+				}
+				mu.Lock()
+				results[k] = body
+				mu.Unlock()
+			}(key, path)
+		}
+		wg.Wait()
+
+		type paginatedResp struct {
+			Pagination struct {
+				Count int `json:"count"`
+			} `json:"pagination"`
+			Results []struct {
+				User    struct{ Username string `json:"username"` } `json:"user"`
+				Context struct{ Username string `json:"username"` } `json:"context"`
+				ClientIP  string `json:"client_ip"`
+				CreatedAt string `json:"created"`
+			} `json:"results"`
+		}
+		parseCount := func(key string) int {
+			if body, ok := results[key]; ok {
+				var r paginatedResp
+				if json.Unmarshal(body, &r) == nil {
+					return r.Pagination.Count
+				}
+			}
+			return 0
+		}
+		data.Logins         = parseCount("logins")
+		data.Failures       = parseCount("failures")
+		data.ActiveSessions = parseCount("sessions")
+
+		if body, ok := results["failures_recent"]; ok {
+			var r paginatedResp
+			if json.Unmarshal(body, &r) == nil {
+				for _, item := range r.Results {
+					username := item.Context.Username
+					if username == "" {
+						username = item.User.Username
+					}
+					data.RecentFailures = append(data.RecentFailures, AuthentikFailure{
+						Username:  username,
+						ClientIP:  item.ClientIP,
+						CreatedAt: item.CreatedAt,
+					})
+				}
+			}
+		}
+		return data, nil
+	}
+
+	// For windowed ranges: use volume endpoint and sum buckets within window
 	cutoff := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour)
 
-	// Fetch all endpoints concurrently
-	// Authentik list endpoint has no date filter, so use /volume/ for counts
-	// and filter the recent failures list in Go
 	endpoints := map[string]string{
 		"logins_vol":      "/api/v3/events/events/volume/?action=login",
 		"failures_vol":    "/api/v3/events/events/volume/?action=login_failed",
@@ -59,7 +131,6 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	results := make(map[string][]byte, len(endpoints))
 	var mu sync.Mutex
 	var wg sync.WaitGroup
-
 	for key, path := range endpoints {
 		wg.Add(1)
 		go func(k, p string) {
@@ -75,8 +146,6 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	}
 	wg.Wait()
 
-	// Volume entries: [{time, action, count}]
-	// Sum counts for buckets within our time window
 	type volumeEntry struct {
 		Time  string `json:"time"`
 		Count int    `json:"count"`
@@ -92,7 +161,6 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		}
 		total := 0
 		for _, e := range entries {
-			// Authentik returns time without timezone: "2026-04-08T12:00:00"
 			t, err := time.Parse("2006-01-02T15:04:05", e.Time)
 			if err != nil {
 				t, err = time.Parse(time.RFC3339, e.Time)
@@ -107,7 +175,6 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	data.Logins   = sumVolume("logins_vol")
 	data.Failures = sumVolume("failures_vol")
 
-	// Active sessions
 	if body, ok := results["sessions"]; ok {
 		var r struct {
 			Pagination struct {
@@ -119,7 +186,6 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		}
 	}
 
-	// Recent failures — filter in Go by time window
 	if body, ok := results["failures_recent"]; ok {
 		var r struct {
 			Results []struct {
