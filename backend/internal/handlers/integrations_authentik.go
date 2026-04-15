@@ -118,13 +118,14 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		return data, nil
 	}
 
-	// For windowed ranges: use volume endpoint and sum buckets within window
+	// For windowed ranges: fetch large pages of both logins and failures,
+	// filter by time in Go. More accurate than volume endpoint which has ~7d lookback.
 	cutoff := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour)
 
+	// Use large page sizes to cover the window — 500 covers most realistic scenarios
 	endpoints := map[string]string{
-		"logins_vol":      "/api/v3/events/events/volume/?action=login",
-		"failures_vol":    "/api/v3/events/events/volume/?action=login_failed",
-		"failures_recent": "/api/v3/events/events/?action=login_failed&page_size=20&ordering=-created",
+		"logins":          "/api/v3/events/events/?action=login&page_size=500&ordering=-created",
+		"failures":        "/api/v3/events/events/?action=login_failed&page_size=500&ordering=-created",
 		"sessions":        "/api/v3/core/authenticated_sessions/?page_size=1",
 	}
 
@@ -146,34 +147,41 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	}
 	wg.Wait()
 
-	type volumeEntry struct {
-		Time  string `json:"time"`
-		Count int    `json:"count"`
+	type eventItem struct {
+		User    struct{ Username string `json:"username"` } `json:"user"`
+		Context struct{ Username string `json:"username"` } `json:"context"`
+		ClientIP  string `json:"client_ip"`
+		CreatedAt string `json:"created"`
 	}
-	sumVolume := func(key string) int {
-		body, ok := results[key]
-		if !ok {
-			return 0
-		}
-		var entries []volumeEntry
-		if json.Unmarshal(body, &entries) != nil {
-			return 0
-		}
-		total := 0
-		for _, e := range entries {
-			t, err := time.Parse("2006-01-02T15:04:05", e.Time)
-			if err != nil {
-				t, err = time.Parse(time.RFC3339, e.Time)
-			}
-			if err == nil && t.After(cutoff) {
-				total += e.Count
-			}
-		}
-		return total
+	type eventResp struct {
+		Results []eventItem `json:"results"`
 	}
 
-	data.Logins   = sumVolume("logins_vol")
-	data.Failures = sumVolume("failures_vol")
+	parseTime := func(s string) (time.Time, error) {
+		t, err := time.Parse(time.RFC3339Nano, s)
+		if err != nil {
+			t, err = time.Parse(time.RFC3339, s)
+		}
+		return t, err
+	}
+
+	countInWindow := func(key string) int {
+		body, ok := results[key]
+		if !ok { return 0 }
+		var r eventResp
+		if json.Unmarshal(body, &r) != nil { return 0 }
+		count := 0
+		for _, item := range r.Results {
+			t, err := parseTime(item.CreatedAt)
+			if err == nil && t.After(cutoff) {
+				count++
+			}
+		}
+		return count
+	}
+
+	data.Logins   = countInWindow("logins")
+	data.Failures = countInWindow("failures")
 
 	if body, ok := results["sessions"]; ok {
 		var r struct {
@@ -186,21 +194,12 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		}
 	}
 
-	if body, ok := results["failures_recent"]; ok {
-		var r struct {
-			Results []struct {
-				User    struct{ Username string `json:"username"` } `json:"user"`
-				Context struct{ Username string `json:"username"` } `json:"context"`
-				ClientIP  string `json:"client_ip"`
-				CreatedAt string `json:"created"`
-			} `json:"results"`
-		}
+	// Build recent failures list from already-fetched data
+	if body, ok := results["failures"]; ok {
+		var r eventResp
 		if json.Unmarshal(body, &r) == nil {
 			for _, item := range r.Results {
-				t, err := time.Parse(time.RFC3339Nano, item.CreatedAt)
-				if err != nil {
-					t, err = time.Parse(time.RFC3339, item.CreatedAt)
-				}
+				t, err := parseTime(item.CreatedAt)
 				if err != nil || t.Before(cutoff) {
 					continue
 				}
@@ -208,11 +207,13 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 				if username == "" {
 					username = item.User.Username
 				}
-				data.RecentFailures = append(data.RecentFailures, AuthentikFailure{
-					Username:  username,
-					ClientIP:  item.ClientIP,
-					CreatedAt: item.CreatedAt,
-				})
+				if len(data.RecentFailures) < 10 {
+					data.RecentFailures = append(data.RecentFailures, AuthentikFailure{
+						Username:  username,
+						ClientIP:  item.ClientIP,
+						CreatedAt: item.CreatedAt,
+					})
+				}
 			}
 		}
 	}
