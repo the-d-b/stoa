@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
+import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode , googleApi } from '../../api'
 
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
@@ -457,31 +457,86 @@ function AdminCalendarSourceAdder({ panelId, panelTitle, panelConfig, integratio
   panelId: string; panelTitle: string; panelConfig: string
   integrations: Integration[]; onAdded: () => void
 }) {
+  const [sourceType, setSourceType] = useState<'integration' | 'google'>('integration')
   const [newIntId, setNewIntId] = useState('')
+  const [googleTokenId, setGoogleTokenId] = useState('')
+  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
+  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
+  const [googleTokens, setGoogleTokens] = useState<any[]>([])
   const [newDays, setNewDays] = useState(14)
   const [adding, setAdding] = useState(false)
 
+  useEffect(() => {
+    googleApi.getConfig().then(res => {
+      if (res.data.configured) {
+        googleApi.listTokens('system').then(r => setGoogleTokens(r.data || []))
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (googleTokenId) {
+      googleApi.listCalendars(googleTokenId).then(r => {
+        setGoogleCalendars(r.data || [])
+        setGoogleCalendarId('primary')
+      })
+    }
+  }, [googleTokenId])
+
   const add = async () => {
-    if (!newIntId) return
     setAdding(true)
     try {
       const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
-      const ig = integrations.find(i => i.id === newIntId)
-      const sources = [...(cfg.sources || []), { type: ig?.type, integrationId: newIntId, daysAhead: newDays }]
+      let newSource: any
+      if (sourceType === 'google') {
+        if (!googleTokenId) return
+        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: newDays }
+      } else {
+        if (!newIntId) return
+        const ig = integrations.find(i => i.id === newIntId)
+        newSource = { type: ig?.type, integrationId: newIntId, daysAhead: newDays }
+      }
+      const sources = [...(cfg.sources || []), newSource]
       await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setNewIntId('')
+      setNewIntId(''); setGoogleTokenId('')
       onAdded()
     } finally { setAdding(false) }
   }
 
+  const canAdd = sourceType === 'google' ? !!googleTokenId : !!newIntId
+
   return (
     <>
-      <div style={{ flex: 1 }}>
-        <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
-          <option value="">— Select integration —</option>
-          {integrations.map(ig => <option key={ig.id} value={ig.id}>{ig.name} ({ig.type})</option>)}
+      <div>
+        <select className="input" value={sourceType} onChange={e => setSourceType(e.target.value as any)} style={{ cursor: 'pointer', width: 130 }}>
+          <option value="integration">Integration</option>
+          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
         </select>
       </div>
+      {sourceType === 'google' ? (
+        <>
+          <div style={{ flex: 1 }}>
+            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)} style={{ cursor: 'pointer' }}>
+              <option value="">— Select Google account —</option>
+              {googleTokens.map(t => <option key={t.id} value={t.id}>{t.email}</option>)}
+            </select>
+          </div>
+          {googleCalendars.length > 0 && (
+            <div style={{ flex: 1 }}>
+              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)} style={{ cursor: 'pointer' }}>
+                {googleCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (primary)' : ''}</option>)}
+              </select>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ flex: 1 }}>
+          <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
+            <option value="">— Select integration —</option>
+            {integrations.map(ig => <option key={ig.id} value={ig.id}>{ig.name} ({ig.type})</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <select className="input" value={newDays} onChange={e => setNewDays(Number(e.target.value))} style={{ cursor: 'pointer', width: 100 }}>
           <option value={7}>7 days</option>
@@ -489,7 +544,7 @@ function AdminCalendarSourceAdder({ panelId, panelTitle, panelConfig, integratio
           <option value={30}>30 days</option>
         </select>
       </div>
-      <button className="btn btn-secondary" onClick={add} disabled={adding || !newIntId}>
+      <button className="btn btn-secondary" onClick={add} disabled={adding || !canAdd}>
         {adding ? <span className="spinner" /> : 'Add'}
       </button>
     </>

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"time"
 )
 
 func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]interface{}, error) {
@@ -98,6 +99,40 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				})
 			}
 
+		case "google":
+			// integrationId is the google_oauth_tokens id
+			// calendarId is stored in source config
+			calendarID := stringVal(source, "calendarId")
+			if calendarID == "" { calendarID = "primary" }
+			accessToken, aerr := GetValidAccessToken(db, integrationID)
+			if aerr != nil { continue }
+			timeMin := timeNow()
+			timeMax := timeNow().AddDate(0, 0, daysAhead)
+			items, gerr := FetchGoogleCalendarEvents(accessToken, calendarID, timeMin, timeMax)
+			if gerr != nil { continue }
+			for _, item := range items {
+				start, _ := item["start"].(map[string]interface{})
+				if start == nil { continue }
+				// All-day events use "date", timed events use "dateTime"
+				date := ""
+				if d, ok := start["date"].(string); ok {
+					date = d
+				} else if dt, ok := start["dateTime"].(string); ok && len(dt) >= 10 {
+					date = dt[:10]
+				}
+				if date == "" { continue }
+				// Skip past events
+				if eventDate, err := time.Parse("2006-01-02", date); err == nil {
+					if eventDate.Before(timeNow().Truncate(24 * time.Hour)) { continue }
+				}
+				summary, _ := item["summary"].(string)
+				if summary == "" { summary = "(no title)" }
+				events = append(events, map[string]interface{}{
+					"source": "google", "date": date,
+					"title": summary,
+					"color": "#34d399",
+				})
+			}
 		}
 	}
 

@@ -53,6 +53,7 @@ func main() {
 
 	// Icon serving (public — icons are not sensitive)
 	api.PathPrefix("/icons/").HandlerFunc(handlers.ServeIcon(iconsDir))
+	api.HandleFunc("/auth/google/callback", handlers.GoogleOAuthCallback(database)).Methods("GET")
 
 	// ── Protected (any authenticated user) ───────────────
 	protected := api.PathPrefix("").Subrouter()
@@ -127,6 +128,14 @@ func main() {
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
 	protected.HandleFunc("/geo", handlers.GeoLookup()).Methods("GET")
+
+	// Google OAuth
+	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")
+	protected.HandleFunc("/auth/google/tokens", handlers.GoogleListTokens(database)).Methods("GET")
+	protected.HandleFunc("/auth/google/tokens", handlers.GoogleDeleteToken(database)).Methods("DELETE")
+	protected.HandleFunc("/auth/google/calendars", handlers.GoogleListCalendars(database)).Methods("GET")
+	admin.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")
+	admin.HandleFunc("/google/config", handlers.SaveGoogleOAuthConfig(database)).Methods("PUT")
 
 	// Users (read)
 	protected.HandleFunc("/users", handlers.ListUsers(database)).Methods("GET")

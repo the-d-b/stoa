@@ -365,6 +365,34 @@ var migrations = []migration{
 			ALTER TABLE integrations ADD COLUMN skip_tls INTEGER NOT NULL DEFAULT 0;
 		`,
 	},
+	{
+		version: 14,
+		name:    "google_oauth_tokens",
+		up: `
+			CREATE TABLE IF NOT EXISTS google_oauth_tokens (
+				id           TEXT PRIMARY KEY,
+				scope        TEXT NOT NULL DEFAULT 'personal',
+				user_id      TEXT,
+				email        TEXT NOT NULL,
+				access_token  TEXT NOT NULL,
+				refresh_token TEXT NOT NULL,
+				expires_at   DATETIME NOT NULL,
+				created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+		`,
+	},
+	{
+		version: 15,
+		name:    "google_oauth_config",
+		up: `
+			CREATE TABLE IF NOT EXISTS google_oauth_config (
+				id            TEXT PRIMARY KEY DEFAULT 'singleton',
+				client_id     TEXT NOT NULL DEFAULT '',
+				client_secret TEXT NOT NULL DEFAULT ''
+			);
+			INSERT OR IGNORE INTO google_oauth_config (id) VALUES ('singleton');
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

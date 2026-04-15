@@ -5,7 +5,7 @@ import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
@@ -119,7 +119,7 @@ export default function ProfilePage() {
         {tab === 'overview'      && <OverviewTab />}
         {tab === 'tags'          && <PersonalTagsTab />}
         {tab === 'secrets'       && <SecretsTab />}
-        {tab === 'integrations'  && <PersonalIntegrationsTab />}
+        {tab === 'integrations'  && <><PersonalIntegrationsTab /><PersonalGoogleCalendarSection /></>}
         {tab === 'bookmarks'     && <BookmarksTab />}
         {tab === 'mypanels'      && <MyPanelsTab />}
         {tab === 'glyphs'        && <GlyphsTab />}
@@ -2283,6 +2283,50 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
 
 // ── Personal Tags ─────────────────────────────────────────────────────────────
 
+function PersonalGoogleCalendarSection() {
+  const [configured, setConfigured] = useState(false)
+  const [tokens, setTokens] = useState<any[]>([])
+
+  useEffect(() => {
+    googleApi.getConfig().then(res => setConfigured(res.data.configured))
+    googleApi.listTokens('personal').then(res => setTokens(res.data || []))
+  }, [])
+
+  const handleConnect = () => { window.location.href = googleApi.connectUrl('personal') }
+  const handleDisconnect = async (id: string) => {
+    await googleApi.deleteToken(id)
+    const res = await googleApi.listTokens('personal')
+    setTokens(res.data || [])
+  }
+
+  if (!configured) return null
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>📅 Google Calendar</div>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={handleConnect}>
+          + Connect Google account
+        </button>
+      </div>
+      {tokens.length === 0 && (
+        <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
+          No Google accounts connected. Click "+ Connect Google account" to link your Google Calendar.
+        </div>
+      )}
+      {tokens.map(t => (
+        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)',
+          border: '1px solid var(--border)', fontSize: 13, marginBottom: 6 }}>
+          <span style={{ flex: 1 }}>{t.email}</span>
+          <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
+            onClick={() => handleDisconnect(t.id)}>Disconnect</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 const TAG_COLORS = [
   '#6366f1', '#60a5fa', '#34d399', '#f59e0b',
   '#f87171', '#a78bfa', '#fb923c', '#4ade80',
@@ -2964,38 +3008,99 @@ function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integ
   panelId: string; panelTitle: string; panelConfig: string
   isSystem: boolean; integrations: Integration[]; onAdded: () => void
 }) {
+  const [sourceType, setSourceType] = useState<'integration' | 'google'>('integration')
   const [newIntId, setNewIntId] = useState('')
+  const [googleTokenId, setGoogleTokenId] = useState('')
+  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
+  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
+  const [googleTokens, setGoogleTokens] = useState<any[]>([])
   const [newDays, setNewDays] = useState(14)
   const [adding, setAdding] = useState(false)
 
+  useEffect(() => {
+    googleApi.getConfig().then(res => {
+      if (res.data.configured) {
+        // Load both system and personal tokens
+        Promise.all([
+          googleApi.listTokens('system'),
+          googleApi.listTokens('personal'),
+        ]).then(([sys, personal]) => {
+          setGoogleTokens([...(sys.data || []), ...(personal.data || [])])
+        })
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (googleTokenId) {
+      googleApi.listCalendars(googleTokenId).then(r => {
+        setGoogleCalendars(r.data || [])
+        setGoogleCalendarId('primary')
+      })
+    }
+  }, [googleTokenId])
+
   const add = async () => {
-    if (!newIntId) return
     setAdding(true)
     try {
       const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
-      const ig = integrations.find(i => i.id === newIntId)
-      const sources = [...(cfg.sources || []), { type: ig?.type, integrationId: newIntId, daysAhead: newDays }]
+      let newSource: any
+      if (sourceType === 'google') {
+        if (!googleTokenId) return
+        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: newDays }
+      } else {
+        if (!newIntId) return
+        const ig = integrations.find(i => i.id === newIntId)
+        newSource = { type: ig?.type, integrationId: newIntId, daysAhead: newDays }
+      }
+      const sources = [...(cfg.sources || []), newSource]
       const newConfig = JSON.stringify({ ...cfg, sources })
       if (isSystem) await panelsApi.update(panelId, { title: panelTitle, config: newConfig })
       else await myPanelsApi.update(panelId, { title: panelTitle, config: newConfig })
-      setNewIntId('')
+      setNewIntId(''); setGoogleTokenId('')
       onAdded()
     } finally { setAdding(false) }
   }
 
+  const canAdd = sourceType === 'google' ? !!googleTokenId : !!newIntId
+
   return (
     <>
-      <div style={{ flex: 1 }}>
-        <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
-          <option value="">— Select integration —</option>
-          {integrations.map(i => <option key={i.id} value={i.id}>{i.name} ({i.type})</option>)}
+      <div>
+        <select className="input" value={sourceType} onChange={e => setSourceType(e.target.value as any)} style={{ cursor: 'pointer', width: 130 }}>
+          <option value="integration">Integration</option>
+          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
         </select>
       </div>
+      {sourceType === 'google' ? (
+        <>
+          <div style={{ flex: 1 }}>
+            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)} style={{ cursor: 'pointer' }}>
+              <option value="">— Select Google account —</option>
+              {googleTokens.map(t => <option key={t.id} value={t.id}>{t.email} ({t.scope})</option>)}
+            </select>
+          </div>
+          {googleCalendars.length > 0 && (
+            <div style={{ flex: 1 }}>
+              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)} style={{ cursor: 'pointer' }}>
+                {googleCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' ★' : ''}</option>)}
+              </select>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ flex: 1 }}>
+          <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
+            <option value="">— Select integration —</option>
+            {integrations.map(i => <option key={i.id} value={i.id}>{i.name} ({i.type})</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <input className="input" type="number" value={newDays} min={1} max={90}
           onChange={e => setNewDays(Number(e.target.value))} style={{ width: 70 }} />
       </div>
-      <button className="btn btn-secondary" onClick={add} disabled={adding || !newIntId}>
+      <button className="btn btn-secondary" onClick={add} disabled={adding || !canAdd}>
         {adding ? <span className="spinner" /> : 'Add'}
       </button>
     </>

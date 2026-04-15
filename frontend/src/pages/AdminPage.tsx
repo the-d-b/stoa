@@ -1,6 +1,6 @@
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import ErrorBoundary from '../components/ErrorBoundary'
-import OAuthConfigPanel from '../components/admin/OAuthConfigPanel'
+import OAuthConfigPanel, { GoogleCalendarConfigPanel } from '../components/admin/OAuthConfigPanel'
 import UsersPanel from '../components/admin/UsersPanel'
 import GroupsPanel from '../components/admin/GroupsPanel'
 import TagsPanel from '../components/admin/TagsPanel'
@@ -15,6 +15,7 @@ const tabs = [
   { path: '/admin/secrets',   label: 'System Secrets',   icon: '🔑' },
   { path: '/admin/integrations', label: 'System Integrations', icon: '⇄' },
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
+  { path: '/admin/google',    label: 'Google Cal', icon: '📅' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
   { path: '/admin/groups',    label: 'Groups',    icon: '◈' },
   { path: '/admin/tags',      label: 'Tags',      icon: '◇' },
@@ -38,7 +39,7 @@ export default function AdminPage() {
     },
     {
       label: 'Config',
-      items: tabs.filter(t => ['/admin/oauth'].includes(t.path)),
+      items: tabs.filter(t => ['/admin/oauth', '/admin/google'].includes(t.path)),
     },
   ]
 
@@ -89,6 +90,7 @@ export default function AdminPage() {
           <Route path="secrets"   element={<SecretsPanel />} />
           <Route path="integrations" element={<IntegrationsPanel />} />
           <Route path="oauth"     element={<OAuthConfigPanel />} />
+          <Route path="google"    element={<div style={{padding:16}}><GoogleCalendarConfigPanel /></div>} />
           <Route path="users"     element={<UsersPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />
           <Route path="tags"      element={<TagsPanel />} />

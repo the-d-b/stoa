@@ -216,6 +216,15 @@ export interface Ticker {
   createdAt: string
 }
 
+export const googleApi = {
+  getConfig: () => api.get<{ clientId: string; configured: boolean }>('/admin/google/config'),
+  saveConfig: (data: { clientId: string; clientSecret: string }) => api.put('/admin/google/config', data),
+  listTokens: (scope: string) => api.get<any[]>(`/auth/google/tokens?scope=${scope}`),
+  deleteToken: (id: string) => api.delete(`/auth/google/tokens?id=${id}`),
+  listCalendars: (tokenId: string) => api.get<any[]>(`/auth/google/calendars?tokenId=${tokenId}`),
+  connectUrl: (scope: string) => `/api/auth/google/redirect?scope=${scope}`,
+}
+
 export const glyphsApi = {
   list: () => api.get<Glyph[]>('/glyphs'),
   create: (data: { type: string; zone: string; position?: number; config?: string }) =>
