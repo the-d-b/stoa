@@ -180,8 +180,7 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		return count
 	}
 
-	data.Logins   = countInWindow("logins")
-	data.Failures = countInWindow("failures")
+	data.Logins = countInWindow("logins")
 
 	if body, ok := results["sessions"]; ok {
 		var r struct {
@@ -194,7 +193,7 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 		}
 	}
 
-	// Build recent failures list from already-fetched data
+	// Build failures list and count from same loop — guarantees consistency
 	if body, ok := results["failures"]; ok {
 		var r eventResp
 		if json.Unmarshal(body, &r) == nil {
@@ -203,6 +202,7 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 				if err != nil || t.Before(cutoff) {
 					continue
 				}
+				data.Failures++
 				username := item.Context.Username
 				if username == "" {
 					username = item.User.Username
