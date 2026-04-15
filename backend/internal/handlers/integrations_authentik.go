@@ -37,24 +37,22 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	if err != nil {
 		return nil, err
 	}
+
 	// Time range from config — default 7 days
 	days := 7
 	if d, ok := config["days"].(float64); ok && d > 0 {
 		days = int(d)
 	}
 	data := &AuthentikPanelData{UIURL: uiURL, Days: days}
-	since := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour).Format(time.RFC3339)
+	cutoff := time.Now().UTC().Add(-time.Duration(days) * 24 * time.Hour)
 
-	type result struct {
-		key  string
-		body []byte
-		err  error
-	}
-
+	// Fetch all endpoints concurrently
+	// Authentik list endpoint has no date filter, so use /volume/ for counts
+	// and filter the recent failures list in Go
 	endpoints := map[string]string{
-		"logins":          "/api/v3/events/events/?action=login&page_size=1&created__gte=" + since,
-		"failures":        "/api/v3/events/events/?action=login_failed&page_size=1&created__gte=" + since,
-		"failures_recent": "/api/v3/events/events/?action=login_failed&page_size=10&ordering=-created&created__gte=" + since,
+		"logins_vol":      "/api/v3/events/events/volume/?action=login",
+		"failures_vol":    "/api/v3/events/events/volume/?action=login_failed",
+		"failures_recent": "/api/v3/events/events/?action=login_failed&page_size=20&ordering=-created",
 		"sessions":        "/api/v3/core/authenticated_sessions/?page_size=1",
 	}
 
@@ -77,42 +75,69 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	}
 	wg.Wait()
 
-	// Parse pagination counts
-	type paginatedResp struct {
-		Pagination struct {
-			Count int `json:"count"`
-		} `json:"pagination"`
-		Results []struct {
-			User struct {
-				Username string `json:"username"`
-			} `json:"user"`
-			Context struct {
-				Username string `json:"username"` // for login_failed, username is in context
-			} `json:"context"`
-			ClientIP  string `json:"client_ip"`
-			CreatedAt string `json:"created"`
-		} `json:"results"`
+	// Volume entries: [{time, action, count}]
+	// Sum counts for buckets within our time window
+	type volumeEntry struct {
+		Time  string `json:"time"`
+		Count int    `json:"count"`
 	}
-
-	parseCount := func(key string) int {
-		if body, ok := results[key]; ok {
-			var r paginatedResp
-			if json.Unmarshal(body, &r) == nil {
-				return r.Pagination.Count
+	sumVolume := func(key string) int {
+		body, ok := results[key]
+		if !ok {
+			return 0
+		}
+		var entries []volumeEntry
+		if json.Unmarshal(body, &entries) != nil {
+			return 0
+		}
+		total := 0
+		for _, e := range entries {
+			// Authentik returns time without timezone: "2026-04-08T12:00:00"
+			t, err := time.Parse("2006-01-02T15:04:05", e.Time)
+			if err != nil {
+				t, err = time.Parse(time.RFC3339, e.Time)
+			}
+			if err == nil && t.After(cutoff) {
+				total += e.Count
 			}
 		}
-		return 0
+		return total
 	}
 
-	data.Logins         = parseCount("logins")
-	data.Failures       = parseCount("failures")
-	data.ActiveSessions = parseCount("sessions")
+	data.Logins   = sumVolume("logins_vol")
+	data.Failures = sumVolume("failures_vol")
 
-	// Parse recent failures detail
+	// Active sessions
+	if body, ok := results["sessions"]; ok {
+		var r struct {
+			Pagination struct {
+				Count int `json:"count"`
+			} `json:"pagination"`
+		}
+		if json.Unmarshal(body, &r) == nil {
+			data.ActiveSessions = r.Pagination.Count
+		}
+	}
+
+	// Recent failures — filter in Go by time window
 	if body, ok := results["failures_recent"]; ok {
-		var r paginatedResp
+		var r struct {
+			Results []struct {
+				User    struct{ Username string `json:"username"` } `json:"user"`
+				Context struct{ Username string `json:"username"` } `json:"context"`
+				ClientIP  string `json:"client_ip"`
+				CreatedAt string `json:"created"`
+			} `json:"results"`
+		}
 		if json.Unmarshal(body, &r) == nil {
 			for _, item := range r.Results {
+				t, err := time.Parse(time.RFC3339Nano, item.CreatedAt)
+				if err != nil {
+					t, err = time.Parse(time.RFC3339, item.CreatedAt)
+				}
+				if err != nil || t.Before(cutoff) {
+					continue
+				}
 				username := item.Context.Username
 				if username == "" {
 					username = item.User.Username
