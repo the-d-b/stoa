@@ -129,13 +129,11 @@ func main() {
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
 	protected.HandleFunc("/geo", handlers.GeoLookup()).Methods("GET")
 
-	// Google OAuth
+	// Google OAuth (non-admin routes)
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleListTokens(database)).Methods("GET")
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleDeleteToken(database)).Methods("DELETE")
 	protected.HandleFunc("/auth/google/calendars", handlers.GoogleListCalendars(database)).Methods("GET")
-	admin.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")
-	admin.HandleFunc("/google/config", handlers.SaveGoogleOAuthConfig(database)).Methods("PUT")
 
 	// Users (read)
 	protected.HandleFunc("/users", handlers.ListUsers(database)).Methods("GET")
@@ -144,6 +142,10 @@ func main() {
 	// ── Admin only ────────────────────────────────────────
 	admin := protected.PathPrefix("").Subrouter()
 	admin.Use(authService.AdminMiddleware)
+
+	// Google OAuth admin config
+	admin.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")
+	admin.HandleFunc("/google/config", handlers.SaveGoogleOAuthConfig(database)).Methods("PUT")
 
 	// Integrations (admin only for write, all users can read)
 	protected.HandleFunc("/integrations", handlers.ListIntegrations(database)).Methods("GET")
