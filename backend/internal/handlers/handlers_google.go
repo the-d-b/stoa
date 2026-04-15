@@ -44,7 +44,7 @@ func SaveGoogleOAuthConfig(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		_, err := db.Exec(
-			"UPDATE google_oauth_config SET client_id=?, client_secret=? WHERE id='singleton'",
+			"INSERT OR REPLACE INTO google_oauth_config (id, client_id, client_secret) VALUES ('singleton', ?, ?)",
 			req.ClientID, req.ClientSecret,
 		)
 		if err != nil {

@@ -217,8 +217,8 @@ export interface Ticker {
 }
 
 export const googleApi = {
-  getConfig: () => api.get<{ clientId: string; configured: boolean }>('/admin/google/config'),
-  saveConfig: (data: { clientId: string; clientSecret: string }) => api.put('/admin/google/config', data),
+  getConfig: () => api.get<{ clientId: string; configured: boolean }>('/google/config'),
+  saveConfig: (data: { clientId: string; clientSecret: string }) => api.put('/google/config', data),
   listTokens: (scope: string) => api.get<any[]>(`/auth/google/tokens?scope=${scope}`),
   deleteToken: (id: string) => api.delete(`/auth/google/tokens?id=${id}`),
   listCalendars: (tokenId: string) => api.get<any[]>(`/auth/google/calendars?tokenId=${tokenId}`),
