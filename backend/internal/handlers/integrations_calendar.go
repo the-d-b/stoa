@@ -152,17 +152,24 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 			for _, item := range items {
 				start, _ := item["start"].(map[string]interface{})
+				end, _ := item["end"].(map[string]interface{})
 				if start == nil {
-						continue
+					continue
 				}
-				date := ""
+				date, startDT, endDT := "", "", ""
 				if d, ok := start["date"].(string); ok {
-					date = d
+					date = d // all-day event
 				} else if dt, ok := start["dateTime"].(string); ok && len(dt) >= 10 {
 					date = dt[:10]
+					startDT = dt // pass raw RFC3339 to frontend for local tz formatting
+					if end != nil {
+						if et, ok2 := end["dateTime"].(string); ok2 {
+							endDT = et
+						}
+					}
 				}
 				if date == "" {
-						continue
+					continue
 				}
 				if eventDate, err := time.Parse("2006-01-02", date); err == nil {
 					if eventDate.Before(timeNow().Truncate(24 * time.Hour)) {
@@ -174,9 +181,12 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 					summary = "(no title)"
 				}
 				events = append(events, map[string]interface{}{
-					"source": "google", "date": date,
-					"title": summary,
-					"color": "#34d399",
+					"source":  "google",
+					"date":    date,
+					"title":   summary,
+					"startDT": startDT,
+					"endDT":   endDT,
+					"color":   "#34d399",
 				})
 			}
 

@@ -238,7 +238,14 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
           return (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
-              <span style={{ fontSize: 12, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: 12, flex: 1, minWidth: 0 }}>
+                {ev.startDT && (
+                  <span style={{ color: 'var(--text-dim)', fontSize: 11, marginRight: 6,
+                    fontFamily: 'DM Mono, monospace' }}>
+                    {new Date(ev.startDT).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    {ev.endDT && ` – ${new Date(ev.endDT).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`}
+                  </span>
+                )}
                 {href
                   ? <a href={href} target="_blank" rel="noopener noreferrer"
                       style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}
