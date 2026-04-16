@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { configApi, oauthTestApi, googleApi, OAuthConfig } from '../../api'
+import { configApi, oauthTestApi, OAuthConfig } from '../../api'
 
 export default function OAuthConfigPanel() {
   const [config, setConfig] = useState<OAuthConfig>({ clientId: '', clientSecret: '', issuerUrl: '', redirectUrl: '' })
@@ -113,92 +113,6 @@ export default function OAuthConfigPanel() {
   )
 }
 
-export function GoogleCalendarConfigPanel() {
-  const [clientId, setClientId] = useState('')
-  const [clientSecret, setClientSecret] = useState('')
-  const [configured, setConfigured] = useState(false)
-  const [tokens, setTokens] = useState<any[]>([])
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-
-  useEffect(() => {
-    googleApi.getConfig().then(res => {
-      setClientId(res.data.clientId || '')
-      setConfigured(res.data.configured)
-    })
-    googleApi.listTokens('system').then(res => setTokens(res.data || []))
-  }, [])
-
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      await googleApi.saveConfig({ clientId, clientSecret })
-      setSaved(true); setTimeout(() => setSaved(false), 3000)
-      const res = await googleApi.getConfig()
-      setConfigured(res.data.configured)
-    } finally { setSaving(false) }
-  }
-
-  const handleConnect = () => {
-    // clientId already in state, userId not needed for system scope (use 'system' placeholder)
-    window.location.href = googleApi.buildConnectUrl(clientId, 'system', 'system')
-  }
-
-  const handleDisconnect = async (id: string) => {
-    await googleApi.deleteToken(id)
-    const res = await googleApi.listTokens('system')
-    setTokens(res.data || [])
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>
-        Configure Google Calendar OAuth to allow Stoa to read Google Calendar events.
-        You need a Google Cloud project with the Calendar API enabled.
-      </div>
-      <div>
-        <label className="label">Google OAuth Client ID</label>
-        <input className="input" value={clientId} onChange={e => setClientId(e.target.value)}
-          placeholder="your-client-id.apps.googleusercontent.com" />
-      </div>
-      <div>
-        <label className="label">Google OAuth Client Secret</label>
-        <input className="input" type="password" value={clientSecret}
-          onChange={e => setClientSecret(e.target.value)}
-          placeholder={configured ? '••••••••••••• (leave blank to keep current)' : 'your-client-secret'} />
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-          {saving ? <span className="spinner" /> : saved ? '✓ Saved' : 'Save credentials'}
-        </button>
-        {configured && (
-          <button className="btn btn-ghost" onClick={handleConnect}>
-            + Connect Google account
-          </button>
-        )}
-      </div>
-      {tokens.length > 0 && (
-        <div>
-          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 8,
-            textTransform: 'uppercase', letterSpacing: '0.05em' }}>Connected accounts</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {tokens.map(t => (
-              <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10,
-                padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)',
-                border: '1px solid var(--border)', fontSize: 13 }}>
-                <span style={{ flex: 1 }}>{t.email}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>system</span>
-                <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
-                  onClick={() => handleDisconnect(t.id)}>Disconnect</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
@@ -210,6 +124,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 }
 
 function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
+
 function ErrorBox({ message }: { message: string }) {
   return (
     <div style={{

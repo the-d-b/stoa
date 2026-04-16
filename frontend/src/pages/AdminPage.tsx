@@ -1,6 +1,7 @@
 import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import ErrorBoundary from '../components/ErrorBoundary'
-import OAuthConfigPanel, { GoogleCalendarConfigPanel } from '../components/admin/OAuthConfigPanel'
+import OAuthConfigPanel from '../components/admin/OAuthConfigPanel'
+import GoogleCalendarConfigPanel from '../components/admin/GoogleCalendarConfigPanel'
 import UsersPanel from '../components/admin/UsersPanel'
 import GroupsPanel from '../components/admin/GroupsPanel'
 import TagsPanel from '../components/admin/TagsPanel'

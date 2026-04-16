@@ -25,6 +25,8 @@ interface CalendarEvent {
   foreignAlbumId?: string
   // Lidarr
   artistName?: string; albumTitle?: string; foreignArtistId?: string
+  // Google
+  startDT?: string; endDT?: string
 }
 
 export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {

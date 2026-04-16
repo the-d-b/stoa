@@ -2287,45 +2287,61 @@ function PersonalGoogleCalendarSection() {
   const [configured, setConfigured] = useState(false)
   const [tokens, setTokens] = useState<any[]>([])
 
-  useEffect(() => {
-    googleApi.getConfig().then(res => setConfigured(res.data.configured))
-    googleApi.listTokens('personal').then(res => setTokens(res.data || []))
-  }, [])
+  const load = async () => {
+    const res = await googleApi.getConfig()
+    setConfigured(res.data.configured)
+    if (res.data.configured) {
+      const tok = await googleApi.listTokens('personal')
+      setTokens(tok.data || [])
+    }
+  }
+
+  useEffect(() => { load() }, [])
 
   const handleConnect = async () => {
     const [configRes, userRes] = await Promise.all([googleApi.getConfig(), profileApi.get()])
     window.location.href = googleApi.buildConnectUrl(configRes.data.clientId, 'personal', String(userRes.data.id || ''))
   }
+
   const handleDisconnect = async (id: string) => {
+    if (!confirm('Disconnect this Google account?')) return
     await googleApi.deleteToken(id)
-    const res = await googleApi.listTokens('personal')
-    setTokens(res.data || [])
+    await load()
   }
 
   if (!configured) return null
 
   return (
-    <div style={{ marginTop: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-        <div style={{ fontWeight: 600, fontSize: 14 }}>📅 Google Calendar</div>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={handleConnect}>
-          + Connect Google account
-        </button>
+    <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 14 }}>📅 Google Calendar</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 2 }}>
+            Connect your Google account to use your calendars in personal panels.
+          </div>
+        </div>
+        <button className="btn btn-ghost" onClick={handleConnect}>+ Connect</button>
       </div>
-      {tokens.length === 0 && (
-        <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>
-          No Google accounts connected. Click "+ Connect Google account" to link your Google Calendar.
+      {tokens.length === 0 ? (
+        <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '8px 0' }}>
+          No accounts connected yet.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {tokens.map(t => (
+            <div key={t.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '10px 14px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+            }}>
+              <span style={{ fontSize: 13 }}>📅</span>
+              <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{t.email}</span>
+              <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
+                onClick={() => handleDisconnect(t.id)}>Disconnect</button>
+            </div>
+          ))}
         </div>
       )}
-      {tokens.map(t => (
-        <div key={t.id} style={{ display: 'flex', alignItems: 'center', gap: 10,
-          padding: '8px 12px', borderRadius: 8, background: 'var(--surface2)',
-          border: '1px solid var(--border)', fontSize: 13, marginBottom: 6 }}>
-          <span style={{ flex: 1 }}>{t.email}</span>
-          <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
-            onClick={() => handleDisconnect(t.id)}>Disconnect</button>
-        </div>
-      ))}
     </div>
   )
 }
