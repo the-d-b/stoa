@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -100,16 +101,22 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 
 		case "google":
-			// integrationId is the google_oauth_tokens id
-			// calendarId is stored in source config
 			calendarID := stringVal(source, "calendarId")
 			if calendarID == "" { calendarID = "primary" }
+			log.Printf("[GCAL] fetching integrationId=%s calendarId=%s", integrationID, calendarID)
 			accessToken, aerr := GetValidAccessToken(db, integrationID)
-			if aerr != nil { continue }
+			if aerr != nil {
+				log.Printf("[GCAL] token error: %v", aerr)
+				continue
+			}
 			timeMin := timeNow()
 			timeMax := timeNow().AddDate(0, 0, daysAhead)
 			items, gerr := FetchGoogleCalendarEvents(accessToken, calendarID, timeMin, timeMax)
-			if gerr != nil { continue }
+			if gerr != nil {
+				log.Printf("[GCAL] fetch error: %v", gerr)
+				continue
+			}
+			log.Printf("[GCAL] got %d items for calendar %s", len(items), calendarID)
 			for _, item := range items {
 				start, _ := item["start"].(map[string]interface{})
 				if start == nil { continue }
