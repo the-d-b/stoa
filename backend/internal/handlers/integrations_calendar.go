@@ -160,6 +160,15 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 			log.Printf("[CAL] google: got access token (len=%d)", len(accessToken))
 
+			// Log available calendars to help debug calendar ID issues
+			if cals, cerr := googleFetchCalendarList(accessToken); cerr == nil {
+				for _, c := range cals {
+					log.Printf("[CAL] google: available calendar id=%q summary=%q primary=%v", c.ID, c.Summary, c.Primary)
+				}
+			} else {
+				log.Printf("[CAL] google: could not list calendars: %v", cerr)
+			}
+
 			timeMin := timeNow()
 			timeMax := timeNow().AddDate(0, 0, daysAhead)
 			log.Printf("[CAL] google: fetching %s to %s", timeMin.Format("2006-01-02"), timeMax.Format("2006-01-02"))
