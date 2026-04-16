@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -324,9 +325,14 @@ func FetchGoogleCalendarEvents(accessToken, calendarID string, timeMin, timeMax 
 	var result struct {
 		Items []map[string]interface{} `json:"items"`
 	}
+	log.Printf("[GCAL] API response status=%d body preview=%s", resp.StatusCode, func() string {
+		if len(body) > 500 { return string(body[:500]) }
+		return string(body)
+	}())
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
+	log.Printf("[GCAL] parsed %d items", len(result.Items))
 	return result.Items, nil
 }
 
