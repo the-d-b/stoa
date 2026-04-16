@@ -43,11 +43,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
     if (!hasSources) return
     try {
       const res = await integrationsApi.getPanelData(panel.id)
-      const evts = res.data?.events || []
-      console.log('[CalendarPanel] raw response:', res.data)
-      console.log('[CalendarPanel] events count:', evts.length)
-      console.log('[CalendarPanel] events:', evts)
-      setEvents(evts)
+      setEvents(res.data?.events || [])
     } catch (e) {
       console.error('[CalendarPanel] event load failed:', e)
     }

@@ -10,35 +10,21 @@ import (
 
 func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]interface{}, error) {
 	sources, _ := config["sources"].([]interface{})
-	log.Printf("[CAL] fetchCalendarData: %d sources in config", len(sources))
-
-	// Log full config for debugging
-	if b, err := json.Marshal(config); err == nil {
-		log.Printf("[CAL] config: %s", string(b))
-	}
 
 	events := []map[string]interface{}{}
 
 	for i, src := range sources {
 		source, _ := src.(map[string]interface{})
-		if source == nil {
-			log.Printf("[CAL] source[%d]: nil, skipping", i)
-			continue
-		}
+		if source == nil { continue }
 		srcType := stringVal(source, "type")
 		integrationID := stringVal(source, "integrationId")
-		log.Printf("[CAL] source[%d]: type=%q integrationId=%q", i, srcType, integrationID)
 
-		if integrationID == "" {
-			log.Printf("[CAL] source[%d]: empty integrationId, skipping", i)
-			continue
-		}
+		if integrationID == "" { continue }
 
 		daysAhead := 30
 		if v, ok := source["daysAhead"].(float64); ok {
 			daysAhead = int(v)
 		}
-		log.Printf("[CAL] source[%d]: daysAhead=%d", i, daysAhead)
 
 		calStart := timeNow().Format("2006-01-02")
 		calEnd := timeNow().AddDate(0, 0, daysAhead).Format("2006-01-02")
@@ -58,7 +44,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 			var episodes []map[string]interface{}
 			json.Unmarshal(upcoming, &episodes)
-			log.Printf("[CAL] sonarr: %d episodes", len(episodes))
 			for _, ep := range episodes {
 				series, _ := ep["series"].(map[string]interface{})
 				seriesTitle, titleSlug := "", ""
@@ -91,7 +76,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 			var movies []map[string]interface{}
 			json.Unmarshal(upcoming, &movies)
-			log.Printf("[CAL] radarr: %d movies", len(movies))
 			for _, m := range movies {
 				title, _ := m["title"].(string)
 				titleSlug, _ := m["titleSlug"].(string)
@@ -127,7 +111,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 			var albums []map[string]interface{}
 			json.Unmarshal(upcoming, &albums)
-			log.Printf("[CAL] lidarr: %d albums", len(albums))
 			for _, al := range albums {
 				title, _ := al["title"].(string)
 				date, _ := al["releaseDate"].(string)
@@ -151,40 +134,26 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			if calendarID == "" {
 				calendarID = "primary"
 			}
-			log.Printf("[CAL] google: tokenId=%s calendarId=%s daysAhead=%d", integrationID, calendarID, daysAhead)
 
 			accessToken, aerr := GetValidAccessToken(db, integrationID)
 			if aerr != nil {
 				log.Printf("[CAL] google: GetValidAccessToken error: %v", aerr)
 				continue
 			}
-			log.Printf("[CAL] google: got access token (len=%d)", len(accessToken))
-
-			// Log available calendars to help debug calendar ID issues
-			if cals, cerr := googleFetchCalendarList(accessToken); cerr == nil {
-				for _, c := range cals {
-					log.Printf("[CAL] google: available calendar id=%q summary=%q primary=%v", c.ID, c.Summary, c.Primary)
-				}
-			} else {
-				log.Printf("[CAL] google: could not list calendars: %v", cerr)
-			}
 
 			timeMin := timeNow()
 			timeMax := timeNow().AddDate(0, 0, daysAhead)
-			log.Printf("[CAL] google: fetching %s to %s", timeMin.Format("2006-01-02"), timeMax.Format("2006-01-02"))
 
 			items, gerr := FetchGoogleCalendarEvents(accessToken, calendarID, timeMin, timeMax)
 			if gerr != nil {
 				log.Printf("[CAL] google: FetchGoogleCalendarEvents error: %v", gerr)
 				continue
 			}
-			log.Printf("[CAL] google: got %d items", len(items))
 
 			for _, item := range items {
 				start, _ := item["start"].(map[string]interface{})
 				if start == nil {
-					log.Printf("[CAL] google: item has no start: %v", item["summary"])
-					continue
+						continue
 				}
 				date := ""
 				if d, ok := start["date"].(string); ok {
@@ -193,8 +162,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 					date = dt[:10]
 				}
 				if date == "" {
-					log.Printf("[CAL] google: item has no date: %v", item["summary"])
-					continue
+						continue
 				}
 				if eventDate, err := time.Parse("2006-01-02", date); err == nil {
 					if eventDate.Before(timeNow().Truncate(24 * time.Hour)) {
@@ -205,7 +173,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				if summary == "" {
 					summary = "(no title)"
 				}
-				log.Printf("[CAL] google: adding event %q on %s", summary, date)
 				events = append(events, map[string]interface{}{
 					"source": "google", "date": date,
 					"title": summary,
@@ -213,11 +180,8 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				})
 			}
 
-		default:
-			log.Printf("[CAL] source[%d]: unknown type %q", i, srcType)
 		}
 	}
 
-	log.Printf("[CAL] returning %d total events", len(events))
 	return map[string]interface{}{"events": events}, nil
 }
