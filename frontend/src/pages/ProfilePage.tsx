@@ -3053,8 +3053,11 @@ function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integ
   useEffect(() => {
     if (googleTokenId) {
       googleApi.listCalendars(googleTokenId).then(r => {
-        setGoogleCalendars(r.data || [])
-        setGoogleCalendarId('primary')
+        const cals = r.data || []
+        setGoogleCalendars(cals)
+        // Default to primary cal, or first in list
+        const primary = cals.find((c: any) => c.primary) || cals[0]
+        setGoogleCalendarId(primary?.id || 'primary')
       })
     }
   }, [googleTokenId])
