@@ -2925,7 +2925,7 @@ function MyPanelsTab() {
                               background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13,
                             }}>
                               <span style={{ flex: 1 }}>
-                                {ig?.name ?? src.integrationId}
+                                {src.type === 'google' ? (src.label || src.integrationId) : (ig?.name ?? src.integrationId)}
                                 <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>
                               </span>
                               <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
@@ -3066,7 +3066,9 @@ function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integ
       let newSource: any
       if (sourceType === 'google') {
         if (!googleTokenId) return
-        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: newDays }
+        const selectedToken = googleTokens.find((t: any) => t.id === googleTokenId)
+        const selectedCal = googleCalendars.find((c: any) => c.id === googleCalendarId)
+        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: newDays, label: selectedCal?.summary || selectedToken?.email || googleTokenId }
       } else {
         if (!newIntId) return
         const ig = integrations.find(i => i.id === newIntId)
