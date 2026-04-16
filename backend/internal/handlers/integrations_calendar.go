@@ -13,7 +13,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 	events := []map[string]interface{}{}
 
-	for i, src := range sources {
+	for _, src := range sources {
 		source, _ := src.(map[string]interface{})
 		if source == nil { continue }
 		srcType := stringVal(source, "type")
