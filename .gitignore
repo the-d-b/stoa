@@ -10,3 +10,7 @@ frontend/dist/
 .DS_Store
 *.env
 .env.local
+stoa.db
+stoa.db-shm
+stoa.db-wal
+

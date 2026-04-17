@@ -35,6 +35,7 @@ export default function IntegrationsPanel() {
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
   const [newSkipTls, setNewSkipTls] = useState(false)
+  const [newRefreshSecs, setNewRefreshSecs] = useState(60)
   const [creating, setCreating] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
@@ -75,7 +76,7 @@ export default function IntegrationsPanel() {
       await integrationsApi.create({
         name: newName, type: newType,
         apiUrl: newApiUrl, uiUrl: newUiUrl,
-        secretId: newSecretId || undefined, skipTls: newSkipTls,
+        secretId: newSecretId || undefined, skipTls: newSkipTls, refreshSecs: newRefreshSecs,
       })
       setNewName(''); setNewApiUrl(''); setNewUiUrl('')
       setNewSecretId(''); setNewSkipTls(false); setTestResult(null); setShowForm(false)
@@ -159,6 +160,13 @@ export default function IntegrationsPanel() {
                 Skip TLS verification
                 <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
               </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
+                <input className="input" type="number" min={15} value={newRefreshSecs}
+                  onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
+                  style={{ width: 80 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>seconds</span>
+              </div>
               <button className="btn btn-primary" onClick={create} disabled={creating || !newName || !newApiUrl}>
                 {creating ? <span className="spinner" /> : 'Create'}
               </button>
@@ -230,6 +238,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const [uiUrl, setUiUrl] = useState(ig.uiUrl)
   const [secretId, setSecretId] = useState(ig.secretId || '')
   const [skipTls, setSkipTls] = useState(ig.skipTls || false)
+  const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
   const [testing, setTesting] = useState(false)
 
@@ -237,6 +246,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
     setName(ig.name); setApiUrl(ig.apiUrl)
     setUiUrl(ig.uiUrl); setSecretId(ig.secretId || '')
     setSkipTls(ig.skipTls || false)
+    setRefreshSecs(ig.refreshSecs || 60)
     setTestResult(null)
   }, [ig])
 
@@ -327,12 +337,19 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                 Skip TLS verification
                 <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
               </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
+                <input className="input" type="number" min={15} value={refreshSecs}
+                  onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
+                  style={{ width: 80 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>seconds</span>
+              </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn btn-secondary" onClick={test} disabled={testing}>
                   {testing ? <span className="spinner" /> : 'Test'}
                 </button>
                 <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => {
-                  onUpdate({ name, apiUrl, uiUrl, secretId: secretId || '', skipTls })
+                  onUpdate({ name, apiUrl, uiUrl, secretId: secretId || '', skipTls, refreshSecs })
                   setEditing(false)
                 }}>Save</button>
                 <button className="btn btn-ghost" style={{ fontSize: 12 }}

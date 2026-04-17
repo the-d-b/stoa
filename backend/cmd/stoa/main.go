@@ -229,6 +229,7 @@ func main() {
 		log.Println("*** FIRST RUN DETECTED — complete setup at /setup ***")
 	}
 
+	go handlers.StartCacheManager(database)
 	log.Printf("Stoa listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, c.Handler(r)); err != nil {
 		log.Fatalf("server error: %v", err)

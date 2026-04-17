@@ -72,7 +72,11 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	}
 
 	// Artist/album counts
-	artists, err := getCachedArr(apiURL, apiKey, "lidarr", skipTLS)
+	artistsRaw, err := arrGet(apiURL, apiKey, "/api/v1/artist", skipTLS)
+	var artists []map[string]interface{}
+	if err == nil {
+		json.Unmarshal(artistsRaw, &artists)
+	}
 	if err != nil {
 		log.Printf("[LIDARR] artist fetch error: %v", err)
 	} else {

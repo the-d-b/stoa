@@ -125,7 +125,11 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 	}
 
 	// Library stats via cache
-	seriesList, seriesErr := getCachedArr(apiURL, apiKey, "sonarr", skipTLS)
+	seriesRaw, seriesErr := arrGet(apiURL, apiKey, "/api/v3/series", skipTLS)
+	var seriesList []map[string]interface{}
+	if seriesErr == nil {
+		json.Unmarshal(seriesRaw, &seriesList)
+	}
 	if seriesErr != nil {
 		log.Printf("[SONARR] series fetch error: %v", seriesErr)
 	} else {

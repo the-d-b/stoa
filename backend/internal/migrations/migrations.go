@@ -393,6 +393,13 @@ var migrations = []migration{
 			INSERT OR IGNORE INTO google_oauth_config (id) VALUES ('singleton');
 		`,
 	},
+	{
+		version: 16,
+		name:    "integration_refresh_secs",
+		up: `
+			ALTER TABLE integrations ADD COLUMN refresh_secs INTEGER NOT NULL DEFAULT 60;
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

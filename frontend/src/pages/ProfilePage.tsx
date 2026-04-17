@@ -1964,6 +1964,7 @@ function PersonalIntegrationsTab() {
   const [newType, setNewType] = useState('sonarr')
   const [newApiUrl, setNewApiUrl] = useState('')
   const [newSkipTls, setNewSkipTls] = useState(false)
+  const [newRefreshSecs, setNewRefreshSecs] = useState(60)
   const [editId, setEditId] = useState<string | null>(null)
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
@@ -1987,14 +1988,15 @@ function PersonalIntegrationsTab() {
   }
 
   const load = async () => {
-    const [shared, personal, sysS] = await Promise.all([
+    const [shared, personal, sysS, myS] = await Promise.all([
       integrationsApi.list(),
       myIntegrationsApi.list(),
       secretsApi.list(),
+      mySecretsApi.list(),
     ])
     setShared((shared.data || []).filter((i: Integration) => i.createdBy === 'SYSTEM'))
     setPersonal(personal.data || [])
-    setSecrets(sysS.data || [])
+    setSecrets([...(sysS.data || []), ...(myS.data || [])])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -2013,7 +2015,7 @@ function PersonalIntegrationsTab() {
     if (!newName || !newApiUrl) return
     setCreating(true)
     try {
-      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined, skipTls: newSkipTls, scope: 'personal' })
+      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined, skipTls: newSkipTls, refreshSecs: newRefreshSecs, scope: 'personal' })
       setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null)
       await load()
       setShowForm(false)
@@ -2166,6 +2168,13 @@ function PersonalIntegrationsTab() {
               Skip TLS verification
               <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
             </label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
+              <input className="input" type="number" min={15} value={newRefreshSecs}
+                onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
+                style={{ width: 80 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>seconds</span>
+            </div>
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
                 {testing ? <span className="spinner" /> : 'Test'}
@@ -2225,6 +2234,7 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
   const [apiUrl, setApiUrl] = useState(ig.apiUrl)
   const [uiUrl, setUiUrl] = useState(ig.uiUrl)
   const [secretId, setSecretId] = useState(ig.secretId || '')
+  const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
   const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
   const [testing, setTesting] = useState(false)
 
@@ -2269,11 +2279,18 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
             color: testResult.ok ? 'var(--green)' : 'var(--red)',
           }}>{testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}</div>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
+          <input className="input" type="number" min={15} value={refreshSecs}
+            onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
+            style={{ width: 80 }} />
+          <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>seconds</span>
+        </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
             {testing ? <span className="spinner" /> : 'Test'}
           </button>
-          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId })}>Save</button>
+          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId, refreshSecs })}>Save</button>
           <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onCancel}>Cancel</button>
         </div>
       </div>

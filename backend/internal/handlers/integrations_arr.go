@@ -2,10 +2,8 @@ package handlers
 
 import (
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -72,67 +70,5 @@ func arrGet(apiURL, apiKey, path string, skipTLS ...bool) ([]byte, error) {
 		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 	}
 	return io.ReadAll(resp.Body)
-}
-
-// ── Series/movie cache ────────────────────────────────────────────────────────
-// The full library list is large (2-3MB for big libraries).
-// Cache it per (apiURL+type) with a 5-minute TTL.
-
-type arrCacheEntry struct {
-	items     []map[string]interface{}
-	fetchedAt time.Time
-}
-
-var (
-	arrCacheMu sync.Mutex
-	arrCache   = map[string]*arrCacheEntry{}
-)
-
-const arrCacheTTL = 5 * time.Minute
-
-func getCachedArr(apiURL, apiKey, itemType string, skipTLS ...bool) ([]map[string]interface{}, error) {
-	skip := len(skipTLS) > 0 && skipTLS[0]
-	key := apiURL + "|" + itemType
-	arrCacheMu.Lock()
-	entry := arrCache[key]
-	arrCacheMu.Unlock()
-
-	if entry != nil && time.Since(entry.fetchedAt) < arrCacheTTL {
-		log.Printf("[%s] cache hit (age=%s)", strings.ToUpper(itemType), time.Since(entry.fetchedAt).Round(time.Second))
-		return entry.items, nil
-	}
-
-	log.Printf("[%s] cache miss — fetching from API", strings.ToUpper(itemType))
-
-	var path string
-	switch itemType {
-	case "radarr":
-		path = "/api/v3/movie"
-	case "lidarr":
-		path = "/api/v1/artist"
-	default: // sonarr
-		path = "/api/v3/series"
-	}
-
-	data, err := arrGet(apiURL, apiKey, path, skip)
-	if err != nil {
-		if entry != nil {
-			log.Printf("[%s] fetch failed, using stale cache: %v", strings.ToUpper(itemType), err)
-			return entry.items, nil
-		}
-		return nil, err
-	}
-
-	var items []map[string]interface{}
-	if err := json.Unmarshal(data, &items); err != nil {
-		return nil, fmt.Errorf("unmarshal error: %v", err)
-	}
-
-	arrCacheMu.Lock()
-	arrCache[key] = &arrCacheEntry{items: items, fetchedAt: time.Now()}
-	arrCacheMu.Unlock()
-
-	log.Printf("[%s] fetched %d items", strings.ToUpper(itemType), len(items))
-	return items, nil
 }
 

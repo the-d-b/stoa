@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -63,10 +64,24 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		// Serve from cache if available (populated by background worker)
+		integrationID, _ := config["integrationId"].(string)
+		if integrationID != "" {
+			if cached, ok := cacheGet(integrationID); ok {
+				log.Printf("[CACHE] panel hit %s (%s)", integrationID, panelType)
+				writeJSON(w, http.StatusOK, cached)
+				return
+			}
+		}
+
+		// Cache miss — fetch live and store
 		data, err := fetcher(db, config)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
+		}
+		if integrationID != "" {
+			cacheSet(integrationID, data)
 		}
 		writeJSON(w, http.StatusOK, data)
 	}

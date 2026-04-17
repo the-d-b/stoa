@@ -58,7 +58,11 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 	}
 
 	// Library stats via cache
-	movieList, err := getCachedArr(apiURL, apiKey, "radarr", skipTLS)
+	movieRaw, err := arrGet(apiURL, apiKey, "/api/v3/movie", skipTLS)
+	var movieList []map[string]interface{}
+	if err == nil {
+		json.Unmarshal(movieRaw, &movieList)
+	}
 	if err != nil {
 		log.Printf("[RADARR] movie fetch error: %v", err)
 	} else {
