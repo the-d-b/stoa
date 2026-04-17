@@ -92,10 +92,10 @@ export default function OAuthConfigPanel() {
             placeholder="••••••••••••" />
         </Field>
 
-        <Field label="Redirect URL" hint="Register this exact URL in your OAuth provider">
+        <Field label="Redirect URL" hint="The full callback URL to register in your OAuth provider. Set this to your Stoa domain + /api/auth/oauth/callback">
           <input className="input" value={config.redirectUrl}
             onChange={e => update('redirectUrl', e.target.value)}
-            placeholder="https://stoa.example.com/api/auth/oauth/callback" />
+            placeholder={window.location.origin + '/api/auth/oauth/callback'} />
         </Field>
       </div>
 

@@ -10,7 +10,6 @@ type Step =
   | 'mode'
   | 'admin'
   | 'auth_mode'
-  | 'app'
   | 'oauth'
   | 'tags'
   | 'groups'
@@ -28,7 +27,7 @@ export default function SetupPage({ onComplete }: Props) {
   const [adminUsername, setAdminUsername] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [appUrl, setAppUrl] = useState(window.location.origin)
+  const appUrl = window.location.origin
   const [oauthIssuer, setOauthIssuer] = useState('')
   const [oauthClientId, setOauthClientId] = useState('')
   const [oauthClientSecret, setOauthClientSecret] = useState('')
@@ -41,7 +40,7 @@ export default function SetupPage({ onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
-  const multiSteps: Step[] = ['welcome','mode','admin','app','oauth','tags','groups']
+  const multiSteps: Step[] = ['welcome','mode','admin','oauth','tags','groups']
   const singleSteps: Step[] = ['welcome','mode','admin','auth_mode']
   const stepsForMode = userMode === 'single' ? singleSteps : multiSteps
   const stepIndex = stepsForMode.indexOf(step)
@@ -88,7 +87,7 @@ export default function SetupPage({ onComplete }: Props) {
       const defaultGroup = groups.find(g => g.isDefault)
       await authApi.setupInit({
         adminUsername, adminPassword,
-        appUrl: userMode === 'single' ? window.location.origin : appUrl,
+        appUrl: window.location.origin,
         userMode, autoLogin: userMode === 'single' && autoLogin,
         initialTags: tags,
         initialGroups: groups.map(g => ({ name: g.name, tagNames: g.tagNames })),
@@ -230,7 +229,7 @@ export default function SetupPage({ onComplete }: Props) {
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setError(''); setStep('mode') }}>Back</button>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => {
                   const e = validateAdmin(); if (e) { setError(e); return }
-                  setError(''); setStep(userMode === 'single' ? 'auth_mode' : 'app')
+                  setError(''); setStep(userMode === 'single' ? 'auth_mode' : 'oauth')
                 }}>Next →</button>
               </div>
             </div>
@@ -258,26 +257,6 @@ export default function SetupPage({ onComplete }: Props) {
             </div>
           )}
 
-          {step === 'app' && (
-            <div>
-              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>App URL</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                The URL Stoa is reachable at. Used to build OAuth callback URLs.
-              </p>
-              <div style={{ marginBottom: 20 }}>
-                <label className="label">App URL</label>
-                <input className="input" value={appUrl} onChange={e => setAppUrl(e.target.value)}
-                  placeholder="https://stoa.yourdomain.home" />
-                <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 5, fontFamily: 'DM Mono, monospace' }}>
-                  callback → {appUrl}/api/auth/oauth/callback
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('admin')}>Back</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('oauth')}>Next →</button>
-              </div>
-            </div>
-          )}
 
           {step === 'oauth' && (
             <div>
@@ -303,7 +282,7 @@ export default function SetupPage({ onComplete }: Props) {
                     onChange={e => setOauthClientSecret(e.target.value)} placeholder="your-client-secret" /></div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('app')}>Back</button>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('admin')}>Back</button>
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('tags')}>
                   {oauthIssuer && oauthClientId ? 'Next →' : 'Skip →'}
                 </button>
