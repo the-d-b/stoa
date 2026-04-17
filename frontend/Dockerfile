@@ -1,20 +1,33 @@
 # Build stage
-FROM node:20-alpine AS builder
+FROM golang:1.23-alpine AS builder
+
+RUN apk add --no-cache gcc musl-dev
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+COPY go.mod go.sum ./
+RUN go mod download
 
 COPY . .
-RUN npm run build
 
-# Runtime - serve built assets via nginx
-FROM nginx:alpine
+RUN CGO_ENABLED=1 GOOS=linux go build -o stoa ./cmd/stoa
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Runtime stage
+FROM alpine:3.19
 
-EXPOSE 80
+RUN apk add --no-cache ca-certificates tzdata
 
-CMD ["nginx", "-g", "daemon off;"]
+WORKDIR /app
+
+COPY --from=builder /app/stoa .
+
+RUN mkdir -p /data/db /usr/local/share/ca-certificates
+
+# Copy custom CA certs from mounted volume at runtime via entrypoint
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["./stoa"]
