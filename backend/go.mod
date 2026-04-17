@@ -1,6 +1,6 @@
 module github.com/the-d-b/stoa
 
-go 1.22
+go 1.23
 
 require (
 	github.com/coreos/go-oidc/v3 v3.10.0
@@ -13,6 +13,8 @@ require (
 )
 
 require (
+	github.com/coder/websocket v1.8.14 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
+	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/stretchr/testify v1.8.3 // indirect
 )

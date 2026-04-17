@@ -133,8 +133,15 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	workerStop[ig.id] = stop
 	workerStopMu.Unlock()
 
+	log.Printf("[CACHE] worker started: %s (%s) every %ds", ig.id, ig.igType, ig.refreshSecs)
+
+	// TrueNAS uses a persistent WebSocket connection instead of polling
+	if ig.igType == "truenas" {
+		StartTrueNASWorker(db, ig, stop)
+		return
+	}
+
 	go func() {
-		log.Printf("[CACHE] worker started: %s (%s) every %ds", ig.id, ig.igType, ig.refreshSecs)
 		// Fetch immediately on start so cache is warm right away
 		refreshCache(db, ig)
 		ticker := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)

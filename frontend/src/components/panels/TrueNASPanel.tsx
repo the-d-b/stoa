@@ -12,6 +12,7 @@ interface TrueNASApp { name: string; status: string; updateAvailable: boolean }
 interface TrueNASData {
   uiUrl: string; hostname: string; version: string
   totalRam: string; cpuModel: string; cpuCores: number
+  cpuPercent: number; ramUsedGb: number; ramTotalGb: number; ramPercent: number
   pools: TrueNASPool[]; alerts: TrueNASAlert[]
   disks: TrueNASDisk[]; vms: TrueNASVM[]; apps: TrueNASApp[]
 }
@@ -41,8 +42,7 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const refreshSecs = config.refreshSecs || 120
+  const refreshSecs = 5 // Fast poll — backend cache updated every ~2s via WebSocket
 
   const load = useCallback(async () => {
     try {
@@ -86,34 +86,56 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
 
   // ── System info strip — shown on all sizes ────────────────────────────────
   const SysInfo = () => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8, justifyContent: 'center' }}>
-      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-        style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
-          padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
-          border: '1px solid var(--border)' }}
-        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-        onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-        {data.hostname || 'TrueNAS'}
-      </a>
-      {data.totalRam && (
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-          {data.totalRam}
-        </span>
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6, justifyContent: 'center' }}>
+        <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
+          style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
+            padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
+            border: '1px solid var(--border)' }}
+          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+          onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+          {data.hostname || 'TrueNAS'}
+        </a>
+        {data.totalRam && (
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+            {data.totalRam}
+          </span>
+        )}
+        {data.cpuCores > 0 && (
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+            {data.cpuCores} cores
+          </span>
+        )}
+        {alerts.length > 0 && (
+          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
+            background: alerts.some(a => a.level === 'CRITICAL') ? '#f8717118' : '#fbbf2418',
+            border: `1px solid ${alerts.some(a => a.level === 'CRITICAL') ? '#f8717130' : '#fbbf2430'}`,
+            color: alerts.some(a => a.level === 'CRITICAL') ? 'var(--red)' : 'var(--amber)' }}>
+            ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
+          </span>
+        )}
+      </div>
+      {data.cpuPercent > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 28, flexShrink: 0 }}>CPU</span>
+          <MiniBar pct={data.cpuPercent} />
+          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
+            color: data.cpuPercent >= 90 ? 'var(--red)' : data.cpuPercent >= 75 ? 'var(--amber)' : 'var(--text-muted)' }}>
+            {data.cpuPercent.toFixed(0)}%
+          </span>
+        </div>
       )}
-      {data.cpuCores > 0 && (
-        <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-          {data.cpuCores} cores
-        </span>
-      )}
-      {alerts.length > 0 && (
-        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
-          background: alerts.some(a => a.level === 'CRITICAL') ? '#f8717118' : '#fbbf2418',
-          border: `1px solid ${alerts.some(a => a.level === 'CRITICAL') ? '#f8717130' : '#fbbf2430'}`,
-          color: alerts.some(a => a.level === 'CRITICAL') ? 'var(--red)' : 'var(--amber)' }}>
-          ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
-        </span>
+      {data.ramTotalGb > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 28, flexShrink: 0 }}>RAM</span>
+          <MiniBar pct={data.ramPercent} />
+          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
+            color: data.ramPercent >= 90 ? 'var(--red)' : data.ramPercent >= 75 ? 'var(--amber)' : 'var(--text-muted)' }}>
+            {data.ramPercent.toFixed(0)}%
+          </span>
+        </div>
       )}
     </div>
   )
