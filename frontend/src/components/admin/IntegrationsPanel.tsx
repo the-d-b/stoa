@@ -37,7 +37,7 @@ export default function IntegrationsPanel() {
   const [newSkipTls, setNewSkipTls] = useState(false)
   const [newRefreshSecs, setNewRefreshSecs] = useState(60)
   const [creating, setCreating] = useState(false)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
   const [testing, setTesting] = useState(false)
 
   const load = async () => {
@@ -62,6 +62,7 @@ export default function IntegrationsPanel() {
         type: newType,
         apiUrl: newApiUrl,
         secretId: newSecretId || undefined,
+        skipTls: newSkipTls,
       })
       setTestResult(res.data)
     } catch {
@@ -148,6 +149,11 @@ export default function IntegrationsPanel() {
                 color: testResult.ok ? 'var(--green)' : 'var(--red)',
               }}>
                 {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
+                {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
+                  <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
+                    ⚠ Connection works without certificate verification — enable "Skip TLS" below, or add the service's root CA to your system's trusted certificate store.
+                  </div>
+                )}
               </div>
             )}
 
@@ -239,7 +245,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const [secretId, setSecretId] = useState(ig.secretId || '')
   const [skipTls, setSkipTls] = useState(ig.skipTls || false)
   const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string } | null>(null)
+  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
   const [testing, setTesting] = useState(false)
 
   useEffect(() => {
@@ -330,6 +336,11 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   color: testResult.ok ? 'var(--green)' : 'var(--red)',
                 }}>
                   {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
+                {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
+                  <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
+                    ⚠ Connection works without certificate verification — enable "Skip TLS" below, or add the service's root CA to your system's trusted certificate store.
+                  </div>
+                )}
                 </div>
               )}
               <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>

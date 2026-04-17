@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"log"
 	"net/http"
 	"time"
@@ -102,6 +103,8 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
 			ownerID = claims.UserID
 		}
+		req.APIURL = strings.TrimSpace(req.APIURL)
+		req.UIURL = strings.TrimSpace(req.UIURL)
 		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs(req.Type) }
 		id := generateID()
 		var secretID interface{} = nil
@@ -136,6 +139,8 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 			RefreshSecs int     `json:"refreshSecs"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
+		req.APIURL = strings.TrimSpace(req.APIURL)
+		req.UIURL = strings.TrimSpace(req.UIURL)
 		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs("") }
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
@@ -176,6 +181,7 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "apiUrl required")
 			return
 		}
+		req.APIURL = strings.TrimSpace(req.APIURL)
 		apiKey := ""
 		if req.SecretID != "" {
 			var enc string
@@ -211,6 +217,44 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testGenericConnection(req.APIURL)
 		}
 		if err != nil {
+			// If TLS failed and we weren't already skipping — retry with skipTLS
+			// to detect self-signed cert issues
+			if !req.SkipTLS && isTLSError(err) {
+				writeJSON(w, http.StatusOK, map[string]interface{}{
+					"ok":          false,
+					"error":       err.Error(),
+					"tlsError":    true,
+					"skipTlsWorks": func() bool {
+						var retryErr error
+						switch req.Type {
+						case "sonarr", "radarr", "lidarr":
+							retryErr = testArrConnection(req.APIURL, apiKey, req.Type, true)
+						case "plex":
+							retryErr = testPlexConnection(req.APIURL, apiKey, true)
+						case "tautulli":
+							retryErr = testTautulliConnection(req.APIURL, apiKey, true)
+						case "truenas":
+							retryErr = testTrueNASConnection(req.APIURL, apiKey, true)
+						case "proxmox":
+							retryErr = testProxmoxConnection(req.APIURL, apiKey, true)
+						case "kuma":
+							retryErr = testKumaConnection(req.APIURL, apiKey, true)
+						case "gluetun":
+							retryErr = testGluetunConnection(req.APIURL, apiKey, true)
+						case "opnsense":
+							retryErr = testOPNsenseConnection(req.APIURL, apiKey, true)
+						case "transmission":
+							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
+						case "photoprism":
+							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
+						case "authentik":
+							retryErr = testAuthentikConnection(req.APIURL, apiKey, true)
+						}
+						return retryErr == nil
+					}(),
+				})
+				return
+			}
 			writeJSON(w, http.StatusOK, map[string]interface{}{"ok": false, "error": err.Error()})
 		} else {
 			writeJSON(w, http.StatusOK, map[string]interface{}{"ok": true})
@@ -345,6 +389,17 @@ func testGenericConnection(apiURL string, skipTLS ...bool) error {
 }
 
 // defaultRefreshSecs returns a sensible default TTL for each integration type.
+func isTLSError(err error) bool {
+	if err == nil {
+		return false
+	}
+	s := err.Error()
+	return strings.Contains(s, "certificate") ||
+		strings.Contains(s, "tls") ||
+		strings.Contains(s, "x509") ||
+		strings.Contains(s, "TLS")
+}
+
 func defaultRefreshSecs(igType string) int {
 	switch igType {
 	case "opnsense", "truenas", "proxmox", "transmission":

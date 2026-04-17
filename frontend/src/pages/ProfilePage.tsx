@@ -1940,14 +1940,21 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
 // ── Personal Integrations ─────────────────────────────────────────────────────
 
 const INTEGRATION_TYPES = [
-  { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
-  { id: 'radarr',  label: 'Radarr',  desc: 'Movie management' },
-  { id: 'lidarr',  label: 'Lidarr',  desc: 'Music management' },
-  { id: 'plex',    label: 'Plex',    desc: 'Media server' },
-  { id: 'tautulli', label: 'Tautulli', desc: 'Plex analytics' },
-  { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
-  { id: 'proxmox', label: 'Proxmox', desc: 'Hypervisor' },
-  { id: 'generic', label: 'Generic', desc: 'Other service' },
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Uptime monitoring' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall / router' },
+  { id: 'transmission', label: 'Transmission', desc: 'Torrent client' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API' },
+  { id: 'generic',      label: 'Generic',      desc: 'Other service' },
 ]
 
 function PersonalIntegrationsTab() {
@@ -1973,7 +1980,7 @@ function PersonalIntegrationsTab() {
   const [newSecretValue, setNewSecretValue] = useState('')
   const [savingSecret, setSavingSecret] = useState(false)
   const [creating, setCreating] = useState(false)
-  const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
+  const [testResult, setTestResult] = useState<{ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean} | null>(null)
   const [testing, setTesting] = useState(false)
 
   const createSecret = async () => {
@@ -2161,7 +2168,14 @@ function PersonalIntegrationsTab() {
                 background: testResult.ok ? '#4ade8018' : '#f8717118',
                 border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
                 color: testResult.ok ? 'var(--green)' : 'var(--red)',
-              }}>{testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}</div>
+              }}>
+                {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
+              {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
+                <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
+                  ⚠ Connection works without certificate verification — enable "Skip TLS" below, or add the service's root CA to your system's trusted certificate store.
+                </div>
+              )}
+              </div>
             )}
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', marginBottom: 4 }}>
               <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
@@ -2234,14 +2248,15 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
   const [apiUrl, setApiUrl] = useState(ig.apiUrl)
   const [uiUrl, setUiUrl] = useState(ig.uiUrl)
   const [secretId, setSecretId] = useState(ig.secretId || '')
+  const [skipTls, setSkipTls] = useState(ig.skipTls || false)
   const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
-  const [testResult, setTestResult] = useState<{ok: boolean; error?: string} | null>(null)
+  const [testResult, setTestResult] = useState<{ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean} | null>(null)
   const [testing, setTesting] = useState(false)
 
   const test = async () => {
     setTesting(true); setTestResult(null)
     try {
-      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined })
+      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined, skipTls })
       setTestResult(res.data)
     } catch { setTestResult({ ok: false, error: 'Request failed' }) }
     finally { setTesting(false) }
@@ -2277,8 +2292,21 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
             background: testResult.ok ? '#4ade8018' : '#f8717118',
             border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
             color: testResult.ok ? 'var(--green)' : 'var(--red)',
-          }}>{testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}</div>
+          }}>
+            {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
+              {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
+                <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
+                  ⚠ Connection works without certificate verification — enable "Skip TLS" below,
+                  or add the service's root CA to your system's trusted certificate store.
+                </div>
+              )}
+          </div>
         )}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={skipTls} onChange={e => { setSkipTls(e.target.checked); setTestResult(null) }} />
+          Skip TLS verification
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
+        </label>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
           <input className="input" type="number" min={15} value={refreshSecs}
@@ -2290,7 +2318,7 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
           <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
             {testing ? <span className="spinner" /> : 'Test'}
           </button>
-          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId, refreshSecs })}>Save</button>
+          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId, skipTls, refreshSecs })}>Save</button>
           <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onCancel}>Cancel</button>
         </div>
       </div>
