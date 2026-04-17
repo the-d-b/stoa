@@ -400,6 +400,20 @@ var migrations = []migration{
 			ALTER TABLE integrations ADD COLUMN refresh_secs INTEGER NOT NULL DEFAULT 60;
 		`,
 	},
+	{
+		version: 17,
+		name:    "geo_ip_cache",
+		up: `
+			CREATE TABLE IF NOT EXISTS geo_ip_cache (
+				ip         TEXT PRIMARY KEY,
+				country    TEXT NOT NULL DEFAULT '',
+				city       TEXT NOT NULL DEFAULT '',
+				isp        TEXT NOT NULL DEFAULT '',
+				status     TEXT NOT NULL DEFAULT 'fail',
+				cached_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,7 +10,9 @@ import (
 	"sync"
 )
 
-// ── Geo IP lookup with in-memory cache ───────────────────────────────────────
+// ── Geo IP lookup — in-memory + DB persistent cache ───────────────────────────
+// Lookup order: memory → DB → ip-api.com
+// IPs are cached permanently — geolocation rarely changes.
 
 type geoResult struct {
 	Status  string `json:"status"`
@@ -23,14 +26,13 @@ var (
 	geoCacheMu sync.RWMutex
 )
 
-func GeoLookup() http.HandlerFunc {
+func GeoLookup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ip := r.URL.Query().Get("ip")
 		if ip == "" {
 			writeError(w, http.StatusBadRequest, "ip required")
 			return
 		}
-		// Sanitize — only allow valid IP characters
 		for _, c := range ip {
 			if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') ||
 				(c >= 'A' && c <= 'F') || c == '.' || c == ':') {
@@ -39,7 +41,7 @@ func GeoLookup() http.HandlerFunc {
 			}
 		}
 
-		// Check cache first
+		// 1. Check in-memory cache
 		geoCacheMu.RLock()
 		cached, ok := geoCache[ip]
 		geoCacheMu.RUnlock()
@@ -48,10 +50,23 @@ func GeoLookup() http.HandlerFunc {
 			return
 		}
 
-		// Fetch from ip-api.com (HTTP only for free tier)
+		// 2. Check DB cache
+		var result geoResult
+		err := db.QueryRow(
+			"SELECT status, country, city, isp FROM geo_ip_cache WHERE ip=?", ip,
+		).Scan(&result.Status, &result.Country, &result.City, &result.ISP)
+		if err == nil {
+			// Found in DB — warm memory cache and return
+			geoCacheMu.Lock()
+			geoCache[ip] = &result
+			geoCacheMu.Unlock()
+			writeJSON(w, http.StatusOK, &result)
+			return
+		}
+
+		// 3. Fetch from ip-api.com (HTTP only — HTTPS requires paid plan)
 		url := fmt.Sprintf("http://ip-api.com/json/%s?fields=status,country,city,isp", ip)
-		client := httpClient(false)
-		resp, err := client.Get(url)
+		resp, err := httpClient(false).Get(url)
 		if err != nil {
 			writeJSON(w, http.StatusOK, &geoResult{Status: "fail"})
 			return
@@ -59,12 +74,15 @@ func GeoLookup() http.HandlerFunc {
 		defer resp.Body.Close()
 		body, _ := io.ReadAll(resp.Body)
 
-		var result geoResult
 		if json.Unmarshal(body, &result) != nil {
 			result = geoResult{Status: "fail"}
 		}
 
-		// Cache regardless of success/fail
+		// Store in both DB and memory (even failures — avoids hammering the API)
+		db.Exec(
+			"INSERT OR REPLACE INTO geo_ip_cache (ip, status, country, city, isp) VALUES (?, ?, ?, ?, ?)",
+			ip, result.Status, result.Country, result.City, result.ISP,
+		)
 		geoCacheMu.Lock()
 		geoCache[ip] = &result
 		geoCacheMu.Unlock()
@@ -73,7 +91,6 @@ func GeoLookup() http.HandlerFunc {
 	}
 }
 
-// isPrivateIP returns true for RFC1918/loopback addresses — no point looking those up
 func isPrivateIP(ip string) bool {
 	private := []string{"10.", "192.168.", "172.16.", "172.17.", "172.18.", "172.19.",
 		"172.20.", "172.21.", "172.22.", "172.23.", "172.24.", "172.25.", "172.26.",

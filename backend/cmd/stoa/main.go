@@ -127,7 +127,7 @@ func main() {
 	// Preferences (per-user)
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
-	protected.HandleFunc("/geo", handlers.GeoLookup()).Methods("GET")
+	protected.HandleFunc("/geo", handlers.GeoLookup(database)).Methods("GET")
 
 	// Google OAuth (non-admin routes)
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")
