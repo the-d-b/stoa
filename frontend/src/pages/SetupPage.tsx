@@ -26,6 +26,7 @@ export default function SetupPage({ onComplete }: Props) {
   const [userMode, setUserMode] = useState<'single' | 'multi'>('multi')
   const [autoLogin, setAutoLogin] = useState(false)
   const [adminUsername, setAdminUsername] = useState('')
+  const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const appUrl = window.location.origin
@@ -49,6 +50,7 @@ export default function SetupPage({ onComplete }: Props) {
 
   const validateAdmin = () => {
     if (!adminUsername) return 'Username is required'
+    if (!adminEmail) return 'Email is required'
     if (!adminPassword) return 'Password is required'
     if (adminPassword.length < 8) return 'Password must be at least 8 characters'
     if (adminPassword !== confirmPassword) return 'Passwords do not match'
@@ -87,7 +89,7 @@ export default function SetupPage({ onComplete }: Props) {
     try {
       const defaultGroup = groups.find(g => g.isDefault)
       await authApi.setupInit({
-        adminUsername, adminPassword,
+        adminUsername, adminEmail, adminPassword,
         appUrl: window.location.origin,
         userMode, autoLogin: userMode === 'single' && autoLogin,
         initialTags: tags,
@@ -267,6 +269,9 @@ export default function SetupPage({ onComplete }: Props) {
                 <div><label className="label">Username</label>
                   <input className="input" value={adminUsername} onChange={e => setAdminUsername(e.target.value)}
                     placeholder="admin" autoFocus /></div>
+                <div><label className="label">Email <span style={{color:'var(--red)'}}>*</span></label>
+                  <input type="email" className="input" value={adminEmail} onChange={e => setAdminEmail(e.target.value)}
+                    placeholder="admin@example.com" /></div>
                 <div><label className="label">Password</label>
                   <input type="password" className="input" value={adminPassword}
                     onChange={e => setAdminPassword(e.target.value)} placeholder="min 8 characters" /></div>

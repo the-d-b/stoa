@@ -46,6 +46,8 @@ func main() {
 	api.HandleFunc("/auth/autologin", handlers.AutoLogin(database, authService)).Methods("POST")
 	api.HandleFunc("/setup/init", handlers.SetupInit(database, cfg)).Methods("POST")
 	api.HandleFunc("/auth/login", handlers.LocalLogin(authService)).Methods("POST")
+	api.HandleFunc("/auth/reset-request", handlers.ResetRequest(database)).Methods("POST")
+	api.HandleFunc("/auth/reset-confirm", handlers.ResetConfirm(database)).Methods("POST")
 	api.HandleFunc("/auth/logout", handlers.Logout(authService)).Methods("POST")
 	api.HandleFunc("/auth/oauth/login", handlers.OAuthLogin(authService)).Methods("GET")
 	api.HandleFunc("/auth/oauth/callback", handlers.OAuthCallback(authService, database)).Methods("GET")
@@ -146,6 +148,13 @@ func main() {
 	admin := protected.PathPrefix("").Subrouter()
 	admin.Use(authService.AdminMiddleware)
 
+	// Mail config & session duration
+	admin.HandleFunc("/mail-config", handlers.GetMailConfig(database)).Methods("GET")
+	admin.HandleFunc("/mail-config", handlers.SaveMailConfig(database)).Methods("PUT")
+	admin.HandleFunc("/mail-config/test", handlers.TestMailConfig(database)).Methods("POST")
+	admin.HandleFunc("/session-config", handlers.GetSessionConfig(database)).Methods("GET")
+	admin.HandleFunc("/session-config", handlers.SaveSessionConfig(database)).Methods("PUT")
+
 	// Google OAuth admin config
 	admin.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")
 	admin.HandleFunc("/google/config", handlers.SaveGoogleOAuthConfig(database)).Methods("PUT")
@@ -169,6 +178,8 @@ func main() {
 	admin.HandleFunc("/users", handlers.CreateLocalUser(database)).Methods("POST")
 	admin.HandleFunc("/users/{id}/role", handlers.UpdateUserRole(database)).Methods("PUT")
 	admin.HandleFunc("/users/{id}/password", handlers.ResetUserPassword(database)).Methods("PUT")
+	admin.HandleFunc("/users/{id}/email", handlers.UpdateUserEmail(database)).Methods("PUT")
+	admin.HandleFunc("/users/{id}/send-reset", handlers.AdminSendResetLink(database)).Methods("POST")
 	admin.HandleFunc("/users/{id}", handlers.DeleteUser(database)).Methods("DELETE")
 
 	// Groups

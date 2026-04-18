@@ -64,8 +64,8 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-		if req.AdminUsername == "" || req.AdminPassword == "" {
-			writeError(w, http.StatusBadRequest, "username and password required")
+		if req.AdminUsername == "" || req.AdminPassword == "" || req.AdminEmail == "" {
+			writeError(w, http.StatusBadRequest, "username, email and password required")
 			return
 		}
 
@@ -87,9 +87,9 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		tx, _ := db.Begin()
 		userID := generateID()
 		_, err = tx.Exec(`
-			INSERT INTO users (id, username, role, auth_provider, password_hash, last_login)
-			VALUES (?, ?, 'admin', 'local', ?, CURRENT_TIMESTAMP)
-		`, userID, req.AdminUsername, hash)
+			INSERT INTO users (id, username, email, role, auth_provider, password_hash, last_login)
+			VALUES (?, ?, ?, 'admin', 'local', ?, CURRENT_TIMESTAMP)
+		`, userID, req.AdminUsername, req.AdminEmail, hash)
 		if err != nil {
 			tx.Rollback()
 			log.Printf("[SETUP] failed to create admin user: %v", err)
@@ -477,6 +477,33 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 		}
 		db.Exec("UPDATE users SET role = ? WHERE id = ?", req.Role, id)
 		log.Printf("[ADMIN] role_update user_id=%s new_role=%s", id, req.Role)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func UpdateUserEmail(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		var req struct {
+			Email string `json:"email"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Email == "" {
+			writeError(w, http.StatusBadRequest, "email required")
+			return
+		}
+		// Check uniqueness
+		var count int
+		db.QueryRow("SELECT COUNT(*) FROM users WHERE LOWER(email)=LOWER(?) AND id!=?", req.Email, id).Scan(&count)
+		if count > 0 {
+			writeError(w, http.StatusConflict, "email already in use by another user")
+			return
+		}
+		_, err := db.Exec("UPDATE users SET email=? WHERE id=?", req.Email, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "failed to update email")
+			return
+		}
+		log.Printf("[ADMIN] email_update user_id=%s", id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -982,8 +1009,8 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 			Role     string `json:"role"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
-			req.Username == "" || req.Password == "" {
-			writeError(w, http.StatusBadRequest, "username and password required")
+			req.Username == "" || req.Password == "" || req.Email == "" {
+			writeError(w, http.StatusBadRequest, "username, email and password required")
 			return
 		}
 		if req.Role != "admin" && req.Role != "user" {
@@ -996,17 +1023,24 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to hash password")
 			return
 		}
-		id := generateID()
-		var emailVal interface{} = nil
-		if req.Email != "" {
-			emailVal = req.Email
+		// Check email uniqueness before insert
+		var existing int
+		db.QueryRow("SELECT COUNT(*) FROM users WHERE LOWER(email)=LOWER(?)", req.Email).Scan(&existing)
+		if existing > 0 {
+			writeError(w, http.StatusConflict, "email already in use")
+			return
 		}
+		id := generateID()
 		_, err = db.Exec(
 			"INSERT INTO users (id, username, email, role, auth_provider, password_hash) VALUES (?, ?, ?, ?, 'local', ?)",
-			id, req.Username, emailVal, req.Role, string(hash))
+			id, req.Username, req.Email, req.Role, string(hash))
 		if err != nil {
 			log.Printf("[USERS] insert error: %v", err)
-			writeError(w, http.StatusConflict, "username already exists")
+			if strings.Contains(err.Error(), "UNIQUE") {
+				writeError(w, http.StatusConflict, "username or email already exists")
+			} else {
+				writeError(w, http.StatusInternalServerError, "failed to create user")
+			}
 			return
 		}
 		log.Printf("[USERS] created local user id=%s username=%q", id, req.Username)
@@ -1048,36 +1082,10 @@ func ChangeOwnPassword(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// ResetUserPassword is replaced by AdminSendResetLink in password_reset.go
+// Kept as a stub that redirects to the email-based flow.
 func ResetUserPassword(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id := mux.Vars(r)["id"]
-		var req struct {
-			Password string `json:"password"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Password == "" {
-			writeError(w, http.StatusBadRequest, "password required")
-			return
-		}
-		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to hash password")
-			return
-		}
-		res, err := db.Exec(
-			"UPDATE users SET password_hash=? WHERE id=? AND auth_provider='local'",
-			string(hash), id)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to update password")
-			return
-		}
-		rows, _ := res.RowsAffected()
-		if rows == 0 {
-			writeError(w, http.StatusNotFound, "user not found or not a local user")
-			return
-		}
-		log.Printf("[ADMIN] password_reset user_id=%s", id)
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}
+	return AdminSendResetLink(db)
 }
 
 // AutoLogin issues a token without credentials when auto_login is configured.

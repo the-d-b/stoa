@@ -7,6 +7,10 @@ import { APP_VERSION } from '../version'
 export default function LoginPage() {
   const [username, setUsername]       = useState('')
   const [password, setPassword]       = useState('')
+  const [showForgot, setShowForgot]   = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSent, setForgotSent]   = useState(false)
+  const [forgotLoading, setForgotLoading] = useState(false)
   const [error, setError]             = useState('')
   const [loading, setLoading]         = useState(false)
   const [oauthConfigured, setOAuthConfigured] = useState<boolean | null>(null)
@@ -23,6 +27,16 @@ export default function LoginPage() {
       })
       .catch(() => { setOAuthConfigured(false); setShowLocal(true) })
   }, [])
+
+  const handleForgot = async () => {
+    if (!forgotEmail.trim()) return
+    setForgotLoading(true)
+    try {
+      await authApi.resetRequest(forgotEmail.trim())
+      setForgotSent(true)
+    } catch { setForgotSent(true) } // always show sent — avoids email enumeration
+    finally { setForgotLoading(false) }
+  }
 
   const handleLocalLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -127,8 +141,17 @@ export default function LoginPage() {
                 {loading ? <span className="spinner" /> : 'Sign in'}
               </button>
 
+              <div style={{ marginTop: 8, textAlign: 'center' }}>
+                <button type="button" onClick={() => { setShowForgot(true); setForgotSent(false); setForgotEmail('') }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: 11, color: 'var(--text-dim)',
+                    textDecoration: 'underline', textDecorationStyle: 'dotted' }}>
+                  Forgot password?
+                </button>
+              </div>
+
               {oauthConfigured && (
-                <div style={{ marginTop: 12, textAlign: 'center' }}>
+                <div style={{ marginTop: 4, textAlign: 'center' }}>
                   <button type="button" onClick={() => { setShowLocal(false); setError('') }} style={{
                     background: 'none', border: 'none', cursor: 'pointer',
                     fontSize: 11, color: 'var(--text-dim)',
@@ -136,6 +159,43 @@ export default function LoginPage() {
                   }}>
                     back to SSO
                   </button>
+                </div>
+              )}
+
+              {/* Forgot password modal */}
+              {showForgot && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+                  <div className="card" style={{ width: '100%', maxWidth: 340, padding: 28, margin: 16 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 8px 0' }}>Reset password</h3>
+                    {forgotSent ? (
+                      <>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 16px 0' }}>
+                          If an account exists for that email, a reset link has been sent. Check your inbox.
+                        </p>
+                        <button className="btn btn-primary" style={{ width: '100%' }}
+                          onClick={() => setShowForgot(false)}>Done</button>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, margin: '0 0 16px 0' }}>
+                          Enter your email address and we'll send you a reset link.
+                        </p>
+                        <input className="input" type="email" placeholder="your@email.com"
+                          value={forgotEmail} onChange={e => setForgotEmail(e.target.value)}
+                          autoFocus onKeyDown={e => e.key === 'Enter' && handleForgot()}
+                          style={{ marginBottom: 12 }} />
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <button className="btn btn-ghost" style={{ flex: 1 }}
+                            onClick={() => setShowForgot(false)}>Cancel</button>
+                          <button className="btn btn-primary" style={{ flex: 1 }}
+                            onClick={handleForgot} disabled={forgotLoading || !forgotEmail.trim()}>
+                            {forgotLoading ? <span className="spinner" /> : 'Send link'}
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               )}
             </form>

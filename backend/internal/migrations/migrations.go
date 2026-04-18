@@ -473,6 +473,43 @@ func Run(db *sql.DB) error {
 
 		log.Printf("Migration %d applied successfully", m.version)
 	}
+	// ── 0.5.0 — Auth & Security ──────────────────────────────────────────────
+
+	// Password reset tokens
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		token      TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		expires_at DATETIME NOT NULL,
+		used       INTEGER NOT NULL DEFAULT 0,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return err
+	}
+
+	// Sessions table — tracks active SSE connections for poller lifecycle
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+		id         TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_seen  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		expires_at DATETIME NOT NULL
+	)`); err != nil {
+		return err
+	}
+
+	// Mail config in app_config — seed rows so UPDATE always works
+	for _, kv := range [][]string{
+		{"mail_host", ""},
+		{"mail_port", "587"},
+		{"mail_username", ""},
+		{"mail_password", ""},
+		{"mail_from", ""},
+		{"mail_tls_mode", "starttls"}, // plain | starttls | tls
+		{"session_duration_hours", "24"},
+	} {
+		db.Exec("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)", kv[0], kv[1])
+	}
+
 	return nil
 }
 
@@ -546,5 +583,42 @@ func runMigration10(db *sql.DB) error {
 			return err
 		}
 	}
+	// ── 0.5.0 — Auth & Security ──────────────────────────────────────────────
+
+	// Password reset tokens
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
+		token      TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		expires_at DATETIME NOT NULL,
+		used       INTEGER NOT NULL DEFAULT 0,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	)`); err != nil {
+		return err
+	}
+
+	// Sessions table — tracks active SSE connections for poller lifecycle
+	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
+		id         TEXT PRIMARY KEY,
+		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		last_seen  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		expires_at DATETIME NOT NULL
+	)`); err != nil {
+		return err
+	}
+
+	// Mail config in app_config — seed rows so UPDATE always works
+	for _, kv := range [][]string{
+		{"mail_host", ""},
+		{"mail_port", "587"},
+		{"mail_username", ""},
+		{"mail_password", ""},
+		{"mail_from", ""},
+		{"mail_tls_mode", "starttls"}, // plain | starttls | tls
+		{"session_duration_hours", "24"},
+	} {
+		db.Exec("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)", kv[0], kv[1])
+	}
+
 	return nil
 }

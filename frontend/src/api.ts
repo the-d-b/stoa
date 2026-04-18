@@ -72,6 +72,7 @@ export interface OAuthConfig {
 
 export interface SetupRequest {
   adminUsername: string
+  adminEmail: string
   adminPassword: string
   appUrl: string
   userMode?: 'single' | 'multi'
@@ -91,6 +92,8 @@ export const authApi = {
     api.post<{ token: string; user: User }>('/auth/login', { username, password }),
   logout: () => api.post('/auth/logout'),
   me: () => api.get<User>('/auth/me'),
+  resetRequest: (email: string) => api.post('/auth/reset-request', { email }),
+  resetConfirm: (token: string, password: string) => api.post('/auth/reset-confirm', { token, password }),
   meWithToken: (token: string) => api.get<User>('/auth/me', {
     headers: { Authorization: `Bearer ${token}` }
   }),
@@ -417,6 +420,25 @@ export const panelsApi = {
 export const personalPanelPorticosApi = {
   get: (panelId: string) => api.get<string[]>(`/panels/${panelId}/porticos`),
   set: (panelId: string, porticoIds: string[]) => api.put(`/panels/${panelId}/porticos`, { porticoIds }),
+}
+
+// ── Mail config ──────────────────────────────────────────────────────────────
+export interface MailConfig {
+  host: string; port: string; username: string; password: string
+  from: string; tlsMode: 'plain' | 'starttls' | 'tls'
+}
+export const mailConfigApi = {
+  get: () => api.get<MailConfig>('/admin/mail-config'),
+  save: (cfg: MailConfig) => api.put('/admin/mail-config', cfg),
+  test: (to: string) => api.post('/admin/mail-config/test', { to }),
+}
+export const sessionConfigApi = {
+  get: () => api.get<{ sessionDurationHours: string }>('/admin/session-config'),
+  save: (hours: string) => api.put('/admin/session-config', { sessionDurationHours: hours }),
+}
+export const adminUsersApi = {
+  updateEmail: (id: string, email: string) => api.put(`/admin/users/${id}/email`, { email }),
+  sendReset: (id: string) => api.post(`/admin/users/${id}/send-reset`, {}),
 }
 
 // ── Porticos ───────────────────────────────────────────────────────────────────

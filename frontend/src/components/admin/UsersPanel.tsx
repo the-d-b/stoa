@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { usersApi, User } from '../../api'
+import { usersApi, adminUsersApi, User } from '../../api'
 import { useAuth } from '../../context/AuthContext'
 import SectionHelp from './SectionHelp'
 
@@ -9,8 +9,11 @@ export default function UsersPanel() {
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [resetId, setResetId] = useState<string | null>(null)
-  const [resetPw, setResetPw] = useState('')
+  const [resetSent, setResetSent] = useState(false)
   const [resetting, setResetting] = useState(false)
+  const [editEmailId, setEditEmailId] = useState<string | null>(null)
+  const [editEmailVal, setEditEmailVal] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
   const { user: me } = useAuth()
 
   const [newUsername, setNewUsername] = useState('')
@@ -64,14 +67,25 @@ export default function UsersPanel() {
     catch (e) { console.error('delete failed', e) }
   }
 
-  const resetPassword = async (id: string) => {
-    if (!resetPw) return
-    setResetting(true)
+  const sendResetLink = async (id: string) => {
+    setResetting(true); setResetSent(false)
     try {
-      await usersApi.resetPassword(id, resetPw)
-      setResetId(null); setResetPw('')
-    } catch (e) { console.error('reset failed', e) }
+      await adminUsersApi.sendReset(id)
+      setResetSent(true)
+      setTimeout(() => { setResetId(null); setResetSent(false) }, 3000)
+    } catch (e: any) { alert(e.response?.data?.error || 'Failed to send reset link') }
     finally { setResetting(false) }
+  }
+
+  const saveEmail = async (id: string) => {
+    if (!editEmailVal.trim()) return
+    setSavingEmail(true)
+    try {
+      await adminUsersApi.updateEmail(id, editEmailVal.trim())
+      setEditEmailId(null); setEditEmailVal('')
+      await load()
+    } catch (e: any) { alert(e.response?.data?.error || 'Failed to update email') }
+    finally { setSavingEmail(false) }
   }
 
   const filtered = users.filter(u =>
@@ -107,7 +121,7 @@ export default function UsersPanel() {
                   onChange={e => setNewUsername(e.target.value)} placeholder="jsmith" autoFocus />
               </div>
               <div style={{ flex: 1 }}>
-                <label className="label">Email (optional)</label>
+                <label className="label">Email <span style={{color:'var(--red)'}}>*</span></label>
                 <input className="input" value={newEmail}
                   onChange={e => setNewEmail(e.target.value)} placeholder="j@example.com" />
               </div>
@@ -192,8 +206,14 @@ export default function UsersPanel() {
                     </button>
                     {u.authProvider === 'local' && (
                       <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}
-                        onClick={() => { setResetId(resetId === u.id ? null : u.id); setResetPw('') }}>
-                        Reset pw
+                        onClick={() => { setResetId(resetId === u.id ? null : u.id); setResetSent(false) }}>
+                        Send reset link
+                      </button>
+                    )}
+                    {u.authProvider === 'local' && (
+                      <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                        onClick={() => { setEditEmailId(editEmailId === u.id ? null : u.id); setEditEmailVal(u.email || '') }}>
+                        Edit email
                       </button>
                     )}
                     <button className="btn btn-danger" onClick={() => remove(u)}>Remove</button>
@@ -203,16 +223,39 @@ export default function UsersPanel() {
             </div>
             {resetId === u.id && (
               <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)',
+                background: 'var(--surface2)', display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                {resetSent ? (
+                  <span style={{ fontSize: 13, color: 'var(--green)', flex: 1 }}>
+                    ✓ Reset link sent to {u.email || 'user email'}
+                  </span>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 13, color: 'var(--text-muted)', flex: 1 }}>
+                      Send a password reset link to {u.email || '(no email set)'}
+                    </span>
+                    <button className="btn btn-primary" style={{ fontSize: 12 }}
+                      disabled={resetting || !u.email} onClick={() => sendResetLink(u.id)}>
+                      {resetting ? <span className="spinner" /> : 'Send'}
+                    </button>
+                  </>
+                )}
+                <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                  onClick={() => { setResetId(null); setResetSent(false) }}>Cancel</button>
+              </div>
+            )}
+            {editEmailId === u.id && (
+              <div style={{ padding: '10px 16px', borderTop: '1px solid var(--border)',
                 background: 'var(--surface2)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input className="input" type="password" value={resetPw}
-                  onChange={e => setResetPw(e.target.value)}
-                  placeholder="New password" style={{ fontSize: 13, flex: 1 }} autoFocus />
+                <input className="input" type="email" value={editEmailVal}
+                  onChange={e => setEditEmailVal(e.target.value)}
+                  placeholder="new@email.com" style={{ fontSize: 13, flex: 1 }} autoFocus
+                  onKeyDown={e => e.key === 'Enter' && saveEmail(u.id)} />
                 <button className="btn btn-primary" style={{ fontSize: 12 }}
-                  disabled={resetting || !resetPw} onClick={() => resetPassword(u.id)}>
-                  {resetting ? <span className="spinner" /> : 'Set'}
+                  disabled={savingEmail || !editEmailVal.trim()} onClick={() => saveEmail(u.id)}>
+                  {savingEmail ? <span className="spinner" /> : 'Save'}
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                  onClick={() => { setResetId(null); setResetPw('') }}>Cancel</button>
+                  onClick={() => { setEditEmailId(null); setEditEmailVal('') }}>Cancel</button>
               </div>
             )}
           </div>

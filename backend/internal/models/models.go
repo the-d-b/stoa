@@ -157,6 +157,7 @@ type OAuthConfig struct {
 type SetupRequest struct {
 	AdminUsername    string `json:"adminUsername"`
 	AdminPassword    string `json:"adminPassword"`
+	AdminEmail       string `json:"adminEmail"`
 	AppURL           string `json:"appUrl"`
 	SessionSecret    string `json:"sessionSecret,omitempty"`
 	UserMode         string `json:"userMode,omitempty"`         // "single" or "multi"
