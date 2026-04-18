@@ -126,6 +126,25 @@ export default function Layout() {
               </Link>
             )}
 
+            <Link
+              to="/help"
+              title="Help"
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 32, height: 32, borderRadius: 8,
+                color: 'var(--text-dim)', background: 'transparent',
+                transition: 'all 0.15s', textDecoration: 'none',
+              }}
+              onMouseOver={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text)' }}
+              onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-dim)' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
+                <line x1="12" y1="17" x2="12.01" y2="17"/>
+              </svg>
+            </Link>
+
             {modeLoaded && !autoLogin && <button
               onClick={logout}
               title="Sign out"

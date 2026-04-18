@@ -10,6 +10,7 @@ import ProfilePage from './pages/ProfilePage'
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
+import HelpPage from './pages/HelpPage'
 import Layout from './components/layout/Layout'
 import ThemeSwitcher from './components/layout/ThemeSwitcher'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -53,6 +54,7 @@ function AppRoutes() {
         {user.role === 'admin' && userMode !== 'single' && (
           <Route path="/admin/*" element={<AdminPage />} />
         )}
+        <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
