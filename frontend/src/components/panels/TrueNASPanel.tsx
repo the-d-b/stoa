@@ -2,18 +2,20 @@ import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
-interface TrueNASPool {
-  name: string; status: string
-  usedGb: number; totalGb: number; percent: number
-}
+interface TrueNASPool { name: string; status: string; usedGb: number; totalGb: number; percent: number }
 interface TrueNASAlert { level: string; message: string }
 interface TrueNASDisk { name: string; tempC: number }
 interface TrueNASVM { name: string; status: string }
 interface TrueNASApp { name: string; status: string; updateAvailable: boolean }
+interface TrueNASIface { name: string; rxMbs: number; txMbs: number; linkUp: boolean }
 interface TrueNASData {
   uiUrl: string; hostname: string; version: string
   totalRam: string; cpuModel: string; cpuCores: number
-  cpuPercent: number; ramUsedGb: number; ramTotalGb: number; ramPercent: number
+  cpuPercent: number; cpuTempC: number
+  ramUsedGb: number; ramTotalGb: number; ramPercent: number
+  arcUsedGb: number
+  diskReadMbs: number; diskWriteMbs: number; diskBusy: number
+  netInterfaces: TrueNASIface[]
   pools: TrueNASPool[]; alerts: TrueNASAlert[]
   disks: TrueNASDisk[]; vms: TrueNASVM[]; apps: TrueNASApp[]
 }
@@ -26,14 +28,126 @@ const ALERT_COLOR: Record<string, string> = {
 }
 
 function fmtSize(gb: number) {
-  return gb >= 1024 ? `${(gb / 1024).toFixed(1)} TB` : `${gb.toFixed(0)} GB`
+  return gb >= 1024 ? `${(gb / 1024).toFixed(1)}T` : `${gb.toFixed(0)}G`
+}
+function fmtMbs(mbs: number) {
+  if (mbs >= 1000) return `${(mbs/1000).toFixed(1)}G/s`
+  if (mbs >= 1) return `${mbs.toFixed(1)}M/s`
+  if (mbs > 0) return `${(mbs*1000).toFixed(0)}K/s`
+  return '—'
+}
+function tempColor(c: number) {
+  return c >= 85 ? 'var(--red)' : c >= 70 ? 'var(--amber)' : 'var(--text-muted)'
+}
+function pctColor(p: number) {
+  return p >= 90 ? 'var(--red)' : p >= 75 ? 'var(--amber)' : 'var(--accent)'
 }
 
 function MiniBar({ pct }: { pct: number }) {
-  const c = pct >= 90 ? 'var(--red)' : pct >= 75 ? 'var(--amber)' : 'var(--accent)'
   return (
     <div style={{ height: 3, background: 'var(--surface2)', borderRadius: 2, flex: 1 }}>
-      <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: c, borderRadius: 2 }} />
+      <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: pctColor(pct), borderRadius: 2 }} />
+    </div>
+  )
+}
+
+// ── Arc gauge ─────────────────────────────────────────────────────────────────
+function Arc({ pct, label, sub, size = 72 }: { pct: number; label: string; sub?: string; size?: number }) {
+  const r = (size - 10) / 2
+  const cx = size / 2; const cy = size / 2
+  const startAngle = 270; const sweep = 180
+  const filled = Math.min(Math.max(pct, 0), 100) / 100 * sweep
+  const sw = size < 60 ? 5 : 7
+  const color = pctColor(pct)
+
+  function pt(deg: number) {
+    const rad = (deg - 90) * Math.PI / 180
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+  }
+  function arc(s: number, e: number) {
+    const a = pt(s); const b = pt(e)
+    const large = e - s > 180 ? 1 : 0
+    return `M ${a.x} ${a.y} A ${r} ${r} 0 ${large} 1 ${b.x} ${b.y}`
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: size }}>
+      <div style={{ position: 'relative', width: size, height: size * 0.6 }}>
+        <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
+          <path d={arc(startAngle, startAngle + sweep)} fill="none"
+            stroke="var(--surface2)" strokeWidth={sw} strokeLinecap="round" />
+          {filled > 0 && (
+            <path d={arc(startAngle, startAngle + filled)} fill="none"
+              stroke={color} strokeWidth={sw} strokeLinecap="round" />
+          )}
+        </svg>
+        <div style={{ position: 'absolute', top: '42%', left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: size < 60 ? 11 : 14, fontWeight: 700,
+            fontFamily: 'DM Mono, monospace', color, lineHeight: 1 }}>
+            {label}
+          </span>
+        </div>
+      </div>
+      {sub && (
+        <div style={{ fontSize: 9, color: 'var(--text-dim)', textAlign: 'center',
+          fontFamily: 'DM Mono, monospace', marginTop: 1, width: '100%',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {sub}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Static label arc (no percentage — just a value display) ──────────────────
+function ArcStatic({ value, label, sub, color, size = 72 }: {
+  value: string; label: string; sub?: string; color?: string; size?: number
+}) {
+  const r = (size - 10) / 2
+  const cx = size / 2; const cy = size / 2
+  const sw = size < 60 ? 5 : 7
+  const col = color || 'var(--accent)'
+
+  function pt(deg: number) {
+    const rad = (deg - 90) * Math.PI / 180
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+  }
+  function arc(s: number, e: number) {
+    const a = pt(s); const b = pt(e)
+    const large = e - s > 180 ? 1 : 0
+    return `M ${a.x} ${a.y} A ${r} ${r} 0 ${large} 1 ${b.x} ${b.y}`
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: size }}>
+      <div style={{ position: 'relative', width: size, height: size * 0.6 }}>
+        <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
+          <path d={arc(270, 270 + 180)} fill="none" stroke={col}
+            strokeWidth={sw} strokeLinecap="round" opacity={0.9} />
+        </svg>
+        <div style={{ position: 'absolute', top: '42%', left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <span style={{ fontSize: size < 60 ? 10 : 13, fontWeight: 700,
+            fontFamily: 'DM Mono, monospace', color: col, lineHeight: 1 }}>
+            {value}
+          </span>
+        </div>
+      </div>
+      <div style={{ fontSize: 9, color: 'var(--text-dim)', textAlign: 'center',
+        marginTop: 1, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}{sub ? ` · ${sub}` : ''}
+      </div>
+    </div>
+  )
+}
+
+// ── Arc row wrapper ───────────────────────────────────────────────────────────
+function ArcRow({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 12, flexWrap: 'wrap',
+      marginBottom: 8 }}>
+      {children}
     </div>
   )
 }
@@ -45,20 +159,13 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
+  const maxNetMbs = config.maxNetMbs || 1000
 
-  // SSE — primary data source, ~2s updates from TrueNAS WebSocket push
   const sseData = useSSE<TrueNASData>(integrationId)
-
-  // Apply SSE data immediately when it arrives
   useEffect(() => {
-    if (sseData) {
-      setData(sseData)
-      setLoading(false)
-      setError('')
-    }
+    if (sseData) { setData(sseData); setLoading(false); setError('') }
   }, [sseData])
 
-  // HTTP fallback — initial load + slow safety-net poll if SSE drops
   const load = useCallback(async () => {
     try {
       const res = await integrationsApi.getPanelData(panel.id)
@@ -70,7 +177,7 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
 
   useEffect(() => {
     load()
-    const interval = setInterval(load, 300 * 1000) // 5 min fallback
+    const interval = setInterval(load, 300 * 1000)
     return () => clearInterval(interval)
   }, [load])
 
@@ -84,12 +191,20 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   const disks = (data.disks || []).filter(d => d.tempC > 0)
   const vms = data.vms || []
   const apps = data.apps || []
+  const netIfaces = data.netInterfaces || []
 
-  // VM counts
+  // Aggregate network throughput across all interfaces
+  const totalRxMbs = netIfaces.reduce((s, i) => s + (i.rxMbs || 0), 0)
+  const totalTxMbs = netIfaces.reduce((s, i) => s + (i.txMbs || 0), 0)
+  const totalNetMbs = totalRxMbs + totalTxMbs
+  const netPct = Math.min((totalNetMbs / maxNetMbs) * 100, 100)
+
+  // Avg disk temp
+  const avgDiskTemp = disks.length > 0
+    ? disks.reduce((s, d) => s + d.tempC, 0) / disks.length : 0
+
   const vmRunning = vms.filter(v => ['RUNNING','running'].includes(v.status)).length
   const vmStopped = vms.length - vmRunning
-
-  // App counts
   const appRunning = apps.filter(a => ['RUNNING','running','active','ACTIVE'].includes(a.status)).length
   const appStopped = apps.filter(a => !['RUNNING','running','active','ACTIVE'].includes(a.status)).length
   const appUpdates = apps.filter(a => a.updateAvailable).length
@@ -99,63 +214,72 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
       letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
   )
 
-  // ── System info strip — shown on all sizes ────────────────────────────────
-  const SysInfo = () => (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 6, justifyContent: 'center' }}>
-        <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-          style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
-            padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)',
-            border: '1px solid var(--border)' }}
-          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-          onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-          {data.hostname || 'TrueNAS'}
-        </a>
-        {data.totalRam && (
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
-            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-            {data.totalRam}
-          </span>
-        )}
-        {data.cpuCores > 0 && (
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
-            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-            {data.cpuCores} cores
-          </span>
-        )}
-        {alerts.length > 0 && (
-          <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
-            background: alerts.some(a => a.level === 'CRITICAL') ? '#f8717118' : '#fbbf2418',
-            border: `1px solid ${alerts.some(a => a.level === 'CRITICAL') ? '#f8717130' : '#fbbf2430'}`,
-            color: alerts.some(a => a.level === 'CRITICAL') ? 'var(--red)' : 'var(--amber)' }}>
-            ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
-      {data.cpuPercent > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 28, flexShrink: 0 }}>CPU</span>
-          <MiniBar pct={data.cpuPercent} />
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
-            color: data.cpuPercent >= 90 ? 'var(--red)' : data.cpuPercent >= 75 ? 'var(--amber)' : 'var(--text-muted)' }}>
-            {data.cpuPercent.toFixed(0)}%
-          </span>
-        </div>
+  // ── Hostname pill ─────────────────────────────────────────────────────────
+  const HostPill = () => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 8, justifyContent: 'center' }}>
+      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
+        style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', textDecoration: 'none',
+          padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}
+        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+        onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+        {data.hostname || 'TrueNAS'}
+      </a>
+      {data.cpuCores > 0 && (
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+          {data.cpuCores}c
+        </span>
       )}
-      {data.ramTotalGb > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 28, flexShrink: 0 }}>RAM</span>
-          <MiniBar pct={data.ramPercent} />
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
-            color: data.ramPercent >= 90 ? 'var(--red)' : data.ramPercent >= 75 ? 'var(--amber)' : 'var(--text-muted)' }}>
-            {data.ramPercent.toFixed(0)}%
-          </span>
-        </div>
+      {data.totalRam && (
+        <span style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 8px',
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+          {data.totalRam}
+        </span>
+      )}
+      {alerts.length > 0 && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
+          background: alerts.some(a => a.level === 'CRITICAL') ? '#f8717118' : '#fbbf2418',
+          border: `1px solid ${alerts.some(a => a.level === 'CRITICAL') ? '#f8717130' : '#fbbf2430'}`,
+          color: alerts.some(a => a.level === 'CRITICAL') ? 'var(--red)' : 'var(--amber)' }}>
+          ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
+        </span>
       )}
     </div>
   )
 
-  // ── Pool detail rows ──────────────────────────────────────────────────────
+  // ── Row 1 arcs: CPU, Disk I/O, Temp ──────────────────────────────────────
+  const Row1Arcs = ({ size = 72 }: { size?: number }) => (
+    <ArcRow>
+      <Arc pct={data.cpuPercent} label={`${(data.cpuPercent ?? 0).toFixed(0)}%`} sub="cpu" size={size} />
+      <Arc pct={data.diskBusy} label={`${(data.diskBusy ?? 0).toFixed(0)}%`}
+        sub={(data.diskReadMbs ?? 0) > 0 ? `↓${fmtMbs((data.diskReadMbs ?? 0))}` : 'disk'} size={size} />
+      {avgDiskTemp > 0 && (
+        <ArcStatic value={`${avgDiskTemp.toFixed(0)}°`} label="temp"
+          color={tempColor(avgDiskTemp)} size={size} />
+      )}
+      {(data.cpuTempC ?? 0) > 0 && avgDiskTemp === 0 && (
+        <ArcStatic value={`${(data.cpuTempC ?? 0).toFixed(0)}°`} label="cpu temp"
+          color={tempColor(data.cpuTempC)} size={size} />
+      )}
+    </ArcRow>
+  )
+
+  // ── Row 2 arcs: RAM, ARC, Network ────────────────────────────────────────
+  const Row2Arcs = ({ size = 72 }: { size?: number }) => (
+    <ArcRow>
+      <Arc pct={data.ramPercent} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
+        sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
+      {(data.arcUsedGb ?? 0) > 0 && (
+        <ArcStatic value={fmtSize(data.arcUsedGb)} label="arc" color="var(--accent)" size={size} />
+      )}
+      {totalNetMbs > 0 && (
+        <Arc pct={netPct} label={fmtMbs(totalNetMbs)}
+          sub={`↓${fmtMbs(totalRxMbs)} ↑${fmtMbs(totalTxMbs)}`} size={size} />
+      )}
+    </ArcRow>
+  )
+
+  // ── Pool rows ─────────────────────────────────────────────────────────────
   const PoolRows = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
       {pools.map(p => (
@@ -165,10 +289,10 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
               background: STATUS_COLOR[p.status] || 'var(--text-dim)' }} />
             <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{p.name}</span>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-              {fmtSize(p.usedGb)} / {fmtSize(p.totalGb)}
+              {fmtSize(p.usedGb)}/{fmtSize(p.totalGb)}
             </span>
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
-              color: p.percent >= 90 ? 'var(--red)' : p.percent >= 75 ? 'var(--amber)' : 'var(--text-muted)' }}>
+              color: pctColor(p.percent) }}>
               {p.percent.toFixed(0)}%
             </span>
           </div>
@@ -182,12 +306,10 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   const Alerts = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
       {alerts.map((a, i) => (
-        <div key={i} style={{
-          display: 'flex', gap: 8, padding: '5px 8px', borderRadius: 6, fontSize: 11,
+        <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 8px', borderRadius: 6, fontSize: 11,
           background: a.level === 'CRITICAL' ? '#f8717112' : '#fbbf2410',
           border: `1px solid ${a.level === 'CRITICAL' ? '#f8717130' : '#fbbf2430'}`,
-          color: ALERT_COLOR[a.level] || 'var(--text-muted)',
-        }}>
+          color: ALERT_COLOR[a.level] || 'var(--text-muted)' }}>
           <span style={{ flexShrink: 0, fontWeight: 600 }}>{a.level}</span>
           <span style={{ flex: 1 }}>{a.message}</span>
         </div>
@@ -205,14 +327,10 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
           <div key={ri} style={{ display: 'flex', gap: 5 }}>
             {row.map((d, di) => (
               <div key={di} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-                padding: '2px 6px', borderRadius: 5,
-                background: 'var(--surface2)', border: '1px solid var(--border)',
-                fontSize: 10, fontFamily: 'DM Mono, monospace' }}>
+                padding: '2px 6px', borderRadius: 5, background: 'var(--surface2)',
+                border: '1px solid var(--border)', fontSize: 10, fontFamily: 'DM Mono, monospace' }}>
                 <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>{d.name}</span>
-                <span style={{ fontWeight: 600,
-                  color: d.tempC >= 55 ? 'var(--red)' : d.tempC >= 45 ? 'var(--amber)' : 'var(--text)' }}>
-                  {d.tempC.toFixed(0)}°
-                </span>
+                <span style={{ fontWeight: 600, color: tempColor(d.tempC) }}>{d.tempC.toFixed(0)}°</span>
               </div>
             ))}
           </div>
@@ -221,77 +339,69 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
     )
   }
 
-  // ── Summary pills for VMs / Apps ─────────────────────────────────────────
+  // ── VM / App pills ────────────────────────────────────────────────────────
   const Pill = ({ label, value, color }: { label: string; value: number; color?: string }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
       borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
       <span style={{ color: 'var(--text-dim)' }}>{label}</span>
-      <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
-        color: color || 'var(--text)' }}>{value}</span>
+      <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: color || 'var(--text)' }}>{value}</span>
     </div>
   )
-
   const VMSummary = () => vms.length === 0 ? null : (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
       <Pill label="running" value={vmRunning} color="var(--green)" />
       {vmStopped > 0 && <Pill label="stopped" value={vmStopped} color="var(--text-dim)" />}
     </div>
   )
-
   const AppSummary = () => apps.length === 0 ? null : (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
       <Pill label="running" value={appRunning} color="var(--green)" />
       {appStopped > 0 && <Pill label="stopped" value={appStopped} color="var(--text-dim)" />}
       {appUpdates > 0 && <Pill label="updates" value={appUpdates} color="var(--amber)" />}
     </div>
   )
 
-  // ── 1x — sys info + pools ─────────────────────────────────────────────────
+  // ── 1x ────────────────────────────────────────────────────────────────────
   if (heightUnits <= 1) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <SysInfo />
-      <PoolRows />
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <Row1Arcs size={64} />
     </div>
   )
 
-  // ── 2x — sys info + pools ────────────────────────────────────────────────
+  // ── 2x ────────────────────────────────────────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <SysInfo />
-      {sectionTitle('Pools')}
-      <PoolRows />
+      <HostPill />
+      <Row1Arcs />
+      <Row2Arcs />
+      {pools.length > 0 && <PoolRows />}
     </div>
   )
 
-  // ── 4x — everything ──────────────────────────────────────────────────────
+  // ── 4x ────────────────────────────────────────────────────────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <SysInfo />
-      {sectionTitle('Pools')}
-      <PoolRows />
-      {alerts.length > 0 && (
-        <>
-          {sectionTitle('Alerts')}
-          <Alerts />
-        </>
-      )}
-      {disks.length > 0 && (
-        <>
-          {sectionTitle('Disk temperatures')}
-          <Disks />
-        </>
+      <HostPill />
+      <Row1Arcs />
+      <Row2Arcs />
+      {pools.length > 0 && (
+        <>{sectionTitle('Pools')}<PoolRows /></>
       )}
       {vms.length > 0 && (
-        <>
-          {sectionTitle('Virtual machines')}
-          <VMSummary />
-        </>
+        <div style={{ marginTop: 8 }}>
+          {sectionTitle('VMs')}<VMSummary />
+        </div>
       )}
       {apps.length > 0 && (
-        <>
-          {sectionTitle('Apps')}
-          <AppSummary />
-        </>
+        <div style={{ marginTop: 8 }}>
+          {sectionTitle('Apps')}<AppSummary />
+        </div>
+      )}
+      {disks.length > 0 && (
+        <>{sectionTitle('Disk temps')}<Disks /></>
+      )}
+      {alerts.length > 0 && (
+        <>{sectionTitle('Alerts')}<Alerts /></>
       )}
     </div>
   )

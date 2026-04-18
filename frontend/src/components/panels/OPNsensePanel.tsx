@@ -324,8 +324,8 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   // ── DNS summary ───────────────────────────────────────────────────────────
   const DNSSummary = () => {
-    if (!data.dnsQueries) return null
-    const hitPct = data.dnsQueries > 0 ? Math.round(data.dnsCacheHits / data.dnsQueries * 100) : 0
+    if (!(data.dnsQueries ?? 0)) return null
+    const hitPct = (data.dnsQueries ?? 0) > 0 ? Math.round(data.dnsCacheHits / data.dnsQueries * 100) : 0
     return (
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
@@ -333,7 +333,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
           fontSize: 11 }}>
           <span style={{ color: 'var(--text-dim)' }}>queries</span>
           <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
-            {data.dnsQueries.toLocaleString()}
+            {(data.dnsQueries ?? 0).toLocaleString()}
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
@@ -343,13 +343,13 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
           <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
             color: hitPct > 60 ? 'var(--green)' : 'var(--text)' }}>{hitPct}%</span>
         </div>
-        {data.pfStates > 0 && (
+        {(data.pfStates ?? 0) > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
             borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
             fontSize: 11 }}>
             <span style={{ color: 'var(--text-dim)' }}>fw states</span>
             <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
-              {data.pfStates.toLocaleString()}
+              {(data.pfStates ?? 0).toLocaleString()}
             </span>
           </div>
         )}
@@ -392,7 +392,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
           <TopTalkers />
         </>
       )}
-      {data.dnsQueries > 0 && (
+      {(data.dnsQueries ?? 0) > 0 && (
         <>
           {sectionTitle('DNS')}
           <DNSSummary />

@@ -509,6 +509,109 @@ function PanelsOrderTab() {
 
 // ── Porticos ─────────────────────────────────────────────────────────────────
 
+// ── Portico layout preview ────────────────────────────────────────────────────
+// Renders a tiny schematic of the portico layout — proportional blocks
+// representing panels in their computed positions. Mirrors PanelGrid logic.
+function PorticoPreview({ portico, panels }: { portico: Portico; panels: Panel[] }) {
+  if (panels.length === 0) return (
+    <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic', padding: '6px 0' }}>
+      No panels match this portico's tags
+    </div>
+  )
+
+  const layout    = portico.layout    || 'stylos'
+  const colCount  = portico.columnCount  || 3
+  const colHeight = portico.columnHeight || 8
+  const W = 200; const UNIT = 10; const GAP = 2
+
+  function getPanelHeight(p: Panel): number {
+    try { return JSON.parse(p.config || '{}').height ?? 2 } catch { return 2 }
+  }
+
+  // Panel type → color
+  const TYPE_COLORS: Record<string, string> = {
+    sonarr: '#7c6fff', radarr: '#a78bfa', lidarr: '#ec4899',
+    truenas: '#38bdf8', proxmox: '#fb923c', opnsense: '#4ade80',
+    plex: '#fbbf24', kuma: '#2dd4bf', bookmarks: '#64748b',
+    default: 'var(--accent)',
+  }
+  function panelColor(p: Panel) {
+    try {
+      const cfg = JSON.parse(p.config || '{}')
+      const type = (p.type || cfg.type || '').toLowerCase()
+      for (const key of Object.keys(TYPE_COLORS)) {
+        if (type.includes(key)) return TYPE_COLORS[key]
+      }
+    } catch {}
+    return TYPE_COLORS.default
+  }
+
+  interface Block { x: number; y: number; w: number; h: number; color: string }
+  const blocks: Block[] = []
+  const colW = (W - (colCount - 1) * GAP) / colCount
+
+  if (layout === 'seira' || layout === 'flow') {
+    // Left-to-right rows
+    let col = 0; let maxRowH = 0; let rowY = 0
+    panels.forEach(p => {
+      const h = getPanelHeight(p) * UNIT
+      const x = col * (colW + GAP)
+      blocks.push({ x, y: rowY, w: colW, h: h - GAP, color: panelColor(p) })
+      maxRowH = Math.max(maxRowH, h)
+      col++
+      if (col >= colCount) { col = 0; rowY += maxRowH + GAP; maxRowH = 0 }
+    })
+  } else if (layout === 'rema') {
+    // Rows that size to tallest panel
+    let rowY = 0
+    for (let i = 0; i < panels.length; i += colCount) {
+      const row = panels.slice(i, i + colCount)
+      const rowH = Math.max(...row.map(p => getPanelHeight(p))) * UNIT
+      row.forEach((p, ci) => {
+        const h = getPanelHeight(p) * UNIT
+        blocks.push({ x: ci * (colW + GAP), y: rowY, w: colW, h: h - GAP, color: panelColor(p) })
+      })
+      rowY += rowH + GAP
+    }
+  } else {
+    // Stylos — top-to-bottom column fill
+    const cols: Panel[][] = Array.from({ length: colCount }, () => [])
+    const fill = new Array(colCount).fill(0)
+    let cur = 0
+    panels.forEach(p => {
+      const h = getPanelHeight(p)
+      while (cur < colCount - 1 && fill[cur] + h > colHeight) cur++
+      cols[cur].push(p)
+      fill[cur] += h
+    })
+    cols.forEach((col, ci) => {
+      let y = 0
+      col.forEach(p => {
+        const h = getPanelHeight(p) * UNIT
+        blocks.push({ x: ci * (colW + GAP), y, w: colW, h: h - GAP, color: panelColor(p) })
+        y += h + GAP
+      })
+    })
+  }
+
+  const totalH = blocks.length > 0 ? Math.max(...blocks.map(b => b.y + b.h)) + 4 : 20
+
+  return (
+    <div style={{ marginTop: 10, marginBottom: 4 }}>
+      <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, textTransform: 'uppercase',
+        letterSpacing: '0.06em', fontWeight: 600 }}>Preview</div>
+      <svg width={W} height={Math.min(totalH, 120)} style={{ overflow: 'hidden', display: 'block',
+        borderRadius: 6, background: 'var(--surface)' }}>
+        {blocks.map((b, i) => (
+          <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h}
+            rx={2} fill={b.color} opacity={0.7} />
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+
 function PorticosTab() {
   const [porticos, setPorticos] = useState<Portico[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
@@ -523,11 +626,19 @@ function PorticosTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [previewPanels, setPreviewPanels] = useState<Panel[]>([])
 
   const load = async () => {
     const [w, sysT] = await Promise.all([porticosApi.list(), tagsApi.list()])
     setPorticos(w.data || [])
     setAllTags(sysT.data || [])
+  }
+
+  const loadPreview = async (porticoId: string) => {
+    try {
+      const res = await panelsApi.list(porticoId)
+      setPreviewPanels(res.data || [])
+    } catch { setPreviewPanels([]) }
   }
 
   useEffect(() => {
@@ -735,7 +846,10 @@ function PorticosTab() {
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Rename">✎</button>
-            <button onClick={e => { e.stopPropagation(); setExpandedId(expandedId === portico.id ? null : portico.id) }}
+            <button onClick={e => { e.stopPropagation(); const nextId = expandedId === portico.id ? null : portico.id
+              setExpandedId(nextId)
+              if (nextId) loadPreview(nextId)
+              else setPreviewPanels([]) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: expandedId === portico.id ? 'var(--accent2)' : 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Edit tags">◉</button>
@@ -760,6 +874,7 @@ function PorticosTab() {
                       <button key={t.id} onClick={async () => {
                         await porticosApi.setTagActive(portico.id, t.id, !active)
                         await load()
+                        await loadPreview(portico.id)
                       }} style={{
                         padding: '3px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
                         background: active ? t.color + '20' : 'transparent',
@@ -779,6 +894,7 @@ function PorticosTab() {
                   No system tags yet. Add tags in My Setup → My Tags or admin settings.
                 </div>
               )}
+              <PorticoPreview portico={portico} panels={previewPanels} />
             </div>
           )}
         </div>

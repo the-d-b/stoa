@@ -147,9 +147,9 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   const statsBar = (
     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {[
-        { label: 'Series',   value: data.seriesCount },
-        { label: 'Episodes', value: data.episodeCount.toLocaleString() },
-        { label: 'On disk',  value: data.onDiskCount.toLocaleString() },
+        { label: 'Series',   value: (data.seriesCount ?? 0).toLocaleString() },
+        { label: 'Episodes', value: (data.episodeCount ?? 0).toLocaleString() },
+        { label: 'On disk',  value: (data.onDiskCount ?? 0).toLocaleString() },
       ].map(stat => (
         <div key={stat.label} style={{
           display: 'flex', alignItems: 'center', gap: 4,

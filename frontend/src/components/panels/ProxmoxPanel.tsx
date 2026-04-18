@@ -197,7 +197,7 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
                 <span style={{ color: 'var(--text-dim)' }}>load</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
                   color: data.loadAvg > 2 ? 'var(--amber)' : 'var(--text)' }}>
-                  {data.loadAvg.toFixed(2)}
+                  {(data.loadAvg ?? 0).toFixed(2)}
                 </span>
               </div>
             )}
@@ -208,7 +208,7 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
                 <span style={{ color: 'var(--text-dim)' }}>iowait</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
                   color: data.ioWait > 20 ? 'var(--amber)' : 'var(--text)' }}>
-                  {data.ioWait.toFixed(1)}%
+                  {(data.ioWait ?? 0).toFixed(1)}%
                 </span>
               </div>
             )}
@@ -219,7 +219,7 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
                 <span style={{ color: 'var(--text-dim)' }}>cpu psi</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
                   color: data.cpuPressure > 30 ? 'var(--amber)' : 'var(--text)' }}>
-                  {data.cpuPressure.toFixed(1)}%
+                  {(data.cpuPressure ?? 0).toFixed(1)}%
                 </span>
               </div>
             )}
@@ -230,7 +230,7 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
                 <span style={{ color: 'var(--text-dim)' }}>mem psi</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
                   color: data.memPressure > 20 ? 'var(--amber)' : 'var(--text)' }}>
-                  {data.memPressure.toFixed(1)}%
+                  {(data.memPressure ?? 0).toFixed(1)}%
                 </span>
               </div>
             )}
@@ -241,7 +241,7 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
                 <span style={{ color: 'var(--text-dim)' }}>io psi</span>
                 <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
                   color: data.ioPressure > 20 ? 'var(--amber)' : 'var(--text)' }}>
-                  {data.ioPressure.toFixed(1)}%
+                  {(data.ioPressure ?? 0).toFixed(1)}%
                 </span>
               </div>
             )}

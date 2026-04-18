@@ -66,10 +66,12 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 	fwCh := make(chan opnsenseFWEvent, 128)
 	go opnsenseStreamFirewall(apiURL, apiKey, skipTLS, fwCh, stop)
 
-	// ── Firewall event accumulator (rolling 5-minute window) ──────────────
+	// ── Firewall event accumulator (rolling 30s window) ─────────────────
 	fwCounts := map[string]int{} // "action|label" -> count
-	fwTicker := time.NewTicker(5 * time.Second) // push FW summary every 5s
+	fwTicker  := time.NewTicker(5 * time.Second)  // push FW summary every 5s
+	fwReset   := time.NewTicker(30 * time.Second) // reset counts every 30s
 	defer fwTicker.Stop()
+	defer fwReset.Stop()
 
 	slowTicker := time.NewTicker(30 * time.Second)
 	defer slowTicker.Stop()
@@ -80,21 +82,23 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			return nil
 
 		case evt := <-trafficCh:
-			// Traffic stream sends per-second byte deltas
-			existing := opnsenseGetCached(ig.id, uiURL)
-			existing.Interfaces = nil
+			// Build a fresh copy — never mutate the cached pointer directly
+			var prev OPNsensePanelData
+			if p := opnsenseGetCached(ig.id, uiURL); p != nil {
+				prev = *p // copy by value
+			}
+			prev.Interfaces = nil
 			for id, iface := range evt.Interfaces {
 				name := iface.Name
 				if name == "" {
 					name = strings.ToUpper(id)
 				}
-				elapsed := 1.0 // stream/1 = 1 second intervals
-				inMbps := float64(iface.InBytes) * 8 / elapsed / 1_000_000
-				outMbps := float64(iface.OutBytes) * 8 / elapsed / 1_000_000
+				inMbps := float64(iface.InBytes) * 8 / 1_000_000
+				outMbps := float64(iface.OutBytes) * 8 / 1_000_000
 				if inMbps < 0 { inMbps = 0 }
 				if outMbps < 0 { outMbps = 0 }
 				if inMbps > 0 || outMbps > 0 {
-					existing.Interfaces = append(existing.Interfaces, OPNsenseInterface{
+					prev.Interfaces = append(prev.Interfaces, OPNsenseInterface{
 						Name:    name,
 						Device:  id,
 						InMbps:  inMbps,
@@ -102,7 +106,7 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 					})
 				}
 			}
-			cacheSet(ig.id, existing)
+			cacheSet(ig.id, &prev)
 
 		case evt := <-fwCh:
 			// Accumulate firewall events
@@ -112,28 +116,38 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			}
 			fwCounts[key]++
 
+		case <-fwReset.C:
+			// Reset counts — start a fresh 30s window
+			fwCounts = map[string]int{}
+
 		case <-fwTicker.C:
-			// Push accumulated firewall summary
-			existing := opnsenseGetCached(ig.id, uiURL)
-			existing.FWEvents = nil
+			// Build fresh copy for FW events
+			var prev OPNsensePanelData
+			if p := opnsenseGetCached(ig.id, uiURL); p != nil {
+				prev = *p // copy by value
+			}
+			prev.FWEvents = nil
 			for key, count := range fwCounts {
 				parts := strings.SplitN(key, "|", 2)
 				action, label := parts[0], ""
 				if len(parts) == 2 {
 					label = parts[1]
 				}
-				existing.FWEvents = append(existing.FWEvents, OPNsenseFWEvent{
+				prev.FWEvents = append(prev.FWEvents, OPNsenseFWEvent{
 					Action: action,
 					Label:  label,
 					Count:  count,
 				})
 			}
-			cacheSet(ig.id, existing)
+			cacheSet(ig.id, &prev)
 
 		case <-slowTicker.C:
-			existing := opnsenseGetCached(ig.id, uiURL)
-			opnsenseFetchSlow(apiURL, apiKey, skipTLS, existing)
-			cacheSet(ig.id, existing)
+			var prev OPNsensePanelData
+			if p := opnsenseGetCached(ig.id, uiURL); p != nil {
+				prev = *p
+			}
+			opnsenseFetchSlow(apiURL, apiKey, skipTLS, &prev)
+			cacheSet(ig.id, &prev)
 			log.Printf("[OPNSENSE] slow data refreshed")
 		}
 	}

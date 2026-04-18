@@ -125,7 +125,7 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
       {[
         { label: 'Artists', value: data.artistCount },
         { label: 'Albums',  value: data.albumCount },
-        { label: 'Tracks',  value: data.onDiskCount.toLocaleString() },
+        { label: 'Tracks',  value: (data.onDiskCount ?? 0).toLocaleString() },
       ].map(s => (
         <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 4,
           padding: '2px 8px', borderRadius: 5, background: 'var(--surface2)',

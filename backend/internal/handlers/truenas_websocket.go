@@ -392,13 +392,17 @@ func tnHandleRealtime(integrationID string, fields json.RawMessage) {
 	}
 	if json.Unmarshal(fields, &rt) != nil { return }
 
-	existing := tnGetCached(integrationID)
+	// Copy by value so we never mutate the cached pointer
+	var fresh TrueNASPanelData
+	if p := tnGetCached(integrationID); p != nil {
+		fresh = *p
+	}
 
 	// CPU — aggregate entry is keyed as "cpu" inside the cpu object
 	if agg, ok := rt.CPU["cpu"]; ok {
-		existing.CPUPercent = agg.Usage
+		fresh.CPUPercent = agg.Usage
 		if agg.Temp != nil {
-			existing.CPUTempC = *agg.Temp
+			fresh.CPUTempC = *agg.Temp
 		}
 	}
 
@@ -407,20 +411,20 @@ func tnHandleRealtime(integrationID string, fields json.RawMessage) {
 		totalGB := float64(rt.Memory.PhysicalTotal) / 1073741824
 		availGB := float64(rt.Memory.PhysicalAvailable) / 1073741824
 		usedGB := totalGB - availGB
-		existing.RAMTotalGB = totalGB
-		existing.RAMUsedGB = usedGB
-		existing.RAMPercent = usedGB / totalGB * 100
+		fresh.RAMTotalGB = totalGB
+		fresh.RAMUsedGB = usedGB
+		fresh.RAMPercent = usedGB / totalGB * 100
 	}
 
 	// ARC
 	if rt.Memory.ARCSize > 0 {
-		existing.ARCUsedGB = float64(rt.Memory.ARCSize) / 1073741824
+		fresh.ARCUsedGB = float64(rt.Memory.ARCSize) / 1073741824
 	}
 
 	// Disk I/O
-	existing.DiskReadMBs = rt.Disks.ReadBytes / 1048576
-	existing.DiskWriteMBs = rt.Disks.WriteBytes / 1048576
-	existing.DiskBusy = rt.Disks.Busy
+	fresh.DiskReadMBs = rt.Disks.ReadBytes / 1048576
+	fresh.DiskWriteMBs = rt.Disks.WriteBytes / 1048576
+	fresh.DiskBusy = rt.Disks.Busy
 
 	// Network interfaces
 	var ifaces []TrueNASIface
@@ -432,9 +436,9 @@ func tnHandleRealtime(integrationID string, fields json.RawMessage) {
 			LinkUp: iface.LinkState == "LINK_STATE_UP",
 		})
 	}
-	existing.NetInterfaces = ifaces
+	fresh.NetInterfaces = ifaces
 
-	cacheSet(integrationID, existing)
+	cacheSet(integrationID, &fresh)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

@@ -87,7 +87,7 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
         onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
         onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
         <span style={{ color: 'var(--green)' }}>✓</span>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.logins.toLocaleString()}</span>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{(data.logins ?? 0).toLocaleString()}</span>
         <span style={{ color: 'var(--text-dim)' }}>logins</span>
       </a>
       <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login_failed` : '#'}
@@ -98,9 +98,9 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
           fontSize: 11, textDecoration: 'none', color: 'inherit' }}
         onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
         onMouseOut={e => e.currentTarget.style.borderColor = alerting ? 'var(--red)' : 'var(--border)'}>
-        <span style={{ color: data.failures > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
+        <span style={{ color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
         <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
-          color: data.failures > 0 ? 'var(--red)' : 'inherit' }}>{data.failures.toLocaleString()}</span>
+          color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'inherit' }}>{(data.failures ?? 0).toLocaleString()}</span>
         <span style={{ color: 'var(--text-dim)' }}>failed</span>
       </a>
       {data.activeSessions > 0 && (
@@ -143,7 +143,7 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
       <Summary />
       {hasFailures && (
         <>
-          {sectionTitle(`Failed logins (${data.recentFailures.length} shown)`)}
+          {sectionTitle(`Failed logins (${(data.recentFailures || []).length} shown)`)}
           <FailureList />
         </>
       )}
