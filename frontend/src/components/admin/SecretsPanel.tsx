@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SectionHelp from './SectionHelp'
 import { secretsApi, groupsApi, Secret } from '../../api'
 
 export default function SecretsPanel() {
@@ -56,6 +57,15 @@ export default function SecretsPanel() {
 
   return (
     <div>
+      <SectionHelp storageKey="secrets" title="About secrets">
+        Secrets store API keys and credentials used by integrations — safely encrypted at rest and
+        never exposed in full after saving. System secrets created here can be shared with groups,
+        making them available for use in any integration visible to those groups.
+        <br /><br />
+        <strong>How they connect:</strong> When you create an integration (Sonarr, Proxmox, TrueNAS, etc.),
+        you select a secret to authenticate with. This keeps credentials in one place — rotate a key
+        by updating the secret, and all integrations using it pick up the change automatically.
+      </SectionHelp>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter secrets..." style={{ fontSize: 13, flex: 1 }} />

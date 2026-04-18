@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SectionHelp from './SectionHelp'
 import { configApi, oauthTestApi, OAuthConfig } from '../../api'
 
 export default function OAuthConfigPanel() {
@@ -48,10 +49,18 @@ export default function OAuthConfigPanel() {
 
   return (
     <div style={{ maxWidth: 560 }}>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 0, marginBottom: 28, lineHeight: 1.7 }}>
-        Configure an OIDC provider (Authentik, Keycloak, etc.) for single sign-on.
-        The redirect URL must be registered in your OAuth application.
-      </p>
+      <SectionHelp storageKey="oauth_config" title="About OAuth / SSO">
+        OAuth lets your users log in with an existing identity provider instead of (or in addition to)
+        a local password. Stoa supports any OIDC-compatible provider — Authentik, Keycloak, Okta, Google, and others.
+        <br /><br />
+        <strong>Setting up in Authentik:</strong> Create a new OAuth2/OpenID Provider, set the redirect URI to
+        your Stoa URL + <code>/api/auth/oauth/callback</code>, then create an Application backed by that provider.
+        The Issuer URL is the provider's slug URL (e.g. <code>https://auth.example.com/application/o/stoa/</code>).
+        Copy the Client ID and Client Secret from the application's credentials tab.
+        <br /><br />
+        <strong>Redirect URL</strong> — enter this in the Allowed Redirect URIs field in your provider.
+        It must match exactly. If you access Stoa from multiple domains, register each one separately in your provider.
+      </SectionHelp>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <Field label="Issuer URL" hint="e.g. https://authentik.example.com/application/o/stoa/">

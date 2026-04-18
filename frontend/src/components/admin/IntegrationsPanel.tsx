@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { integrationsApi, secretsApi, groupsApi, Integration } from '../../api'
+import SectionHelp from './SectionHelp'
 
 const INTEGRATION_TYPES = [
   { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
@@ -94,6 +95,12 @@ export default function IntegrationsPanel() {
 
   return (
     <div>
+      <SectionHelp storageKey="integrations" title="About integrations">
+        Integrations connect Stoa to your services — Sonarr, Proxmox, TrueNAS, OPNsense, and more.
+        Each panel needs an integration to pull its data from. System integrations are created here by
+        admins and can be shared across multiple panels and groups. Users can also create personal
+        integrations from their profile for services only they use.
+      </SectionHelp>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter integrations..." style={{ fontSize: 13, flex: 1 }} />

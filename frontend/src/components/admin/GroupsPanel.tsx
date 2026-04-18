@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { groupsApi, usersApi, Group, User } from '../../api'
+import SectionHelp from './SectionHelp'
 
 export default function GroupsPanel() {
   const [groups, setGroups] = useState<Group[]>([])
@@ -54,6 +55,12 @@ export default function GroupsPanel() {
 
   return (
     <div>
+      <SectionHelp storageKey="groups" title="About groups">
+        Groups organize your users and control access to content. A panel shared with a group is visible
+        to every member of that group. The <strong>default group</strong> is special — new users are
+        automatically added to it, so any content shared with the default group is visible to everyone
+        by default. You can create as many groups as you need for different teams, roles, or households.
+      </SectionHelp>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter groups..." style={{ fontSize: 13, flex: 1 }} />

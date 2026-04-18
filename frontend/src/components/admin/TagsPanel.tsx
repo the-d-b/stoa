@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { tagsApi, Tag } from '../../api'
+import SectionHelp from './SectionHelp'
 
 const COLORS = [
   '#7c6fff','#a78bfa','#ec4899','#f87171',
@@ -44,6 +45,12 @@ export default function TagsPanel() {
 
   return (
     <div>
+      <SectionHelp storageKey="tags" title="About tags">
+        Tags are how users filter what appears on their dashboard. You assign tags to panels, and users
+        activate the tags they care about to show only relevant content. Tags are purely for organization
+        and filtering — they don't control access. Access is managed through groups. A panel can have
+        multiple tags, and a user can have multiple tags active at once.
+      </SectionHelp>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter tags..." style={{ fontSize: 13, flex: 1 }} />

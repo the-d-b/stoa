@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SectionHelp from '../components/admin/SectionHelp'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
@@ -406,6 +407,11 @@ function PanelsOrderTab() {
   return (
     <div>
       {/* Portico selector */}
+      <SectionHelp storageKey="profile_panels_order" title="Panel order">
+        Drag panels up and down to change the order they appear on your dashboard.
+        If you have multiple porticos, each one has its own independent panel order.
+        Your layout is personal — reordering doesn't affect other users.
+      </SectionHelp>
       <div style={{ marginBottom: 20 }}>
         <div className="section-title" style={{ marginBottom: 10 }}>Ordering for portico</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -577,6 +583,12 @@ function PorticosTab() {
 
   return (
     <div>
+      <SectionHelp storageKey="profile_porticos" title="Porticos">
+        Porticos are named views of your dashboard — like tabs or saved filter presets.
+        Each portico can have its own set of active tags, so switching porticos instantly
+        changes which panels are visible. Create a portico for work, home, media, or any
+        context you switch between regularly. You can drag to reorder them.
+      </SectionHelp>
       <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
         <button className="btn btn-primary" style={{ fontSize: 12 }}
           onClick={() => setShowForm(f => !f)}>+ New portico</button>
@@ -810,6 +822,11 @@ function SecretsTab() {
   return (
     <div>
       {/* Search */}
+      <SectionHelp storageKey="profile_secrets" title="API keys & secrets">
+        Secrets store API keys and credentials for your personal integrations. They're
+        encrypted at rest and never exposed in the UI after saving. Give each secret a
+        descriptive name so you can tell them apart when connecting integrations.
+      </SectionHelp>
       <div style={{ marginBottom: 16 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter secrets..." style={{ fontSize: 13 }} />
@@ -991,9 +1008,11 @@ function GlyphsTab() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Glyphs appear in the header and footer. Each user configures their own.
-        </p>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 480 }}>
+          Glyphs are small status indicators that float on the edge of your dashboard — always visible
+          regardless of which panels are shown. Use them for at-a-glance status: Kuma uptime, weather,
+          server health, or a clock. Each glyph can be positioned independently around the dashboard border.
+        </div>
         <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
           onClick={() => setShowForm(f => !f)}>+ Add glyph</button>
       </div>
@@ -1671,9 +1690,12 @@ function TickersTab() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
-          Tickers display live market data in a strip above the header or above the footer.
-        </p>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 480 }}>
+          Tickers scroll live data across a strip at the top or bottom of your dashboard —
+          stock prices, crypto, sports scores, or custom feeds. Each ticker can show multiple
+          symbols and updates on a configurable interval. Add as many tickers as you need;
+          they stack if you have more than one zone active.
+        </div>
         <button className="btn btn-primary" style={{ flexShrink: 0, marginLeft: 16 }}
           onClick={() => setShowForm(f => !f)}>+ Add ticker</button>
       </div>
@@ -2038,9 +2060,13 @@ function PersonalIntegrationsTab() {
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px 0', lineHeight: 1.7 }}>
-        Personal integrations are only visible to you. Shared integrations are managed by your admin.
-      </p>
+      <SectionHelp storageKey="profile_integrations" title="My integrations">
+        Personal integrations connect your private services — things only you use that don't
+        need to be shared with the whole team. They work identically to system integrations
+        but are visible only to you. You can use personal integrations to back personal panels
+        from the My Panels tab. Shared integrations configured by your admin also appear here
+        for reference but can only be edited from the admin screen.
+      </SectionHelp>
 
       {/* Search */}
       <div style={{ marginBottom: 12 }}>
@@ -2438,9 +2464,13 @@ function PersonalTagsTab() {
 
   return (
     <div>
-      <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 16px', lineHeight: 1.7 }}>
-        Personal tags are only visible to you. Use them to filter and organize your personal panels.
-      </p>
+      <SectionHelp storageKey="profile_tags" title="My tags">
+        Personal tags are only visible to you — they don't affect other users. Use them to
+        add your own filtering layer on top of system tags. For example, you might tag panels
+        by project, priority, or context so you can quickly filter to what's relevant right now.
+        Personal tags work the same way as system tags: activate them on the dashboard to filter
+        which panels are shown.
+      </SectionHelp>
 
       {/* Shared tags — read only display */}
       {/* Search */}
@@ -2688,6 +2718,12 @@ function MyPanelsTab() {
   return (
     <div>
       {/* Search only at top */}
+      <SectionHelp storageKey="profile_mypanels" title="My panels">
+        Personal panels are visible only to you and don't appear in the system panel list.
+        Use them for services or integrations that are just for you — personal Sonarr, a
+        private calendar, or anything else you don't want to share. System panels (shared
+        by your admin) are shown here for reference but can't be edited from this screen.
+      </SectionHelp>
       <div style={{ marginBottom: 16 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter panels..." style={{ fontSize: 13 }} />

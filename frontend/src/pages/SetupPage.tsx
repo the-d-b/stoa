@@ -8,6 +8,7 @@ interface Props { onComplete: () => void }
 type Step =
   | 'welcome'
   | 'mode'
+  | 'multiintro'
   | 'admin'
   | 'auth_mode'
   | 'oauth'
@@ -40,7 +41,7 @@ export default function SetupPage({ onComplete }: Props) {
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
 
-  const multiSteps: Step[] = ['welcome','mode','admin','oauth','tags','groups']
+  const multiSteps: Step[] = ['welcome','mode','multiintro','admin','oauth','tags','groups']
   const singleSteps: Step[] = ['welcome','mode','admin','auth_mode']
   const stepsForMode = userMode === 'single' ? singleSteps : multiSteps
   const stepIndex = stepsForMode.indexOf(step)
@@ -190,17 +191,66 @@ export default function SetupPage({ onComplete }: Props) {
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>Deployment mode</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Choose how Stoa will be used. This affects which features are shown.
+                Choose how Stoa will be used. Changing this later may be technically possible but is experimental — you may lose access to some data in the process. Take a moment to feel confident in your choice before continuing.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
                 <ModeOption value="single" label="Single user"
-                  desc="Just you. No group management or shared content sections. Optionally disable the login screen." />
+                  desc="Just you. One account, full control. No logins for others, no group management. Optionally skip the login screen entirely. Perfect for a personal homelab dashboard." />
                 <ModeOption value="multi" label="Multi user"
-                  desc="Multiple users with OAuth and/or local accounts. Full admin controls, groups, shared panels and integrations." />
+                  desc="Multiple people with their own accounts. Share panels with groups, let users personalize their layout, and control what each person sees. Supports local accounts and OAuth/SSO." />
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('welcome')}>Back</button>
-                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('admin')}>Next →</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep(userMode === 'multi' ? 'multiintro' : 'admin')}>Next →</button>
+              </div>
+            </div>
+          )}
+
+          {step === 'multiintro' && (
+            <div>
+              <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>How multi-user works</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
+                Stoa's multi-user model is built around four concepts that work together.
+                Understanding them now will make configuration straightforward.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 24 }}>
+                {[
+                  {
+                    icon: '👤',
+                    title: 'Users',
+                    body: 'Each person gets their own login. Users can be admins (full control) or regular users (personal customization within shared content). Local accounts and OAuth/SSO are both supported.',
+                  },
+                  {
+                    icon: '👥',
+                    title: 'Groups',
+                    body: 'Users belong to groups. Groups are how you control access — a panel shared with a group is visible to every member. The default group is automatically assigned to new users.',
+                  },
+                  {
+                    icon: '🏷️',
+                    title: 'Tags',
+                    body: 'Tags let users filter what appears on their dashboard. You assign tags to panels, then users activate the tags they care about. Tags are for organization and filtering, not access control.',
+                  },
+                  {
+                    icon: '📦',
+                    title: 'Panels & integrations',
+                    body: 'Panels are the widgets on the dashboard. System panels are created by admins and shared with groups. Each panel connects to a service via an integration. Users can also add their own personal panels.',
+                  },
+                ].map(({ icon, title, body }) => (
+                  <div key={title} style={{
+                    display: 'flex', gap: 12, padding: '12px 14px', borderRadius: 10,
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                  }}>
+                    <span style={{ fontSize: 20, flexShrink: 0, marginTop: 1 }}>{icon}</span>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 3 }}>{title}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>{body}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('mode')}>Back</button>
+                <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('admin')}>Got it →</button>
               </div>
             </div>
           )}

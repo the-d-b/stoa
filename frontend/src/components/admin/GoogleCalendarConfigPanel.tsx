@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import SectionHelp from './SectionHelp'
 import { googleApi } from '../../api'
 
 // ── Admin: Google Calendar Config ─────────────────────────────────────────────
@@ -45,6 +46,20 @@ export default function GoogleCalendarConfigPanel() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600 }}>
+
+      <SectionHelp storageKey="google_cal_config" title="About Google Calendar">
+        Google Calendar integration lets you display calendar events as a panel on your dashboard —
+        upcoming meetings, reminders, and appointments shown alongside your other services.
+        <br /><br />
+        <strong>Setup is two steps:</strong> First, enter your Google Cloud OAuth credentials here (one-time setup,
+        shared across all accounts). Then connect one or more Google accounts — each account can expose
+        multiple calendars which you can add as panel sources from the Panels admin screen.
+        <br /><br />
+        <strong>To get credentials:</strong> Go to Google Cloud Console → APIs &amp; Services → Credentials →
+        Create OAuth 2.0 Client ID. Set the application type to "Web application" and add your Stoa URL +
+        <code>/api/google/callback</code> as an authorized redirect URI. Enable the Google Calendar API
+        in the APIs &amp; Services library.
+      </SectionHelp>
 
       {/* ── App credentials ──────────────────────────────────────────────── */}
       <div>

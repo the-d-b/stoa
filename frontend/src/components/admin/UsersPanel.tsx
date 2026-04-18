@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { usersApi, User } from '../../api'
 import { useAuth } from '../../context/AuthContext'
+import SectionHelp from './SectionHelp'
 
 export default function UsersPanel() {
   const [users, setUsers] = useState<User[]>([])
@@ -83,6 +84,12 @@ export default function UsersPanel() {
 
   return (
     <div>
+      <SectionHelp storageKey="users" title="About users">
+        Users can be <strong>admins</strong> (full access to all settings and content) or <strong>regular users</strong> (can
+        personalize their own experience within what's been shared with them). Every user gets their own
+        login, their own panel layout, and can add personal integrations. Local accounts always work
+        regardless of OAuth configuration — useful as a fallback if SSO is misconfigured.
+      </SectionHelp>
       <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter users..." style={{ fontSize: 13, flex: 1 }} />

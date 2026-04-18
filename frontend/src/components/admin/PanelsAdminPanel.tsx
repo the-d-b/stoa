@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode , googleApi } from '../../api'
+import SectionHelp from './SectionHelp'
 
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
@@ -89,6 +90,12 @@ export default function PanelsAdminPanel() {
 
   return (
     <div>
+      <SectionHelp storageKey="panels" title="About panels">
+        Panels are the widgets on your dashboard — Sonarr queues, server stats, bookmarks, media info, and more.
+        System panels created here are shared with groups, making them visible to all group members.
+        Each panel connects to an integration for its data, and can have tags assigned for filtering.
+        Users can also add personal panels from their profile for content only they need to see.
+      </SectionHelp>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
           Panels appear on the dashboard. Each panel points to a node in the bookmark tree.
