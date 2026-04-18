@@ -28,9 +28,9 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 		}
 		defer rows.Close()
 
-		porticos := []models.Wall{}
+		porticos := []models.Portico{}
 		for rows.Next() {
-			var p models.Wall
+			var p models.Portico
 			rows.Scan(&p.ID, &p.UserID, &p.Name, &p.IsDefault, &p.Layout, &p.ColumnCount, &p.ColumnHeight, &p.CreatedAt)
 			// Load tag states
 			tagRows, _ := db.Query(`
@@ -38,7 +38,7 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 			`, p.ID)
 			if tagRows != nil {
 				for tagRows.Next() {
-					var wt models.WallTag
+					var wt models.PorticoTag
 					tagRows.Scan(&wt.TagID, &wt.Active)
 					p.Tags = append(p.Tags, wt)
 				}
@@ -70,7 +70,7 @@ func CreatePortico(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to create portico")
 			return
 		}
-		writeJSON(w, http.StatusCreated, models.Wall{
+		writeJSON(w, http.StatusCreated, models.Portico{
 			ID: id, UserID: claims.UserID, Name: req.Name,
 			IsDefault: req.IsDefault, CreatedAt: time.Now(),
 		})

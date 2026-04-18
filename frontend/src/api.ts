@@ -394,9 +394,9 @@ export interface Panel {
 }
 
 export const panelsApi = {
-  list: (wallId?: string, scope?: string) => {
+  list: (porticoId?: string, scope?: string) => {
     const params = new URLSearchParams()
-    if (wallId) params.set('wall_id', wallId)
+    if (porticoId) params.set('wall_id', porticoId)
     if (scope) params.set('scope', scope)
     const qs = params.toString()
     return api.get<Panel[]>('/panels' + (qs ? '?' + qs : ''))
@@ -408,11 +408,11 @@ export const panelsApi = {
   delete: (id: string) => api.delete(`/panels/${id}`),
   addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
   removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
-  updateOrder: (wallId: string | null, order: { panelId: string; position: number }[]) =>
-    api.put('/panels/order', { porticoId: wallId ?? null, order }),
+  updateOrder: (porticoId: string | null, order: { panelId: string; position: number }[]) =>
+    api.put('/panels/order', { porticoId: porticoId ?? null, order }),
 }
 
-// ── Personal Panel Walls ─────────────────────────────────────────────────────
+// ── Personal Panel Porticos ─────────────────────────────────────────────────
 
 export const personalPanelPorticosApi = {
   get: (panelId: string) => api.get<string[]>(`/panels/${panelId}/porticos`),
@@ -421,14 +421,14 @@ export const personalPanelPorticosApi = {
 
 // ── Porticos ───────────────────────────────────────────────────────────────────
 
-export interface WallTag {
+export interface PorticoTag {
   tagId: string
   name: string
   color: string
   active: boolean
 }
 
-export interface Wall {
+export interface Portico {
   id: string
   userId: string
   name: string
@@ -437,12 +437,12 @@ export interface Wall {
   columnCount: number
   columnHeight: number
   createdAt: string
-  tags: WallTag[]
+  tags: PorticoTag[]
 }
 
 export const porticosApi = {
-  list: () => api.get<Wall[]>('/porticos'),
-  create: (name: string, isDefault?: boolean) => api.post<Wall>('/porticos', { name, isDefault }),
+  list: () => api.get<Portico[]>('/porticos'),
+  create: (name: string, isDefault?: boolean) => api.post<Portico>('/porticos', { name, isDefault }),
   delete: (id: string) => api.delete(`/porticos/${id}`),
   updateOrder: (order: { porticoId: string; position: number }[]) => api.put('/porticos/order', order),
   update: (id: string, data: { name?: string; layout?: string; columnCount?: number; columnHeight?: number }) =>

@@ -5,7 +5,7 @@ import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, Integration, Ticker, Glyph, Secret, Panel, Wall, Tag } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
@@ -124,7 +124,7 @@ export default function ProfilePage() {
         {tab === 'mypanels'      && <MyPanelsTab />}
         {tab === 'glyphs'        && <GlyphsTab />}
         {tab === 'tickers'       && <TickersTab />}
-        {tab === 'porticos'      && <WallsTab />}
+        {tab === 'porticos'      && <PorticosTab />}
         {tab === 'panels'        && <PanelsOrderTab />}
       </div>
     </div>
@@ -310,27 +310,27 @@ function BookmarksTab() {
 
 function PanelsOrderTab() {
   const [panels, setPanels]     = useState<Panel[]>([])
-  const [walls, setWalls]       = useState<Wall[]>([])
-  const [selectedWall, setSelectedWall] = useState<string>('home')
+  const [porticos, setPorticos] = useState<Portico[]>([])
+  const [selectedPortico, setSelectedPortico] = useState<string>('home')
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
   const [dragging, setDragging] = useState<number | null>(null)
   const [dragOver, setDragOver] = useState<number | null>(null)
 
-  const loadPanels = async (wallId?: string) => {
-    const porticoId = wallId && wallId !== 'home' ? wallId : undefined
-    const sys = await panelsApi.list(porticoId)
+  const loadPanels = async (porticoId?: string) => {
+    const resolvedPorticoId = porticoId && porticoId !== 'home' ? porticoId : undefined
+    const sys = await panelsApi.list(resolvedPorticoId)
     const merged = sys.data || []
 
     if (porticoId) {
       // Filter to panels visible on this portico by tag
-      const wall = walls.find(w => w.id === porticoId)
-      if (wall) {
-        const wallTagIds = new Set((wall.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId))
+      const portico = porticos.find(w => w.id === resolvedPorticoId)
+      if (portico) {
+        const porticoTagIds = new Set((portico.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId))
         const filtered = merged.filter((p: Panel) => {
           if (!p.tags || p.tags.length === 0) return true
-          return p.tags.some((t: any) => wallTagIds.has(t.id))
+          return p.tags.some((t: any) => porticoTagIds.has(t.id))
         })
         // Sort by saved position
         filtered.sort((a, b) => {
@@ -363,14 +363,14 @@ function PanelsOrderTab() {
         return 0
       })
       setPanels(merged)
-      setWalls(w.data || [])
+      setPorticos(w.data || [])
     }).finally(() => setLoading(false))
   }, [])
 
-  const handleWallSelect = async (wallId: string) => {
-    setSelectedWall(wallId)
+  const handlePorticoSelect = async (porticoId: string) => {
+    setSelectedPortico(porticoId)
     setLoading(true)
-    await loadPanels(wallId)
+    await loadPanels(porticoId)
     setLoading(false)
   }
 
@@ -391,9 +391,9 @@ function PanelsOrderTab() {
   const saveOrder = async () => {
     setSaving(true)
     try {
-      const wallId = selectedWall !== 'home' ? selectedWall : null
+      const porticoId = selectedPortico !== 'home' ? selectedPortico : null
       const order = panels.map((p, i) => ({ panelId: p.id, position: i + 1 }))
-      await panelsApi.updateOrder(wallId, order)
+      await panelsApi.updateOrder(porticoId, order)
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
   }
@@ -405,15 +405,15 @@ function PanelsOrderTab() {
 
   return (
     <div>
-      {/* Wall selector */}
+      {/* Portico selector */}
       <div style={{ marginBottom: 20 }}>
         <div className="section-title" style={{ marginBottom: 10 }}>Ordering for portico</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {(['home', ...walls.map(w => w.id)] as string[]).map(wid => {
-            const label = wid === 'home' ? 'Home' : walls.find(w => w.id === wid)?.name || wid
-            const active = selectedWall === wid
+          {(['home', ...porticos.map(w => w.id)] as string[]).map(wid => {
+            const label = wid === 'home' ? 'Home' : porticos.find(w => w.id === wid)?.name || wid
+            const active = selectedPortico === wid
             return (
-              <button key={wid} onClick={() => handleWallSelect(wid)} style={{
+              <button key={wid} onClick={() => handlePorticoSelect(wid)} style={{
                 padding: '5px 14px', borderRadius: 8, cursor: 'pointer',
                 background: active ? 'var(--accent-bg)' : 'var(--surface2)',
                 color: active ? 'var(--accent2)' : 'var(--text-muted)',
@@ -483,7 +483,7 @@ function PanelsOrderTab() {
               <button onClick={async () => {
                 if (!confirm(`Delete "${panel.title}"?`)) return
                 await myPanelsApi.delete(panel.id)
-                await loadPanels(selectedWall)
+                await loadPanels(selectedPortico)
               }} style={{
                 background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--red)', fontSize: 11, opacity: 0.5, padding: '0 4px',
@@ -501,10 +501,10 @@ function PanelsOrderTab() {
   )
 }
 
-// ── Walls ─────────────────────────────────────────────────────────────────────
+// ── Porticos ─────────────────────────────────────────────────────────────────
 
-function WallsTab() {
-  const [walls, setWalls] = useState<Wall[]>([])
+function PorticosTab() {
+  const [porticos, setPorticos] = useState<Portico[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -520,7 +520,7 @@ function WallsTab() {
 
   const load = async () => {
     const [w, sysT] = await Promise.all([porticosApi.list(), tagsApi.list()])
-    setWalls(w.data || [])
+    setPorticos(w.data || [])
     setAllTags(sysT.data || [])
   }
 
@@ -549,28 +549,28 @@ function WallsTab() {
   const handleDragOver  = (e: React.DragEvent, i: number) => { e.preventDefault(); setDragOver(i) }
   const handleDrop = (i: number) => {
     if (dragging === null || dragging === i) { setDragging(null); setDragOver(null); return }
-    const next = [...walls]
+    const next = [...porticos]
     const [moved] = next.splice(dragging, 1)
     next.splice(i, 0, moved)
-    setWalls(next)
+    setPorticos(next)
     setDragging(null); setDragOver(null)
   }
 
-  const moveUp   = (i: number) => { if (i === 0) return; const n = [...walls]; [n[i-1], n[i]] = [n[i], n[i-1]]; setWalls(n) }
-  const moveDown = (i: number) => { if (i === walls.length - 1) return; const n = [...walls]; [n[i], n[i+1]] = [n[i+1], n[i]]; setWalls(n) }
+  const moveUp   = (i: number) => { if (i === 0) return; const n = [...porticos]; [n[i-1], n[i]] = [n[i], n[i-1]]; setPorticos(n) }
+  const moveDown = (i: number) => { if (i === porticos.length - 1) return; const n = [...porticos]; [n[i], n[i+1]] = [n[i+1], n[i]]; setPorticos(n) }
 
   const saveOrder = async () => {
     setSaving(true)
     try {
-      await porticosApi.updateOrder(walls.map((w, i) => ({ porticoId: w.id, position: i + 1 })))
+      await porticosApi.updateOrder(porticos.map((w, i) => ({ porticoId: w.id, position: i + 1 })))
       setSaved(true); setTimeout(() => setSaved(false), 2000)
     } finally { setSaving(false) }
   }
 
-  const deleteWall = async (wall: Wall) => {
-    if (!confirm(`Delete portico "${wall.name}"?`)) return
-    await porticosApi.delete(wall.id)
-    setWalls(w => w.filter(x => x.id !== wall.id))
+  const deletePortico = async (portico: Portico) => {
+    if (!confirm(`Delete portico "${portico.name}"?`)) return
+    await porticosApi.delete(portico.id)
+    setPorticos(w => w.filter(x => x.id !== portico.id))
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
@@ -618,14 +618,14 @@ function WallsTab() {
         <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>fixed</span>
       </div>
 
-      {/* User walls - draggable */}
+      {/* User porticos - draggable */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {walls.map((wall, i) => (
-          <div key={wall.id}
+        {porticos.map((portico, i) => (
+          <div key={portico.id}
             style={{
               borderRadius: 8, overflow: 'hidden',
               background: dragOver === i ? 'var(--accent-bg)' : 'var(--surface)',
-              border: `1px solid ${expandedId === wall.id ? 'var(--border2)' : dragOver === i ? 'var(--accent)' : 'var(--border)'}`,
+              border: `1px solid ${expandedId === portico.id ? 'var(--border2)' : dragOver === i ? 'var(--accent)' : 'var(--border)'}`,
               transition: 'all 0.1s', opacity: dragging === i ? 0.4 : 1,
               marginBottom: 4,
             }}>
@@ -637,29 +637,29 @@ function WallsTab() {
               style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'grab' }}>
             <span style={{ color: 'var(--text-dim)', fontSize: 14, userSelect: 'none' }}>⠿</span>
             <div style={{ flex: 1 }}>
-              {renamingId === wall.id ? (
+              {renamingId === portico.id ? (
                 <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                   <input className="input" value={editName} onChange={e => setEditName(e.target.value)}
                     style={{ fontSize: 12, flex: 1 }} autoFocus
-                    onKeyDown={e => { if (e.key === 'Enter') rename(wall.id); if (e.key === 'Escape') setRenamingId(null) }} />
-                  <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => rename(wall.id)}>Save</button>
+                    onKeyDown={e => { if (e.key === 'Enter') rename(portico.id); if (e.key === 'Escape') setRenamingId(null) }} />
+                  <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={() => rename(portico.id)}>Save</button>
                   <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setRenamingId(null)}>Cancel</button>
                 </div>
               ) : (
-                <div style={{ fontSize: 13, fontWeight: 500 }}>{wall.name}</div>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{portico.name}</div>
               )}
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1 }}>
-                {(wall.tags || []).filter(t => t.active).length} active tag{(wall.tags || []).filter(t => t.active).length !== 1 ? 's' : ''}
+                {(portico.tags || []).filter(t => t.active).length} active tag{(portico.tags || []).filter(t => t.active).length !== 1 ? 's' : ''}
               </div>
             </div>
             {/* Layout controls */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
               <select
-                value={wall.layout || 'columns'}
+                value={portico.layout || 'columns'}
                 onChange={async e => {
-                  await porticosApi.update(wall.id, { layout: e.target.value })
+                  await porticosApi.update(portico.id, { layout: e.target.value })
                   const updated = await porticosApi.list()
-                  setWalls(updated.data || [])
+                  setPorticos(updated.data || [])
                 }}
                 style={{
                   fontSize: 11, padding: '2px 6px', borderRadius: 5,
@@ -669,13 +669,13 @@ function WallsTab() {
                 <option value="columns">Columns</option>
                 <option value="flow">Flow</option>
               </select>
-              {wall.layout !== 'flow' && (
+              {portico.layout !== 'flow' && (
                 <select
-                  value={wall.columnCount || 3}
+                  value={portico.columnCount || 3}
                   onChange={async e => {
-                    await porticosApi.update(wall.id, { columnCount: Number(e.target.value) })
+                    await porticosApi.update(portico.id, { columnCount: Number(e.target.value) })
                     const updated = await porticosApi.list()
-                    setWalls(updated.data || [])
+                    setPorticos(updated.data || [])
                   }}
                   style={{
                     fontSize: 11, padding: '2px 6px', borderRadius: 5,
@@ -693,28 +693,28 @@ function WallsTab() {
                 color: 'var(--text-muted)', fontSize: 10, padding: '0 4px',
                 opacity: i === 0 ? 0.2 : 0.6, lineHeight: 1,
               }}>▲</button>
-              <button onClick={() => moveDown(i)} disabled={i === walls.length - 1} style={{
-                background: 'none', border: 'none', cursor: i === walls.length - 1 ? 'default' : 'pointer',
+              <button onClick={() => moveDown(i)} disabled={i === porticos.length - 1} style={{
+                background: 'none', border: 'none', cursor: i === porticos.length - 1 ? 'default' : 'pointer',
                 color: 'var(--text-muted)', fontSize: 10, padding: '0 4px',
-                opacity: i === walls.length - 1 ? 0.2 : 0.6, lineHeight: 1,
+                opacity: i === porticos.length - 1 ? 0.2 : 0.6, lineHeight: 1,
               }}>▼</button>
             </div>
-            <button onClick={e => { e.stopPropagation(); setRenamingId(wall.id); setEditName(wall.name) }}
+            <button onClick={e => { e.stopPropagation(); setRenamingId(portico.id); setEditName(portico.name) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Rename">✎</button>
-            <button onClick={e => { e.stopPropagation(); setExpandedId(expandedId === wall.id ? null : wall.id) }}
+            <button onClick={e => { e.stopPropagation(); setExpandedId(expandedId === portico.id ? null : portico.id) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer',
-                color: expandedId === wall.id ? 'var(--accent2)' : 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
+                color: expandedId === portico.id ? 'var(--accent2)' : 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Edit tags">◉</button>
-            <button onClick={() => deleteWall(wall)} style={{
+            <button onClick={() => deletePortico(portico)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
               color: 'var(--red)', fontSize: 11, opacity: 0.5, padding: '0 4px',
             }}
               onMouseOver={e => e.currentTarget.style.opacity = '1'}
               onMouseOut={e => e.currentTarget.style.opacity = '0.5'}>✕</button>
           </div>
-          {expandedId === wall.id && (
+          {expandedId === portico.id && (
             <div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px' }}>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 8 }}>
                 Active tags — panels matching these tags appear on this portico
@@ -722,11 +722,11 @@ function WallsTab() {
               {allTags.length > 0 ? (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {allTags.map(t => {
-                    const wallTag = (wall.tags || []).find((wt: any) => wt.tagId === t.id)
-                    const active = wallTag?.active ?? false
+                    const porticoTag = (portico.tags || []).find((wt: any) => wt.tagId === t.id)
+                    const active = porticoTag?.active ?? false
                     return (
                       <button key={t.id} onClick={async () => {
-                        await porticosApi.setTagActive(wall.id, t.id, !active)
+                        await porticosApi.setTagActive(portico.id, t.id, !active)
                         await load()
                       }} style={{
                         padding: '3px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
@@ -751,7 +751,7 @@ function WallsTab() {
           )}
         </div>
         ))}
-        {walls.length === 0 && (
+        {porticos.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>
             No porticos yet. Click "+ New portico" to create one, then assign tags to control which panels appear.
           </div>
@@ -1635,7 +1635,7 @@ function TickersTab() {
   const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
-  const [porticos, setPorticos] = useState<Wall[]>([])
+  const [porticos, setPorticos] = useState<Portico[]>([])
   const load = async () => {
     const [t, sysS, myS, p] = await Promise.all([tickersApi.list(), secretsApi.list(), mySecretsApi.list(), porticosApi.list()])
     const s = { data: [...(sysS.data || []), ...(myS.data || [])] }
@@ -1726,7 +1726,7 @@ function TickersTab() {
 }
 
 function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave, onSecretCreated }: {
-  ticker: Ticker; secrets: any[]; porticos: Wall[]; editing: boolean
+  ticker: Ticker; secrets: any[]; porticos: Portico[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: () => void
   onSecretCreated: (secret: any) => void

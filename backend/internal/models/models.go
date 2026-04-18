@@ -120,7 +120,7 @@ type CreatePanelRequest struct {
 
 // ── Walls ─────────────────────────────────────────────────────────────────────
 
-type Wall struct {
+type Portico struct {
 	ID           string    `json:"id"`
 	UserID       string    `json:"userId"`
 	Name         string    `json:"name"`
@@ -129,10 +129,10 @@ type Wall struct {
 	ColumnCount  int       `json:"columnCount"`
 	ColumnHeight int       `json:"columnHeight"`
 	CreatedAt    time.Time `json:"createdAt"`
-	Tags         []WallTag `json:"tags,omitempty"`
+	Tags         []PorticoTag `json:"tags,omitempty"`
 }
 
-type WallTag struct {
+type PorticoTag struct {
 	TagID  string `json:"tagId"`
 	Name   string `json:"name"`
 	Color  string `json:"color"`

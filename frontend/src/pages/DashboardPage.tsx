@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Wall, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Portico, Tag, BookmarkNode } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
@@ -23,19 +23,19 @@ import SearchModal from '../components/SearchModal'
 export default function DashboardPage() {
   const { isAdmin } = useAuth()
   const [panels, setPanels] = useState<Panel[]>([])
-  const [walls, setWalls] = useState<Wall[]>([])
+  const [porticos, setPorticos] = useState<Portico[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [subtrees, setSubtrees] = useState<Record<string, BookmarkNode>>({})
-  const [activeWallId, setActiveWallId] = useState<string>('home')
+  const [activePorticoId, setActivePorticoId] = useState<string>('home')
   const [activeTags, setActiveTags] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const [savingWall, setSavingWall] = useState(false)
-  const [newWallName, setNewWallName] = useState('')
-  const [showSaveWall, setShowSaveWall] = useState(false)
+  const [savingPortico, setSavingPortico] = useState(false)
+  const [newPorticoName, setNewPorticoName] = useState('')
+  const [showSavePortico, setShowSavePortico] = useState(false)
   const [showTagFilter, setShowTagFilter] = useState(false) // mobile toggle
   const [density, setDensity] = useState('normal')
-  const [activePortico, setActivePortico] = useState<Wall | null>(null)
+  const [activePortico, setActivePortico] = useState<Portico | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -51,11 +51,11 @@ export default function DashboardPage() {
           setDensity(prefs.data.density || 'normal')
         } catch {}
         const panelData: Panel[] = p.data || []
-        const wallData: Wall[] = w.data || []
+        const wallData: Portico[] = w.data || []
         const tagData: Tag[] = t.data || []
 
         setPanels(panelData)
-        setWalls(wallData)
+        setPorticos(wallData)
         setAllTags(tagData)
         setActiveTags(tagData.map((tag: Tag) => tag.id))
         sessionStorage.setItem('active_portico', 'home')
@@ -111,12 +111,12 @@ export default function DashboardPage() {
   const visiblePanels = activeTags === null ? panels : panels.filter(panel => {
     // Personal panels: check wall assignment
     if (panel.scope === 'personal') {
-      if (activeWallId === 'home' || activeWallId === '') return true
+      if (activePorticoId === 'home' || activePorticoId === '') return true
       // Check if user has assigned this personal panel to this wall
       // We use panel config to store wall assignments for simplicity
       const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
       const assignedWalls: string[] = config.assignedWalls || []
-      return assignedWalls.includes(activeWallId)
+      return assignedWalls.includes(activePorticoId)
     }
     if (!panel.tags || panel.tags.length === 0) return true
     return panel.tags.some(t => activeTags.includes(t.id))
@@ -127,12 +127,12 @@ export default function DashboardPage() {
       const current = prev ?? allTags.map(t => t.id)
       return current.includes(tagId) ? current.filter(id => id !== tagId) : [...current, tagId]
     })
-    setActiveWallId('')
+    setActivePorticoId('')
   }
 
-  const selectWall = async (wall: Wall | 'home') => {
+  const selectWall = async (wall: Portico | 'home') => {
     if (wall === 'home') {
-      setActiveWallId('home')
+      setActivePorticoId('home')
       setActivePortico(null)
       sessionStorage.setItem('active_portico', 'home')
       window.dispatchEvent(new CustomEvent('portico-change', { detail: 'home' }))
@@ -143,7 +143,7 @@ export default function DashboardPage() {
         setPanels(sysRes.data || [])
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     } else {
-      setActiveWallId(wall.id)
+      setActivePorticoId(wall.id)
       setActivePortico(wall)
       sessionStorage.setItem('active_portico', wall.id)
       window.dispatchEvent(new CustomEvent('portico-change', { detail: wall.id }))
@@ -156,12 +156,12 @@ export default function DashboardPage() {
     }
   }
 
-  const saveWall = async () => {
-    if (!newWallName.trim()) return
-    setSavingWall(true)
+  const savePortico = async () => {
+    if (!newPorticoName.trim()) return
+    setSavingPortico(true)
     try {
       // Create the portico
-      const res = await porticosApi.create(newWallName.trim(), false)
+      const res = await porticosApi.create(newPorticoName.trim(), false)
       const wall = res.data
 
       // Save current active tags to this portico
@@ -172,13 +172,13 @@ export default function DashboardPage() {
 
       // Reload portico list then switch to the new one
       const updated = await porticosApi.list()
-      setWalls(updated.data)
+      setPorticos(updated.data)
 
       // Apply the new portico's filter (same as current active tags)
-      setActiveWallId(wall.id)
+      setActivePorticoId(wall.id)
       setActiveTags(currentActive)
-      setShowSaveWall(false)
-      setNewWallName('')
+      setShowSavePortico(false)
+      setNewPorticoName('')
 
       // Reload panels with new portico ordering context
       const sysPanels = await panelsApi.list(wall.id)
@@ -187,11 +187,11 @@ export default function DashboardPage() {
       console.error('[Dashboard] failed to save portico:', e)
       alert('Failed to save portico. Check console for details.')
     } finally {
-      setSavingWall(false)
+      setSavingPortico(false)
     }
   }
 
-  const isUnsaved = activeWallId === '' || (!['home'].includes(activeWallId) && !walls.find(w => w.id === activeWallId))
+  const isUnsaved = activePorticoId === '' || (!['home'].includes(activePorticoId) && !porticos.find(w => w.id === activePorticoId))
 
   // Flatten all visible panel bookmark nodes for search
   const searchNodes: BookmarkNode[] = []
@@ -235,7 +235,7 @@ export default function DashboardPage() {
       <div style={{ flex: 1, minWidth: 0 }}>
 
         {/* Mobile filter toggle - only on Home or unsaved */}
-        {(activeWallId === 'home' || activeWallId === '') && (
+        {(activePorticoId === 'home' || activePorticoId === '') && (
         <div className="mobile-only" style={{ justifyContent: 'flex-end', marginBottom: 8 }}>
           <button
             className="btn btn-ghost"
@@ -257,46 +257,46 @@ export default function DashboardPage() {
               allTags={allTags}
               activeTags={activeTags}
               onToggle={toggleTag}
-              onAll={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}
-              onNone={() => { setActiveTags([]); setActiveWallId('') }}
+              onAll={() => { setActiveTags(allTags.map(t => t.id)); setActivePorticoId('home') }}
+              onNone={() => { setActiveTags([]); setActivePorticoId('') }}
             />
           </div>
         )}
 
-        {/* Wall tabs */}
+        {/* Portico tabs */}
         <div className="portico-nav" style={{
           display: 'flex', alignItems: 'center', gap: 2, marginBottom: 20,
           borderBottom: '1px solid var(--border)', flexWrap: 'wrap',
         }}>
-          <WallTab label="Home" active={activeWallId === 'home'} onClick={() => selectWall('home')} />
-          {walls.map(wall => (
-            <WallTab key={wall.id} label={wall.name} active={activeWallId === wall.id}
+          <PorticoTab label="Home" active={activePorticoId === 'home'} onClick={() => selectWall('home')} />
+          {porticos.map(wall => (
+            <PorticoTab key={wall.id} label={wall.name} active={activePorticoId === wall.id}
               onClick={() => selectWall(wall)}
               onDelete={async () => {
                 await porticosApi.delete(wall.id)
                 const updated = await porticosApi.list()
-                setWalls(updated.data)
+                setPorticos(updated.data)
                 selectWall('home')
               }}
             />
           ))}
           <div style={{ flex: 1 }} />
           {isUnsaved && (
-            showSaveWall ? (
+            showSavePortico ? (
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', paddingBottom: 4 }}>
-                <input className="input" value={newWallName} onChange={e => setNewWallName(e.target.value)}
+                <input className="input" value={newPorticoName} onChange={e => setNewPorticoName(e.target.value)}
                   placeholder="Portico name" style={{ padding: '3px 8px', fontSize: 12, width: 140 }}
-                  autoFocus onKeyDown={e => e.key === 'Enter' && saveWall()} />
+                  autoFocus onKeyDown={e => e.key === 'Enter' && savePortico()} />
                 <button className="btn btn-primary" style={{ fontSize: 11, padding: '3px 10px' }}
-                  onClick={saveWall} disabled={savingWall}>
-                  {savingWall ? <span className="spinner" /> : 'Save'}
+                  onClick={savePortico} disabled={savingPortico}>
+                  {savingPortico ? <span className="spinner" /> : 'Save'}
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 11, padding: '3px 8px' }}
-                  onClick={() => setShowSaveWall(false)}>Cancel</button>
+                  onClick={() => setShowSavePortico(false)}>Cancel</button>
               </div>
             ) : (
               <button className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 10px', marginBottom: 4 }}
-                onClick={() => setShowSaveWall(true)}>+ Save as portico</button>
+                onClick={() => setShowSavePortico(true)}>+ Save as portico</button>
             )
           )}
         </div>
@@ -314,7 +314,7 @@ export default function DashboardPage() {
             No panels visible with current tag filters.
             {allTags.length > 0 && (
               <button className="btn btn-ghost" style={{ marginLeft: 12, fontSize: 13 }}
-                onClick={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}>
+                onClick={() => { setActiveTags(allTags.map(t => t.id)); setActivePorticoId('home') }}>
                 Show all
               </button>
             )}
@@ -322,8 +322,8 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* Tag sidebar — desktop only, hidden on named walls */}
-      {allTags.length > 0 && (activeWallId === 'home' || activeWallId === '') && (
+      {/* Tag sidebar — desktop only, hidden on named porticos */}
+      {allTags.length > 0 && (activePorticoId === 'home' || activePorticoId === '') && (
         <div className="desktop-only" style={{
           width: 180, flexShrink: 0, background: 'var(--surface)',
           border: '1px solid var(--border)', borderRadius: 10,
@@ -334,8 +334,8 @@ export default function DashboardPage() {
             allTags={allTags}
             activeTags={activeTags}
             onToggle={toggleTag}
-            onAll={() => { setActiveTags(allTags.map(t => t.id)); setActiveWallId('home') }}
-            onNone={() => { setActiveTags([]); setActiveWallId('') }}
+            onAll={() => { setActiveTags(allTags.map(t => t.id)); setActivePorticoId('home') }}
+            onNone={() => { setActiveTags([]); setActivePorticoId('') }}
           />
         </div>
       )}
@@ -382,7 +382,7 @@ function TagFilter({ allTags, activeTags, onToggle, onAll, onNone }: {
   )
 }
 
-function WallTab({ label, active, onClick, onDelete }: {
+function PorticoTab({ label, active, onClick, onDelete }: {
   label: string; active: boolean; onClick: () => void; onDelete?: () => void
 }) {
   return (
@@ -452,7 +452,7 @@ const GRID_GAP = 16  // gap between panels
 function PanelGrid({ panels, subtrees, portico, density }: {
   panels: Panel[]
   subtrees: Record<string, BookmarkNode>
-  portico: Wall | null
+  portico: Portico | null
   density: string
 }) {
   const layout      = portico?.layout      ?? 'columns'
