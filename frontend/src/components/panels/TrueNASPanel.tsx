@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface TrueNASPool {
   name: string; status: string
@@ -42,8 +43,22 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const refreshSecs = 5 // Fast poll — backend cache updated every ~2s via WebSocket
+  const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId = config.integrationId as string | undefined
 
+  // SSE — primary data source, ~2s updates from TrueNAS WebSocket push
+  const sseData = useSSE<TrueNASData>(integrationId)
+
+  // Apply SSE data immediately when it arrives
+  useEffect(() => {
+    if (sseData) {
+      setData(sseData)
+      setLoading(false)
+      setError('')
+    }
+  }, [sseData])
+
+  // HTTP fallback — initial load + slow safety-net poll if SSE drops
   const load = useCallback(async () => {
     try {
       const res = await integrationsApi.getPanelData(panel.id)
@@ -55,9 +70,9 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
 
   useEffect(() => {
     load()
-    const interval = setInterval(load, refreshSecs * 1000)
+    const interval = setInterval(load, 300 * 1000) // 5 min fallback
     return () => clearInterval(interval)
-  }, [load, refreshSecs])
+  }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>

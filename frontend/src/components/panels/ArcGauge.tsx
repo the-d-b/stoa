@@ -44,10 +44,11 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
   const strokeWidth = size < 60 ? 5 : 7
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: size }}>
       {title && (
         <div style={{ fontSize: 9, fontWeight: 600, color: 'var(--text-dim)',
-          textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
+          textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2,
+          width: '100%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {title}
         </div>
       )}
@@ -74,7 +75,8 @@ export default function ArcGauge({ value, label, size = 72, title }: ArcGaugePro
         </div>
       </div>
       <div style={{ fontSize: 10, color: 'var(--text-dim)', textAlign: 'center',
-        marginTop: 2, fontFamily: 'DM Mono, monospace' }}>
+        marginTop: 2, fontFamily: 'DM Mono, monospace',
+        width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {label}
       </div>
     </div>

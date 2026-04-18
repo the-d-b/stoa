@@ -33,8 +33,10 @@ func cacheGet(integrationID string) (interface{}, bool) {
 
 func cacheSet(integrationID string, data interface{}) {
 	panelCacheMu.Lock()
-	defer panelCacheMu.Unlock()
 	panelCache[integrationID] = cacheEntry{data: data, fetchedAt: time.Now()}
+	panelCacheMu.Unlock()
+	// Notify SSE clients of the update
+	go SSEBroadcast(integrationID, data)
 }
 
 func cacheDelete(integrationID string) {
@@ -138,6 +140,12 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	// TrueNAS uses a persistent WebSocket connection instead of polling
 	if ig.igType == "truenas" {
 		StartTrueNASWorker(db, ig, stop)
+		return
+	}
+
+	// OPNsense uses a fast 2s poll for traffic rates + slow 30s poll for other data
+	if ig.igType == "opnsense" {
+		StartOPNsenseWorker(db, ig, stop)
 		return
 	}
 

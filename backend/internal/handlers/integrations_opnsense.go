@@ -22,10 +22,17 @@ type OPNsensePanelData struct {
 	Gateways     []OPNsenseGateway    `json:"gateways"`
 	Interfaces   []OPNsenseInterface  `json:"interfaces"`
 	TopTalkers   []OPNsenseTalker     `json:"topTalkers"`
+	FWEvents     []OPNsenseFWEvent    `json:"fwEvents"`
 	DNSQueries   int                  `json:"dnsQueries"`
 	DNSCacheHits int                  `json:"dnsCacheHits"`
 	DNSCacheMiss int                  `json:"dnsCacheMiss"`
 	PFStates     int                  `json:"pfStates"`
+}
+
+type OPNsenseFWEvent struct {
+	Action string `json:"action"`
+	Label  string `json:"label"`
+	Count  int    `json:"count"`
 }
 
 type OPNsenseGateway struct {
