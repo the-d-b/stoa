@@ -175,9 +175,14 @@
     border-color: var(--accent) !important;
   }
 
-  /* Dashboard: single column on mobile */
+  /* Dashboard: single column on mobile — both Seira and Stylos collapse cleanly */
+  .panel-grid-seira  { grid-template-columns: 1fr !important; }
+  .panel-grid-stylos { grid-template-columns: 1fr !important; }
+  /* Legacy class names for safety */
   .panel-grid-columns { grid-template-columns: 1fr !important; }
   .panel-grid-flow    { grid-template-columns: 1fr !important; }
+  /* Rema rows collapse to single column on mobile */
+  .panel-grid-rema-row { grid-template-columns: 1fr !important; }
 
   /* Portico/tag nav: scrollable row */
   .portico-nav {

@@ -439,6 +439,15 @@ function FlowSlot({ heightUnits, children }: { heightUnits: number; children: Re
 }
 
 // ── Layout engine ────────────────────────────────────────────────────────────
+//
+// Seira  (σειρά — row/series): panels flow left→right, wrap to next row.
+//         Column count is explicit. Each panel spans its height in row units.
+//         Mobile: single column, panel order preserved.
+//
+// Stylos (στῦλος — column/pillar): panels fill top→bottom in N columns.
+//         Panels fill column 1 to colHeight, then column 2, etc.
+//         Panel order is always respected — no balancing.
+//         Mobile: single column, panel order preserved.
 
 const DENSITY_MIN_WIDTH: Record<string, number> = {
   compact:     180,
@@ -446,7 +455,7 @@ const DENSITY_MIN_WIDTH: Record<string, number> = {
   comfortable: 320,
 }
 
-const ROW_UNIT = 120 // px per 1x unit
+const ROW_UNIT = 120 // px per 1x height unit
 const GRID_GAP = 16  // gap between panels
 
 function PanelGrid({ panels, subtrees, portico, density }: {
@@ -455,22 +464,21 @@ function PanelGrid({ panels, subtrees, portico, density }: {
   portico: Portico | null
   density: string
 }) {
-  const layout      = portico?.layout      ?? 'columns'
+  const layout      = portico?.layout      ?? 'stylos'
   const colCount    = portico?.columnCount  ?? 2
   const colHeight   = portico?.columnHeight ?? 8
   const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
 
   if (panels.length === 0) return null
 
-  if (layout === 'flow') {
-    // Flow: auto-fill columns by min width, panels wrap naturally
-    // Each card uses grid-row: span N so rows don't overlap
-    // gridAutoRows includes the gap so that span N * (ROW_UNIT+GAP) - GAP
-    // gives perfect alignment between e.g. two 4x === one 8x
+  // ── Seira: left-to-right row flow with explicit column count ──────────────
+  // Uses CSS grid row spans so panels of different heights coexist cleanly.
+  // Panels wrap to the next row when the column count is exhausted.
+  if (layout === 'seira' || layout === 'flow') {
     return (
-      <div className="panel-grid-flow" style={{
+      <div className="panel-grid-seira" style={{
         display: 'grid',
-        gridTemplateColumns: `repeat(auto-fill, minmax(${minColWidth}px, 1fr))`,
+        gridTemplateColumns: `repeat(${colCount}, minmax(${minColWidth}px, 1fr))`,
         gridAutoRows: `${ROW_UNIT + GRID_GAP}px`,
         gap: `${GRID_GAP}px`,
       }}>
@@ -486,41 +494,59 @@ function PanelGrid({ panels, subtrees, portico, density }: {
     )
   }
 
-  // Column-first: fixed column count, panels distributed top-to-bottom
-  // Assign panels to columns by filling each column up to colHeight units
+  // ── Rema: left-to-right flex rows that collapse with their content ─────────
+  // Panels are distributed into rows of colCount. Each row is a flex container
+  // that sizes to its tallest (or only) visible panel. When all panels in a row
+  // collapse to pill height the row collapses too — no wasted space.
+  if (layout === 'rema') {
+    const rows: Panel[][] = []
+    for (let i = 0; i < panels.length; i += colCount) {
+      rows.push(panels.slice(i, i + colCount))
+    }
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
+        {rows.map((row, ri) => (
+          <div key={ri} className="panel-grid-rema-row" style={{
+            display: 'grid',
+            gridTemplateColumns: `repeat(${row.length}, minmax(${minColWidth}px, 1fr))`,
+            gap: GRID_GAP,
+            alignItems: 'start',
+          }}>
+            {row.map(panel => (
+              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── Stylos: top-to-bottom column fill ─────────────────────────────────────
+  // Fill column 0 to colHeight, then column 1, etc. Panel order is strict —
+  // no balancing or reordering. Overflow panels continue into a new column.
   const columns: Panel[][] = Array.from({ length: colCount }, () => [])
   const colFill = new Array(colCount).fill(0)
+  let currentCol = 0
 
   for (const panel of panels) {
     const height = getPanelHeight(panel)
-    // Find column with most room that can fit this panel
-    let best = 0
-    let bestFill = Infinity
-    for (let c = 0; c < colCount; c++) {
-      if (colFill[c] + height <= colHeight && colFill[c] < bestFill) {
-        best = c
-        bestFill = colFill[c]
-      }
+    // Advance to next column if current is full
+    while (currentCol < colCount - 1 && colFill[currentCol] + height > colHeight) {
+      currentCol++
     }
-    // If no column fits, start overflow by picking least-full column
-    if (bestFill === Infinity) {
-      best = colFill.indexOf(Math.min(...colFill))
-    }
-    columns[best].push(panel)
-    colFill[best] += height
+    columns[currentCol].push(panel)
+    colFill[currentCol] += height
   }
 
-  // In column mode, density influences effective min width check for readability
-  // but column count is explicitly set on the portico
   return (
-    <div className="panel-grid-columns" style={{
+    <div className="panel-grid-stylos" style={{
       display: 'grid',
       gridTemplateColumns: `repeat(${colCount}, minmax(${minColWidth}px, 1fr))`,
-      gap: 16,
+      gap: GRID_GAP,
       alignItems: 'start',
     }}>
       {columns.map((col, ci) => (
-        <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
           {col.map(panel => (
             <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
           ))}

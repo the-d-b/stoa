@@ -17,7 +17,7 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		rows, err := db.Query(`
 			SELECT id, user_id, name, is_default,
-			       COALESCE(layout,'columns'), COALESCE(column_count,3), COALESCE(column_height,8),
+			       COALESCE(layout,'stylos'), COALESCE(column_count,3), COALESCE(column_height,8),
 			       created_at
 			FROM porticos WHERE user_id = ?
 			ORDER BY is_default DESC, sort_order ASC, created_at ASC
@@ -379,13 +379,15 @@ func UpdatePortico(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Validate
-		if req.Layout != "columns" && req.Layout != "flow" {
-			req.Layout = "columns"
+		validLayouts := map[string]bool{"columns": true, "flow": true, "seira": true, "stylos": true, "rema": true}
+		if !validLayouts[req.Layout] {
+			req.Layout = "stylos"
 		}
 		if req.ColumnCount < 2 || req.ColumnCount > 6 {
 			req.ColumnCount = 3
 		}
-		if req.ColumnHeight != 6 && req.ColumnHeight != 8 && req.ColumnHeight != 10 {
+		validHeights := map[int]bool{4: true, 6: true, 8: true, 10: true, 12: true, 16: true}
+		if !validHeights[req.ColumnHeight] {
 			req.ColumnHeight = 8
 		}
 

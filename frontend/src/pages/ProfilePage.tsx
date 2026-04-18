@@ -666,37 +666,57 @@ function PorticosTab() {
             </div>
             {/* Layout controls */}
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <select
-                value={portico.layout || 'columns'}
-                onChange={async e => {
-                  await porticosApi.update(portico.id, { layout: e.target.value })
+              {(() => {
+                const layout = portico.layout || 'stylos'
+                const colCount = portico.columnCount || 3
+                const colHeight = portico.columnHeight || 8
+                const updatePortico = async (patch: Record<string, unknown>) => {
+                  await porticosApi.update(portico.id, {
+                    layout, columnCount: colCount, columnHeight: colHeight, ...patch
+                  })
                   const updated = await porticosApi.list()
                   setPorticos(updated.data || [])
-                }}
-                style={{
-                  fontSize: 11, padding: '2px 6px', borderRadius: 5,
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  color: 'var(--text-muted)', cursor: 'pointer',
-                }}>
-                <option value="columns">Columns</option>
-                <option value="flow">Flow</option>
-              </select>
-              {portico.layout !== 'flow' && (
-                <select
-                  value={portico.columnCount || 3}
-                  onChange={async e => {
-                    await porticosApi.update(portico.id, { columnCount: Number(e.target.value) })
-                    const updated = await porticosApi.list()
-                    setPorticos(updated.data || [])
-                  }}
-                  style={{
-                    fontSize: 11, padding: '2px 6px', borderRadius: 5,
-                    background: 'var(--surface2)', border: '1px solid var(--border)',
-                    color: 'var(--text-muted)', cursor: 'pointer',
-                  }}>
-                  {[2,3,4,5,6].map(n => <option key={n} value={n}>{n} cols</option>)}
-                </select>
-              )}
+                }
+                return (<>
+                  <select
+                    value={layout}
+                    onChange={e => updatePortico({ layout: e.target.value })}
+                    style={{
+                      fontSize: 11, padding: '2px 6px', borderRadius: 5,
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      color: 'var(--text-muted)', cursor: 'pointer',
+                    }}
+                    title="Stylos: panels fill top→bottom by column. Seira: panels flow left→right, aligned grid. Rema: panels flow left→right, rows collapse when panels collapse.">
+                    <option value="stylos">Stylos</option>
+                    <option value="seira">Seira</option>
+                    <option value="rema">Rema</option>
+                  </select>
+                  <select
+                    value={colCount}
+                    onChange={e => updatePortico({ columnCount: Number(e.target.value) })}
+                    style={{
+                      fontSize: 11, padding: '2px 6px', borderRadius: 5,
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      color: 'var(--text-muted)', cursor: 'pointer',
+                    }}
+                    title="Number of columns">
+                    {[2,3,4,5,6].map(n => <option key={n} value={n}>{n} cols</option>)}
+                  </select>
+                  {(layout === 'stylos' || layout === 'columns') && (
+                    <select
+                      value={colHeight}
+                      onChange={e => updatePortico({ columnHeight: Number(e.target.value) })}
+                      style={{
+                        fontSize: 11, padding: '2px 6px', borderRadius: 5,
+                        background: 'var(--surface2)', border: '1px solid var(--border)',
+                        color: 'var(--text-muted)', cursor: 'pointer',
+                      }}
+                      title="Column height — how many units tall before wrapping to next column">
+                      {[4,6,8,10,12,16].map(n => <option key={n} value={n}>{n}u tall</option>)}
+                    </select>
+                  )}
+                </>)
+              })()}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
