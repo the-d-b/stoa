@@ -77,10 +77,10 @@ export default function Layout() {
           </Link>
 
           {/* Header glyphs left */}
-          <GlyphZone glyphs={glyphs} zone="header-left" />
+          <GlyphZone glyphs={glyphs} zone="header-left" activePorticoId={activePorticoId} />
 
           {/* Header glyphs right */}
-          <GlyphZone glyphs={glyphs} zone="header-right" />
+          <GlyphZone glyphs={glyphs} zone="header-right" activePorticoId={activePorticoId} />
 
           {/* Right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -186,10 +186,10 @@ export default function Layout() {
           maxWidth: 1100, margin: '0 auto',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
         }}>
-          <GlyphZone glyphs={glyphs} zone="footer-left" />
-          <GlyphZone glyphs={glyphs} zone="footer-center" />
+          <GlyphZone glyphs={glyphs} zone="footer-left" activePorticoId={activePorticoId} />
+          <GlyphZone glyphs={glyphs} zone="footer-center" activePorticoId={activePorticoId} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <GlyphZone glyphs={glyphs} zone="footer-right" />
+            <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
             <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa {APP_VERSION}</span>
           </div>
         </div>

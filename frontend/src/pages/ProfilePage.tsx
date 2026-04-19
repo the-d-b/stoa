@@ -1081,9 +1081,14 @@ function SecretsTab() {
 // ── Glyphs ────────────────────────────────────────────────────────────────────
 
 const GLYPH_TYPES = [
-  { id: 'clock',   label: 'Clock',   desc: 'Time and date display',          needsSecret: false },
-  { id: 'weather', label: 'Weather', desc: 'Current conditions (OpenWeatherMap)', needsSecret: true  },
-  { id: 'kuma',    label: 'Uptime Kuma', desc: 'Monitor status summary',     needsSecret: false },
+  { id: 'clock',    label: 'Clock',       desc: 'Time and date display',                needsIntegration: false },
+  { id: 'weather',  label: 'Weather',     desc: 'Current conditions — no API key needed', needsIntegration: false },
+  { id: 'kuma',     label: 'Uptime Kuma', desc: 'Monitor status summary',               needsIntegration: true  },
+  { id: 'truenas',  label: 'TrueNAS',     desc: 'CPU usage and temperature',             needsIntegration: true  },
+  { id: 'opnsense', label: 'OPNsense',    desc: 'WAN throughput and gateway status',     needsIntegration: true  },
+  { id: 'proxmox',  label: 'Proxmox',     desc: 'Cluster CPU and memory',               needsIntegration: true  },
+  { id: 'ping',     label: 'Ping',        desc: 'HTTP response time to a host',         needsIntegration: false },
+  { id: 'text',     label: 'Static text', desc: 'Fixed label or status indicator',      needsIntegration: false },
 ]
 
 const ZONES = [
@@ -1097,6 +1102,7 @@ const ZONES = [
 function GlyphsTab() {
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
   const [secrets, setSecrets] = useState<any[]>([])
+  const [porticos, setPorticos] = useState<Portico[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [newType, setNewType] = useState('clock')
@@ -1107,14 +1113,16 @@ function GlyphsTab() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
 
   const load = async () => {
-    const [g, sysS, myS, sysI, myI] = await Promise.all([
+    const [g, sysS, myS, sysI, myI, p] = await Promise.all([
       glyphsApi.list(), secretsApi.list(), mySecretsApi.list(),
       integrationsApi.list(), myIntegrationsApi.list(),
+      porticosApi.list(),
     ])
     setGlyphs(g.data || [])
     const allSecrets = [...(sysS.data || []), ...(myS.data || [])]
     setSecrets(allSecrets)
     setIntegrations([...(sysI.data || []), ...(myI.data || [])])
+    setPorticos(p.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -1122,9 +1130,14 @@ function GlyphsTab() {
   const create = async () => {
     setCreating(true)
     try {
-      const defaultConfig = newType === 'clock'
-        ? JSON.stringify({ format: '12h', showSeconds: false, showDate: true, timezone: '', label: '' })
-        : JSON.stringify({ zip: '', country: 'US', units: 'imperial', refreshSecs: 3600, secretId: '' })
+      const defaultConfig =
+        newType === 'clock'   ? JSON.stringify({ format: '12h', showSeconds: false, showDate: true, timezone: '', label: '' }) :
+        newType === 'weather' ? JSON.stringify({ city: '', lat: '', lon: '', unit: 'f', refreshSecs: 1800 }) :
+        newType === 'ping'    ? JSON.stringify({ host: '', label: '', refreshSecs: 30 }) :
+        newType === 'text'    ? JSON.stringify({ text: 'Label', color: '', size: 'normal' }) :
+        newType === 'truenas' || newType === 'opnsense' || newType === 'proxmox' || newType === 'kuma'
+          ? JSON.stringify({ integrationId: '', refreshSecs: 30 })
+          : JSON.stringify({ refreshSecs: 60 })
       await glyphsApi.create({ type: newType, zone: newZone, config: defaultConfig })
       setShowForm(false); await load()
     } finally { setCreating(false) }
@@ -1175,14 +1188,14 @@ function GlyphsTab() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 10 }}>
             {GLYPH_TYPES.find(t => t.id === newType)?.desc}
-            {GLYPH_TYPES.find(t => t.id === newType)?.needsSecret && ' · Requires an API key secret'}
+            {GLYPH_TYPES.find(t => t.id === newType)?.needsIntegration && ' · Requires an integration'}
           </div>
         </div>
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {glyphs.map(g => (
-          <GlyphRow key={g.id} glyph={g} secrets={secrets} integrations={integrations}
+          <GlyphRow key={g.id} glyph={g} secrets={secrets} integrations={integrations} porticos={porticos}
             editing={editId === g.id}
             onEdit={() => setEditId(editId === g.id ? null : g.id)}
             onToggle={() => toggleEnabled(g)}
@@ -1208,8 +1221,8 @@ function GlyphsTab() {
   )
 }
 
-function GlyphRow({ glyph, secrets, integrations, editing, onEdit, onToggle, onDelete, onSave, onZoneChange, onSecretCreated }: {
-  glyph: Glyph; secrets: any[]; integrations: Integration[]; editing: boolean
+function GlyphRow({ glyph, secrets, integrations, porticos, editing, onEdit, onToggle, onDelete, onSave, onZoneChange, onSecretCreated }: {
+  glyph: Glyph; secrets: any[]; integrations: Integration[]; porticos: Portico[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: (config: string) => void; onZoneChange: (zone: string) => void
   onSecretCreated: (secret: any) => void
@@ -1457,6 +1470,99 @@ function GlyphRow({ glyph, secrets, integrations, editing, onEdit, onToggle, onD
                   </select>
                 </div>
               </>
+            )}
+
+            {/* New glyph type configs */}
+            {glyph.type === 'weather' && glyph.type !== 'weather' && null /* existing weather handled above */}
+            {(glyph.type === 'truenas' || glyph.type === 'opnsense' || glyph.type === 'proxmox' || glyph.type === 'kuma') && (
+              <>
+                <div>
+                  <label className="label">Integration</label>
+                  <select className="input" value={localConfig.integrationId || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="">— Select integration —</option>
+                    {integrations
+                      .filter(i => i.type === glyph.type)
+                      .map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+            {glyph.type === 'ping' && (
+              <>
+                <div>
+                  <label className="label">Host or URL</label>
+                  <input className="input" value={localConfig.host || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, host: e.target.value }))}
+                    placeholder="e.g. https://google.com or 192.168.1.1" />
+                </div>
+                <div>
+                  <label className="label">Label (optional)</label>
+                  <input className="input" value={localConfig.label || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
+                    placeholder="e.g. Google" />
+                </div>
+              </>
+            )}
+            {glyph.type === 'text' && (
+              <>
+                <div>
+                  <label className="label">Text</label>
+                  <input className="input" value={localConfig.text || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, text: e.target.value }))}
+                    placeholder="e.g. HOMELAB · PROD" />
+                </div>
+                <div>
+                  <label className="label">Color (optional)</label>
+                  <input className="input" value={localConfig.color || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, color: e.target.value }))}
+                    placeholder="e.g. #7c6fff or var(--accent)" />
+                </div>
+                <div>
+                  <label className="label">Size</label>
+                  <select className="input" value={localConfig.size || 'normal'}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, size: e.target.value }))}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="small">Small</option>
+                    <option value="normal">Normal</option>
+                    <option value="large">Large</option>
+                  </select>
+                </div>
+              </>
+            )}
+            {glyph.type === 'weather' && (
+              <WeatherTickerConfig localConfig={localConfig} setLocalConfig={setLocalConfig} />
+            )}
+
+            {/* Portico assignment for glyphs */}
+            {porticos.length > 0 && (
+              <div>
+                <label className="label">Show on porticos (leave all unselected = show everywhere)</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                  {porticos.map(p => {
+                    const on = (localConfig.porticos || []).includes(p.id)
+                    return (
+                      <button key={p.id} onClick={() => setLocalConfig((c: any) => ({
+                        ...c,
+                        porticos: on
+                          ? (c.porticos || []).filter((id: string) => id !== p.id)
+                          : [...(c.porticos || []), p.id]
+                      }))} style={{
+                        padding: '3px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                        background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                        color: on ? 'var(--accent2)' : 'var(--text-muted)',
+                      }}>{p.name}</button>
+                    )
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  {(localConfig.porticos || []).length === 0
+                    ? 'Showing on all porticos'
+                    : `Showing on ${(localConfig.porticos || []).length} portico${(localConfig.porticos || []).length !== 1 ? 's' : ''}`}
+                </div>
+              </div>
             )}
 
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1766,8 +1872,11 @@ function ThemeDensityBlock() {
 // ── Tickers ───────────────────────────────────────────────────────────────────
 
 const TICKER_TYPES = [
-  { id: 'stocks', label: 'Stocks', desc: 'Finnhub API — real-time US equity quotes' },
-  { id: 'crypto', label: 'Crypto', desc: 'CoinMarketCap API — cryptocurrency prices' },
+  { id: 'stocks',  label: 'Stocks',        desc: 'Finnhub API — real-time US equity quotes',   needsSecret: true  },
+  { id: 'crypto',  label: 'Crypto',        desc: 'CoinMarketCap API — cryptocurrency prices',  needsSecret: true  },
+  { id: 'weather', label: 'Weather',       desc: 'Current conditions — Open-Meteo, no API key', needsSecret: false },
+  { id: 'sports',  label: 'Sports scores', desc: 'Live scores — NFL, NBA, NHL, MLB via ESPN',  needsSecret: false },
+  { id: 'rss',     label: 'RSS headlines', desc: 'Scrolling headlines from any RSS/Atom feed', needsSecret: false },
 ]
 
 const TICKER_ZONES = [
@@ -1804,9 +1913,11 @@ function TickersTab() {
   const create = async () => {
     setCreating(true)
     try {
-      const defaultConfig = JSON.stringify({
-        mode: 'static', refreshSecs: 300, secretId: '',
-      })
+      const defaultConfig =
+        newType === 'weather' ? JSON.stringify({ city: '', lat: '', lon: '', unit: 'f', refreshSecs: 1800 }) :
+        newType === 'sports'  ? JSON.stringify({ league: 'nba', refreshSecs: 300 }) :
+        newType === 'rss'     ? JSON.stringify({ url: '', refreshSecs: 900 }) :
+        JSON.stringify({ mode: 'static', refreshSecs: 300, secretId: '' })
       await tickersApi.create({ type: newType, zone: newZone, symbols: '[]', config: defaultConfig })
       setShowForm(false); await load()
     } finally { setCreating(false) }
@@ -1883,6 +1994,123 @@ function TickersTab() {
   )
 }
 
+// ── Single location adder — used by multi-location weather ticker ─────────────
+function WeatherLocationAdder({ onAdd }: { onAdd: (loc: any) => void }) {
+  const [citySearch, setCitySearch] = useState('')
+  const [unit, setUnit] = useState<'f'|'c'>('f')
+  const [searching, setSearching] = useState(false)
+  const [results, setResults] = useState<any[]>([])
+
+  const search = async () => {
+    if (!citySearch.trim()) return
+    setSearching(true); setResults([])
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(citySearch)}&count=5&language=en&format=json`)
+      const data = await res.json()
+      setResults(data.results || [])
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }
+
+  const pick = (r: any) => {
+    const label = `${r.name}, ${r.admin1 || r.country}`
+    onAdd({ lat: String(r.latitude), lon: String(r.longitude), city: label, unit })
+    setCitySearch(''); setResults([])
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="input" value={citySearch} onChange={e => setCitySearch(e.target.value)}
+          placeholder="Add city..." style={{ flex: 1 }}
+          onKeyDown={e => e.key === 'Enter' && search()} />
+        <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
+          style={{ width: 70, cursor: 'pointer' }}>
+          <option value="f">°F</option>
+          <option value="c">°C</option>
+        </select>
+        <button className="btn btn-secondary" style={{ fontSize: 12 }}
+          onClick={search} disabled={searching || !citySearch.trim()}>
+          {searching ? <span className="spinner" /> : 'Search'}
+        </button>
+      </div>
+      {results.length > 0 && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {results.map((r, i) => (
+            <button key={i} onClick={() => pick(r)}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
+                border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
+                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Weather location config — reused by weather glyph and ticker ─────────────
+function WeatherTickerConfig({ localConfig, setLocalConfig }: { localConfig: any; setLocalConfig: any }) {
+  const [citySearch, setCitySearch] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [results, setResults] = useState<any[]>([])
+
+  const search = async () => {
+    if (!citySearch.trim()) return
+    setSearching(true); setResults([])
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(citySearch)}&count=5&language=en&format=json`)
+      const data = await res.json()
+      setResults(data.results || [])
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }
+
+  const pick = (r: any) => {
+    const label = `${r.name}, ${r.admin1 || r.country}`
+    setLocalConfig((c: any) => ({ ...c, city: label, lat: String(r.latitude), lon: String(r.longitude) }))
+    setCitySearch(''); setResults([])
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {localConfig.city && (
+        <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>
+          📍 {localConfig.city}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input className="input" value={citySearch} onChange={e => setCitySearch(e.target.value)}
+          placeholder="Search city..." style={{ flex: 1 }}
+          onKeyDown={e => e.key === 'Enter' && search()} />
+        <select className="input" value={localConfig.unit || 'f'}
+          onChange={e => setLocalConfig((c: any) => ({ ...c, unit: e.target.value }))}
+          style={{ width: 70, cursor: 'pointer' }}>
+          <option value="f">°F</option>
+          <option value="c">°C</option>
+        </select>
+        <button className="btn btn-secondary" style={{ fontSize: 12 }}
+          onClick={search} disabled={searching || !citySearch.trim()}>
+          {searching ? <span className="spinner" /> : 'Search'}
+        </button>
+      </div>
+      {results.length > 0 && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {results.map((r, i) => (
+            <button key={i} onClick={() => pick(r)}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
+                border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
+                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave, onSecretCreated }: {
   ticker: Ticker; secrets: any[]; porticos: Portico[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
@@ -1916,6 +2144,7 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
   const [localPorticos, setLocalPorticos] = useState<string[]>(() => {
     try { return JSON.parse(ticker.config).porticos || [] } catch { return [] }
   })
+  const [localConfig, setLocalConfig] = useState<any>(config)
 
   useEffect(() => {
     const c = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
@@ -1925,6 +2154,7 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
     setLocalSymbols((() => { try { return JSON.parse(ticker.symbols).join(', ') } catch { return '' } })())
     setLocalZone(ticker.zone)
     try { setLocalPorticos(JSON.parse(ticker.config).porticos || []) } catch { setLocalPorticos([]) }
+    setLocalConfig((() => { try { return JSON.parse(ticker.config) } catch { return {} } })())
   }, [ticker.config, ticker.symbols, ticker.zone])
 
   const typeDef = TICKER_TYPES.find(t => t.id === ticker.type)
@@ -1938,7 +2168,13 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
       secretId: localSecretId,
       mode: localMode,
       refreshSecs: localRefresh,
-      porticos: localPorticos,  // empty = show on all porticos
+      porticos: localPorticos,
+      // Weather fields — locations array or single
+      ...(ticker.type === 'weather' ? { locations: localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : []) } : {}),
+      // Sports fields
+      ...(ticker.type === 'sports' ? { leagues: localConfig.leagues || [localConfig.league || 'nba'] } : {}),
+      // RSS fields
+      ...(ticker.type === 'rss' ? { url: localConfig.url } : {}),
     })
     // Send each changed field independently — never send enabled (would reset it)
     if (localZone !== ticker.zone) {
@@ -2048,15 +2284,77 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
               )}
             </div>
 
-            <div>
-              <label className="label">Symbols (comma separated)</label>
-              <input className="input" value={localSymbols}
-                onChange={e => setLocalSymbols(e.target.value)}
-                placeholder={ticker.type === 'stocks' ? 'AAPL, MSFT, NVDA, TSLA' : 'BTC, ETH, SOL'} />
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>
-                {ticker.type === 'stocks' ? 'Use standard NYSE/NASDAQ ticker symbols' : 'Use CoinMarketCap symbol codes'}
+            {/* Stocks/Crypto symbols */}
+            {(ticker.type === 'stocks' || ticker.type === 'crypto') && (
+              <div>
+                <label className="label">Symbols (comma separated)</label>
+                <input className="input" value={localSymbols}
+                  onChange={e => setLocalSymbols(e.target.value)}
+                  placeholder={ticker.type === 'stocks' ? 'AAPL, MSFT, NVDA, TSLA' : 'BTC, ETH, SOL'} />
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>
+                  {ticker.type === 'stocks' ? 'Use standard NYSE/NASDAQ ticker symbols' : 'Use CoinMarketCap symbol codes'}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Weather ticker config — multiple locations */}
+            {ticker.type === 'weather' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {(localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : [])).map((loc: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+                    background: 'var(--surface2)', borderRadius: 7, fontSize: 13 }}>
+                    <span style={{ flex: 1 }}>📍 {loc.city} <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>°{(loc.unit || 'f').toUpperCase()}</span></span>
+                    <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                      onClick={() => {
+                        const locs = localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : [])
+                        setLocalConfig((c: any) => ({ ...c, locations: locs.filter((_: any, idx: number) => idx !== i), lat: '', lon: '', city: '' }))
+                      }}>Remove</button>
+                  </div>
+                ))}
+                <WeatherLocationAdder onAdd={(loc: any) => {
+                  const existing = localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : [])
+                  setLocalConfig((c: any) => ({ ...c, locations: [...existing, loc], lat: '', lon: '', city: '' }))
+                }} />
+              </div>
+            )}
+
+            {/* Sports ticker config — multiple leagues */}
+            {ticker.type === 'sports' && (
+              <div>
+                <label className="label">Leagues</label>
+                <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                  {['NFL', 'NBA', 'NHL', 'MLB'].map(league => {
+                    const leagues: string[] = localConfig.leagues || [localConfig.league || 'nba']
+                    const on = leagues.includes(league.toLowerCase())
+                    return (
+                      <button key={league} onClick={() => {
+                        const cur: string[] = localConfig.leagues || [localConfig.league || 'nba']
+                        const next = on ? cur.filter(l => l !== league.toLowerCase()) : [...cur, league.toLowerCase()]
+                        setLocalConfig((c: any) => ({ ...c, leagues: next.length ? next : [league.toLowerCase()] }))
+                      }} style={{
+                        padding: '4px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                        background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                        color: on ? 'var(--accent2)' : 'var(--text-muted)',
+                      }}>{league}</button>
+                    )
+                  })}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  Select one or more leagues to show on this ticker
+                </div>
+              </div>
+            )}
+
+            {/* RSS ticker config */}
+            {ticker.type === 'rss' && (
+              <div>
+                <label className="label">RSS / Atom feed URL</label>
+                <input className="input" value={localConfig.url || ''}
+                  onChange={e => setLocalConfig((c: any) => ({ ...c, url: e.target.value }))}
+                  placeholder="https://feeds.bbci.co.uk/news/rss.xml" />
+              </div>
+            )}
 
             {/* Portico assignment */}
             {porticos.length > 0 && (
@@ -3142,8 +3440,11 @@ function MyPanelsTab() {
                               background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13,
                             }}>
                               <span style={{ flex: 1 }}>
-                                {src.type === 'google' ? (src.label || src.integrationId) : (ig?.name ?? src.integrationId)}
-                                <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>
+                                {src.type === 'weather'
+                                  ? <span>🌤 {src.city || `${src.lat}, ${src.lon}`}</span>
+                                  : src.type === 'google' ? (src.label || src.integrationId) : (ig?.name ?? src.integrationId)
+                                }
+                                {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
                               </span>
                               <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
                                 onClick={async () => {
@@ -3174,6 +3475,11 @@ function MyPanelsTab() {
                             No calendar integrations. Add Sonarr, Radarr, etc. in My Integrations first.
                           </div>
                         )}
+                        <PersonalWeatherSourceAdder
+                          panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                          isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
+                          onAdded={load}
+                        />
                       </div>
                     )
                   })()}
@@ -3236,6 +3542,74 @@ function MyPanelsTab() {
       </div>}
 
 
+    </div>
+  )
+}
+
+function PersonalWeatherSourceAdder({ panelId, panelTitle, panelConfig, isSystem, onAdded }: {
+  panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean; onAdded: () => void
+}) {
+  const [citySearch, setCitySearch] = useState('')
+  const [unit, setUnit] = useState<'f'|'c'>('f')
+  const [searching, setSearching] = useState(false)
+  const [results, setResults] = useState<any[]>([])
+  const [adding, setAdding] = useState(false)
+
+  const cfg = (() => { try { return JSON.parse(panelConfig||'{}') } catch { return {} } })()
+  const search = async () => {
+    if (!citySearch.trim()) return
+    setSearching(true); setResults([])
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(citySearch)}&count=5&language=en&format=json`)
+      const data = await res.json()
+      setResults(data.results || [])
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }
+
+  const add = async (r: any) => {
+    setAdding(true)
+    try {
+      const label = `${r.name}, ${r.admin1 || r.country}`
+      const newSource = { type: 'weather', lat: String(r.latitude), lon: String(r.longitude), city: label, unit }
+      const sources = [...(cfg.sources || []), newSource]
+      const newConfig = JSON.stringify({ ...cfg, sources })
+      if (isSystem) await panelsApi.update(panelId, { title: panelTitle, config: newConfig })
+      else await myPanelsApi.update(panelId, { title: panelTitle, config: newConfig })
+      setCitySearch(''); setResults([])
+      onAdded()
+    } finally { setAdding(false) }
+  }
+
+  return (
+    <div style={{ marginTop: 8 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Add weather</div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input className="input" value={citySearch} onChange={e => setCitySearch(e.target.value)}
+          placeholder="City for weather..." style={{ flex: 1, fontSize: 12 }}
+          onKeyDown={e => e.key === 'Enter' && search()} />
+        <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
+          style={{ width: 60, fontSize: 12, cursor: 'pointer' }}>
+          <option value="f">°F</option>
+          <option value="c">°C</option>
+        </select>
+        <button className="btn btn-secondary" style={{ fontSize: 12 }}
+          onClick={search} disabled={searching || !citySearch.trim()}>
+          {searching ? <span className="spinner" /> : 'Search'}
+        </button>
+      </div>
+      {results.length > 0 && (
+        <div style={{ marginTop: 4, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {results.map((r, i) => (
+            <button key={i} onClick={() => add(r)} disabled={adding}
+              style={{ width: '100%', padding: '6px 12px', background: 'var(--surface2)',
+                border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
+                textAlign: 'left', cursor: 'pointer', fontSize: 12, color: 'var(--text)' }}>
+              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

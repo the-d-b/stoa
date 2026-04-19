@@ -3,6 +3,11 @@ import { Glyph } from '../../api'
 import ClockGlyph from './ClockGlyph'
 import WeatherGlyph from './WeatherGlyph'
 import KumaGlyph from './KumaGlyph'
+import TrueNASGlyph from './TrueNASGlyph'
+import OPNsenseGlyph from './OPNsenseGlyph'
+import ProxmoxGlyph from './ProxmoxGlyph'
+import PingGlyph from './PingGlyph'
+import TextGlyph from './TextGlyph'
 
 // Error boundary — catches render errors in any glyph
 class GlyphErrorBoundary extends React.Component<
@@ -32,9 +37,14 @@ class GlyphErrorBoundary extends React.Component<
 
 function GlyphRenderer({ glyph }: { glyph: Glyph }) {
   switch (glyph.type) {
-    case 'clock':   return <ClockGlyph glyph={glyph} />
-    case 'weather': return <WeatherGlyph glyph={glyph} />
-    case 'kuma':    return <KumaGlyph glyph={glyph} />
+    case 'clock':    return <ClockGlyph glyph={glyph} />
+    case 'weather':  return <WeatherGlyph glyph={glyph} />
+    case 'kuma':     return <KumaGlyph glyph={glyph} />
+    case 'truenas':  return <TrueNASGlyph glyph={glyph} />
+    case 'opnsense': return <OPNsenseGlyph glyph={glyph} />
+    case 'proxmox':  return <ProxmoxGlyph glyph={glyph} />
+    case 'ping':     return <PingGlyph glyph={glyph} />
+    case 'text':     return <TextGlyph glyph={glyph} />
     default:
       console.warn(`[GlyphZone] unknown glyph type: ${glyph.type}`)
       return null
@@ -44,12 +54,20 @@ function GlyphRenderer({ glyph }: { glyph: Glyph }) {
 interface GlyphZoneProps {
   glyphs: Glyph[]
   zone: string
+  activePorticoId?: string
   style?: React.CSSProperties
 }
 
-export default function GlyphZone({ glyphs, zone, style }: GlyphZoneProps) {
+export default function GlyphZone({ glyphs, zone, activePorticoId = 'home', style }: GlyphZoneProps) {
   const zoneGlyphs = glyphs
-    .filter(g => g.enabled && g.zone === zone)
+    .filter(g => {
+      if (!g.enabled || g.zone !== zone) return false
+      // Portico filtering — empty array means show on all porticos
+      const cfg = (() => { try { return JSON.parse((g as any).config || '{}') } catch { return {} } })()
+      const assigned: string[] = cfg.porticos || []
+      if (assigned.length === 0) return true
+      return assigned.includes(activePorticoId)
+    })
     .sort((a, b) => a.position - b.position)
 
   // Debug: log when glyphs array changes

@@ -357,6 +357,11 @@ export default function PanelsAdminPanel() {
                 )
               })()}
 
+              {/* Weather sources for calendar panels */}
+              {p.type === 'calendar' && (
+                <AdminWeatherSourceAdder panelId={p.id} panelTitle={p.title} panelConfig={p.config} onAdded={load} />
+              )}
+
               {/* Tag assignment */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                 <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>Tags:</span>
@@ -450,6 +455,100 @@ function safeParseConfig(config: string): any {
 function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
 function Empty({ message }: { message: string }) {
   return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
+}
+
+// ── Weather source adder ─────────────────────────────────────────────────────
+function AdminWeatherSourceAdder({ panelId, panelTitle, panelConfig, onAdded }: {
+  panelId: string; panelTitle: string; panelConfig: string; onAdded: () => void
+}) {
+  const [city, setCity] = useState('')
+  const [unit, setUnit] = useState<'f'|'c'>('f')
+  const [searching, setSearching] = useState(false)
+  const [adding, setAdding] = useState(false)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+
+  const cfg = (() => { try { return JSON.parse(panelConfig||'{}') } catch { return {} } })()
+  const weatherSources: any[] = (cfg.sources || []).filter((s: any) => s.type === 'weather')
+
+  const search = async () => {
+    if (!city.trim()) return
+    setSearching(true); setSearchResults([])
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=en&format=json`)
+      const data = await res.json()
+      setSearchResults(data.results || [])
+    } catch { setSearchResults([]) }
+    finally { setSearching(false) }
+  }
+
+  const addLocation = async (result: any) => {
+    setAdding(true)
+    try {
+      const label = `${result.name}, ${result.admin1 || result.country}`
+      const newSource = {
+        type: 'weather',
+        lat: String(result.latitude),
+        lon: String(result.longitude),
+        city: label,
+        unit,
+      }
+      const sources = [...(cfg.sources || []), newSource]
+      await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
+      setCity(''); setSearchResults([])
+      onAdded()
+    } finally { setAdding(false) }
+  }
+
+  const removeWeather = async (idx: number) => {
+    const allSources: any[] = cfg.sources || []
+    const weatherIdx = allSources.reduce((acc: number[], s: any, i: number) => s.type === 'weather' ? [...acc, i] : acc, [])
+    const newSources = allSources.filter((_: any, i: number) => i !== weatherIdx[idx])
+    await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources: newSources }) })
+    onAdded()
+  }
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6,
+        textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+        Weather
+      </div>
+      {weatherSources.map((src: any, i: number) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+          background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13 }}>
+          <span style={{ flex: 1 }}>🌤 {src.city} <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>°{src.unit?.toUpperCase() || 'F'}</span></span>
+          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+            onClick={() => removeWeather(i)}>Remove</button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <input className="input" value={city} onChange={e => setCity(e.target.value)}
+          placeholder="City name..." style={{ flex: 1, minWidth: 140, fontSize: 12 }}
+          onKeyDown={e => e.key === 'Enter' && search()} />
+        <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
+          style={{ width: 65, fontSize: 12, cursor: 'pointer' }}>
+          <option value="f">°F</option>
+          <option value="c">°C</option>
+        </select>
+        <button className="btn btn-secondary" style={{ fontSize: 12 }}
+          onClick={search} disabled={searching || !city.trim()}>
+          {searching ? <span className="spinner" /> : 'Search'}
+        </button>
+      </div>
+      {searchResults.length > 0 && (
+        <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {searchResults.map((r: any, i: number) => (
+            <button key={i} onClick={() => addLocation(r)} disabled={adding}
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
+                border: 'none', borderBottom: i < searchResults.length-1 ? '1px solid var(--border)' : 'none',
+                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Inline calendar source adder ─────────────────────────────────────────────

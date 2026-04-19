@@ -2,7 +2,45 @@ import { useState, useEffect, useCallback } from 'react'
 import { integrationsApi } from '../../api'
 import { Panel } from '../../api'
 
-interface CalendarConfig { firstDay: 0 | 1 }
+interface CalendarConfig {
+  firstDay: 0 | 1
+}
+
+interface DayForecast {
+  date: string      // YYYY-MM-DD
+  high: number      // °C always, converted on display
+  low: number
+  precipChance: number  // 0-100
+  code: number      // WMO weather code
+}
+
+function wmoDescription(code: number): string {
+  if (code === 0) return 'Clear'
+  if (code <= 2) return 'Partly cloudy'
+  if (code === 3) return 'Overcast'
+  if (code <= 49) return 'Foggy'
+  if (code <= 57) return 'Drizzle'
+  if (code <= 67) return 'Rain'
+  if (code <= 77) return 'Snow'
+  if (code <= 82) return 'Showers'
+  if (code <= 86) return 'Snow showers'
+  if (code <= 99) return 'Thunderstorm'
+  return 'Unknown'
+}
+
+function wmoIcon(code: number): string {
+  if (code === 0) return '☀️'
+  if (code <= 2) return '⛅'
+  if (code === 3) return '☁️'
+  if (code <= 49) return '🌫️'
+  if (code <= 57) return '🌦️'
+  if (code <= 67) return '🌧️'
+  if (code <= 77) return '❄️'
+  if (code <= 82) return '🌦️'
+  if (code <= 86) return '🌨️'
+  if (code <= 99) return '⛈️'
+  return '🌡️'
+}
 
 const DAY_SUN = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
 const DAY_MON = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
@@ -40,6 +78,30 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   const [events, setEvents] = useState<CalendarEvent[]>([])
 
   const hasSources = (config as any).sources?.length > 0
+  const [forecast, setForecast] = useState<DayForecast[]>([])
+
+  // Fetch 7-day weather from sources array (type: 'weather')
+  const weatherSource = ((config as any).sources || []).find((s: any) => s.type === 'weather')
+  useEffect(() => {
+    if (!weatherSource?.lat || !weatherSource?.lon) return
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${weatherSource.lat}&longitude=${weatherSource.lon}` +
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode` +
+      `&timezone=auto&forecast_days=7`
+    fetch(url)
+      .then(r => r.json())
+      .then(d => {
+        if (!d.daily) return
+        const days: DayForecast[] = d.daily.time.map((date: string, i: number) => ({
+          date,
+          high: d.daily.temperature_2m_max[i],
+          low:  d.daily.temperature_2m_min[i],
+          precipChance: d.daily.precipitation_probability_max[i] ?? 0,
+          code: d.daily.weathercode[i] ?? 0,
+        }))
+        setForecast(days)
+      })
+      .catch(() => {})
+  }, [weatherSource?.lat, weatherSource?.lon])
 
   const loadEvents = useCallback(async () => {
     if (!hasSources) return
@@ -60,6 +122,11 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   }
 
   const eventsForSelected = eventsForDate(viewDate.getFullYear(), viewDate.getMonth(), selectedDay)
+
+  const weatherUnit = weatherSource?.unit || 'f'
+  const toDisplay = (c: number) =>
+    weatherUnit === 'f' ? Math.round(c * 9/5 + 32) : Math.round(c)
+  const unit = weatherUnit === 'f' ? '°F' : '°C'
 
   const today = new Date()
   const year  = viewDate.getFullYear()
@@ -223,6 +290,31 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {MONTHS[month]} {selectedDay}
         </div>
+        {/* Weather for selected day */}
+        {forecast.length > 0 && (() => {
+          const selDate = `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`
+          const w = forecast.find(f => f.date === selDate)
+          if (!w) return null
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
+              padding: '6px 10px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <span style={{ fontSize: 18 }}>{wmoIcon(w.code)}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 500 }}>{wmoDescription(w.code)}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  {weatherSource?.city && <span style={{ marginRight: 6 }}>{weatherSource.city}</span>}
+                  <span style={{ fontFamily: 'DM Mono, monospace' }}>{w.precipChance}% precip</span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>{toDisplay(w.high)}{unit}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{toDisplay(w.low)}{unit}</div>
+              </div>
+            </div>
+          )
+        })()}
+
         {eventsForSelected.length === 0 ? (
           <div style={{ fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>
             {hasSources ? 'No events' : 'No data sources — configure in Admin → Panels'}

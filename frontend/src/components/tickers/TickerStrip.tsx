@@ -45,72 +45,156 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   const refreshSecs: number = config.refreshSecs || 300
 
   const [quotes, setQuotes] = useState<Quote[]>([])
+  const [rawData, setRawData] = useState<any>(null)
   const [error, setError] = useState('')
-  const [swoosh, setSwoosh] = useState(false) // triggers animation
+  const [swoosh, setSwoosh] = useState(false)
+  const isNonQuote = ['weather', 'sports', 'rss'].includes(ticker.type)
 
-  const fetchQuotes = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
       const res = await tickersApi.getData(ticker.id)
-      // Trigger swoosh animation on refresh (not on first load)
-      setQuotes(prev => {
-        if (prev.length > 0 && mode === 'static') {
-          setSwoosh(true)
-          setTimeout(() => {
-            setQuotes(res.data || [])
-            setSwoosh(false)
-          }, 400)
-          return prev // keep old data during animation
-        }
-        return res.data || []
-      })
+      if (isNonQuote) {
+        setRawData(res.data)
+      } else {
+        setQuotes(prev => {
+          if (prev.length > 0 && mode === 'static') {
+            setSwoosh(true)
+            setTimeout(() => { setQuotes(res.data || []); setSwoosh(false) }, 400)
+            return prev
+          }
+          return res.data || []
+        })
+      }
       setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
-      console.error(`[Ticker:${ticker.id}]`, e.message)
     }
-  }, [ticker.id, mode])
+  }, [ticker.id, mode, isNonQuote])
 
-  // Initial load
-  useEffect(() => {
-    tickersApi.getData(ticker.id)
-      .then(res => setQuotes(res.data || []))
-      .catch(e => {
-        setError(e.response?.data?.error || 'Failed to load')
-        console.error(`[Ticker:${ticker.id}]`, e.message)
-      })
-  }, [ticker.id])
+  useEffect(() => { fetchData() }, [ticker.id])
 
-  // Refresh interval
   useEffect(() => {
     if (refreshSecs <= 0) return
-    const interval = setInterval(fetchQuotes, refreshSecs * 1000)
+    const interval = setInterval(fetchData, refreshSecs * 1000)
     return () => clearInterval(interval)
-  }, [fetchQuotes, refreshSecs])
+  }, [fetchData, refreshSecs])
 
-  if (error) {
+  if (error) return (
+    <div style={{ padding: '4px 24px', fontSize: 11,
+      color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span>⚠</span><span style={{ fontFamily: 'DM Mono, monospace' }}>{error}</span>
+    </div>
+  )
+
+  // Weather ticker — show all configured locations
+  if (ticker.type === 'weather') {
+    if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
+    // rawData may be a single location or array of locations
+    const locations: any[] = Array.isArray(rawData) ? rawData : [rawData]
     return (
-      <div style={{
-        padding: '4px 24px', fontSize: 11,
-        color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 6,
-      }}>
-        <span>⚠</span>
-        <span style={{ fontFamily: 'DM Mono, monospace' }}>{error}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '4px 16px',
+        fontFamily: 'DM Mono, monospace', fontSize: 12, overflowX: 'auto', scrollbarWidth: 'none' }}>
+        {locations.map((d: any, i: number) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {i > 0 && <span style={{ color: 'var(--border2)' }}>·</span>}
+            <span style={{ color: 'var(--text-muted)' }}>{d.city || 'Weather'}</span>
+            <span style={{ fontWeight: 600 }}>{d.temp}</span>
+            <span style={{ color: 'var(--text-dim)' }}>{d.precipChance}% precip</span>
+          </div>
+        ))}
       </div>
     )
   }
 
-  if (quotes.length === 0) {
+  // Sports ticker — grouped by league
+  if (ticker.type === 'sports') {
+    if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
+    const games: any[] = rawData.games || []
+    const leagues: string[] = rawData.leagues || (rawData.league ? [rawData.league] : ['NBA'])
+
+    // Group games by league
+    const byLeague: Record<string, any[]> = {}
+    for (const league of leagues) {
+      byLeague[league.toUpperCase()] = games.filter((g: any) => g.league === league.toUpperCase())
+    }
+
+    if (games.length === 0) return (
+      <div style={{ padding: '4px 16px', fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+        {leagues.join(' · ')} — no games today
+      </div>
+    )
+
     return (
-      <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>
-        Loading...
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '0 8px',
+        overflowX: 'auto', scrollbarWidth: 'none', flex: 1 }}>
+        {Object.entries(byLeague).map(([league, lgGames], li) => {
+          if (lgGames.length === 0) return null
+          const live = lgGames.filter((g: any) => g.status === 'In Progress')
+          const shown = live.length > 0 ? live : lgGames
+          return (
+            <div key={league} style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+              {li > 0 && <span style={{ color: 'var(--border2)', margin: '0 8px' }}>│</span>}
+              <span style={{ fontSize: 10, color: 'var(--text-dim)', marginRight: 8,
+                fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{league}</span>
+              {shown.slice(0, 4).map((g: any, i: number) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 12,
+                  fontFamily: 'DM Mono, monospace', fontSize: 12, flexShrink: 0 }}>
+                  <span style={{ color: 'var(--text-muted)' }}>{g.away}</span>
+                  {g.awayScore && <span style={{ fontWeight: 600 }}>{g.awayScore}</span>}
+                  <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>@</span>
+                  {g.homeScore && <span style={{ fontWeight: 600 }}>{g.homeScore}</span>}
+                  <span style={{ color: 'var(--text-muted)' }}>{g.home}</span>
+                  {g.status === 'In Progress' && (
+                    <span style={{ fontSize: 10, color: 'var(--accent)' }}>{g.clock}</span>
+                  )}
+                  {g.status === 'Final' && (
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>F</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          )
+        })}
       </div>
     )
   }
 
-  if (mode === 'scroll') {
-    return <ScrollingTicker quotes={quotes} />
+  // RSS ticker — always scrolls
+  if (ticker.type === 'rss') {
+    if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
+    const headlines: string[] = rawData.headlines || []
+    if (headlines.length === 0) return (
+      <div style={{ padding: '4px 16px', fontSize: 11, color: 'var(--text-dim)' }}>No headlines</div>
+    )
+    const feedUrl = (() => { try { return JSON.parse(ticker.config).url || '' } catch { return '' } })()
+    const items = [...headlines, ...headlines]
+    return (
+      <div style={{ overflow: 'hidden', flex: 1 }}>
+        <div style={{
+          display: 'flex', gap: 48, whiteSpace: 'nowrap',
+          animation: `ticker-scroll ${headlines.length * 6}s linear infinite`,
+        }}>
+          {items.map((h, i) => (
+            feedUrl
+              ? <a key={i} href={feedUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0,
+                    textDecoration: 'none' }}
+                  onMouseOver={e => e.currentTarget.style.color = 'var(--text)'}
+                  onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+                  {h.length > 40 ? h.slice(0, 40) + '…' : h}
+                </a>
+              : <span key={i} style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{h.length > 40 ? h.slice(0, 40) + '…' : h}</span>
+          ))}
+        </div>
+      </div>
+    )
   }
 
+  // Stocks / Crypto (original path)
+  if (quotes.length === 0) return (
+    <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
+  )
+  if (mode === 'scroll') return <ScrollingTicker quotes={quotes} />
   return <StaticTicker quotes={quotes} swoosh={swoosh} />
 }
 
