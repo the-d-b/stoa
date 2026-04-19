@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"time"
 	"net/http"
 	"os"
 
@@ -243,7 +244,8 @@ func main() {
 		log.Println("*** FIRST RUN DETECTED — complete setup at /setup ***")
 	}
 
-	go handlers.StartCacheManager(database)
+	// Worker manager — cold start, spins up on first SSE client, down after 600s idle
+	handlers.NewWorkerManager(database, 600*time.Second)
 	log.Printf("Stoa listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, c.Handler(r)); err != nil {
 		log.Fatalf("server error: %v", err)

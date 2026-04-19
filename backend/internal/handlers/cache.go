@@ -53,25 +53,123 @@ var (
 	workerStopMu sync.Mutex
 )
 
-// StartCacheManager loads all integrations and starts a background worker for each.
-// Called once at startup from main.go.
-func StartCacheManager(db *sql.DB) {
-	log.Printf("[CACHE] starting cache manager")
-	integrations, err := loadAllIntegrations(db)
+// WorkerManager controls worker lifecycle based on active SSE client count.
+// Workers spin up when the first client connects and spin down after all clients
+// disconnect (with a configurable grace period).
+type WorkerManager struct {
+	db          *sql.DB
+	mu          sync.Mutex
+	clientCount int
+	running     bool
+	gracePeriod time.Duration
+	cancelSpin  func() // cancels the current pending spin-down, nil if none
+}
+
+// GlobalWorkerManager is the singleton used by SSEHandler.
+var GlobalWorkerManager *WorkerManager
+
+// NewWorkerManager creates the manager. Workers do NOT start yet — they wait
+// for the first SSE client connection.
+func NewWorkerManager(db *sql.DB, gracePeriod time.Duration) *WorkerManager {
+	m := &WorkerManager{
+		db:          db,
+		gracePeriod: gracePeriod,
+	}
+	GlobalWorkerManager = m
+	log.Printf("[CACHE] worker manager ready — cold start, waiting for first SSE client")
+	return m
+}
+
+// ClientConnected is called when an SSE client connects.
+func (m *WorkerManager) ClientConnected() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.clientCount++
+	log.Printf("[CACHE] SSE client connected (total: %d)", m.clientCount)
+	// Cancel any pending spin-down
+	if m.cancelSpin != nil {
+		m.cancelSpin()
+		m.cancelSpin = nil
+		log.Printf("[CACHE] spin-down cancelled — client reconnected")
+	}
+	// Spin up if not already running
+	if !m.running {
+		m.running = true
+		m.startAllWorkers()
+	}
+}
+
+// ClientDisconnected is called when an SSE client disconnects.
+func (m *WorkerManager) ClientDisconnected() {
+	m.mu.Lock()
+	m.clientCount--
+	count := m.clientCount
+	if count > 0 {
+		m.mu.Unlock()
+		log.Printf("[CACHE] SSE client disconnected (remaining: %d)", count)
+		return
+	}
+	// Last client — schedule spin-down with cancellable timer
+	log.Printf("[CACHE] SSE client disconnected (remaining: 0)")
+	log.Printf("[CACHE] no SSE clients — spinning down in %s", m.gracePeriod)
+	cancel := make(chan struct{})
+	m.cancelSpin = func() { close(cancel) }
+	m.mu.Unlock()
+
+	go func() {
+		select {
+		case <-time.After(m.gracePeriod):
+			m.mu.Lock()
+			defer m.mu.Unlock()
+			if m.clientCount <= 0 && m.running {
+				m.running = false
+				m.cancelSpin = nil
+				m.stopAllWorkers()
+				log.Printf("[CACHE] all workers stopped — no active sessions")
+			}
+		case <-cancel:
+			// Cancelled by ClientConnected
+		}
+	}()
+}
+
+func (m *WorkerManager) startAllWorkers() {
+	integrations, err := loadAllIntegrations(m.db)
 	if err != nil {
 		log.Printf("[CACHE] failed to load integrations: %v", err)
 		return
 	}
 	for _, ig := range integrations {
-		startWorker(db, ig)
+		startWorker(m.db, ig)
 	}
-	log.Printf("[CACHE] started %d workers", len(integrations))
+	log.Printf("[CACHE] started %d workers (SSE client connected)", len(integrations))
+}
+
+func (m *WorkerManager) stopAllWorkers() {
+	workerStopMu.Lock()
+	defer workerStopMu.Unlock()
+	for id, ch := range workerStop {
+		close(ch)
+		delete(workerStop, id)
+	}
+	log.Printf("[CACHE] all workers stopped")
+}
+
+// StartCacheManager kept for compatibility — now delegates to WorkerManager.
+// Call NewWorkerManager instead from main.go.
+func StartCacheManager(db *sql.DB) {
+	NewWorkerManager(db, 600*time.Second)
 }
 
 // StartWorkerForIntegration starts (or restarts) a worker for a single integration.
-// Called when an integration is created or updated.
+// Called when an integration is created or updated — only starts if manager is running.
 func StartWorkerForIntegration(db *sql.DB, integrationID string) {
 	StopWorkerForIntegration(integrationID)
+	// Only start if sessions are active
+	if GlobalWorkerManager != nil && !GlobalWorkerManager.running {
+		log.Printf("[CACHE] skipping worker start for %s — no active sessions", integrationID)
+		return
+	}
 	igs, err := loadAllIntegrations(db)
 	if err != nil {
 		return

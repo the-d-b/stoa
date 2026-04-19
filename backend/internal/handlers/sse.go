@@ -92,11 +92,20 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 
 		log.Printf("[SSE] client connected: %s", clientID)
 
+		// Notify worker manager — spins up workers if this is the first client
+		if GlobalWorkerManager != nil {
+			GlobalWorkerManager.ClientConnected()
+		}
+
 		defer func() {
 			sseMu.Lock()
 			delete(sseClients, clientID)
 			sseMu.Unlock()
 			log.Printf("[SSE] client disconnected: %s", clientID)
+			// Notify worker manager — may spin down workers after grace period
+			if GlobalWorkerManager != nil {
+				GlobalWorkerManager.ClientDisconnected()
+			}
 		}()
 
 		// ── Initial connected event ───────────────────────────────────────
