@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import SectionHelp from '../components/admin/SectionHelp'
+import MailConfigPanel from '../components/admin/MailConfigPanel'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
@@ -10,10 +11,11 @@ import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySe
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
-type Tab = 'overview' | 'tags' | 'secrets' | 'integrations' | 'bookmarks' | 'mypanels' | 'glyphs' | 'tickers' | 'porticos' | 'panels'
+type Tab = 'overview' | 'tags' | 'secrets' | 'integrations' | 'bookmarks' | 'mypanels' | 'glyphs' | 'tickers' | 'porticos' | 'panels' | 'mail'
 
 export default function ProfilePage() {
   const { user } = useAuth()
+  const userMode = useUserMode()
   const location = useLocation()
   const navigate = useNavigate()
   const [tab, setTab] = useState<Tab>('overview')
@@ -34,6 +36,7 @@ export default function ProfilePage() {
       label: 'Overview',
       items: [
         { id: 'overview', label: 'Overview', icon: '○' },
+        ...(userMode === 'single' ? [{ id: 'mail' as Tab, label: 'Mail & Sessions', icon: '✉' }] : []),
       ],
     },
     {
@@ -118,6 +121,7 @@ export default function ProfilePage() {
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
         {tab === 'overview'      && <OverviewTab />}
+        {tab === 'mail'          && <MailSettingsTab />}
         {tab === 'tags'          && <PersonalTagsTab />}
         {tab === 'secrets'       && <SecretsTab />}
         {tab === 'integrations'  && <><PersonalIntegrationsTab /><PersonalGoogleCalendarSection /></>}
@@ -503,6 +507,19 @@ function PanelsOrderTab() {
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>No panels visible on this portico.</div>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Mail & Sessions tab ──────────────────────────────────────────────────────
+function MailSettingsTab() {
+  return (
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Mail & Sessions</div>
+      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6 }}>
+        Configure your SMTP server for password reset emails and set your session duration.
+      </div>
+      <MailConfigPanel />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { authApi, configApi, preferencesApi } from '../api'
+import { authApi, preferencesApi, oauthTestApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 
@@ -33,6 +33,8 @@ export default function SetupPage({ onComplete }: Props) {
   const [oauthIssuer, setOauthIssuer] = useState('')
   const [oauthClientId, setOauthClientId] = useState('')
   const [oauthClientSecret, setOauthClientSecret] = useState('')
+  const [oauthTesting, setOauthTesting] = useState(false)
+  const [oauthTestResult, setOauthTestResult] = useState<{ok:boolean;msg:string}|null>(null)
   const [tags, setTags] = useState<TagEntry[]>([])
   const [newTagName, setNewTagName] = useState('')
   const [newTagColor, setNewTagColor] = useState(PRESET_COLORS[0])
@@ -73,13 +75,6 @@ export default function SetupPage({ onComplete }: Props) {
     setNewGroupName('')
   }
   const removeGroup = (name: string) => setGroups(g => g.filter(gr => gr.name !== name))
-  const toggleGroupTag = (groupName: string, tagName: string) => {
-    setGroups(g => g.map(gr => {
-      if (gr.name !== groupName) return gr
-      const has = gr.tagNames.includes(tagName)
-      return { ...gr, tagNames: has ? gr.tagNames.filter(t => t !== tagName) : [...gr.tagNames, tagName] }
-    }))
-  }
   const setDefaultGroup = (name: string) => {
     setGroups(g => g.map(gr => ({ ...gr, isDefault: gr.name === name ? !gr.isDefault : false })))
   }
@@ -95,19 +90,19 @@ export default function SetupPage({ onComplete }: Props) {
         initialTags: tags,
         initialGroups: groups.map(g => ({ name: g.name, tagNames: g.tagNames })),
         defaultGroupName: defaultGroup?.name || '',
+        // OAuth sent as part of setup so no auth token is needed
+        oauthIssuerUrl: oauthIssuer || undefined,
+        oauthClientId: oauthClientId || undefined,
+        oauthClientSecret: oauthClientSecret || undefined,
       })
-      if (userMode === 'multi' && oauthIssuer && oauthClientId) {
-        try {
-          await configApi.saveOAuth({
-            issuerUrl: oauthIssuer, clientId: oauthClientId,
-            clientSecret: oauthClientSecret,
-            redirectUrl: appUrl + '/api/auth/oauth/callback',
-          })
-        } catch (e) { console.warn('OAuth config save failed:', e) }
-      }
       if (userMode === 'single' && autoLogin) {
         const r = await authApi.autoLogin()
         login(r.data.token, r.data.user)
+      } else if (userMode === 'single' && !autoLogin) {
+        // Require login — don't auto-log in, redirect to login page
+        setStep('done')
+        setTimeout(() => { window.location.href = '/login' }, 1500)
+        return
       } else {
         const res = await authApi.login(adminUsername, adminPassword)
         login(res.data.token, res.data.user)
@@ -200,6 +195,13 @@ export default function SetupPage({ onComplete }: Props) {
                   desc="Just you. One account, full control. No logins for others, no group management. Optionally skip the login screen entirely. Perfect for a personal homelab dashboard." />
                 <ModeOption value="multi" label="Multi user"
                   desc="Multiple people with their own accounts. Share panels with groups, let users personalize their layout, and control what each person sees. Supports local accounts and OAuth/SSO." />
+                <div style={{ marginTop: 8, textAlign: 'center' }}>
+                  <a href="https://github.com/the-d-b/stoa/blob/main/docs/concepts.md"
+                    target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 12, color: 'var(--accent)', textDecoration: 'none' }}>
+                    Learn about deployment modes ↗
+                  </a>
+                </div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('welcome')}>Back</button>
@@ -294,13 +296,17 @@ export default function SetupPage({ onComplete }: Props) {
             <div>
               <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 6, marginTop: 0 }}>Login requirement</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Since this is a single-user setup, you can require a login every session or have Stoa sign you in automatically.
+                Since this is a single-user setup, choose whether to require a password each session or sign in automatically.
               </p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
                 <ModeOption value={false} label="Require login"
-                  desc="Show a login screen each session. Recommended if your dashboard is accessible from the internet or shared devices." />
+                  desc="Show a login screen each session. Your username and password are required to access Stoa. Supports password reset via email if a mail server is configured." />
                 <ModeOption value={true} label="Auto-login — no password prompt"
-                  desc="Stoa signs you in automatically on every visit. Best for a private home network where you trust all local access." />
+                  desc="Stoa signs you in automatically on every visit. No username or password needed. Best for a trusted private home network." />
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 20, lineHeight: 1.6,
+                padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
+                💡 Session timeout only applies when login is required. You can change this setting later from your profile.
               </div>
               {error && <ErrorBox message={error} />}
               <div style={{ display: 'flex', gap: 10 }}>
@@ -322,12 +328,17 @@ export default function SetupPage({ onComplete }: Props) {
                 Configure single sign-on. You can skip this and configure OAuth from the admin panel later.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-                <div><label className="label">Issuer URL</label>
-                  <input className="input" value={oauthIssuer} onChange={e => setOauthIssuer(e.target.value)}
-                    placeholder="https://authentik.example.com/application/o/stoa/" />
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4, fontFamily: 'DM Mono, monospace' }}>
-                    callback → {appUrl}/api/auth/oauth/callback
+                <div>
+                  <label className="label">Redirect URI — register this in your identity provider</label>
+                  <div style={{ fontSize: 12, padding: '8px 12px', background: 'var(--surface2)',
+                    borderRadius: 8, fontFamily: 'DM Mono, monospace', wordBreak: 'break-all',
+                    color: 'var(--text-muted)', userSelect: 'all' }}>
+                    {appUrl}/api/auth/oauth/callback
                   </div>
+                </div>
+                <div><label className="label">Issuer URL</label>
+                  <input className="input" value={oauthIssuer} onChange={e => { setOauthIssuer(e.target.value); setOauthTestResult(null) }}
+                    placeholder="https://authentik.example.com/application/o/stoa/" />
                 </div>
                 <div><label className="label">Client ID</label>
                   <input className="input" value={oauthClientId} onChange={e => setOauthClientId(e.target.value)}
@@ -336,10 +347,32 @@ export default function SetupPage({ onComplete }: Props) {
                   <input type="password" className="input" value={oauthClientSecret}
                     onChange={e => setOauthClientSecret(e.target.value)} placeholder="your-client-secret" /></div>
               </div>
+              {oauthTestResult && (
+                <div style={{ fontSize: 13, marginBottom: 12, padding: '6px 10px', borderRadius: 6,
+                  background: oauthTestResult.ok ? '#4ade8012' : '#f8717112',
+                  border: `1px solid ${oauthTestResult.ok ? '#4ade8030' : '#f8717130'}`,
+                  color: oauthTestResult.ok ? 'var(--green)' : 'var(--red)' }}>
+                  {oauthTestResult.ok ? '✓ ' : '✕ '}{oauthTestResult.msg}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10 }}>
                 <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setStep('admin')}>Back</button>
+                {oauthIssuer && (
+                  <button className="btn btn-secondary" disabled={oauthTesting}
+                    onClick={async () => {
+                      setOauthTesting(true); setOauthTestResult(null)
+                      try {
+                        await oauthTestApi.test(oauthIssuer)
+                        setOauthTestResult({ ok: true, msg: 'Issuer URL reachable' })
+                      } catch (e: any) {
+                        setOauthTestResult({ ok: false, msg: e.response?.data?.error || 'Issuer URL unreachable' })
+                      } finally { setOauthTesting(false) }
+                    }}>
+                    {oauthTesting ? <span className="spinner" /> : 'Test'}
+                  </button>
+                )}
                 <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setStep('tags')}>
-                  {oauthIssuer && oauthClientId ? 'Next →' : 'Skip →'}
+                  {oauthIssuer && oauthClientId ? 'Save & Next →' : 'Skip →'}
                 </button>
               </div>
             </div>
@@ -400,7 +433,7 @@ export default function SetupPage({ onComplete }: Props) {
                 Groups <span style={{ color: 'var(--text-dim)', fontSize: 14, fontWeight: 400 }}>(optional)</span>
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: 13, marginBottom: 20, lineHeight: 1.6 }}>
-                Groups grant users access to tags. Set a default group to auto-enroll new OAuth users.
+                Groups organize users. Set a default group to auto-enroll new users. Panels are shared with groups in admin settings after setup.
               </p>
               <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                 <input className="input" value={newGroupName} onChange={e => setNewGroupName(e.target.value)}
@@ -427,26 +460,7 @@ export default function SetupPage({ onComplete }: Props) {
                         }}>✕</button>
                       </div>
                     </div>
-                    {tags.length > 0 ? (
-                      <div>
-                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>Tag access:</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-                          {tags.map(t => {
-                            const has = g.tagNames.includes(t.name)
-                            return (
-                              <button key={t.name} onClick={() => toggleGroupTag(g.name, t.name)} style={{
-                                padding: '2px 8px', borderRadius: 6, cursor: 'pointer', fontSize: 11,
-                                background: has ? t.color + '18' : 'transparent',
-                                border: `1px solid ${has ? t.color + '50' : 'var(--border)'}`,
-                                color: has ? t.color : 'var(--text-dim)', transition: 'all 0.15s',
-                              }}>{t.name}</button>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Add tags in the previous step to assign them</div>
-                    )}
+
                   </div>
                 ))}
                 {groups.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No groups added yet</div>}
@@ -475,8 +489,8 @@ export default function SetupPage({ onComplete }: Props) {
         {step !== 'done' && (
           <p style={{ textAlign: 'center', fontSize: 12, color: 'var(--text-dim)', marginTop: 20 }}>
             {userMode === 'multi'
-              ? 'OAuth can be configured after setup from the admin panel'
-              : 'Mode and auth settings can be adjusted via SQL after setup'}
+              ? 'OAuth can be configured after setup from Admin → OAuth'
+              : 'Settings can be adjusted from your profile after setup'}
           </p>
         )}
       </div>

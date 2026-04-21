@@ -150,6 +150,14 @@ func main() {
 	admin.Use(authService.AdminMiddleware)
 
 	// Mail config & session duration
+	admin.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/admin/mail-config" || r.URL.Path == "/api/admin/session-config" {
+				log.Printf("[MAIL-MW] %s %s — entering admin middleware", r.Method, r.URL.Path)
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
 	admin.HandleFunc("/mail-config", handlers.GetMailConfig(database)).Methods("GET")
 	admin.HandleFunc("/mail-config", handlers.SaveMailConfig(database)).Methods("PUT")
 	admin.HandleFunc("/mail-config/test", handlers.TestMailConfig(database)).Methods("POST")

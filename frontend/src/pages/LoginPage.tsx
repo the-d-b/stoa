@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react'
 import { authApi } from '../api'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 import { APP_VERSION } from '../version'
 
 export default function LoginPage() {
   const [username, setUsername]       = useState('')
+  const [searchParams] = useSearchParams()
   const [password, setPassword]       = useState('')
   const [showForgot, setShowForgot]   = useState(false)
+
+  useEffect(() => {
+    const urlError = searchParams.get('error')
+    if (urlError) setError(urlError)
+  }, [])
   const [forgotEmail, setForgotEmail] = useState('')
   const [forgotSent, setForgotSent]   = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)

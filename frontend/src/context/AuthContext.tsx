@@ -18,12 +18,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Handle OAuth callback token in URL
+    // Handle OAuth callback token in URL — but ONLY if not on a public page
+    // (reset-password also uses ?token= but for a different purpose)
     const params = new URLSearchParams(window.location.search)
     const urlToken = params.get('token')
+    const isPublicPage = ['/reset-password', '/login'].includes(window.location.pathname)
 
-    if (urlToken) {
-      // Token freshly issued by backend — store it then fetch user profile
+    if (urlToken && !isPublicPage) {
+      // Token freshly issued by backend OAuth — store it then fetch user profile
       localStorage.setItem('stoa_token', urlToken)
       window.history.replaceState({}, '', '/')
 

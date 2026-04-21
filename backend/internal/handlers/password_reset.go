@@ -60,13 +60,16 @@ func ResetRequest(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Build reset URL
-		appURL := strings.TrimRight(r.Header.Get("Origin"), "/")
+		// Build reset URL — prefer app_url from config, fall back to Origin then Host
+		appURL := ""
+		db.QueryRow("SELECT value FROM app_config WHERE key='app_url'").Scan(&appURL)
+		appURL = strings.TrimRight(appURL, "/")
+		if appURL == "" {
+			appURL = strings.TrimRight(r.Header.Get("Origin"), "/")
+		}
 		if appURL == "" {
 			scheme := "http"
-			if r.TLS != nil {
-				scheme = "https"
-			}
+			if r.TLS != nil { scheme = "https" }
 			appURL = scheme + "://" + r.Host
 		}
 		resetURL := appURL + "/reset-password?token=" + token
@@ -182,12 +185,15 @@ func AdminSendResetLink(db *sql.DB) http.HandlerFunc {
 			token, id, expiresAt.UTC().Format(time.RFC3339),
 		)
 
-		appURL := strings.TrimRight(r.Header.Get("Origin"), "/")
+		appURL := ""
+		db.QueryRow("SELECT value FROM app_config WHERE key='app_url'").Scan(&appURL)
+		appURL = strings.TrimRight(appURL, "/")
+		if appURL == "" {
+			appURL = strings.TrimRight(r.Header.Get("Origin"), "/")
+		}
 		if appURL == "" {
 			scheme := "http"
-			if r.TLS != nil {
-				scheme = "https"
-			}
+			if r.TLS != nil { scheme = "https" }
 			appURL = scheme + "://" + r.Host
 		}
 		resetURL := appURL + "/reset-password?token=" + token

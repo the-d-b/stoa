@@ -15,6 +15,8 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
 
   useEffect(() => {
+    // Clear any stale auth token — reset page must work without being logged in
+    localStorage.removeItem('stoa_token')
     if (!token) setError('Invalid or missing reset token.')
   }, [token])
 

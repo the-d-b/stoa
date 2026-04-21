@@ -10,6 +10,7 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+
   return config
 })
 
@@ -18,9 +19,11 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     const url = err.config?.url || ''
+
     const is401 = err.response?.status === 401
     const isAuthEndpoint = url.includes('/auth/') || url.includes('/setup/')
-    if (is401 && !isAuthEndpoint) {
+    const isPublicPage = window.location.pathname === '/reset-password'
+    if (is401 && !isAuthEndpoint && !isPublicPage) {
       localStorage.removeItem('stoa_token')
       window.location.href = '/login'
     }
@@ -80,6 +83,9 @@ export interface SetupRequest {
   initialTags?: { name: string; color: string }[]
   initialGroups?: { name: string; tagNames: string[] }[]
   defaultGroupName?: string
+  oauthIssuerUrl?: string
+  oauthClientId?: string
+  oauthClientSecret?: string
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -428,17 +434,17 @@ export interface MailConfig {
   from: string; tlsMode: 'plain' | 'starttls' | 'tls'
 }
 export const mailConfigApi = {
-  get: () => api.get<MailConfig>('/admin/mail-config'),
-  save: (cfg: MailConfig) => api.put('/admin/mail-config', cfg),
-  test: (to: string) => api.post('/admin/mail-config/test', { to }),
+  get: () => api.get<MailConfig>('/mail-config'),
+  save: (cfg: MailConfig) => api.put('/mail-config', cfg),
+  test: (to: string) => api.post('/mail-config/test', { to }),
 }
 export const sessionConfigApi = {
-  get: () => api.get<{ sessionDurationHours: string }>('/admin/session-config'),
-  save: (hours: string) => api.put('/admin/session-config', { sessionDurationHours: hours }),
+  get: () => api.get<{ sessionDurationHours: string }>('/session-config'),
+  save: (hours: string) => api.put('/session-config', { sessionDurationHours: hours }),
 }
 export const adminUsersApi = {
-  updateEmail: (id: string, email: string) => api.put(`/admin/users/${id}/email`, { email }),
-  sendReset: (id: string) => api.post(`/admin/users/${id}/send-reset`, {}),
+  updateEmail: (id: string, email: string) => api.put(`/users/${id}/email`, { email }),
+  sendReset: (id: string) => api.post(`/users/${id}/send-reset`, {}),
 }
 
 // ── Porticos ───────────────────────────────────────────────────────────────────

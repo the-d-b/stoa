@@ -160,11 +160,15 @@ type SetupRequest struct {
 	AdminEmail       string `json:"adminEmail"`
 	AppURL           string `json:"appUrl"`
 	SessionSecret    string `json:"sessionSecret,omitempty"`
-	UserMode         string `json:"userMode,omitempty"`         // "single" or "multi"
-	AutoLogin        bool   `json:"autoLogin,omitempty"`        // single-user: skip login screen
+	UserMode         string `json:"userMode,omitempty"`
+	AutoLogin        bool   `json:"autoLogin,omitempty"`
 	InitialTags      []SetupTag   `json:"initialTags,omitempty"`
 	InitialGroups    []SetupGroup `json:"initialGroups,omitempty"`
 	DefaultGroupName string `json:"defaultGroupName,omitempty"`
+	// OAuth config — saved during setup so no auth token is required
+	OAuthIssuerURL   string `json:"oauthIssuerUrl,omitempty"`
+	OAuthClientID    string `json:"oauthClientId,omitempty"`
+	OAuthClientSecret string `json:"oauthClientSecret,omitempty"`
 }
 
 type SetupTag struct {

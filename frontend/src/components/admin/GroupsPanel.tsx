@@ -3,12 +3,12 @@ import { groupsApi, usersApi, Group, User } from '../../api'
 import SectionHelp from './SectionHelp'
 
 export default function GroupsPanel() {
-  const [groups, setGroups] = useState<Group[]>([])
-  const [users, setUsers] = useState<User[]>([])
+  const [groups, setGroups]   = useState<Group[]>([])
+  const [users, setUsers]     = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
-  const [name, setName] = useState('')
-  const [desc, setDesc] = useState('')
+  const [name, setName]   = useState('')
+  const [desc, setDesc]   = useState('')
   const [creating, setCreating] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
@@ -19,149 +19,144 @@ export default function GroupsPanel() {
   }
   useEffect(() => { load() }, [])
 
-  const loadGroup = async (id: string) => {
-    try {
-      const r = await groupsApi.get(id)
-      setGroups(gs => gs.map(g => g.id === id ? r.data : g))
-      setExpanded(id)
-    } catch (e) {
-      console.error('[Groups] failed to load group:', id, e)
-      // Still expand to show the empty state
-      setExpanded(id)
-    }
-  }
-
   const create = async () => {
     if (!name.trim()) return
     setCreating(true)
-    await groupsApi.create(name.trim(), desc.trim())
-    setName(''); setDesc(''); setShowForm(false)
-    await load(); setCreating(false)
+    try {
+      await groupsApi.create(name.trim(), desc.trim())
+      setName(''); setDesc(''); setShowForm(false); await load()
+    } finally { setCreating(false) }
   }
 
-  const remove = async (id: string, n: string) => {
-    if (!confirm(`Delete group "${n}"?`)) return
-    await groupsApi.delete(id); load()
+  const remove = async (g: Group) => {
+    if (!confirm(`Delete group "${g.name}"? This cannot be undone.`)) return
+    await groupsApi.delete(g.id); await load()
   }
 
-  const toggleUser = async (gid: string, uid: string, inGroup: boolean) => {
-    if (inGroup) await groupsApi.removeUser(gid, uid)
-    else await groupsApi.addUser(gid, uid)
-    loadGroup(gid)
+  const toggleUser = async (groupId: string, userId: string, inGroup: boolean) => {
+    if (inGroup) await groupsApi.removeUser(groupId, userId)
+    else await groupsApi.addUser(groupId, userId)
+    await load()
   }
 
+  const filtered = groups.filter(g =>
+    !search || g.name.toLowerCase().includes(search.toLowerCase())
+  )
 
-  if (loading) return <Loading />
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
 
   return (
     <div>
-      <SectionHelp storageKey="groups" title="About groups">
-        Groups organize your users and control access to content. A panel shared with a group is visible
-        to every member of that group. The <strong>default group</strong> is special — new users are
-        automatically added to it, so any content shared with the default group is visible to everyone
-        by default. You can create as many groups as you need for different teams, roles, or households.
+      <SectionHelp storageKey="groups_panel" title="About groups">
+        Groups control which panels users can see. Assign system panels to groups — members of that
+        group can see those panels when the relevant tags are active. The default group auto-enrolls
+        new users.
       </SectionHelp>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+
+      <div style={{ display: 'flex', gap: 10, marginBottom: 16, alignItems: 'center' }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Filter groups..." style={{ fontSize: 13, flex: 1 }} />
-        <button className="btn btn-primary" style={{ flexShrink: 0 }} onClick={() => setShowForm(!showForm)}>
-          + New group
+          placeholder="Search groups…" style={{ flex: 1, fontSize: 13 }} />
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={() => setShowForm(v => !v)}>
+          {showForm ? 'Cancel' : '+ New group'}
         </button>
       </div>
 
       {showForm && (
-        <div className="card" style={{ marginBottom: 16, padding: 20 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label className="label">Name</label>
-              <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Group name" autoFocus />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label className="label">Description (optional)</label>
-              <input className="input" value={desc} onChange={e => setDesc(e.target.value)} placeholder="What is this group for?" />
-            </div>
-            <button className="btn btn-primary" onClick={create} disabled={creating}>
-              {creating ? <span className="spinner" /> : 'Create'}
-            </button>
-            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+        <div style={{ padding: 16, background: 'var(--surface2)', borderRadius: 10,
+          border: '1px solid var(--border)', marginBottom: 16,
+          display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <input className="input" value={name} onChange={e => setName(e.target.value)}
+              placeholder="Group name" autoFocus
+              onKeyDown={e => e.key === 'Enter' && create()} />
+            <input className="input" value={desc} onChange={e => setDesc(e.target.value)}
+              placeholder="Description (optional)" />
           </div>
+          <button className="btn btn-primary" style={{ alignSelf: 'flex-start', fontSize: 12 }}
+            onClick={create} disabled={creating || !name.trim()}>
+            {creating ? <span className="spinner" /> : 'Create'}
+          </button>
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {groups.filter(g => !search || g.name.toLowerCase().includes(search.toLowerCase())).map(g => {
-          const open = expanded === g.id
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {filtered.map(g => {
+          const memberIds = new Set((g.users || []).map((u: User) => u.id))
+          const isOpen = expanded === g.id
           return (
             <div key={g.id} style={{
-              background: 'var(--surface)', border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              border: `1px solid ${isOpen ? 'var(--accent)' : 'var(--border)'}`,
               borderRadius: 10, overflow: 'hidden',
-              borderColor: open ? 'var(--border2)' : 'var(--border)',
             }}>
-              {/* Header row */}
-              <div
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '11px 16px', cursor: 'pointer',
-                }}
-                onClick={() => open ? setExpanded(null) : loadGroup(g.id)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'DM Mono, monospace' }}>
-                    {open ? '▼' : '▶'}
-                  </span>
-                  <span style={{ fontWeight: 500, fontSize: 14 }}>{g.name}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12,
+                padding: '12px 16px', cursor: 'pointer' }}
+                onClick={() => setExpanded(isOpen ? null : g.id)}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</div>
                   {g.description && (
-                    <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>{g.description}</span>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{g.description}</div>
                   )}
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {(g.users || []).length} member{(g.users || []).length !== 1 ? 's' : ''}
+                  </div>
                 </div>
-                <button
-                  className="btn btn-danger"
-                  onClick={e => { e.stopPropagation(); remove(g.id, g.name) }}
-                >
+                <button className="btn btn-danger" style={{ fontSize: 11 }}
+                  onClick={e => { e.stopPropagation(); remove(g) }}>
                   Delete
                 </button>
+                <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
 
-              {/* Expanded content */}
-              {open && (
-                <div style={{
-                  borderTop: '1px solid var(--border)',
-                  padding: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24,
-                }}>
-                  <div>
-                    <div className="section-title">Users</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                      {users.map(u => {
-                        const inGroup = g.users?.some(gu => gu.id === u.id) ?? false
-                        return (
-                          <label key={u.id} style={{
-                            display: 'flex', alignItems: 'center', gap: 8,
-                            cursor: 'pointer', padding: '4px 0',
-                          }}>
-                            <input type="checkbox" checked={inGroup}
-                              onChange={() => toggleUser(g.id, u.id, inGroup)}
-                              style={{ accentColor: 'var(--accent)', width: 14, height: 14 }} />
-                            <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{u.username}</span>
-                            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{u.role}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
+              {isOpen && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                    textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
+                    Members
                   </div>
-
-
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {users.map(u => {
+                      const inGroup = memberIds.has(u.id)
+                      return (
+                        <div key={u.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '6px 10px', borderRadius: 7,
+                          background: inGroup ? 'var(--accent-bg)' : 'var(--surface2)',
+                          border: `1px solid ${inGroup ? '#7c6fff30' : 'var(--border)'}`,
+                        }}>
+                          <span style={{ flex: 1, fontSize: 13 }}>
+                            {u.username}
+                            {u.email && (
+                              <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>
+                                {u.email}
+                              </span>
+                            )}
+                          </span>
+                          <button
+                            className={inGroup ? 'btn btn-ghost' : 'btn btn-secondary'}
+                            style={{ fontSize: 11 }}
+                            onClick={() => toggleUser(g.id, u.id, inGroup)}>
+                            {inGroup ? 'Remove' : 'Add'}
+                          </button>
+                        </div>
+                      )
+                    })}
+                    {users.length === 0 && (
+                      <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No users yet.</div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           )
         })}
-        {groups.length === 0 && <Empty message="No groups yet." />}
+        {filtered.length === 0 && (
+          <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>
+            {search ? 'No groups match your search.' : 'No groups yet.'}
+          </div>
+        )}
       </div>
     </div>
   )
-}
-
-function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
-function Empty({ message }: { message: string }) {
-  return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
 }

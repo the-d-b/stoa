@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -92,15 +93,15 @@ func (s *Service) initOAuth(ctx context.Context) error {
 }
 
 func (s *Service) sessionDuration() time.Duration {
-	var hours string
-	s.db.QueryRow("SELECT value FROM app_config WHERE key='session_duration_hours'").Scan(&hours)
-	switch hours {
-	case "4":  return 4 * time.Hour
-	case "8":  return 8 * time.Hour
-	case "48": return 48 * time.Hour
-	case "168": return 168 * time.Hour // 7 days
-	default:   return 24 * time.Hour
+	var hoursStr string
+	s.db.QueryRow("SELECT value FROM app_config WHERE key='session_duration_hours'").Scan(&hoursStr)
+	if hoursStr == "" {
+		return 24 * time.Hour
 	}
+	if h, err := strconv.ParseFloat(hoursStr, 64); err == nil && h > 0 {
+		return time.Duration(h * float64(time.Hour))
+	}
+	return 24 * time.Hour
 }
 
 func (s *Service) GenerateToken(user *models.User) (string, error) {
@@ -270,6 +271,24 @@ func (s *Service) findOrCreateOAuthUser(sub, email, name string) (*models.User, 
 	username := name
 	if username == "" {
 		username = email
+	}
+
+	// Check if a local account already exists with this email
+	if email != "" {
+		var existingID, existingProvider string
+		if s.db.QueryRow("SELECT id, auth_provider FROM users WHERE LOWER(email)=LOWER(?)", email).
+			Scan(&existingID, &existingProvider) == nil {
+			if existingProvider == "local" {
+				// Link the OAuth subject to the existing local account
+				s.db.Exec("UPDATE users SET oauth_subject=?, last_login=CURRENT_TIMESTAMP WHERE id=?", sub, existingID)
+				var linked models.User
+				s.db.QueryRow("SELECT id, username, email, role, auth_provider FROM users WHERE id=?", existingID).
+					Scan(&linked.ID, &linked.Username, &linked.Email, &linked.Role, &linked.AuthProvider)
+				return &linked, false, nil
+			}
+			// Another OAuth account with same email — reject
+			return nil, false, fmt.Errorf("an account with email %s already exists", email)
+		}
 	}
 
 	id := generateRandomString(16)

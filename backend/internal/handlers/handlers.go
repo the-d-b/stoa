@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -119,13 +120,15 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			`, k, v)
 		}
 
-		if err := tx.Commit(); err != nil {
-			log.Printf("[SETUP] failed to commit: %v", err)
-			writeError(w, http.StatusInternalServerError, "setup failed")
-			return
+		// Create initial tags within the same transaction.
+		// Single-user: tags owned by the admin user (appear in My Tags, taggable by the user).
+		// Multi-user: tags owned by SYSTEM (admin-managed shared resources).
+		tagOwner := "SYSTEM"
+		tagScope := "shared"
+		if userMode == "single" {
+			tagOwner = userID
+			tagScope = "personal"
 		}
-
-		// Create initial tags
 		tagNameToID := map[string]string{}
 		for _, t := range req.InitialTags {
 			tagID := generateID()
@@ -133,28 +136,49 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			if color == "" {
 				color = "#6366f1"
 			}
-			db.Exec(`INSERT OR IGNORE INTO tags (id, name, color, created_by) VALUES (?, ?, ?, 'SYSTEM')`, tagID, t.Name, color)
+			tx.Exec(`INSERT OR IGNORE INTO tags (id, name, color, scope, created_by) VALUES (?, ?, ?, ?, ?)`,
+				tagID, t.Name, color, tagScope, tagOwner)
 			tagNameToID[t.Name] = tagID
 		}
 
-		// Create initial groups and assign tags
+		// Create initial groups and add admin user — all within the same transaction
 		for _, g := range req.InitialGroups {
 			groupID := generateID()
-			_, gerr := db.Exec(`INSERT OR IGNORE INTO groups (id, name, description) VALUES (?, ?, '')`, groupID, g.Name)
+			_, gerr := tx.Exec(`INSERT OR IGNORE INTO groups (id, name, description) VALUES (?, ?, '')`, groupID, g.Name)
 			if gerr != nil {
 				log.Printf("[SETUP] failed to create group %q: %v", g.Name, gerr)
+				continue
 			}
-			for _, tagName := range g.TagNames {
-				if tagID, ok := tagNameToID[tagName]; ok {
-					db.Exec(`INSERT OR IGNORE INTO group_tags (group_id, tag_id) VALUES (?, ?)`, groupID, tagID)
-				}
-			}
+			// Add admin user to every group created at setup
+			tx.Exec(`INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)`, userID, groupID)
 		}
 
 		// Save default group name
 		if req.DefaultGroupName != "" {
-			db.Exec(`INSERT INTO app_config (key, value) VALUES (?, ?)
+			tx.Exec(`INSERT INTO app_config (key, value) VALUES (?, ?)
 				ON CONFLICT(key) DO UPDATE SET value=excluded.value`, "default_group", req.DefaultGroupName)
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Printf("[SETUP] failed to commit: %v", err)
+			writeError(w, http.StatusInternalServerError, "setup failed")
+			return
+		}
+
+		// Save OAuth config if provided during setup
+		if req.OAuthIssuerURL != "" && req.OAuthClientID != "" {
+			upsertConfig := func(key, value string) {
+				db.Exec(`INSERT INTO app_config (key, value) VALUES (?, ?)
+					ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP`,
+					key, value)
+			}
+			upsertConfig("oauth_issuer_url", req.OAuthIssuerURL)
+			upsertConfig("oauth_client_id", req.OAuthClientID)
+			upsertConfig("oauth_redirect_url", req.AppURL+"/api/auth/oauth/callback")
+			if req.OAuthClientSecret != "" {
+				upsertConfig("oauth_client_secret", req.OAuthClientSecret)
+			}
+			log.Printf("[SETUP] OAuth config saved: issuer=%q clientId=%q", req.OAuthIssuerURL, req.OAuthClientID)
 		}
 
 		logger.SetupComplete(req.AdminUsername)
@@ -267,7 +291,8 @@ func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			log.Printf("[AUTH] oauth callback failed: %v", err)
 			logger.OAuthFailure(r, "token_exchange", err.Error())
-			writeError(w, http.StatusInternalServerError, "authentication error")
+			// Redirect to login with a human-readable error
+			http.Redirect(w, r, "/login?error="+url.QueryEscape(err.Error()), http.StatusFound)
 			return
 		}
 
@@ -666,11 +691,13 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 		var err error
 
 		if claims.Role == models.RoleAdmin {
-			// Admin screens: only show system tags (no owner)
+			// Admin sees SYSTEM tags + their own personal tags (covers single-user mode)
 			rows, err = db.Query(`
 				SELECT id, name, color, COALESCE(scope,'shared'), COALESCE(created_by,''), created_at
-				FROM tags WHERE created_by = 'SYSTEM' ORDER BY name ASC
-			`)
+				FROM tags
+				WHERE created_by = 'SYSTEM' OR created_by = ?
+				ORDER BY CASE WHEN created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, name ASC
+			`, claims.UserID)
 		} else {
 			// Profile: system tags (ungrouped = visible to all, or in user's groups) + user's own tags
 			rows, err = db.Query(`
@@ -1069,7 +1096,7 @@ func ChangeOwnPassword(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(req.CurrentPassword)); err != nil {
-			writeError(w, http.StatusUnauthorized, "current password is incorrect")
+			writeError(w, http.StatusForbidden, "current password is incorrect")
 			return
 		}
 		newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)

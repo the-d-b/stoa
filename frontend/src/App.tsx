@@ -28,7 +28,17 @@ function AppRoutes() {
       .catch(() => setNeedsSetup(false))
   }, [])
 
-  if (loading || needsSetup === null) return <LoadingScreen />
+  if (loading || needsSetup === null) {
+    // Still show reset-password page while auth is loading — don't block it
+    if (window.location.pathname === '/reset-password') {
+      return (
+        <Routes>
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Routes>
+      )
+    }
+    return <LoadingScreen />
+  }
 
   if (needsSetup) {
     return (

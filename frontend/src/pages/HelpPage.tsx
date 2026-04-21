@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { useUserMode } from '../context/UserModeContext'
 
 const GITHUB = 'https://github.com/the-d-b/stoa'
 const DOCS   = `${GITHUB}/tree/main/docs`
@@ -43,6 +44,8 @@ function QRow({ q, a }: { q: string; a: React.ReactNode }) {
 }
 
 export default function HelpPage() {
+  const userMode = useUserMode()
+  const isMulti = userMode === 'multi'
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px' }}>
 
@@ -106,17 +109,18 @@ export default function HelpPage() {
       <Section title="Shortcuts">
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {[
-            { label: 'My profile', to: '/profile' },
-            { label: 'My panels', to: '/profile?tab=mypanels' },
-            { label: 'My integrations', to: '/profile?tab=integrations' },
-            { label: 'Porticos', to: '/profile?tab=porticos' },
-            { label: 'Admin → Panels', to: '/admin/panels' },
-            { label: 'Admin → Integrations', to: '/admin/integrations' },
-            { label: 'Admin → Tags', to: '/admin/tags' },
-            { label: 'Admin → Groups', to: '/admin/groups' },
-            { label: 'Admin → Users', to: '/admin/users' },
-            { label: 'Admin → OAuth', to: '/admin/oauth' },
-          ].map(({ label, to }) => (
+            { label: 'My profile', to: '/profile', always: true },
+            { label: 'My panels', to: '/profile?tab=mypanels', always: true },
+            { label: 'My integrations', to: '/profile?tab=integrations', always: true },
+            { label: 'Porticos', to: '/profile?tab=porticos', always: true },
+            { label: 'Mail & Sessions', to: '/profile?tab=mail', always: true },
+            { label: 'Admin → Panels', to: '/admin/panels', always: false },
+            { label: 'Admin → Integrations', to: '/admin/integrations', always: false },
+            { label: 'Admin → Tags', to: '/admin/tags', always: false },
+            { label: 'Admin → Groups', to: '/admin/groups', always: false },
+            { label: 'Admin → Users', to: '/admin/users', always: false },
+            { label: 'Admin → OAuth', to: '/admin/oauth', always: false },
+          ].filter(s => s.always || isMulti).map(({ label, to }) => (
             <Link key={to} to={to} style={{
               fontSize: 12, padding: '4px 10px', borderRadius: 6,
               background: 'var(--surface2)', border: '1px solid var(--border)',

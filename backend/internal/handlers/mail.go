@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"crypto/tls"
+	"log"
 	"database/sql"
 	"fmt"
 	"net"
@@ -24,12 +25,19 @@ func getMailConfig(db *sql.DB) MailConfig {
 	cfg := MailConfig{Port: "587", TLSMode: "starttls"}
 	rows, err := db.Query(`SELECT key, value FROM app_config WHERE key LIKE 'mail_%' OR key = 'session_duration_hours'`)
 	if err != nil {
+		log.Printf("[MAIL] getMailConfig query error: %v", err)
 		return cfg
 	}
 	defer rows.Close()
+	rowCount := 0
 	for rows.Next() {
 		var k, v string
 		rows.Scan(&k, &v)
+		rowCount++
+		log.Printf("[MAIL] config row: key=%q value=%q", k, func() string {
+			if k == "mail_password" && v != "" { return "***" }
+			return v
+		}())
 		switch k {
 		case "mail_host":
 			cfg.Host = v
@@ -49,6 +57,7 @@ func getMailConfig(db *sql.DB) MailConfig {
 			}
 		}
 	}
+	log.Printf("[MAIL] getMailConfig: loaded %d rows, host=%q", rowCount, cfg.Host)
 	return cfg
 }
 
@@ -60,26 +69,34 @@ func saveMailConfig(db *sql.DB, cfg MailConfig) error {
 		"mail_from":     cfg.From,
 		"mail_tls_mode": cfg.TLSMode,
 	}
-	// Only update password if provided
 	if cfg.Password != "" {
 		pairs["mail_password"] = cfg.Password
 	}
+	log.Printf("[MAIL] saveMailConfig: writing %d keys", len(pairs))
 	for k, v := range pairs {
+		displayVal := v
+		if k == "mail_password" { displayVal = "***" }
+		log.Printf("[MAIL] saveMailConfig: SET %q = %q", k, displayVal)
 		if _, err := db.Exec(`INSERT INTO app_config (key, value) VALUES (?, ?)
 			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, k, v); err != nil {
+			log.Printf("[MAIL] saveMailConfig: DB error for key %q: %v", k, err)
 			return err
 		}
 	}
+	log.Printf("[MAIL] saveMailConfig: all keys written OK")
 	return nil
 }
 
 // ── Send mail ─────────────────────────────────────────────────────────────────
 
 func sendMail(db *sql.DB, to, subject, htmlBody string) error {
+	log.Printf("[MAIL] sendMail: to=%q subject=%q", to, subject)
 	cfg := getMailConfig(db)
 	if cfg.Host == "" {
+		log.Printf("[MAIL] sendMail: no host configured")
 		return fmt.Errorf("mail server not configured")
 	}
+	log.Printf("[MAIL] sendMail: using host=%q port=%q tls=%q user=%q", cfg.Host, cfg.Port, cfg.TLSMode, cfg.Username)
 	from := cfg.From
 	if from == "" {
 		from = "stoa@" + cfg.Host
@@ -88,12 +105,14 @@ func sendMail(db *sql.DB, to, subject, htmlBody string) error {
 	msg := buildMIME(from, to, subject, htmlBody)
 	addr := net.JoinHostPort(cfg.Host, cfg.Port)
 
+	log.Printf("[MAIL] sendMail: dialing %s via %s", addr, cfg.TLSMode)
 	switch cfg.TLSMode {
 	case "tls":
 		// Direct TLS (port 465)
 		tlsCfg := &tls.Config{ServerName: cfg.Host}
 		conn, err := tls.Dial("tcp", addr, tlsCfg)
 		if err != nil {
+			log.Printf("[MAIL] TLS dial error: %v", err)
 			return fmt.Errorf("TLS dial: %w", err)
 		}
 		client, err := smtp.NewClient(conn, cfg.Host)

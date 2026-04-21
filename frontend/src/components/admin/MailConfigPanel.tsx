@@ -2,6 +2,16 @@ import { useEffect, useState } from 'react'
 import { mailConfigApi, sessionConfigApi, MailConfig } from '../../api'
 import SectionHelp from './SectionHelp'
 
+function MailField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{label}</label>
+      {children}
+      {hint && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{hint}</div>}
+    </div>
+  )
+}
+
 export default function MailConfigPanel() {
   const [cfg, setCfg] = useState<MailConfig>({
     host: '', port: '587', username: '', password: '', from: '', tlsMode: 'starttls'
@@ -23,6 +33,9 @@ export default function MailConfigPanel() {
         setCfg(m.data)
         setSessionHours(s.data.sessionDurationHours || '24')
       })
+      .catch(e => {
+        setError('Load failed: ' + (e.response?.data?.error || e.message))
+      })
       .finally(() => setLoading(false))
   }, [])
 
@@ -32,7 +45,7 @@ export default function MailConfigPanel() {
       await mailConfigApi.save(cfg)
       setSaved(true); setTimeout(() => setSaved(false), 3000)
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Failed to save')
+      setError(e.response?.data?.error || `Failed to save (${e.response?.status ?? e.message})`)
     } finally { setSaving(false) }
   }
 
@@ -43,7 +56,7 @@ export default function MailConfigPanel() {
       await mailConfigApi.test(testEmail.trim())
       setTestResult({ ok: true, msg: `Test email sent to ${testEmail}` })
     } catch (e: any) {
-      setTestResult({ ok: false, msg: e.response?.data?.error || 'Failed to send' })
+      setTestResult({ ok: false, msg: e.response?.data?.error || `Failed (${e.response?.status ?? e.message})` })
     } finally { setTesting(false) }
   }
 
@@ -52,18 +65,12 @@ export default function MailConfigPanel() {
     try {
       await sessionConfigApi.save(sessionHours)
       setSavedSession(true); setTimeout(() => setSavedSession(false), 3000)
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Failed to save session config')
     } finally { setSavingSession(false) }
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
-
-  const Field = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <label style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-muted)' }}>{label}</label>
-      {children}
-      {hint && <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{hint}</div>}
-    </div>
-  )
 
   return (
     <div style={{ maxWidth: 560 }}>
@@ -76,19 +83,19 @@ export default function MailConfigPanel() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 10 }}>
-          <Field label="SMTP host" hint="e.g. smtp.gmail.com or mail.example.com">
+          <MailField label="SMTP host" hint="e.g. smtp.gmail.com or mail.example.com">
             <input className="input" value={cfg.host}
               onChange={e => setCfg(c => ({ ...c, host: e.target.value }))}
               placeholder="smtp.example.com" />
-          </Field>
-          <Field label="Port">
+          </MailField>
+          <MailField label="Port">
             <input className="input" value={cfg.port}
               onChange={e => setCfg(c => ({ ...c, port: e.target.value }))}
               placeholder="587" />
-          </Field>
+          </MailField>
         </div>
 
-        <Field label="TLS mode">
+        <MailField label="TLS mode">
           <select className="input" value={cfg.tlsMode}
             onChange={e => setCfg(c => ({ ...c, tlsMode: e.target.value as MailConfig['tlsMode'] }))}
             style={{ cursor: 'pointer' }}>
@@ -96,25 +103,25 @@ export default function MailConfigPanel() {
             <option value="tls">TLS (port 465)</option>
             <option value="plain">Plain (port 25 — no encryption)</option>
           </select>
-        </Field>
+        </MailField>
 
-        <Field label="Username" hint="Usually your full email address">
+        <MailField label="Username" hint="Usually your full email address">
           <input className="input" value={cfg.username}
             onChange={e => setCfg(c => ({ ...c, username: e.target.value }))}
             placeholder="user@example.com" autoComplete="off" />
-        </Field>
+        </MailField>
 
-        <Field label="Password" hint="Leave blank to keep existing password">
+        <MailField label="Password" hint="Leave blank to keep existing password">
           <input className="input" type="password" value={cfg.password}
             onChange={e => setCfg(c => ({ ...c, password: e.target.value }))}
             placeholder="••••••••" autoComplete="new-password" />
-        </Field>
+        </MailField>
 
-        <Field label="From address" hint='Shown as sender — e.g. "Stoa <stoa@example.com>"'>
+        <MailField label="From address" hint='Shown as sender — e.g. "Stoa <stoa@example.com>"'>
           <input className="input" value={cfg.from}
             onChange={e => setCfg(c => ({ ...c, from: e.target.value }))}
             placeholder="stoa@example.com" />
-        </Field>
+        </MailField>
       </div>
 
       {error && (
@@ -158,6 +165,8 @@ export default function MailConfigPanel() {
         <select className="input" value={sessionHours}
           onChange={e => setSessionHours(e.target.value)}
           style={{ cursor: 'pointer', maxWidth: 240 }}>
+          <option value="0.167">10 minutes (QA testing only)</option>
+          <option value="1">1 hour</option>
           <option value="4">4 hours</option>
           <option value="8">8 hours</option>
           <option value="24">24 hours (default)</option>
