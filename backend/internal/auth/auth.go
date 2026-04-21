@@ -278,16 +278,14 @@ func (s *Service) findOrCreateOAuthUser(sub, email, name string) (*models.User, 
 		var existingID, existingProvider string
 		if s.db.QueryRow("SELECT id, auth_provider FROM users WHERE LOWER(email)=LOWER(?)", email).
 			Scan(&existingID, &existingProvider) == nil {
-			if existingProvider == "local" {
-				// Link the OAuth subject to the existing local account
-				s.db.Exec("UPDATE users SET oauth_subject=?, last_login=CURRENT_TIMESTAMP WHERE id=?", sub, existingID)
-				var linked models.User
-				s.db.QueryRow("SELECT id, username, email, role, auth_provider FROM users WHERE id=?", existingID).
-					Scan(&linked.ID, &linked.Username, &linked.Email, &linked.Role, &linked.AuthProvider)
-				return &linked, false, nil
-			}
-			// Another OAuth account with same email — reject
-			return nil, false, fmt.Errorf("an account with email %s already exists", email)
+				// Email already in use — reject regardless of provider type
+				// A local account with this email exists: the user must log in locally.
+				// We don't auto-link accounts to prevent unintended access merging.
+				if existingProvider == "local" {
+					return nil, false, fmt.Errorf("a local account with email %s already exists — please sign in with your username and password", email)
+				}
+				// Another OAuth account with same email
+				return nil, false, fmt.Errorf("an account with email %s already exists", email)
 		}
 	}
 
