@@ -196,6 +196,7 @@ func main() {
 	admin.HandleFunc("/groups", handlers.CreateGroup(database)).Methods("POST")
 	admin.HandleFunc("/groups/{id}", handlers.GetGroup(database)).Methods("GET")
 	admin.HandleFunc("/groups/{id}", handlers.DeleteGroup(database)).Methods("DELETE")
+	admin.HandleFunc("/groups/{id}/default", handlers.SetDefaultGroup(database)).Methods("PUT")
 	admin.HandleFunc("/groups/{id}/users", handlers.AddUserToGroup(database)).Methods("POST")
 	admin.HandleFunc("/groups/{id}/users/{userId}", handlers.RemoveUserFromGroup(database)).Methods("DELETE")
 	admin.HandleFunc("/groups/{id}/tags", handlers.AddTagToGroup(database)).Methods("POST")

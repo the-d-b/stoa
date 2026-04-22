@@ -2577,41 +2577,31 @@ function PersonalIntegrationsTab() {
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1 }}>
+              <div style={{ flex: 1.5 }}>
                 <label className="label">Name</label>
                 <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
                   placeholder="e.g. My Sonarr" autoFocus />
               </div>
-              <div style={{ flex: 0.5 }}>
+              <div style={{ flex: 0.7 }}>
                 <label className="label">Type</label>
                 <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
                   {INTEGRATION_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                 </select>
               </div>
-            </div>
-            <div>
-              <label className="label">API URL</label>
-              <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
-                placeholder="http://sonarr.local:8989" />
-            </div>
-            <div>
-              <label className="label">UI URL (optional)</label>
-              <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
-                placeholder="https://sonarr.yourdomain.com" />
-            </div>
-            <div>
-              <label className="label">API key secret</label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <select className="input" value={newSecretId}
-                  onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
-                  style={{ cursor: 'pointer', flex: 1 }}>
-                  <option value="">— None —</option>
-                  {secrets.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
-                  onClick={() => setShowAddSecret(v => !v)}>
-                  {showAddSecret ? 'Cancel' : '+ New'}
-                </button>
+              <div style={{ flex: 1 }}>
+                <label className="label">API key secret</label>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <select className="input" value={newSecretId}
+                    onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
+                    style={{ cursor: 'pointer', flex: 1 }}>
+                    <option value="">— None —</option>
+                    {secrets.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
+                    onClick={() => setShowAddSecret(v => !v)}>
+                    {showAddSecret ? 'Cancel' : '+ New'}
+                  </button>
+                </div>
               </div>
               {showAddSecret && (
                 <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8,
@@ -2639,6 +2629,18 @@ function PersonalIntegrationsTab() {
                 </div>
               )}
             </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
+                <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
+                  placeholder="http://sonarr.local:8989" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
+                <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
+                  placeholder="https://sonarr.yourdomain.com" />
+              </div>
+            </div>
             {testResult && (
               <div style={{
                 padding: '7px 12px', borderRadius: 7, fontSize: 12,
@@ -2647,26 +2649,26 @@ function PersonalIntegrationsTab() {
                 color: testResult.ok ? 'var(--green)' : 'var(--red)',
               }}>
                 {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
-              {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
-                <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
-                  ⚠ Connection works without certificate verification — enable "Skip TLS" below, or add the service's root CA to your system's trusted certificate store.
-                </div>
-              )}
+                {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
+                  <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
+                    ⚠ Connection works without certificate verification — enable "Skip TLS" below.
+                  </div>
+                )}
               </div>
             )}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer', marginBottom: 4 }}>
-              <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
-              Skip TLS verification
-              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
-            </label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
-              <input className="input" type="number" min={15} value={newRefreshSecs}
-                onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
-                style={{ width: 80 }} />
-              <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>seconds</span>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+                <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
+                Skip TLS <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(self-signed certs)</span>
+              </label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
+                <input className="input" type="number" min={15} value={newRefreshSecs}
+                  onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
+                  style={{ width: 72 }} />
+                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
+              </div>
+              <div style={{ flex: 1 }} />
               <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
                 {testing ? <span className="spinner" /> : 'Test'}
               </button>
@@ -2742,26 +2744,28 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
   return (
     <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1.5 }}>
             <label className="label">Name</label>
             <input className="input" value={name} onChange={e => setName(e.target.value)} />
           </div>
+          <div style={{ flex: 1 }}>
+            <label className="label">API key secret</label>
+            <select className="input" value={secretId} onChange={e => { setSecretId(e.target.value); setTestResult(null) }} style={{ cursor: 'pointer' }}>
+              <option value="">— None —</option>
+              {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
         </div>
-        <div>
-          <label className="label">API URL</label>
-          <input className="input" value={apiUrl} onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
-        </div>
-        <div>
-          <label className="label">UI URL</label>
-          <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
-        </div>
-        <div>
-          <label className="label">API key secret</label>
-          <select className="input" value={secretId} onChange={e => { setSecretId(e.target.value); setTestResult(null) }} style={{ cursor: 'pointer' }}>
-            <option value="">— None —</option>
-            {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
+            <input className="input" value={apiUrl} onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
+            <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
+          </div>
         </div>
         {testResult && (
           <div style={{
@@ -2771,27 +2775,26 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
             color: testResult.ok ? 'var(--green)' : 'var(--red)',
           }}>
             {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
-              {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
-                <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
-                  ⚠ Connection works without certificate verification — enable "Skip TLS" below,
-                  or add the service's root CA to your system's trusted certificate store.
-                </div>
-              )}
+            {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
+              <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
+                ⚠ Connection works without certificate verification — enable "Skip TLS" below.
+              </div>
+            )}
           </div>
         )}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
-          <input type="checkbox" checked={skipTls} onChange={e => { setSkipTls(e.target.checked); setTestResult(null) }} />
-          Skip TLS verification
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(for self-signed certs)</span>
-        </label>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
-          <input className="input" type="number" min={15} value={refreshSecs}
-            onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
-            style={{ width: 80 }} />
-          <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>seconds</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            <input type="checkbox" checked={skipTls} onChange={e => { setSkipTls(e.target.checked); setTestResult(null) }} />
+            Skip TLS <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(self-signed certs)</span>
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
+            <input className="input" type="number" min={15} value={refreshSecs}
+              onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
+              style={{ width: 72 }} />
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
+          </div>
+          <div style={{ flex: 1 }} />
           <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
             {testing ? <span className="spinner" /> : 'Test'}
           </button>

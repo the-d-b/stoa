@@ -55,6 +55,7 @@ export interface Group {
   createdAt: string
   users?: User[]
   tags?: Tag[]
+  isDefault?: boolean
 }
 
 export interface Tag {
@@ -131,6 +132,7 @@ export const groupsApi = {
     api.post(`/groups/${groupId}/users`, { userId }),
   removeUser: (groupId: string, userId: string) =>
     api.delete(`/groups/${groupId}/users/${userId}`),
+  setDefault: (groupId: string) => api.put(`/groups/${groupId}/default`, {}),
   addTag: (groupId: string, tagId: string) =>
     api.post(`/groups/${groupId}/tags`, { tagId }),
   removeTag: (groupId: string, tagId: string) =>

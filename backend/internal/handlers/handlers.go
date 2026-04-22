@@ -556,6 +556,10 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 
 func ListGroups(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// Get default group name for marking
+		var defaultGroupName string
+		db.QueryRow("SELECT value FROM app_config WHERE key='default_group'").Scan(&defaultGroupName)
+
 		rows, err := db.Query("SELECT id, name, description, created_at FROM groups ORDER BY name ASC")
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to query groups")
@@ -566,6 +570,21 @@ func ListGroups(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var g models.Group
 			rows.Scan(&g.ID, &g.Name, &g.Description, &g.CreatedAt)
+			g.IsDefault = (g.Name == defaultGroupName)
+			// Load members for each group
+			uRows, _ := db.Query(`
+				SELECT u.id, u.username, COALESCE(u.email,''), u.role
+				FROM users u JOIN user_groups ug ON u.id = ug.user_id
+				WHERE ug.group_id = ?`, g.ID)
+			if uRows != nil {
+				for uRows.Next() {
+					var u models.User
+					uRows.Scan(&u.ID, &u.Username, &u.Email, &u.Role)
+					g.Users = append(g.Users, u)
+				}
+				uRows.Close()
+			}
+			if g.Users == nil { g.Users = []models.User{} }
 			groups = append(groups, g)
 		}
 		writeJSON(w, http.StatusOK, groups)
@@ -626,6 +645,22 @@ func GetGroup(db *sql.DB) http.HandlerFunc {
 			g.Tags = append(g.Tags, t)
 		}
 		writeJSON(w, http.StatusOK, g)
+	}
+}
+
+func SetDefaultGroup(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		// Get group name from id
+		var name string
+		if err := db.QueryRow("SELECT name FROM groups WHERE id=?", id).Scan(&name); err != nil {
+			writeError(w, http.StatusNotFound, "group not found")
+			return
+		}
+		db.Exec(`INSERT INTO app_config (key, value) VALUES ('default_group', ?)
+			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, name)
+		log.Printf("[ADMIN] default_group set to %q", name)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 

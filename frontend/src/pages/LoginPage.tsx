@@ -1,27 +1,25 @@
 import { useState, useEffect } from 'react'
 import { authApi } from '../api'
-import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
 import { APP_VERSION } from '../version'
 
 export default function LoginPage() {
-  const [username, setUsername]       = useState('')
-  const [searchParams] = useSearchParams()
-  const [password, setPassword]       = useState('')
-  const [showForgot, setShowForgot]   = useState(false)
+  // Read URL error param synchronously before any state — no async dependency
+  const urlError = new URLSearchParams(window.location.search).get('error') || ''
 
-  useEffect(() => {
-    const urlError = searchParams.get('error')
-    if (urlError) setError(urlError)
-  }, [])
-  const [forgotEmail, setForgotEmail] = useState('')
-  const [forgotSent, setForgotSent]   = useState(false)
+  const [username, setUsername]           = useState('')
+  const [password, setPassword]           = useState('')
+  const [showForgot, setShowForgot]       = useState(false)
+  const [forgotEmail, setForgotEmail]     = useState('')
+  const [forgotSent, setForgotSent]       = useState(false)
   const [forgotLoading, setForgotLoading] = useState(false)
-  const [error, setError]             = useState('')
-  const [loading, setLoading]         = useState(false)
-  const [oauthConfigured, setOAuthConfigured] = useState<boolean | null>(null)
-  const [showLocal, setShowLocal]     = useState(false)
+  const [error, setError]                 = useState(urlError)
+  const [loading, setLoading]             = useState(false)
+  // If there's a URL error, show local form immediately and assume OAuth configured
+  // (setupStatus will correct oauthConfigured once it resolves)
+  const [oauthConfigured, setOAuthConfigured] = useState<boolean | null>(urlError ? true : null)
+  const [showLocal, setShowLocal]         = useState(!!urlError)
   const { login } = useAuth()
 
   useEffect(() => {
@@ -75,6 +73,15 @@ export default function LoginPage() {
         </div>
 
         <div className="card fade-up-1" style={{ padding: 28 }}>
+
+          {/* URL error — show immediately regardless of login mode */}
+          {error && !showLocal && (
+            <div style={{
+              background: '#f8717110', border: '1px solid #f8717130',
+              color: 'var(--red)', borderRadius: 8, padding: '8px 12px',
+              fontSize: 13, marginBottom: 16,
+            }}>{error}</div>
+          )}
 
           {/* SSO button — only when OAuth is configured */}
           {oauthConfigured && (

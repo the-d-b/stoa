@@ -54,6 +54,7 @@ type Group struct {
 	CreatedAt   time.Time `json:"createdAt"`
 	Users       []User    `json:"users,omitempty"`
 	Tags        []Tag     `json:"tags,omitempty"`
+	IsDefault   bool      `json:"isDefault"`
 }
 
 type Tag struct {

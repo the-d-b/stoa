@@ -34,9 +34,13 @@ export default function GroupsPanel() {
   }
 
   const toggleUser = async (groupId: string, userId: string, inGroup: boolean) => {
-    if (inGroup) await groupsApi.removeUser(groupId, userId)
-    else await groupsApi.addUser(groupId, userId)
-    await load()
+    try {
+      if (inGroup) await groupsApi.removeUser(groupId, userId)
+      else await groupsApi.addUser(groupId, userId)
+      await load()
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to update group membership')
+    }
   }
 
   const filtered = groups.filter(g =>
@@ -94,7 +98,14 @@ export default function GroupsPanel() {
                 padding: '12px 16px', cursor: 'pointer' }}
                 onClick={() => setExpanded(isOpen ? null : g.id)}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 500 }}>{g.name}</span>
+                    {(g as any).isDefault && (
+                      <span style={{ fontSize: 10, padding: '1px 7px', borderRadius: 10,
+                        background: 'var(--accent-bg)', color: 'var(--accent2)',
+                        fontWeight: 600, letterSpacing: '0.04em' }}>DEFAULT</span>
+                    )}
+                  </div>
                   {g.description && (
                     <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{g.description}</div>
                   )}
@@ -102,6 +113,16 @@ export default function GroupsPanel() {
                     {(g.users || []).length} member{(g.users || []).length !== 1 ? 's' : ''}
                   </div>
                 </div>
+                {!(g as any).isDefault && (
+                  <button className="btn btn-secondary" style={{ fontSize: 11 }}
+                    onClick={async e => {
+                      e.stopPropagation()
+                      await groupsApi.setDefault(g.id)
+                      await load()
+                    }}>
+                    Set default
+                  </button>
+                )}
                 <button className="btn btn-danger" style={{ fontSize: 11 }}
                   onClick={e => { e.stopPropagation(); remove(g) }}>
                   Delete
