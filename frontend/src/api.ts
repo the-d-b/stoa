@@ -402,6 +402,7 @@ export interface Panel {
   tags: Tag[]
   position: number
   createdAt: string
+  uiUrl?: string
 }
 
 export const panelsApi = {

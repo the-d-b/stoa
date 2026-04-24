@@ -78,7 +78,7 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   )
 
   const Summary = () => (
-    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
       <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login` : '#'}
         target="_blank" rel="noopener noreferrer"
         style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
@@ -138,7 +138,7 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   )
 
   return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
+    <div style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <TimeRangePills />
       <Summary />
       {hasFailures && (

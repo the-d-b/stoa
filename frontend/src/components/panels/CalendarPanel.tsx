@@ -78,30 +78,37 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   const [events, setEvents] = useState<CalendarEvent[]>([])
 
   const hasSources = (config as any).sources?.length > 0
-  const [forecast, setForecast] = useState<DayForecast[]>([])
+  const [allForecasts, setAllForecasts] = useState<{ city: string; unit: string; days: DayForecast[] }[]>([])
 
-  // Fetch 7-day weather from sources array (type: 'weather')
-  const weatherSource = ((config as any).sources || []).find((s: any) => s.type === 'weather')
+  // Fetch 7-day weather for all weather sources
+  const weatherSources: any[] = ((config as any).sources || []).filter((s: any) => s.type === 'weather')
   useEffect(() => {
-    if (!weatherSource?.lat || !weatherSource?.lon) return
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${weatherSource.lat}&longitude=${weatherSource.lon}` +
-      `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode` +
-      `&timezone=auto&forecast_days=7`
-    fetch(url)
-      .then(r => r.json())
-      .then(d => {
-        if (!d.daily) return
-        const days: DayForecast[] = d.daily.time.map((date: string, i: number) => ({
-          date,
-          high: d.daily.temperature_2m_max[i],
-          low:  d.daily.temperature_2m_min[i],
-          precipChance: d.daily.precipitation_probability_max[i] ?? 0,
-          code: d.daily.weathercode[i] ?? 0,
-        }))
-        setForecast(days)
-      })
-      .catch(() => {})
-  }, [weatherSource?.lat, weatherSource?.lon])
+    if (weatherSources.length === 0) return
+    // Fetch forecast for all cities in parallel
+    Promise.all(weatherSources.map(ws => {
+      if (!ws.lat || !ws.lon) return Promise.resolve(null)
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${ws.lat}&longitude=${ws.lon}` +
+        `&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max,weathercode` +
+        `&timezone=auto&forecast_days=7`
+      return fetch(url).then(r => r.json()).then(d => {
+        if (!d.daily) return null
+        return {
+          city: ws.city,
+          unit: ws.unit || 'f',
+          days: d.daily.time.map((date: string, i: number) => ({
+            date,
+            high: d.daily.temperature_2m_max[i],
+            low:  d.daily.temperature_2m_min[i],
+            precipChance: d.daily.precipitation_probability_max[i] ?? 0,
+            code: d.daily.weathercode[i] ?? 0,
+          }))
+        }
+      }).catch(() => null)
+    })).then(results => {
+      const valid = results.filter(Boolean) as { city: string; unit: string; days: DayForecast[] }[]
+      setAllForecasts(valid)
+    })
+  }, [weatherSources.map(ws => ws.lat + ws.lon).join(',')])
 
   const loadEvents = useCallback(async () => {
     if (!hasSources) return
@@ -123,10 +130,6 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
 
   const eventsForSelected = eventsForDate(viewDate.getFullYear(), viewDate.getMonth(), selectedDay)
 
-  const weatherUnit = weatherSource?.unit || 'f'
-  const toDisplay = (c: number) =>
-    weatherUnit === 'f' ? Math.round(c * 9/5 + 32) : Math.round(c)
-  const unit = weatherUnit === 'f' ? '°F' : '°C'
 
   const today = new Date()
   const year  = viewDate.getFullYear()
@@ -290,29 +293,33 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {MONTHS[month]} {selectedDay}
         </div>
-        {/* Weather for selected day */}
-        {forecast.length > 0 && (() => {
+        {/* Weather for selected day — one tile per city */}
+        {allForecasts.length > 0 && (() => {
           const selDate = `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`
-          const w = forecast.find(f => f.date === selDate)
-          if (!w) return null
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10,
-              padding: '6px 10px', borderRadius: 8,
-              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-              <span style={{ fontSize: 18 }}>{wmoIcon(w.code)}</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 500 }}>{wmoDescription(w.code)}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  {weatherSource?.city && <span style={{ marginRight: 6 }}>{weatherSource.city}</span>}
-                  <span style={{ fontFamily: 'DM Mono, monospace' }}>{w.precipChance}% precip</span>
+          return allForecasts.map((fc, fi) => {
+            const w = fc.days.find(f => f.date === selDate)
+            if (!w) return null
+            const fcUnit = fc.unit === 'c' ? '°C' : '°F'
+            const toFcDisplay = (c: number) => fc.unit === 'f' ? Math.round(c * 9/5 + 32) : Math.round(c)
+            return (
+              <div key={fi} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6,
+                padding: '6px 10px', borderRadius: 8,
+                background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                <span style={{ fontSize: 18 }}>{wmoIcon(w.code)}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 500 }}>{wmoDescription(w.code)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                    {fc.city && <span style={{ marginRight: 6 }}>{fc.city}</span>}
+                    <span style={{ fontFamily: 'DM Mono, monospace' }}>{w.precipChance}% precip</span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>
+                  <div style={{ fontSize: 13, fontWeight: 700 }}>{toFcDisplay(w.high)}{fcUnit}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{toFcDisplay(w.low)}{fcUnit}</div>
                 </div>
               </div>
-              <div style={{ textAlign: 'right', fontFamily: 'DM Mono, monospace' }}>
-                <div style={{ fontSize: 13, fontWeight: 700 }}>{toDisplay(w.high)}{unit}</div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{toDisplay(w.low)}{unit}</div>
-              </div>
-            </div>
-          )
+            )
+          })
         })()}
 
         {eventsForSelected.length === 0 ? (

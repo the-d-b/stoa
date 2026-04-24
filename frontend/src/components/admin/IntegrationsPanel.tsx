@@ -3,20 +3,19 @@ import { integrationsApi, secretsApi, groupsApi, Integration } from '../../api'
 import SectionHelp from './SectionHelp'
 
 const INTEGRATION_TYPES = [
-  { id: 'sonarr',  label: 'Sonarr',  desc: 'TV show management' },
-  { id: 'radarr',  label: 'Radarr',  desc: 'Movie management' },
-  { id: 'lidarr',  label: 'Lidarr',  desc: 'Music management' },
-  { id: 'plex',    label: 'Plex',    desc: 'Media server' },
-  { id: 'tautulli', label: 'Tautulli', desc: 'Plex analytics' },
-  { id: 'truenas', label: 'TrueNAS', desc: 'NAS management' },
-  { id: 'proxmox',  label: 'Proxmox',     desc: 'Hypervisor' },
-  { id: 'kuma',     label: 'Uptime Kuma', desc: 'Status monitoring' },
-  { id: 'gluetun',  label: 'Gluetun',    desc: 'VPN container' },
-  { id: 'opnsense',     label: 'OPNsense',    desc: 'Firewall/router' },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'generic', label: 'Generic', desc: 'Other service' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
+  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
 ]
 
 export default function IntegrationsPanel() {
@@ -47,9 +46,15 @@ export default function IntegrationsPanel() {
     setIntegrations(list)
     setSecrets(s.data || [])
     setGroups(g.data || [])
-    // Load group assignments for each integration
+    // Load all group assignments in parallel so display is correct on first render
+    const groupResults = await Promise.all(
+      list.map(item => integrationsApi.getGroups(item.id)
+        .then(r => ({ id: item.id, groups: r.data || [] }))
+        .catch(() => ({ id: item.id, groups: [] }))
+      )
+    )
     const ig: Record<string, string[]> = {}
-    // We'll load lazily when expanded to avoid N+1 on load
+    groupResults.forEach(({ id, groups }) => { ig[id] = groups })
     setIntegrationGroups(ig)
     setLoading(false)
   }

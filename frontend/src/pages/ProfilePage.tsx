@@ -1391,19 +1391,7 @@ function GlyphRow({ glyph, secrets, integrations, porticos, editing, onEdit, onT
             )}
 
             {/* Weather config */}
-            {glyph.type === 'kuma' && (
-              <div>
-                <label className="label">Kuma integration</label>
-                <select className="input" value={localConfig.integrationId || ''}
-                  onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
-                  style={{ cursor: 'pointer' }}>
-                  <option value="">— Select integration —</option>
-                  {integrations.filter((i: Integration) => i.type === 'kuma').map((i: Integration) => (
-                    <option key={i.id} value={i.id}>{i.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+
             {glyph.type === 'weather' && (
               <>
                 <div style={{ display: 'flex', gap: 10 }}>
@@ -1616,7 +1604,11 @@ function ThemeDensityBlock() {
   useEffect(() => {
     Promise.all([preferencesApi.get(), cssApi.list()]).then(([prefs, sheets]) => {
       setDensityState(prefs.data.density || 'normal')
-      if (prefs.data.theme) setActiveTheme(prefs.data.theme as any)
+      if (prefs.data.theme) {
+        // Sync local selector state with server value, but don't re-apply
+        // the theme — ThemeContext already applied it on login
+        setActiveTheme(prefs.data.theme as any)
+      }
       const list = sheets.data || []
       setCssSheets(list)
       // Restore saved CSS selection
@@ -1637,9 +1629,14 @@ function ThemeDensityBlock() {
     } finally { setSaving(false) }
   }
 
-  const clearCustomCSS = (keys: string[]) => {
+  const clearCustomCSS = (_keys?: string[]) => {
+    // Remove the dedicated style element — fully clears all custom CSS
+    // regardless of what was applied in a previous session
+    const el = document.getElementById('stoa-custom-css')
+    if (el) el.remove()
+    // Also clear any inline :root properties from the old approach
     const root = document.documentElement
-    keys.forEach(k => root.style.removeProperty(k))
+    if (_keys?.length) _keys.forEach(k => root.style.removeProperty(k))
     setCustomVarKeys([])
   }
 
@@ -1647,21 +1644,26 @@ function ThemeDensityBlock() {
     try {
       const res = await fetch(cssApi.url(filename))
       const text = await res.text()
+      // Remove any previously injected custom CSS element
+      const existing = document.getElementById('stoa-custom-css')
+      if (existing) existing.remove()
+      // Also clear old inline :root properties from previous approach
       const root = document.documentElement
-      // Parse --var-name: value pairs from :root block
-      const matches = text.match(/--[a-zA-Z0-9-]+\s*:[^;}\n]+/g) || []
-      const keys: string[] = []
-      matches.forEach(m => {
-        const [k, ...v] = m.split(':')
-        const key = k.trim()
-        root.style.setProperty(key, v.join(':').trim())
-        keys.push(key)
-      })
-      setCustomVarKeys(keys)
+      customVarKeys.forEach(k => root.style.removeProperty(k))
+      // Inject the full CSS as a <style> element — fully replaces previous
+      const style = document.createElement('style')
+      style.id = 'stoa-custom-css'
+      style.textContent = text
+      document.head.appendChild(style)
+      // Track var keys for cleanup if needed
+      const matches = text.match(/--[a-zA-Z0-9-]+\s*:/g) || []
+      setCustomVarKeys(matches.map(m => m.replace(':', '').trim()))
     } catch (e) { console.error('Failed to apply CSS', e) }
   }
 
   const saveTheme = async (themeId: string) => {
+    localStorage.removeItem('stoa_custom_css_id')
+    localStorage.removeItem('stoa_custom_css_file')
     clearCustomCSS(customVarKeys)
     setActiveCssId('system')
     localStorage.removeItem('stoa_custom_css_id')
@@ -1815,8 +1817,13 @@ function ThemeDensityBlock() {
             </div>
             <div>
               <label className="label">CSS file</label>
-              <input type="file" accept=".css,text/css" style={{ fontSize: 12, color: 'var(--text-muted)' }}
+              <input type="file" accept=".css,text/css"
+                disabled={!uploadName.trim()}
+                style={{ fontSize: 12, color: 'var(--text-muted)', opacity: uploadName.trim() ? 1 : 0.4, cursor: uploadName.trim() ? 'pointer' : 'not-allowed' }}
                 onChange={e => { const f = e.target.files?.[0]; if (f && uploadName.trim()) uploadCSS(f) }} />
+              {!uploadName.trim() && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Enter a name above before choosing a file</div>
+              )}
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
                 Select a .css file — it will be applied immediately
               </div>
@@ -2413,21 +2420,20 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
 // ── Personal Integrations ─────────────────────────────────────────────────────
 
 const INTEGRATION_TYPES = [
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Uptime monitoring' },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall / router' },
-  { id: 'transmission', label: 'Transmission', desc: 'Torrent client' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API' },
-  { id: 'generic',      label: 'Generic',      desc: 'Other service' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Uptime monitoring' },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall / router' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
+  { id: 'transmission', label: 'Transmission', desc: 'Torrent client' },
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
 ]
 
 function PersonalIntegrationsTab() {
@@ -3069,24 +3075,24 @@ function PersonalTagsTab() {
 // ── My Panels ────────────────────────────────────────────────────────────────
 
 const PANEL_TYPES = [
-  { id: 'bookmarks', label: 'Bookmarks',  desc: 'Bookmark tree panel' },
-  { id: 'sonarr',    label: 'Sonarr',     desc: 'TV show tracking' },
-  { id: 'radarr',    label: 'Radarr',     desc: 'Movie tracking' },
-  { id: 'lidarr',    label: 'Lidarr',     desc: 'Music tracking' },
-  { id: 'plex',      label: 'Plex',       desc: 'Media server' },
-  { id: 'truenas',   label: 'TrueNAS',    desc: 'NAS management' },
-  { id: 'proxmox',   label: 'Proxmox',    desc: 'Hypervisor' },
-  { id: 'tautulli',  label: 'Tautulli',   desc: 'Plex analytics' },
-  { id: 'kuma',      label: 'Uptime Kuma', desc: 'Status monitoring' },
-  { id: 'gluetun',   label: 'Gluetun',    desc: 'VPN container' },
-  { id: 'opnsense',      label: 'OPNsense',    desc: 'Firewall/router' },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'calendar',  label: 'Calendar',   desc: 'Calendar with sources' },
-  { id: 'iframe',    label: 'Web embed',  desc: 'Embed a web page' },
-  { id: 'custom',    label: 'Text/HTML',  desc: 'Custom HTML or text content' },
+  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel' },
+  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources' },
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
+  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page' },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking' },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking' },
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking' },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
+  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content' },
+  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
 ]
 
 const HEIGHT_OPTIONS = [
@@ -3119,18 +3125,19 @@ function MyPanelsTab() {
   const [newHeight, setNewHeight] = useState(2)
   const [newIntegrationId, setNewIntegrationId] = useState('')
   const [creating, setCreating] = useState(false)
+  const [customAPIEdit, setCustomAPIEdit] = useState<{url: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
+  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
 
   const load = async () => {
-    const [system, mine, sysI, myI, t] = await Promise.all([
+    const [system, mine, allI, t] = await Promise.all([
       panelsApi.list(),
       myPanelsApi.list(),
-      integrationsApi.list(),
-      myIntegrationsApi.list(),
+      integrationsApi.list(), // already includes personal integrations visible to this user
       myTagsApi.list(),
     ])
     setSystemPanels((system.data || []).filter((p: Panel) => p.createdBy === 'SYSTEM'))
     setMyPanels(mine.data || [])
-    setIntegrations([...(sysI.data || []), ...(myI.data || [])])
+    setIntegrations(allI.data || [])
     setMyTags(t.data || [])
     setLoading(false)
   }
@@ -3309,7 +3316,7 @@ function MyPanelsTab() {
                     setEditHtml(cfg.html || '')
                     setEditIntegrationId(cfg.integrationId || '')
                   }
-                  setExpandedPanelId(expanded ? null : p.id)
+                  setExpandedPanelId(expanded ? null : p.id); setCustomAPIEdit(null); setCustomAPIPreview(null)
                 }}>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{expanded ? '▼' : '▶'}</span>
                 <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
@@ -3387,48 +3394,95 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* OPNsense max link speed */}
-                  {p.type === 'customapi' && (
-                    <>
-                      <div>
-                        <label className="label">API URL</label>
-                        <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                          defaultValue={cfg.url || ''}
-                          onChange={e => { cfg.url = e.target.value }}
-                          placeholder="http://host:port/api/stats" />
-                      </div>
-                      <div>
-                        <label className="label">Bearer token (optional)</label>
-                        <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                          defaultValue={cfg.apiKey || ''}
-                          onChange={e => { cfg.apiKey = e.target.value }}
-                          placeholder="Leave blank if no auth required" />
-                      </div>
-                      <div>
-                        <label className="label">Field mappings</label>
-                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-                          One per line: <code>path.to.value | Label</code> e.g. <code>photos.unsorted | Photos to sort</code>
+                  {p.type === 'customapi' && (() => {
+                    const ca = customAPIEdit?.url !== undefined ? customAPIEdit
+                      : { url: cfg.url || '', apiKey: cfg.apiKey || '',
+                          mappings: (cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n'),
+                          refreshSecs: cfg.refreshSecs || 600 }
+                    const setCA = (patch: Partial<typeof ca>) => {
+                      setCustomAPIPreview(null)
+                      setCustomAPIEdit(prev => ({ ...(prev ?? ca), ...patch }))
+                    }
+                    // Sync cfg mutations so save button works
+                    if (customAPIEdit) {
+                      cfg.url = customAPIEdit.url
+                      cfg.apiKey = customAPIEdit.apiKey
+                      cfg.refreshSecs = customAPIEdit.refreshSecs
+                      cfg.mappings = customAPIEdit.mappings.split('\n')
+                        .map((l: string) => l.trim()).filter((l: string) => l.includes('|'))
+                        .map((l: string) => { const [path, ...rest] = l.split('|'); return { path: path.trim(), label: rest.join('|').trim() } })
+                    }
+                    return (
+                      <>
+                        <div>
+                          <label className="label">API URL</label>
+                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                            value={ca.url} onChange={e => setCA({ url: e.target.value })}
+                            placeholder="http://host:port/api/stats" />
                         </div>
-                        <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace',
-                          minHeight: 100, resize: 'vertical' }}
-                          defaultValue={(cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n')}
-                          onChange={e => {
-                            cfg.mappings = e.target.value.split('\n')
-                              .map(line => line.trim())
-                              .filter(line => line.includes('|'))
-                              .map(line => {
-                                const [path, ...rest] = line.split('|')
-                                return { path: path.trim(), label: rest.join('|').trim() }
-                              })
-                          }} />
-                      </div>
-                      <div>
-                        <label className="label">Refresh interval (seconds)</label>
-                        <input className="input" type="number" style={{ fontSize: 12, width: 100 }}
-                          defaultValue={cfg.refreshSecs || 600}
-                          onChange={e => { cfg.refreshSecs = Number(e.target.value) }} />
-                      </div>
-                    </>
-                  )}
+                        <div>
+                          <label className="label">Bearer token (optional)</label>
+                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                            value={ca.apiKey} onChange={e => setCA({ apiKey: e.target.value })}
+                            placeholder="Leave blank if no auth required" />
+                        </div>
+                        <div>
+                          <label className="label">Field mappings</label>
+                          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+                            One per line: <code>path.to.value | Label</code> e.g. <code>photos.unsorted | Photos to sort</code>
+                          </div>
+                          <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 100, resize: 'vertical' }}
+                            value={ca.mappings} onChange={e => setCA({ mappings: e.target.value })} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                          <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh (sec)</label>
+                          <input className="input" type="number" style={{ fontSize: 12, width: 80 }}
+                            value={ca.refreshSecs} onChange={e => setCA({ refreshSecs: Number(e.target.value) })} />
+                          <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                            disabled={customAPIPreview?.loading || !ca.url}
+                            onClick={async () => {
+                              setCustomAPIPreview({ loading: true, json: '', error: '' })
+                              try {
+                                const res = await fetch('/api/customapi/preview', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
+                                  body: JSON.stringify({ url: ca.url, apiKey: ca.apiKey })
+                                })
+                                if (!res.ok) {
+                                  const err = await res.json().catch(() => ({}))
+                                  throw new Error(err.error || `HTTP ${res.status}`)
+                                }
+                                const raw = await res.json()
+                                setCustomAPIPreview({ loading: false, json: JSON.stringify(raw, null, 2), error: '' })
+                              } catch (e: any) {
+                                setCustomAPIPreview({ loading: false, json: '', error: e.message || 'Fetch failed' })
+                              }
+                            }}>
+                            {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
+                          </button>
+                        </div>
+                        {customAPIPreview && !customAPIPreview.loading && (
+                          <div style={{ marginTop: 4 }}>
+                            {customAPIPreview.error
+                              ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
+                              : <>
+                                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                                    Raw response — copy field paths for mappings (e.g. <code>data.temperature | Temp</code>)
+                                  </div>
+                                  <textarea readOnly value={customAPIPreview.json}
+                                    style={{ width: '100%', minHeight: 140, fontSize: 11,
+                                      fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
+                                      border: '1px solid var(--border)', borderRadius: 6,
+                                      padding: 8, color: 'var(--text-muted)', resize: 'vertical',
+                                      boxSizing: 'border-box' }} />
+                                </>
+                            }
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
                   {p.type === 'opnsense' && (
                     <div>
                       <label className="label">Max link speed (Mbps)</label>
@@ -3479,25 +3533,10 @@ function MyPanelsTab() {
                             </div>
                           )
                         })}
-                        {calIntegrations.length > 0 ? (
-                          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 6 }}>
-                            <CalendarSourceAdder
-                              panelId={p.id}
-                              panelTitle={p.title}
-                              panelConfig={p.config}
-                              isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
-                              integrations={calIntegrations}
-                              onAdded={load}
-                            />
-                          </div>
-                        ) : (
-                          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>
-                            No calendar integrations. Add Sonarr, Radarr, etc. in My Integrations first.
-                          </div>
-                        )}
-                        <PersonalWeatherSourceAdder
+                        <UnifiedPersonalCalendarSourceAdder
                           panelId={p.id} panelTitle={p.title} panelConfig={p.config}
                           isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
+                          integrations={calIntegrations}
                           onAdded={load}
                         />
                       </div>
@@ -3566,65 +3605,145 @@ function MyPanelsTab() {
   )
 }
 
-function PersonalWeatherSourceAdder({ panelId, panelTitle, panelConfig, isSystem, onAdded }: {
-  panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean; onAdded: () => void
+function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
+  panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
+  integrations: any[]; onAdded: () => void
 }) {
-  const [citySearch, setCitySearch] = useState('')
+  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'>('integration')
+  const [intId, setIntId] = useState('')
+  const [googleTokenId, setGoogleTokenId] = useState('')
+  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
+  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
+  const [googleTokens, setGoogleTokens] = useState<any[]>([])
+  const [city, setCity] = useState('')
   const [unit, setUnit] = useState<'f'|'c'>('f')
   const [searching, setSearching] = useState(false)
-  const [results, setResults] = useState<any[]>([])
+  const [searchResults, setSearchResults] = useState<any[]>([])
   const [adding, setAdding] = useState(false)
 
-  const cfg = (() => { try { return JSON.parse(panelConfig||'{}') } catch { return {} } })()
+  useEffect(() => {
+    googleApi.getConfig().then((res: any) => {
+      if (res.data.configured) {
+        googleApi.listTokens(isSystem ? 'system' : 'personal').then((r: any) => setGoogleTokens(r.data || []))
+      }
+    }).catch(() => {})
+  }, [isSystem])
+
+  useEffect(() => {
+    if (googleTokenId) {
+      googleApi.listCalendars(googleTokenId).then((r: any) => {
+        setGoogleCalendars(r.data || [])
+        setGoogleCalendarId('primary')
+      })
+    }
+  }, [googleTokenId])
+
   const search = async () => {
-    if (!citySearch.trim()) return
-    setSearching(true); setResults([])
+    if (!city.trim()) return
+    setSearching(true); setSearchResults([])
     try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(citySearch)}&count=5&language=en&format=json`)
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=en&format=json`)
       const data = await res.json()
-      setResults(data.results || [])
-    } catch { setResults([]) }
+      setSearchResults(data.results || [])
+    } catch { setSearchResults([]) }
     finally { setSearching(false) }
   }
 
-  const add = async (r: any) => {
+  const add = async (weatherResult?: any) => {
     setAdding(true)
     try {
-      const label = `${r.name}, ${r.admin1 || r.country}`
-      const newSource = { type: 'weather', lat: String(r.latitude), lon: String(r.longitude), city: label, unit }
+      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
+      let newSource: any
+      if (sourceKind === 'weather' && weatherResult) {
+        const label = `${weatherResult.name}, ${weatherResult.admin1 || weatherResult.country}`
+        newSource = { type: 'weather', lat: String(weatherResult.latitude), lon: String(weatherResult.longitude), city: label, unit }
+      } else if (sourceKind === 'google') {
+        if (!googleTokenId) return
+        const tok = googleTokens.find((t: any) => t.id === googleTokenId)
+        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
+      } else {
+        if (!intId) return
+        const ig = integrations.find((i: any) => i.id === intId)
+        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14 }
+      }
       const sources = [...(cfg.sources || []), newSource]
-      const newConfig = JSON.stringify({ ...cfg, sources })
-      if (isSystem) await panelsApi.update(panelId, { title: panelTitle, config: newConfig })
-      else await myPanelsApi.update(panelId, { title: panelTitle, config: newConfig })
-      setCitySearch(''); setResults([])
+      const updater = isSystem ? panelsApi : myPanelsApi
+      await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
+      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([])
       onAdded()
     } finally { setAdding(false) }
   }
 
   return (
     <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>Add weather</div>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input className="input" value={citySearch} onChange={e => setCitySearch(e.target.value)}
-          placeholder="City for weather..." style={{ flex: 1, fontSize: 12 }}
-          onKeyDown={e => e.key === 'Enter' && search()} />
-        <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
-          style={{ width: 60, fontSize: 12, cursor: 'pointer' }}>
-          <option value="f">°F</option>
-          <option value="c">°C</option>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <select className="input" value={sourceKind}
+          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]) }}
+          style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
+          <option value="integration">Stoa integration</option>
+          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
+          <option value="weather">Weather</option>
         </select>
-        <button className="btn btn-secondary" style={{ fontSize: 12 }}
-          onClick={search} disabled={searching || !citySearch.trim()}>
-          {searching ? <span className="spinner" /> : 'Search'}
-        </button>
+
+        {sourceKind === 'integration' && (
+          <>
+            <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select integration —</option>
+              {integrations.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => add()} disabled={adding || !intId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'google' && (
+          <>
+            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select account —</option>
+              {googleTokens.map((t: any) => <option key={t.id} value={t.id}>{t.email}</option>)}
+            </select>
+            {googleCalendars.length > 0 && (
+              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)}
+                style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+                {googleCalendars.map((c: any) => <option key={c.id} value={c.id}>{c.summary}</option>)}
+              </select>
+            )}
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => add()} disabled={adding || !googleTokenId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'weather' && (
+          <>
+            <input className="input" value={city} onChange={e => setCity(e.target.value)}
+              placeholder="City name..." style={{ flex: 1, fontSize: 12 }}
+              onKeyDown={e => e.key === 'Enter' && search()} />
+            <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
+              style={{ width: 65, fontSize: 12, cursor: 'pointer' }}>
+              <option value="f">°F</option>
+              <option value="c">°C</option>
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={search} disabled={searching || !city.trim()}>
+              {searching ? <span className="spinner" /> : 'Search'}
+            </button>
+          </>
+        )}
       </div>
-      {results.length > 0 && (
-        <div style={{ marginTop: 4, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          {results.map((r, i) => (
+
+      {sourceKind === 'weather' && searchResults.length > 0 && (
+        <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+          {searchResults.map((r: any, i: number) => (
             <button key={i} onClick={() => add(r)} disabled={adding}
-              style={{ width: '100%', padding: '6px 12px', background: 'var(--surface2)',
-                border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
-                textAlign: 'left', cursor: 'pointer', fontSize: 12, color: 'var(--text)' }}>
+              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
+                border: 'none', borderBottom: i < searchResults.length-1 ? '1px solid var(--border)' : 'none',
+                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
               {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
             </button>
           ))}
@@ -3633,112 +3752,3 @@ function PersonalWeatherSourceAdder({ panelId, panelTitle, panelConfig, isSystem
     </div>
   )
 }
-
-function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
-  panelId: string; panelTitle: string; panelConfig: string
-  isSystem: boolean; integrations: Integration[]; onAdded: () => void
-}) {
-  const [sourceType, setSourceType] = useState<'integration' | 'google'>('integration')
-  const [newIntId, setNewIntId] = useState('')
-  const [googleTokenId, setGoogleTokenId] = useState('')
-  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
-  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
-  const [googleTokens, setGoogleTokens] = useState<any[]>([])
-  const [newDays, setNewDays] = useState(14)
-  const [adding, setAdding] = useState(false)
-
-  useEffect(() => {
-    googleApi.getConfig().then(res => {
-      if (res.data.configured) {
-        // Load both system and personal tokens
-        Promise.all([
-          googleApi.listTokens('system'),
-          googleApi.listTokens('personal'),
-        ]).then(([sys, personal]) => {
-          setGoogleTokens([...(sys.data || []), ...(personal.data || [])])
-        })
-      }
-    })
-  }, [])
-
-  useEffect(() => {
-    if (googleTokenId) {
-      googleApi.listCalendars(googleTokenId).then(r => {
-        const cals = r.data || []
-        setGoogleCalendars(cals)
-        // Default to primary cal, or first in list
-        const primary = cals.find((c: any) => c.primary) || cals[0]
-        setGoogleCalendarId(primary?.id || 'primary')
-      })
-    }
-  }, [googleTokenId])
-
-  const add = async () => {
-    setAdding(true)
-    try {
-      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
-      let newSource: any
-      if (sourceType === 'google') {
-        if (!googleTokenId) return
-        const selectedToken = googleTokens.find((t: any) => t.id === googleTokenId)
-        const selectedCal = googleCalendars.find((c: any) => c.id === googleCalendarId)
-        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: newDays, label: selectedCal?.summary || selectedToken?.email || googleTokenId }
-      } else {
-        if (!newIntId) return
-        const ig = integrations.find(i => i.id === newIntId)
-        newSource = { type: ig?.type, integrationId: newIntId, daysAhead: newDays }
-      }
-      const sources = [...(cfg.sources || []), newSource]
-      const newConfig = JSON.stringify({ ...cfg, sources })
-      if (isSystem) await panelsApi.update(panelId, { title: panelTitle, config: newConfig })
-      else await myPanelsApi.update(panelId, { title: panelTitle, config: newConfig })
-      setNewIntId(''); setGoogleTokenId('')
-      onAdded()
-    } finally { setAdding(false) }
-  }
-
-  const canAdd = sourceType === 'google' ? !!googleTokenId : !!newIntId
-
-  return (
-    <>
-      <div>
-        <select className="input" value={sourceType} onChange={e => setSourceType(e.target.value as any)} style={{ cursor: 'pointer', width: 130 }}>
-          <option value="integration">Integration</option>
-          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-        </select>
-      </div>
-      {sourceType === 'google' ? (
-        <>
-          <div style={{ flex: 1 }}>
-            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)} style={{ cursor: 'pointer' }}>
-              <option value="">— Select Google account —</option>
-              {googleTokens.map(t => <option key={t.id} value={t.id}>{t.email} ({t.scope})</option>)}
-            </select>
-          </div>
-          {googleCalendars.length > 0 && (
-            <div style={{ flex: 1 }}>
-              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)} style={{ cursor: 'pointer' }}>
-                {googleCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' ★' : ''}</option>)}
-              </select>
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{ flex: 1 }}>
-          <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
-            <option value="">— Select integration —</option>
-            {integrations.map(i => <option key={i.id} value={i.id}>{i.name} ({i.type})</option>)}
-          </select>
-        </div>
-      )}
-      <div>
-        <input className="input" type="number" value={newDays} min={1} max={90}
-          onChange={e => setNewDays(Number(e.target.value))} style={{ width: 70 }} />
-      </div>
-      <button className="btn btn-secondary" onClick={add} disabled={adding || !canAdd}>
-        {adding ? <span className="spinner" /> : 'Add'}
-      </button>
-    </>
-  )
-}
-

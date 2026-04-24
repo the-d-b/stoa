@@ -77,6 +77,14 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
 			p.Tags = loadPanelTags(db, p.ID)
+			// Enrich with uiUrl from the panel's integration
+			if cfg := parsePanelConfig(p.Config); cfg != nil {
+				if iid, _ := cfg["integrationId"].(string); iid != "" {
+					var uiURL string
+					db.QueryRow("SELECT ui_url FROM integrations WHERE id=?", iid).Scan(&uiURL)
+					p.UIUrl = uiURL
+				}
+			}
 
 			// Load saved position for this user + wall combination
 			if wallID != "" {
@@ -326,6 +334,17 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func parsePanelConfig(configStr string) map[string]interface{} {
+	if configStr == "" {
+		return nil
+	}
+	var cfg map[string]interface{}
+	if err := json.Unmarshal([]byte(configStr), &cfg); err != nil {
+		return nil
+	}
+	return cfg
+}
+
 func loadPanelTags(db *sql.DB, panelID string) []models.Tag {
 	rows, err := db.Query(`
 		SELECT t.id, t.name, t.color FROM tags t
@@ -401,6 +420,14 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
 			p.Tags = loadPanelTags(db, p.ID)
+			// Enrich with uiUrl from the panel's integration
+			if cfg := parsePanelConfig(p.Config); cfg != nil {
+				if iid, _ := cfg["integrationId"].(string); iid != "" {
+					var uiURL string
+					db.QueryRow("SELECT ui_url FROM integrations WHERE id=?", iid).Scan(&uiURL)
+					p.UIUrl = uiURL
+				}
+			}
 			panels = append(panels, p)
 		}
 		writeJSON(w, http.StatusOK, panels)

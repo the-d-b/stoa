@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Portico, Tag, BookmarkNode } from '../api'
+import { useSSEConnected } from '../hooks/useSSE'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
@@ -21,6 +22,9 @@ import AuthentikPanel from '../components/panels/AuthentikPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
+  // Open SSE connection unconditionally so cache workers start even without
+  // OPNsense/TrueNAS panels. This keeps Plex, Sonarr, etc. cache warm.
+  useSSEConnected()
   const { isAdmin } = useAuth()
   const [panels, setPanels] = useState<Panel[]>([])
   const [porticos, setPorticos] = useState<Portico[]>([])
@@ -465,7 +469,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
   density: string
 }) {
   const layout      = portico?.layout      ?? 'stylos'
-  const colCount    = portico?.columnCount  ?? 2
+  const colCount    = portico?.columnCount  ?? 3
   const colHeight   = portico?.columnHeight ?? 8
   const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
 
@@ -613,7 +617,16 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
           onMouseOut={e => e.currentTarget.style.opacity = '0.5'}
         >▼</button>
 
-        <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{panel.title}</span>
+        {panel.uiUrl
+          ? <a href={panel.uiUrl} target="_blank" rel="noopener noreferrer"
+              style={{ fontSize: 13, fontWeight: 500, flex: 1, color: 'inherit',
+                textDecoration: 'none' }}
+              onMouseOver={e => (e.currentTarget.style.textDecoration = 'underline')}
+              onMouseOut={e => (e.currentTarget.style.textDecoration = 'none')}>
+              {panel.title}
+            </a>
+          : <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{panel.title}</span>
+        }
 
         {!collapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>

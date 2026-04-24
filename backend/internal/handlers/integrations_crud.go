@@ -35,10 +35,13 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 		var rows *sql.Rows
 		var err error
 		if claims.Role == models.RoleAdmin {
+			// Admin sees SYSTEM integrations + their own personal integrations
 			rows, err = db.Query(`
 				SELECT id, name, type, api_url, ui_url, secret_id, enabled, skip_tls, refresh_secs, created_by, created_at
-				FROM integrations WHERE created_by = 'SYSTEM' ORDER BY name ASC
-			`)
+				FROM integrations
+				WHERE created_by = 'SYSTEM' OR created_by = ?
+				ORDER BY CASE WHEN created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, name ASC
+			`, claims.UserID)
 		} else {
 			rows, err = db.Query(`
 				SELECT DISTINCT i.id, i.name, i.type, i.api_url, i.ui_url,

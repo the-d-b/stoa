@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode , googleApi } from '../../api'
+import { panelsApi, myPanelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode, googleApi } from '../../api'
 import SectionHelp from './SectionHelp'
 
 export default function PanelsAdminPanel() {
@@ -14,6 +14,7 @@ export default function PanelsAdminPanel() {
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [editingMaxMbps, setEditingMaxMbps] = useState<{id: string; val: number} | null>(null)
   const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
+  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -36,14 +37,13 @@ export default function PanelsAdminPanel() {
     setGroups(g.data || [])
     setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
     setTags(t.data || [])
-    // Load group assignments for each shared panel
+    // Load group assignments for all shared panels in parallel
+    const sharedPanels = (p.data || []).filter((panel: any) => panel.scope === 'shared')
+    const groupResults = await Promise.all(
+      sharedPanels.map((panel: any) => panelsApi.getGroups(panel.id).then(r => ({ id: panel.id, groups: r.data || [] })))
+    )
     const pg: Record<string,string[]> = {}
-    for (const panel of (p.data || [])) {
-      if (panel.scope === 'shared') {
-        const gr = await panelsApi.getGroups(panel.id)
-        pg[panel.id] = gr.data || []
-      }
-    }
+    groupResults.forEach(({ id, groups }) => { pg[id] = groups })
     setPanelGroups(pg)
     setBookmarkRoots(b.data || [])
     setLoading(false)
@@ -121,22 +121,22 @@ export default function PanelsAdminPanel() {
             <div style={{ flex: 0.5 }}>
               <label className="label">Panel type</label>
               <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
+                <option value="authentik">Authentik</option>
                 <option value="bookmarks">Bookmarks</option>
                 <option value="calendar">Calendar</option>
-                <option value="sonarr">Sonarr</option>
-                <option value="radarr">Radarr</option>
-                <option value="lidarr">Lidarr</option>
-                <option value="plex">Plex</option>
-                <option value="tautulli">Tautulli</option>
-                <option value="truenas">TrueNAS</option>
-                <option value="proxmox">Proxmox</option>
-                <option value="kuma">Uptime Kuma</option>
-                <option value="gluetun">Gluetun</option>
-                <option value="opnsense">OPNsense</option>
-                <option value="transmission">Transmission</option>
-                <option value="photoprism">PhotoPrism</option>
                 <option value="customapi">Custom API</option>
-                <option value="authentik">Authentik</option>
+                <option value="gluetun">Gluetun</option>
+                <option value="lidarr">Lidarr</option>
+                <option value="opnsense">OPNsense</option>
+                <option value="photoprism">PhotoPrism</option>
+                <option value="plex">Plex</option>
+                <option value="proxmox">Proxmox</option>
+                <option value="radarr">Radarr</option>
+                <option value="sonarr">Sonarr</option>
+                <option value="tautulli">Tautulli</option>
+                <option value="transmission">Transmission</option>
+                <option value="truenas">TrueNAS</option>
+                <option value="kuma">Uptime Kuma</option>
               </select>
             </div>
             {newType === 'bookmarks' && (
@@ -289,6 +289,31 @@ export default function PanelsAdminPanel() {
                           <input type="number" className="input" style={{ fontSize: 12, width: 80 }}
                             value={editingCustomAPI.refreshSecs}
                             onChange={e => setEditingCustomAPI(c => c ? { ...c, refreshSecs: Number(e.target.value) } : null)} />
+                          <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                            disabled={customAPIPreview?.loading}
+                            onClick={async () => {
+                              if (!editingCustomAPI.url) return
+                              setCustomAPIPreview({ loading: true, json: '', error: '' })
+                              try {
+                                // Use preview endpoint with current (possibly unsaved) URL
+                                const res = await fetch('/api/customapi/preview', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
+                                  body: JSON.stringify({ url: editingCustomAPI.url, apiKey: editingCustomAPI.apiKey })
+                                })
+                                if (!res.ok) {
+                                  const err = await res.json().catch(() => ({}))
+                                  throw new Error(err.error || `HTTP ${res.status}`)
+                                }
+                                const raw = await res.json()
+                                setCustomAPIPreview({ loading: false, json: JSON.stringify(raw, null, 2), error: '' })
+                              } catch (e: any) {
+                                setCustomAPIPreview({ loading: false, json: '', error: e.message || 'Fetch failed' })
+                              }
+                            }}>
+                            {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
+                          </button>
                           <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
                             const cfg = safeParseConfig(p.config)
                             cfg.url = editingCustomAPI.url
@@ -302,15 +327,34 @@ export default function PanelsAdminPanel() {
                                 return { path: path.trim(), label: rest.join('|').trim() }
                               })
                             await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
-                            setEditingCustomAPI(null); load()
+                            setEditingCustomAPI(null); setCustomAPIPreview(null); load()
                           }}>Save</button>
-                          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingCustomAPI(null)}>Cancel</button>
+                          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => { setEditingCustomAPI(null); setCustomAPIPreview(null) }}>Cancel</button>
                         </div>
+                        {customAPIPreview && !customAPIPreview.loading && (
+                          <div style={{ marginTop: 4 }}>
+                            {customAPIPreview.error
+                              ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
+                              : <>
+                                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                                    Raw response — copy field paths for use in mappings (e.g. <code>data.temperature | Temp</code>)
+                                  </div>
+                                  <textarea readOnly value={customAPIPreview.json}
+                                    style={{ width: '100%', minHeight: 160, fontSize: 11,
+                                      fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
+                                      border: '1px solid var(--border)', borderRadius: 6,
+                                      padding: 8, color: 'var(--text-muted)', resize: 'vertical',
+                                      boxSizing: 'border-box' }} />
+                                </>
+                            }
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
                         const cfg = safeParseConfig(p.config)
                         const mappings = (cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n')
+                        setCustomAPIPreview(null)
                         setEditingCustomAPI({ id: p.id, url: cfg.url || '', apiKey: cfg.apiKey || '', mappings, refreshSecs: cfg.refreshSecs || 600 })
                       }}>Configure</button>
                     )
@@ -334,8 +378,14 @@ export default function PanelsAdminPanel() {
                           background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13,
                         }}>
                           <span style={{ flex: 1 }}>
-                            {src.type === 'google' ? (src.label || src.integrationId) : (ig?.name ?? src.integrationId)}
-                            <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>
+                            {src.type === 'weather'
+                              ? <>🌤 {src.city} <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 4 }}>°{(src.unit || 'f').toUpperCase()}</span></>
+                              : src.type === 'google'
+                                ? <>📅 {src.label || src.integrationId}</>
+                                : <>{ig?.name ?? src.integrationId}
+                                    {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
+                                  </>
+                            }
                           </span>
                           <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
                             onClick={async () => {
@@ -347,20 +397,14 @@ export default function PanelsAdminPanel() {
                         </div>
                       )
                     })}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 4 }}>
-                      <AdminCalendarSourceAdder
+                    <UnifiedCalendarSourceAdder
                         panelId={p.id} panelTitle={p.title} panelConfig={p.config}
                         integrations={calIntegrations} onAdded={load}
+                        isSystem={true}
                       />
-                    </div>
                   </div>
                 )
               })()}
-
-              {/* Weather sources for calendar panels */}
-              {p.type === 'calendar' && (
-                <AdminWeatherSourceAdder panelId={p.id} panelTitle={p.title} panelConfig={p.config} onAdded={load} />
-              )}
 
               {/* Tag assignment */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
@@ -458,17 +502,39 @@ function Empty({ message }: { message: string }) {
 }
 
 // ── Weather source adder ─────────────────────────────────────────────────────
-function AdminWeatherSourceAdder({ panelId, panelTitle, panelConfig, onAdded }: {
-  panelId: string; panelTitle: string; panelConfig: string; onAdded: () => void
+function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrations, onAdded, isSystem }: {
+  panelId: string; panelTitle: string; panelConfig: string
+  integrations: Integration[]; onAdded: () => void; isSystem?: boolean
 }) {
+  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'>('integration')
+  const [intId, setIntId] = useState('')
+  const [googleTokenId, setGoogleTokenId] = useState('')
+  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
+  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
+  const [googleTokens, setGoogleTokens] = useState<any[]>([])
   const [city, setCity] = useState('')
   const [unit, setUnit] = useState<'f'|'c'>('f')
   const [searching, setSearching] = useState(false)
-  const [adding, setAdding] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
+  const [adding, setAdding] = useState(false)
 
-  const cfg = (() => { try { return JSON.parse(panelConfig||'{}') } catch { return {} } })()
-  const weatherSources: any[] = (cfg.sources || []).filter((s: any) => s.type === 'weather')
+  useEffect(() => {
+    googleApi.getConfig().then(res => {
+      if (res.data.configured) {
+        const scope = isSystem ? 'system' : 'personal'
+        googleApi.listTokens(scope).then(r => setGoogleTokens(r.data || []))
+      }
+    })
+  }, [isSystem])
+
+  useEffect(() => {
+    if (googleTokenId) {
+      googleApi.listCalendars(googleTokenId).then(r => {
+        setGoogleCalendars(r.data || [])
+        setGoogleCalendarId('primary')
+      })
+    }
+  }, [googleTokenId])
 
   const search = async () => {
     if (!city.trim()) return
@@ -481,64 +547,98 @@ function AdminWeatherSourceAdder({ panelId, panelTitle, panelConfig, onAdded }: 
     finally { setSearching(false) }
   }
 
-  const addLocation = async (result: any) => {
+  const add = async (weatherResult?: any) => {
     setAdding(true)
     try {
-      const label = `${result.name}, ${result.admin1 || result.country}`
-      const newSource = {
-        type: 'weather',
-        lat: String(result.latitude),
-        lon: String(result.longitude),
-        city: label,
-        unit,
+      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
+      let newSource: any
+      if (sourceKind === 'weather' && weatherResult) {
+        const label = `${weatherResult.name}, ${weatherResult.admin1 || weatherResult.country}`
+        newSource = { type: 'weather', lat: String(weatherResult.latitude), lon: String(weatherResult.longitude), city: label, unit }
+      } else if (sourceKind === 'google') {
+        if (!googleTokenId) return
+        const tok = googleTokens.find((t: any) => t.id === googleTokenId)
+        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
+      } else {
+        if (!intId) return
+        const ig = integrations.find(i => i.id === intId)
+        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14 }
       }
       const sources = [...(cfg.sources || []), newSource]
-      await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setCity(''); setSearchResults([])
+      const updater = isSystem ? panelsApi : myPanelsApi
+      await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
+      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([])
       onAdded()
     } finally { setAdding(false) }
   }
 
-  const removeWeather = async (idx: number) => {
-    const allSources: any[] = cfg.sources || []
-    const weatherIdx = allSources.reduce((acc: number[], s: any, i: number) => s.type === 'weather' ? [...acc, i] : acc, [])
-    const newSources = allSources.filter((_: any, i: number) => i !== weatherIdx[idx])
-    await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources: newSources }) })
-    onAdded()
-  }
-
   return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6,
-        textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
-        Weather
-      </div>
-      {weatherSources.map((src: any, i: number) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-          background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13 }}>
-          <span style={{ flex: 1 }}>🌤 {src.city} <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>°{src.unit?.toUpperCase() || 'F'}</span></span>
-          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-            onClick={() => removeWeather(i)}>Remove</button>
-        </div>
-      ))}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-        <input className="input" value={city} onChange={e => setCity(e.target.value)}
-          placeholder="City name..." style={{ flex: 1, minWidth: 140, fontSize: 12 }}
-          onKeyDown={e => e.key === 'Enter' && search()} />
-        <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
-          style={{ width: 65, fontSize: 12, cursor: 'pointer' }}>
-          <option value="f">°F</option>
-          <option value="c">°C</option>
+    <div style={{ marginTop: 8 }}>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <select className="input" value={sourceKind}
+          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]) }}
+          style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
+          <option value="integration">Stoa integration</option>
+          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
+          <option value="weather">Weather</option>
         </select>
-        <button className="btn btn-secondary" style={{ fontSize: 12 }}
-          onClick={search} disabled={searching || !city.trim()}>
-          {searching ? <span className="spinner" /> : 'Search'}
-        </button>
+
+        {sourceKind === 'integration' && (
+          <>
+            <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select integration —</option>
+              {integrations.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => add()} disabled={adding || !intId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'google' && (
+          <>
+            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select account —</option>
+              {googleTokens.map(t => <option key={t.id} value={t.id}>{t.email}</option>)}
+            </select>
+            {googleCalendars.length > 0 && (
+              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)}
+                style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+                {googleCalendars.map((c: any) => <option key={c.id} value={c.id}>{c.summary}</option>)}
+              </select>
+            )}
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => add()} disabled={adding || !googleTokenId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'weather' && (
+          <>
+            <input className="input" value={city} onChange={e => setCity(e.target.value)}
+              placeholder="City name..." style={{ flex: 1, fontSize: 12 }}
+              onKeyDown={e => e.key === 'Enter' && search()} />
+            <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
+              style={{ width: 65, fontSize: 12, cursor: 'pointer' }}>
+              <option value="f">°F</option>
+              <option value="c">°C</option>
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={search} disabled={searching || !city.trim()}>
+              {searching ? <span className="spinner" /> : 'Search'}
+            </button>
+          </>
+        )}
       </div>
-      {searchResults.length > 0 && (
+
+      {sourceKind === 'weather' && searchResults.length > 0 && (
         <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
           {searchResults.map((r: any, i: number) => (
-            <button key={i} onClick={() => addLocation(r)} disabled={adding}
+            <button key={i} onClick={() => add(r)} disabled={adding}
               style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
                 border: 'none', borderBottom: i < searchResults.length-1 ? '1px solid var(--border)' : 'none',
                 textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
@@ -551,103 +651,4 @@ function AdminWeatherSourceAdder({ panelId, panelTitle, panelConfig, onAdded }: 
   )
 }
 
-// ── Inline calendar source adder ─────────────────────────────────────────────
 
-function AdminCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrations, onAdded }: {
-  panelId: string; panelTitle: string; panelConfig: string
-  integrations: Integration[]; onAdded: () => void
-}) {
-  const [sourceType, setSourceType] = useState<'integration' | 'google'>('integration')
-  const [newIntId, setNewIntId] = useState('')
-  const [googleTokenId, setGoogleTokenId] = useState('')
-  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
-  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
-  const [googleTokens, setGoogleTokens] = useState<any[]>([])
-  const [newDays, setNewDays] = useState(14)
-  const [adding, setAdding] = useState(false)
-
-  useEffect(() => {
-    googleApi.getConfig().then(res => {
-      if (res.data.configured) {
-        googleApi.listTokens('system').then(r => setGoogleTokens(r.data || []))
-      }
-    })
-  }, [])
-
-  useEffect(() => {
-    if (googleTokenId) {
-      googleApi.listCalendars(googleTokenId).then(r => {
-        setGoogleCalendars(r.data || [])
-        setGoogleCalendarId('primary')
-      })
-    }
-  }, [googleTokenId])
-
-  const add = async () => {
-    setAdding(true)
-    try {
-      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
-      let newSource: any
-      if (sourceType === 'google') {
-        if (!googleTokenId) return
-        const selectedToken = googleTokens.find((t: any) => t.id === googleTokenId)
-        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: newDays, label: selectedToken?.email || googleTokenId }
-      } else {
-        if (!newIntId) return
-        const ig = integrations.find(i => i.id === newIntId)
-        newSource = { type: ig?.type, integrationId: newIntId, daysAhead: newDays }
-      }
-      const sources = [...(cfg.sources || []), newSource]
-      await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setNewIntId(''); setGoogleTokenId('')
-      onAdded()
-    } finally { setAdding(false) }
-  }
-
-  const canAdd = sourceType === 'google' ? !!googleTokenId : !!newIntId
-
-  return (
-    <>
-      <div>
-        <select className="input" value={sourceType} onChange={e => setSourceType(e.target.value as any)} style={{ cursor: 'pointer', width: 130 }}>
-          <option value="integration">Integration</option>
-          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-        </select>
-      </div>
-      {sourceType === 'google' ? (
-        <>
-          <div style={{ flex: 1 }}>
-            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)} style={{ cursor: 'pointer' }}>
-              <option value="">— Select Google account —</option>
-              {googleTokens.map(t => <option key={t.id} value={t.id}>{t.email}</option>)}
-            </select>
-          </div>
-          {googleCalendars.length > 0 && (
-            <div style={{ flex: 1 }}>
-              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)} style={{ cursor: 'pointer' }}>
-                {googleCalendars.map(c => <option key={c.id} value={c.id}>{c.summary}{c.primary ? ' (primary)' : ''}</option>)}
-              </select>
-            </div>
-          )}
-        </>
-      ) : (
-        <div style={{ flex: 1 }}>
-          <select className="input" value={newIntId} onChange={e => setNewIntId(e.target.value)} style={{ cursor: 'pointer' }}>
-            <option value="">— Select integration —</option>
-            {integrations.map(ig => <option key={ig.id} value={ig.id}>{ig.name} ({ig.type})</option>)}
-          </select>
-        </div>
-      )}
-      <div>
-        <select className="input" value={newDays} onChange={e => setNewDays(Number(e.target.value))} style={{ cursor: 'pointer', width: 100 }}>
-          <option value={7}>7 days</option>
-          <option value={14}>14 days</option>
-          <option value={30}>30 days</option>
-        </select>
-      </div>
-      <button className="btn btn-secondary" onClick={add} disabled={adding || !canAdd}>
-        {adding ? <span className="spinner" /> : 'Add'}
-      </button>
-    </>
-  )
-}

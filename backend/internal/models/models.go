@@ -110,6 +110,7 @@ type Panel struct {
 	CreatedAt time.Time `json:"createdAt"`
 	Tags      []Tag     `json:"tags,omitempty"`
 	Position  int       `json:"position,omitempty"`
+	UIUrl     string    `json:"uiUrl,omitempty"`
 }
 
 type CreatePanelRequest struct {

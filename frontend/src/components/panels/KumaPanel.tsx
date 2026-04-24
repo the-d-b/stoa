@@ -68,7 +68,7 @@ export default function KumaPanel({ panel, heightUnits }: { panel: Panel; height
 
   // ── Monitor pills — colored border by status ──────────────────────────────
   const MonitorPills = ({ items }: { items: KumaMonitor[] }) => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
       {items.map((m, i) => (
         <div key={i} style={{
           padding: '3px 8px', borderRadius: 6, fontSize: 11,

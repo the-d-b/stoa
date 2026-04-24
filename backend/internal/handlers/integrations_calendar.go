@@ -8,8 +8,26 @@ import (
 	"time"
 )
 
+// localDate extracts the YYYY-MM-DD date in local server time from a UTC timestamp.
+// Radarr/Lidarr return UTC midnight — without this, users west of UTC see dates
+// shifted one day earlier than the arr app shows.
+func localDate(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if len(raw) <= 10 {
+		return raw // already a plain date
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return raw[:10] // fallback: just trim
+	}
+	return t.Local().Format("2006-01-02")
+}
+
 func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]interface{}, error) {
 	sources, _ := config["sources"].([]interface{})
+	log.Printf("[CAL] fetchCalendarData: %d sources", len(sources))
 
 	events := []map[string]interface{}{}
 
@@ -19,6 +37,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		srcType := stringVal(source, "type")
 		integrationID := stringVal(source, "integrationId")
 
+		log.Printf("[CAL] source: type=%q integrationId=%q", srcType, integrationID)
 		if integrationID == "" { continue }
 
 		daysAhead := 30
@@ -52,7 +71,8 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 					titleSlug, _ = series["titleSlug"].(string)
 				}
 				epTitle, _ := ep["title"].(string)
-				airDate, _ := ep["airDate"].(string)
+				airDateRaw, _ := ep["airDate"].(string)
+				airDate := localDate(airDateRaw)
 				events = append(events, map[string]interface{}{
 					"source": "sonarr", "date": airDate,
 					"title":       fmt.Sprintf("%s — %s", seriesTitle, epTitle),
@@ -68,33 +88,46 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				log.Printf("[CAL] radarr resolveIntegration error: %v", err)
 				continue
 			}
+			// unmonitored=true returns all movies regardless of monitored status
 			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?start=%s&end=%s", calStart, calEnd), skipTLS)
+				fmt.Sprintf("/api/v3/calendar?unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
 			if err != nil {
 				log.Printf("[CAL] radarr fetch error: %v", err)
 				continue
 			}
 			var movies []map[string]interface{}
 			json.Unmarshal(upcoming, &movies)
+			today := timeNow().Format("2006-01-02")
 			for _, m := range movies {
 				title, _ := m["title"].(string)
 				titleSlug, _ := m["titleSlug"].(string)
-				date, _ := m["inCinemas"].(string)
-				if date == "" {
-					date, _ = m["digitalRelease"].(string)
+				// Emit a separate event for each future release date
+				type releaseInfo struct{ date, label string }
+				var releases []releaseInfo
+				for _, pair := range []struct{ key, label string }{
+					{"inCinemas", "In Cinemas"},
+					{"digitalRelease", "Digital"},
+					{"physicalRelease", "Physical"},
+				} {
+					if raw, _ := m[pair.key].(string); raw != "" {
+						d := localDate(raw)
+						if d >= today {
+							releases = append(releases, releaseInfo{d, pair.label})
+						}
+					}
 				}
-				if date == "" {
-					date, _ = m["physicalRelease"].(string)
+				log.Printf("[CAL] radarr %q: %d future releases", title, len(releases))
+				for _, rel := range releases {
+					events = append(events, map[string]interface{}{
+						"source":    "radarr",
+						"date":      rel.date,
+						"title":     fmt.Sprintf("%s (%s)", title, rel.label),
+						"titleSlug": titleSlug,
+						"uiUrl":     uiURL,
+						"color":     "#f59e0b",
+						"hasFile":   m["hasFile"] == true,
+					})
 				}
-				if len(date) > 10 {
-					date = date[:10]
-				}
-				events = append(events, map[string]interface{}{
-					"source": "radarr", "date": date,
-					"title": title, "titleSlug": titleSlug,
-					"uiUrl": uiURL, "color": "#f59e0b",
-					"hasFile": m["hasFile"] == true,
-				})
 			}
 
 		case "lidarr":
@@ -103,8 +136,9 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				log.Printf("[CAL] lidarr resolveIntegration error: %v", err)
 				continue
 			}
+			// unmonitored=true returns all albums regardless of monitored status
 			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v1/calendar?start=%s&end=%s", calStart, calEnd), skipTLS)
+				fmt.Sprintf("/api/v1/calendar?unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
 			if err != nil {
 				log.Printf("[CAL] lidarr fetch error: %v", err)
 				continue
@@ -113,19 +147,21 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			json.Unmarshal(upcoming, &albums)
 			for _, al := range albums {
 				title, _ := al["title"].(string)
-				date, _ := al["releaseDate"].(string)
-				if len(date) > 10 {
-					date = date[:10]
-				}
+				rawDate, _ := al["releaseDate"].(string)
+				date := localDate(rawDate)
 				artist := ""
+				foreign := ""
 				if a, ok := al["artist"].(map[string]interface{}); ok {
 					artist, _ = a["artistName"].(string)
+					foreign, _ = a["foreignArtistId"].(string)
 				}
 				events = append(events, map[string]interface{}{
-					"source": "lidarr", "date": date,
-					"title":  fmt.Sprintf("%s — %s", artist, title),
-					"uiUrl":  uiURL,
-					"color":  "#a78bfa",
+					"source":          "lidarr",
+					"date":            date,
+					"title":           fmt.Sprintf("%s — %s", artist, title),
+					"uiUrl":           uiURL,
+					"color":           "#a78bfa",
+					"foreignArtistId": foreign,
 				})
 			}
 
@@ -193,5 +229,6 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		}
 	}
 
+	log.Printf("[CAL] fetchCalendarData: returning %d total events", len(events))
 	return map[string]interface{}{"events": events}, nil
 }

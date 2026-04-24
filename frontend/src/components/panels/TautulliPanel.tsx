@@ -55,21 +55,22 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
 
   const load = useCallback(async () => {
     try {
-      const res = await integrationsApi.getPanelData(panel.id)
+      // Pass timeRange as query param — bypasses cache so filter changes take effect immediately
+      const res = await integrationsApi.getPanelData(panel.id, { timeRange })
       setData(res.data); setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
-  }, [panel.id])
+  }, [panel.id, timeRange])
 
   const changeTimeRange = async (val: number) => {
-    setTimeRange(val)
+    setTimeRange(val)  // triggers load via useEffect dependency on timeRange
+    // Persist to panel config so it survives page refresh
     setSaving(true)
     try {
       const newConfig = JSON.stringify({ ...config, timeRange: val })
       if (isSystem) await panelsApi.update(panel.id, { title: panel.title, config: newConfig })
       else await myPanelsApi.update(panel.id, { title: panel.title, config: newConfig })
-      setTimeout(load, 300)
     } finally { setSaving(false) }
   }
 

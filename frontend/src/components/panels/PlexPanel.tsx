@@ -57,7 +57,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
   )
 
   const StreamBar = () => (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6, justifyContent: 'center' }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
         style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
           borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -89,36 +89,69 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     const isDirect = s.transcodeDecision === 'directplay' || s.transcodeDecision === 'copy'
     const displayTitle = s.grandparentTitle || s.title
     const subTitle = s.grandparentTitle ? s.title : null
+    const stateColor = STATE_COLOR[s.state] || 'var(--text-dim)'
+    const pct = Math.min(Math.max(s.progress || 0, 0), 100)
+    const isPlaying = s.state === 'playing'
     return (
-      <div style={{ padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: STATE_COLOR[s.state] || 'var(--text-dim)' }} />
-          <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {displayTitle}
-            {subTitle && <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}> — {subTitle}</span>}
-          </span>
-          <span style={{ fontSize: 10, color: isDirect ? 'var(--green)' : 'var(--amber)',
-            flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
-            {isDirect ? 'direct' : 'transcode'}
-          </span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{s.user}</span>
-          {s.quality && <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{s.quality}p</span>}
-          <div style={{ flex: 1, height: 2, background: 'var(--surface2)', borderRadius: 1 }}>
-            <div style={{ width: `${Math.min(s.progress, 100)}%`, height: '100%',
-              background: 'var(--accent)', borderRadius: 1 }} />
+      <div style={{
+        margin: '5px 0', borderRadius: 8,
+        background: 'var(--surface2)', border: '1px solid var(--border)',
+        overflow: 'hidden',
+      }}>
+        {/* Progress bar as background strip */}
+        <div style={{ position: 'relative' }}>
+          {/* Track */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 2,
+            background: 'var(--border)' }} />
+          {/* Fill */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, height: 2,
+            width: `${pct}%`,
+            background: isDirect ? 'var(--accent)' : 'var(--amber)',
+            transition: 'width 1s linear',
+            boxShadow: isPlaying ? `0 0 6px ${isDirect ? 'var(--accent)' : '#f59e0b'}` : 'none',
+          }} />
+          {/* Content */}
+          <div style={{ padding: '6px 10px 8px', display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {/* Animated playing dot */}
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                background: stateColor,
+                boxShadow: isPlaying ? `0 0 0 2px ${stateColor}30` : 'none',
+              }} />
+              <span style={{ fontSize: 12, fontWeight: 600, flex: 1,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {displayTitle}
+              </span>
+              <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                color: isDirect ? 'var(--green)' : 'var(--amber)', flexShrink: 0 }}>
+                {pct.toFixed(0)}%
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 13 }}>
+              {subTitle && (
+                <span style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {subTitle}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{s.user}</span>
+              {s.quality && (
+                <span style={{ fontSize: 10, color: 'var(--text-dim)',
+                  fontFamily: 'DM Mono, monospace' }}>{s.quality}p</span>
+              )}
+              <span style={{ fontSize: 10, color: isDirect ? 'var(--green)' : 'var(--amber)' }}>
+                {isDirect ? '⚡ direct' : '⚙ transcode'}
+              </span>
+            </div>
           </div>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{Math.round(s.progress)}%</span>
         </div>
       </div>
     )
   }
 
   const LibraryGrid = () => (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, justifyContent: 'center' }}>
       {(data.libraries || []).map((lib, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
           borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',

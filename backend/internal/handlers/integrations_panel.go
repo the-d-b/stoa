@@ -51,10 +51,21 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			config = map[string]interface{}{}
 		}
 		// Allow query params to override config values (e.g. ?days=7 for time range)
+		// Track whether any override was applied — overridden requests bypass cache
+		// so filters like 1d/7d/30d always return fresh data, not stale cached data.
+		hasOverride := false
 		if d := r.URL.Query().Get("days"); d != "" {
 			var daysVal float64
 			if _, err := fmt.Sscanf(d, "%f", &daysVal); err == nil {
 				config["days"] = daysVal
+				hasOverride = true
+			}
+		}
+		if tr := r.URL.Query().Get("timeRange"); tr != "" {
+			var trVal float64
+			if _, err := fmt.Sscanf(tr, "%f", &trVal); err == nil {
+				config["timeRange"] = trVal
+				hasOverride = true
 			}
 		}
 
@@ -64,9 +75,10 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// Serve from cache if available (populated by background worker)
+		// Serve from cache only when no query param overrides are active.
+		// Filtered requests (1d/7d/30d) always bypass cache for fresh data.
 		integrationID, _ := config["integrationId"].(string)
-		if integrationID != "" {
+		if integrationID != "" && !hasOverride {
 			if cached, ok := cacheGet(integrationID); ok {
 				log.Printf("[CACHE] panel hit %s (%s)", integrationID, panelType)
 				writeJSON(w, http.StatusOK, cached)

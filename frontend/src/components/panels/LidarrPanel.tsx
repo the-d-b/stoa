@@ -4,6 +4,7 @@ import { integrationsApi, Panel } from '../../api'
 interface LidarrAlbum {
   id: number; title: string; artistName: string
   releaseDate?: string; date?: string
+  foreignArtistId?: string; foreignAlbumId?: string
 }
 interface LidarrData {
   uiUrl: string
@@ -20,10 +21,12 @@ const linkStyle: React.CSSProperties = { color: 'inherit', textDecoration: 'none
 const linkHover = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = 'underline' }
 const linkOut  = (e: React.MouseEvent<HTMLAnchorElement>) => { e.currentTarget.style.textDecoration = 'none' }
 
-function ArtistLink({ uiUrl, artistName }: { uiUrl: string; artistName: string }) {
-  const href = uiUrl
-    ? `${uiUrl}/artist`
-    : `https://musicbrainz.org/search?query=${encodeURIComponent(artistName)}&type=artist`
+function ArtistLink({ uiUrl, artistName, foreignArtistId }: { uiUrl: string; artistName: string; foreignArtistId?: string }) {
+  const href = uiUrl && foreignArtistId
+    ? `${uiUrl}/artist/${foreignArtistId}`
+    : uiUrl
+      ? `${uiUrl}/artist`
+      : `https://musicbrainz.org/search?query=${encodeURIComponent(artistName)}&type=artist`
   return (
     <a href={href} target="_blank" rel="noopener noreferrer"
       style={{ ...linkStyle, color: 'var(--text-muted)', fontWeight: 400 }}
@@ -49,7 +52,8 @@ function HistoryGroups({ groups, uiUrl }: { groups: ReturnType<typeof groupByArt
       {groups.map(group => (
         <div key={group.artistName} style={{ marginBottom: 6 }}>
           <div style={{ fontSize: 12, fontWeight: 500, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
-            <ArtistLink uiUrl={uiUrl} artistName={group.artistName} />
+            <ArtistLink uiUrl={uiUrl} artistName={group.artistName}
+            foreignArtistId={group.albums[0]?.foreignArtistId} />
             <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
           </div>
           {group.albums.map((a, i) => {
@@ -155,7 +159,7 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
               padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
               <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                <ArtistLink uiUrl={uiUrl} artistName={a.artistName} />
+                <ArtistLink uiUrl={uiUrl} artistName={a.artistName} foreignArtistId={a.foreignArtistId} />
                 {a.artistName && a.title && <span style={{ color: 'var(--text-dim)', margin: '0 4px' }}>—</span>}
                 <span>{a.title}</span>
               </span>

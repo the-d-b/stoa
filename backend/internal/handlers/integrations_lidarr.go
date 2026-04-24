@@ -19,10 +19,11 @@ type LidarrPanelData struct {
 }
 
 type LidarrAlbum struct {
-	ID           int    `json:"id"`
-	Title        string `json:"title"`
-	ArtistName   string `json:"artistName"`
-	ForeignAlbumId string `json:"foreignAlbumId,omitempty"`
+	ID              int    `json:"id"`
+	Title           string `json:"title"`
+	ArtistName      string `json:"artistName"`
+	ForeignAlbumId  string `json:"foreignAlbumId,omitempty"`
+	ForeignArtistId string `json:"foreignArtistId,omitempty"`
 	ReleaseDate  string `json:"releaseDate,omitempty"`
 	HasFile      bool   `json:"hasFile"`
 	Date         string `json:"date,omitempty"`
@@ -91,7 +92,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	}
 
 	// Missing albums
-	missing, err := arrGet(apiURL, apiKey, "/api/v1/wanted/missing?pageSize=10&sortKey=releaseDate&sortDirection=descending", skipTLS)
+	missing, err := arrGet(apiURL, apiKey, "/api/v1/wanted/missing?pageSize=10&sortKey=releaseDate&sortDirection=descending&includeArtist=true", skipTLS)
 	if err == nil {
 		var wantedResp map[string]interface{}
 		json.Unmarshal(missing, &wantedResp)
@@ -117,6 +118,7 @@ func lidarrAlbumFromMap(a map[string]interface{}) LidarrAlbum {
 	artist, _ := a["artist"].(map[string]interface{})
 	if artist != nil {
 		al.ArtistName, _ = artist["artistName"].(string)
+		al.ForeignArtistId, _ = artist["foreignArtistId"].(string)
 	}
 	return al
 }
