@@ -828,7 +828,7 @@ function PorticosTab() {
                       color: 'var(--text-muted)', cursor: 'pointer',
                     }}
                     title="Number of columns">
-                    {[2,3,4,5,6].map(n => <option key={n} value={n}>{n} cols</option>)}
+                    {[2,3,4,5].map(n => <option key={n} value={n}>{n} cols</option>)}
                   </select>
                   {(layout === 'stylos' || layout === 'columns') && (
                     <select

@@ -5,6 +5,10 @@ export default function ThemeSwitcher() {
   const { theme, setTheme } = useTheme()
   const [open, setOpen] = useState(false)
 
+  const dispatchExpand = (expand: boolean) => {
+    window.dispatchEvent(new CustomEvent('stoa:expandAll', { detail: { expand } }))
+  }
+
   const darkThemes = THEMES.filter(t => t.dark)
   const lightThemes = THEMES.filter(t => !t.dark)
 
@@ -26,6 +30,26 @@ export default function ThemeSwitcher() {
           <ThemeRow themes={lightThemes} current={theme} onSelect={setTheme} />
         </div>
       )}
+
+      {/* Expand / collapse all panels */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8, alignItems: 'center' }}>
+        <button onClick={() => dispatchExpand(true)}
+          title="Expand all panels"
+          style={{ width: 36, height: 28, borderRadius: 8, border: '1px solid var(--border2)',
+            background: 'var(--surface)', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+          ＋
+        </button>
+        <button onClick={() => dispatchExpand(false)}
+          title="Collapse all panels"
+          style={{ width: 36, height: 28, borderRadius: 8, border: '1px solid var(--border2)',
+            background: 'var(--surface)', cursor: 'pointer', fontSize: 14, color: 'var(--text-muted)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)' }}>
+          －
+        </button>
+      </div>
 
       {/* Color wheel button */}
       <button

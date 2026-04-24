@@ -734,7 +734,8 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 				ORDER BY CASE WHEN created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, name ASC
 			`, claims.UserID)
 		} else {
-			// Profile: system tags (ungrouped = visible to all, or in user's groups) + user's own tags
+			// Non-admin: only show system tags that are actually on panels the user can see.
+			// This prevents the tag bar filling up with tags for panels not shared with them.
 			rows, err = db.Query(`
 				SELECT DISTINCT t.id, t.name, t.color, COALESCE(t.scope,'shared'), COALESCE(t.created_by,''), t.created_at
 				FROM tags t
@@ -742,16 +743,23 @@ func ListTags(db *sql.DB) http.HandlerFunc {
 					-- User's own personal tags
 					t.created_by = ?
 					OR
-					-- System tags with no group restrictions (visible to all)
-					(t.created_by = 'SYSTEM' AND NOT EXISTS (
-						SELECT 1 FROM group_tags WHERE tag_id = t.id
-					))
-					OR
-					-- System tags in user's groups
+					-- System tags that are on a panel the user can actually see
 					(t.created_by = 'SYSTEM' AND EXISTS (
-						SELECT 1 FROM group_tags gt
-						JOIN user_groups ug ON gt.group_id = ug.group_id
-						WHERE gt.tag_id = t.id AND ug.user_id = ?
+						SELECT 1 FROM panel_tags pt
+						JOIN panels p ON pt.panel_id = p.id
+						WHERE pt.tag_id = t.id
+						AND p.created_by = 'SYSTEM'
+						AND (
+							-- Panel has no group restrictions (visible to all)
+							NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
+							OR
+							-- Panel is in a group the user belongs to
+							EXISTS (
+								SELECT 1 FROM panel_groups pg
+								JOIN user_groups ug ON pg.group_id = ug.group_id
+								WHERE pg.panel_id = p.id AND ug.user_id = ?
+							)
+						)
 					))
 				ORDER BY CASE WHEN t.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, t.name ASC
 			`, claims.UserID, claims.UserID)

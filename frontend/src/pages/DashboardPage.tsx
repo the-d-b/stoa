@@ -31,6 +31,21 @@ export default function DashboardPage() {
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [subtrees, setSubtrees] = useState<Record<string, BookmarkNode>>({})
   const [activePorticoId, setActivePorticoId] = useState<string>('home')
+  const [allExpanded, setAllExpanded] = useState<boolean | null>(null) // null = default
+
+  // Listen for expand/collapse events from ThemeSwitcher buttons
+  useEffect(() => {
+    const handler = (e: Event) => {
+      setAllExpanded((e as CustomEvent).detail.expand)
+    }
+    window.addEventListener('stoa:expandAll', handler)
+    return () => window.removeEventListener('stoa:expandAll', handler)
+  }, [])
+
+  // Reset expand/collapse state when switching porticos so each starts fresh
+  useEffect(() => {
+    setAllExpanded(null)
+  }, [activePorticoId])
   const [activeTags, setActiveTags] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -311,6 +326,7 @@ export default function DashboardPage() {
           subtrees={subtrees}
           portico={activePortico}
           density={density}
+          allExpanded={allExpanded}
         />
 
         {visiblePanels.length === 0 && activeTags !== null && (
@@ -341,6 +357,7 @@ export default function DashboardPage() {
             onAll={() => { setActiveTags(allTags.map(t => t.id)); setActivePorticoId('home') }}
             onNone={() => { setActiveTags([]); setActivePorticoId('') }}
           />
+
         </div>
       )}
     <SearchModal allNodes={searchNodes} />
@@ -462,13 +479,14 @@ const DENSITY_MIN_WIDTH: Record<string, number> = {
 const ROW_UNIT = 120 // px per 1x height unit
 const GRID_GAP = 16  // gap between panels
 
-function PanelGrid({ panels, subtrees, portico, density }: {
+function PanelGrid({ panels, subtrees, portico, density, allExpanded }: {
   panels: Panel[]
   subtrees: Record<string, BookmarkNode>
   portico: Portico | null
   density: string
+  allExpanded?: boolean | null
 }) {
-  const layout      = portico?.layout      ?? 'stylos'
+  const layout      = portico?.layout      ?? (portico?.id === 'home' ? 'seira' : 'stylos')
   const colCount    = portico?.columnCount  ?? 3
   const colHeight   = portico?.columnHeight ?? 8
   const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
@@ -490,7 +508,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
           const h = getPanelHeight(panel)
           return (
             <FlowSlot key={panel.id} heightUnits={h}>
-              <PanelCard panel={panel} subtree={subtrees[panel.id]} />
+              <PanelCard panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
             </FlowSlot>
           )
         })}
@@ -517,7 +535,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
             alignItems: 'start',
           }}>
             {row.map(panel => (
-              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
             ))}
           </div>
         ))}
@@ -526,20 +544,31 @@ function PanelGrid({ panels, subtrees, portico, density }: {
   }
 
   // ── Stylos: top-to-bottom column fill ─────────────────────────────────────
-  // Fill column 0 to colHeight, then column 1, etc. Panel order is strict —
-  // no balancing or reordering. Overflow panels continue into a new column.
+  // If colHeight is explicitly set, fill each column to that height then advance.
+  // If colHeight is not set (default), balance panels across columns by always
+  // adding the next panel to the shortest column — avoids one column getting all content.
   const columns: Panel[][] = Array.from({ length: colCount }, () => [])
   const colFill = new Array(colCount).fill(0)
-  let currentCol = 0
+  const hasExplicitHeight = portico?.columnHeight != null
 
-  for (const panel of panels) {
-    const height = getPanelHeight(panel)
-    // Advance to next column if current is full
-    while (currentCol < colCount - 1 && colFill[currentCol] + height > colHeight) {
-      currentCol++
+  if (hasExplicitHeight) {
+    let currentCol = 0
+    for (const panel of panels) {
+      const height = getPanelHeight(panel)
+      while (currentCol < colCount - 1 && colFill[currentCol] + height > colHeight) {
+        currentCol++
+      }
+      columns[currentCol].push(panel)
+      colFill[currentCol] += height
     }
-    columns[currentCol].push(panel)
-    colFill[currentCol] += height
+  } else {
+    // Balance: assign each panel to the column with the least total height
+    for (const panel of panels) {
+      const height = getPanelHeight(panel)
+      const shortest = colFill.indexOf(Math.min(...colFill))
+      columns[shortest].push(panel)
+      colFill[shortest] += height
+    }
   }
 
   return (
@@ -552,7 +581,7 @@ function PanelGrid({ panels, subtrees, portico, density }: {
       {columns.map((col, ci) => (
         <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
           {col.map(panel => (
-            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} />
+            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
           ))}
         </div>
       ))}
@@ -569,12 +598,16 @@ function getPanelHeight(panel: Panel): number {
 
 // ── Panel card ────────────────────────────────────────────────────────────────
 
-function PanelCard({ panel, subtree, onCollapseChange }: {
+function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
   panel: Panel; subtree?: BookmarkNode
   onCollapseChange?: (collapsed: boolean) => void
+  allExpanded?: boolean | null
 }) {
   const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsedManual, setCollapsedManual] = useState<boolean | null>(null)
+  // allExpanded overrides manual unless the user has explicitly toggled this panel
+  const collapsed = collapsedManual !== null ? collapsedManual
+    : allExpanded !== null && allExpanded !== undefined ? !allExpanded : false
   const heightUnits = getPanelHeight(panel)
   const cardHeight = heightUnits * (ROW_UNIT + GRID_GAP) - GRID_GAP
 
@@ -604,7 +637,7 @@ function PanelCard({ panel, subtree, onCollapseChange }: {
       }}>
         <button onClick={() => {
             const next = !collapsed
-            setCollapsed(next)
+            setCollapsedManual(next)
             onCollapseChange?.(next)
           }} title={collapsed ? 'Expand' : 'Collapse'}
           style={{
