@@ -39,11 +39,7 @@ export default function ClockGlyph({ glyph }: { glyph: Glyph }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.2 }}
       title={config.timezone || 'Local time'}>
-      {config.label && (
-        <span style={{ fontSize: 9, color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 1 }}>
-          {config.label}
-        </span>
-      )}
+
       <span style={{ fontSize: 14, fontWeight: 600, fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em', color: 'var(--text)' }}>
         {timeStr}
       </span>

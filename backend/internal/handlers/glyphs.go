@@ -693,8 +693,9 @@ func fetchProxmoxGlyphData(db *sql.DB, config map[string]interface{}) (interface
 		return nil, err
 	}
 	return map[string]interface{}{
-		"cpuPercent": data.CPU.Used * 100,
-		"memPercent": data.Memory.Used * 100,
+		// CPU.Used and Memory.Used are already percentages (0-100) from the panel data
+		"cpuPercent": data.CPU.Used,
+		"memPercent": data.Memory.Used,
 		"node":       data.Node,
 		"loadAvg":    data.LoadAvg,
 	}, nil
@@ -909,6 +910,34 @@ func fetchSportsTicker(config map[string]interface{}) (interface{}, error) {
 	}, nil
 }
 
+// decodeHTMLEntities replaces common HTML entities with their unicode equivalents.
+func decodeHTMLEntities(s string) string {
+	replacer := strings.NewReplacer(
+		"&amp;",  "&",
+		"&lt;",   "<",
+		"&gt;",   ">",
+		"&quot;", `"`,
+		"&#39;",  "'",
+		"&apos;", "'",
+		"&ndash;", "–",
+		"&mdash;", "—",
+		"&lsquo;", "'",
+		"&rsquo;", "'",
+		"&ldquo;", "\"",
+		"&rdquo;", "\"",
+		"&nbsp;",  " ",
+		"&hellip;", "…",
+		"&#8220;", "\"",
+		"&#8221;", "\"",
+		"&#8216;", "'",
+		"&#8217;", "'",
+		"&#8211;", "–",
+		"&#8212;", "—",
+		"&#38;",   "&",
+	)
+	return replacer.Replace(s)
+}
+
 // ── RSS ticker — fetch and parse headlines ────────────────────────────────────
 func fetchRSSTicker(config map[string]interface{}) (interface{}, error) {
 	feedURL := stringVal(config, "url")
@@ -956,6 +985,8 @@ func fetchRSSTicker(config map[string]interface{}) (interface{}, error) {
 			title = strings.TrimSuffix(strings.TrimPrefix(title, "<![CDATA["), "]]>")
 		}
 		title = strings.TrimSpace(title)
+		// Decode common HTML entities
+		title = decodeHTMLEntities(title)
 		if title != "" && title != "&#xFEFF;" {
 			if !firstSkipped {
 				firstSkipped = true

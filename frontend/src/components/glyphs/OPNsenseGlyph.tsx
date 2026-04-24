@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { glyphsApi, Glyph } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 function fmtMbs(mbs: number) {
   if (mbs >= 1000) return `${(mbs/1000).toFixed(1)}G`
@@ -11,16 +12,24 @@ function fmtMbs(mbs: number) {
 export default function OPNsenseGlyph({ glyph }: { glyph: Glyph }) {
   const cfg = (() => { try { return JSON.parse(glyph.config) } catch { return {} } })()
   const [data, setData] = useState<any>(null)
+  // SSE fires whenever OPNsense cache updates (~2s) — use as trigger to re-fetch
+  const sseUpdate = useSSE<any>(cfg.integrationId)
 
   const load = useCallback(async () => {
     try { setData((await glyphsApi.getData(glyph.id)).data) } catch {}
   }, [glyph.id])
 
+  // Initial load + periodic fallback poll
   useEffect(() => {
     load()
     const interval = setInterval(load, (cfg.refreshSecs || 30) * 1000)
     return () => clearInterval(interval)
   }, [load, cfg.refreshSecs])
+
+  // Re-fetch immediately whenever SSE signals a cache update
+  useEffect(() => {
+    if (sseUpdate !== null) load()
+  }, [sseUpdate, load])
 
   if (!data) return null
   const down = data.gatewayDown
@@ -33,8 +42,12 @@ export default function OPNsenseGlyph({ glyph }: { glyph: Glyph }) {
       <span style={{ color: down ? 'var(--red)' : 'var(--text-dim)' }}>
         {down ? '✕' : '●'}
       </span>
-      <span style={{ color: 'var(--green)' }}>↓{fmtMbs(inMbs)}</span>
-      <span style={{ color: 'var(--amber)' }}>↑{fmtMbs(outMbs)}</span>
+      <span style={{ color: 'var(--green)' }}>↓</span>
+      <span style={{ color: 'var(--green)', display: 'inline-block',
+        minWidth: '5ch', textAlign: 'right' }}>{fmtMbs(inMbs)}</span>
+      <span style={{ color: 'var(--amber)' }}>↑</span>
+      <span style={{ color: 'var(--amber)', display: 'inline-block',
+        minWidth: '5ch', textAlign: 'right' }}>{fmtMbs(outMbs)}</span>
     </div>
   )
 }

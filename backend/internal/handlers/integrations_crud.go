@@ -332,6 +332,43 @@ func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func UpdateMyIntegration(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		// Verify ownership
+		var owner string
+		db.QueryRow("SELECT created_by FROM integrations WHERE id=?", id).Scan(&owner)
+		if owner != claims.UserID {
+			writeError(w, http.StatusForbidden, "not your integration")
+			return
+		}
+		var req struct {
+			Name        string  `json:"name"`
+			APIURL      string  `json:"apiUrl"`
+			UIURL       string  `json:"uiUrl"`
+			SecretID    *string `json:"secretId"`
+			SkipTLS     bool    `json:"skipTls"`
+			RefreshSecs int     `json:"refreshSecs"`
+		}
+		json.NewDecoder(r.Body).Decode(&req)
+		req.APIURL = strings.TrimSpace(req.APIURL)
+		req.UIURL = strings.TrimSpace(req.UIURL)
+		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs("") }
+		var secretID interface{} = nil
+		if req.SecretID != nil && *req.SecretID != "" { secretID = *req.SecretID }
+		skipTLSInt := 0
+		if req.SkipTLS { skipTLSInt = 1 }
+		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=? AND created_by=?`,
+			req.Name, req.APIURL, req.UIURL, secretID, skipTLSInt, req.RefreshSecs, id, claims.UserID)
+		if uerr != nil {
+			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
 func DeleteMyIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)

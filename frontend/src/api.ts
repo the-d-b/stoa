@@ -376,6 +376,8 @@ export const myPanelsApi = {
 
 export const myIntegrationsApi = {
   list: () => api.get<Integration[]>('/my/integrations'),
+  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; skipTls: boolean; refreshSecs: number }>) =>
+    api.put(`/my/integrations/${id}`, data),
   delete: (id: string) => api.delete(`/my/integrations/${id}`),
 }
 
@@ -507,23 +509,6 @@ export interface Ticker {
 
 
 // ── Integrations ─────────────────────────────────────────────────────────────
-
-export interface Integration {
-  id: string
-  name: string
-  type: string
-  apiUrl: string
-  uiUrl: string
-  secretId: string | null
-  scope: string
-  skipTls: boolean
-  enabled: boolean
-  refreshSecs: number
-  createdBy: string
-  createdAt: string
-  groups: string[]
-}
-
 
 // ── Preferences ───────────────────────────────────────────────────────────────
 

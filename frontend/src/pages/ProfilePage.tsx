@@ -1116,9 +1116,78 @@ const ZONES = [
   { id: 'footer-right',   label: 'Footer right' },
 ]
 
+function WeatherGlyphConfig({ localConfig, setLocalConfig }: { localConfig: any; setLocalConfig: any }) {
+  const [city, setCity] = useState('')
+  const [searching, setSearching] = useState(false)
+  const [results, setResults] = useState<any[]>([])
+  const search = async () => {
+    if (!city.trim()) return
+    setSearching(true); setResults([])
+    try {
+      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=6&language=en&format=json`)
+      const d = await res.json()
+      setResults(d.results || [])
+    } catch { setResults([]) }
+    finally { setSearching(false) }
+  }
+  const pick = (r: any) => {
+    const label = r.name
+    setLocalConfig((c: any) => ({ ...c, lat: String(r.latitude), lon: String(r.longitude), label }))
+    setResults([]); setCity('')
+  }
+  return (
+    <>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <label className="label">Label (optional)</label>
+          <input className="input" value={localConfig.label || ''}
+            onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
+            placeholder="e.g. Home, Office" />
+        </div>
+        <div>
+          <label className="label">Units</label>
+          <select className="input" value={localConfig.unit || 'f'}
+            onChange={e => setLocalConfig((c: any) => ({ ...c, unit: e.target.value }))}
+            style={{ cursor: 'pointer', width: 72 }}>
+            <option value="f">°F</option>
+            <option value="c">°C</option>
+          </select>
+        </div>
+      </div>
+      {localConfig.lat && localConfig.lon && (
+        <div style={{ fontSize: 12, color: 'var(--green)', padding: '4px 8px',
+          background: 'var(--surface2)', borderRadius: 6 }}>
+          ✓ {localConfig.label || (localConfig.lat + ', ' + localConfig.lon)}
+        </div>
+      )}
+      <div>
+        <label className="label">City search — no API key required</label>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input className="input" value={city} onChange={e => setCity(e.target.value)}
+            placeholder="Search city..." onKeyDown={e => e.key === 'Enter' && search()} />
+          <button className="btn btn-secondary" onClick={search} disabled={searching || !city.trim()}>
+            {searching ? <span className="spinner" /> : 'Search'}
+          </button>
+        </div>
+        {results.length > 0 && (
+          <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+            {results.map((r: any, i: number) => (
+              <button key={i} onClick={() => pick(r)}
+                style={{ width: '100%', padding: '7px 12px', background: 'var(--surface2)',
+                  border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
+                  textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+                {r.name}{r.admin1 ? ', ' + r.admin1 : ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
+  )
+}
+
 function GlyphsTab() {
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
-  const [secrets, setSecrets] = useState<any[]>([])
   const [porticos, setPorticos] = useState<Portico[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -1130,15 +1199,13 @@ function GlyphsTab() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
 
   const load = async () => {
-    const [g, sysS, myS, sysI, myI, p] = await Promise.all([
-      glyphsApi.list(), secretsApi.list(), mySecretsApi.list(),
-      integrationsApi.list(), myIntegrationsApi.list(),
+    const [g, sysI, p] = await Promise.all([
+      glyphsApi.list(),
+      integrationsApi.list(),
       porticosApi.list(),
     ])
     setGlyphs(g.data || [])
-    const allSecrets = [...(sysS.data || []), ...(myS.data || [])]
-    setSecrets(allSecrets)
-    setIntegrations([...(sysI.data || []), ...(myI.data || [])])
+    setIntegrations(sysI.data || [])
     setPorticos(p.data || [])
     setLoading(false)
   }
@@ -1212,7 +1279,7 @@ function GlyphsTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {glyphs.map(g => (
-          <GlyphRow key={g.id} glyph={g} secrets={secrets} integrations={integrations} porticos={porticos}
+          <GlyphRow key={g.id} glyph={g} integrations={integrations} porticos={porticos}
             editing={editId === g.id}
             onEdit={() => setEditId(editId === g.id ? null : g.id)}
             onToggle={() => toggleEnabled(g)}
@@ -1225,7 +1292,6 @@ function GlyphsTab() {
               await glyphsApi.update(g.id, { zone })
               await load()
             }}
-            onSecretCreated={(s) => setSecrets(prev => [...prev, s])}
           />
         ))}
         {glyphs.length === 0 && !showForm && (
@@ -1238,38 +1304,23 @@ function GlyphsTab() {
   )
 }
 
-function GlyphRow({ glyph, secrets, integrations, porticos, editing, onEdit, onToggle, onDelete, onSave, onZoneChange, onSecretCreated }: {
-  glyph: Glyph; secrets: any[]; integrations: Integration[]; porticos: Portico[]; editing: boolean
+function GlyphRow({ glyph, integrations, porticos, editing, onEdit, onToggle, onDelete, onSave, onZoneChange }: {
+  glyph: Glyph; integrations: Integration[]; porticos: Portico[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: (config: string) => void; onZoneChange: (zone: string) => void
-  onSecretCreated: (secret: any) => void
 }) {
   const typeDef = GLYPH_TYPES.find(t => t.id === glyph.type)
   const zoneDef = ZONES.find(z => z.id === glyph.zone)
   const [localConfig, setLocalConfig] = useState(() => {
     try { return JSON.parse(glyph.config) } catch { return {} }
   })
-  const [showAddSecret, setShowAddSecret] = useState(false)
-  const [newSecretName, setNewSecretName] = useState('')
-  const [newSecretValue, setNewSecretValue] = useState('')
-  const [savingSecret, setSavingSecret] = useState(false)
 
   // Sync when glyph prop changes (after save/reload)
   useEffect(() => {
     try { setLocalConfig(JSON.parse(glyph.config)) } catch { setLocalConfig({}) }
   }, [glyph.config])
 
-  const createSecret = async () => {
-    if (!newSecretName.trim() || !newSecretValue.trim()) return
-    setSavingSecret(true)
-    try {
-      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'personal' })
-      const newSecret = { id: res.data.id, name: newSecretName.trim() }
-      setLocalConfig((c: any) => ({ ...c, secretId: newSecret.id }))
-      onSecretCreated(newSecret)
-      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
-    } finally { setSavingSecret(false) }
-  }
+
 
   return (
     <div style={{
@@ -1393,104 +1444,29 @@ function GlyphRow({ glyph, secrets, integrations, porticos, editing, onEdit, onT
             {/* Weather config */}
 
             {glyph.type === 'weather' && (
-              <>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <div style={{ flex: 0.5 }}>
-                    <label className="label">Name (optional)</label>
-                    <input className="input" value={localConfig.label || ''}
-                      onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
-                      placeholder="e.g. Dallas" />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label className="label">ZIP code</label>
-                    <input className="input" value={localConfig.zip || ''}
-                      onChange={e => setLocalConfig((c: any) => ({ ...c, zip: e.target.value }))}
-                      placeholder="e.g. 80918" />
-                  </div>
-                  <div>
-                    <label className="label">Country</label>
-                    <input className="input" value={localConfig.country || 'US'}
-                      onChange={e => setLocalConfig((c: any) => ({ ...c, country: e.target.value }))}
-                      style={{ width: 80 }} />
-                  </div>
-                  <div>
-                    <label className="label">Units</label>
-                    <select className="input" value={localConfig.units || 'imperial'}
-                      onChange={e => setLocalConfig((c: any) => ({ ...c, units: e.target.value }))}
-                      style={{ cursor: 'pointer' }}>
-                      <option value="imperial">°F</option>
-                      <option value="metric">°C</option>
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <label className="label">API key secret</label>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <select className="input" value={localConfig.secretId || ''}
-                      onChange={e => setLocalConfig((c: any) => ({ ...c, secretId: e.target.value }))}
-                      style={{ cursor: 'pointer', flex: 1 }}>
-                      <option value="">— Select a secret —</option>
-                      {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
-                      onClick={() => setShowAddSecret(v => !v)}>
-                      {showAddSecret ? 'Cancel' : '+ New'}
-                    </button>
-                  </div>
-                  {showAddSecret && (
-                    <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8,
-                      background: 'var(--surface2)', border: '1px solid var(--border)',
-                      display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          <label className="label">Secret name</label>
-                          <input className="input" value={newSecretName}
-                            onChange={e => setNewSecretName(e.target.value)}
-                            placeholder="e.g. OpenWeatherMap Key" autoFocus />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label className="label">API key value</label>
-                          <input className="input" type="password" value={newSecretValue}
-                            onChange={e => setNewSecretValue(e.target.value)}
-                            placeholder="Paste key here" />
-                        </div>
-                      </div>
-                      <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
-                        disabled={savingSecret || !newSecretName || !newSecretValue}
-                        onClick={createSecret}>
-                        {savingSecret ? <span className="spinner" /> : 'Save & select'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="label">Refresh every</label>
-                  <select className="input" value={localConfig.refreshSecs || 3600}
-                    onChange={e => setLocalConfig((c: any) => ({ ...c, refreshSecs: Number(e.target.value) }))}
-                    style={{ cursor: 'pointer' }}>
-                    <option value={300}>5 minutes</option>
-                    <option value={900}>15 minutes</option>
-                    <option value={1800}>30 minutes</option>
-                    <option value={3600}>1 hour</option>
-                  </select>
-                </div>
-              </>
+              <WeatherGlyphConfig localConfig={localConfig} setLocalConfig={setLocalConfig} />
             )}
-
             {/* New glyph type configs */}
-            {glyph.type === 'weather' && glyph.type !== 'weather' && null /* existing weather handled above */}
             {(glyph.type === 'truenas' || glyph.type === 'opnsense' || glyph.type === 'proxmox' || glyph.type === 'kuma') && (
               <>
-                <div>
-                  <label className="label">Integration</label>
-                  <select className="input" value={localConfig.integrationId || ''}
-                    onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
-                    style={{ cursor: 'pointer' }}>
-                    <option value="">— Select integration —</option>
-                    {integrations
-                      .filter(i => i.type === glyph.type)
-                      .map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-                  </select>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">Integration</label>
+                    <select className="input" value={localConfig.integrationId || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
+                      style={{ cursor: 'pointer' }}>
+                      <option value="">— Select integration —</option>
+                      {integrations
+                        .filter(i => i.type === glyph.type)
+                        .map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 0.6 }}>
+                    <label className="label">Label (optional)</label>
+                    <input className="input" value={localConfig.label || ''}
+                      onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
+                      placeholder="e.g. NAS, Proxmox" />
+                  </div>
                 </div>
               </>
             )}
@@ -1536,10 +1512,6 @@ function GlyphRow({ glyph, secrets, integrations, porticos, editing, onEdit, onT
                 </div>
               </>
             )}
-            {glyph.type === 'weather' && (
-              <WeatherTickerConfig localConfig={localConfig} setLocalConfig={setLocalConfig} />
-            )}
-
             {/* Portico assignment for glyphs */}
             {porticos.length > 0 && (
               <div>
@@ -2075,66 +2047,6 @@ function WeatherLocationAdder({ onAdd }: { onAdd: (loc: any) => void }) {
 }
 
 // ── Weather location config — reused by weather glyph and ticker ─────────────
-function WeatherTickerConfig({ localConfig, setLocalConfig }: { localConfig: any; setLocalConfig: any }) {
-  const [citySearch, setCitySearch] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [results, setResults] = useState<any[]>([])
-
-  const search = async () => {
-    if (!citySearch.trim()) return
-    setSearching(true); setResults([])
-    try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(citySearch)}&count=5&language=en&format=json`)
-      const data = await res.json()
-      setResults(data.results || [])
-    } catch { setResults([]) }
-    finally { setSearching(false) }
-  }
-
-  const pick = (r: any) => {
-    const label = `${r.name}, ${r.admin1 || r.country}`
-    setLocalConfig((c: any) => ({ ...c, city: label, lat: String(r.latitude), lon: String(r.longitude) }))
-    setCitySearch(''); setResults([])
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {localConfig.city && (
-        <div style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 500 }}>
-          📍 {localConfig.city}
-        </div>
-      )}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input className="input" value={citySearch} onChange={e => setCitySearch(e.target.value)}
-          placeholder="Search city..." style={{ flex: 1 }}
-          onKeyDown={e => e.key === 'Enter' && search()} />
-        <select className="input" value={localConfig.unit || 'f'}
-          onChange={e => setLocalConfig((c: any) => ({ ...c, unit: e.target.value }))}
-          style={{ width: 70, cursor: 'pointer' }}>
-          <option value="f">°F</option>
-          <option value="c">°C</option>
-        </select>
-        <button className="btn btn-secondary" style={{ fontSize: 12 }}
-          onClick={search} disabled={searching || !citySearch.trim()}>
-          {searching ? <span className="spinner" /> : 'Search'}
-        </button>
-      </div>
-      {results.length > 0 && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          {results.map((r, i) => (
-            <button key={i} onClick={() => pick(r)}
-              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
-                border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
-                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
-              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave, onSecretCreated }: {
   ticker: Ticker; secrets: any[]; porticos: Portico[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
@@ -2454,13 +2366,13 @@ function PersonalIntegrationsTab() {
   const [editId, setEditId] = useState<string | null>(null)
   const [newUiUrl, setNewUiUrl] = useState('')
   const [newSecretId, setNewSecretId] = useState('')
-  const [showAddSecret, setShowAddSecret] = useState(false)
   const [newSecretName, setNewSecretName] = useState('')
   const [newSecretValue, setNewSecretValue] = useState('')
-  const [savingSecret, setSavingSecret] = useState(false)
   const [creating, setCreating] = useState(false)
   const [testResult, setTestResult] = useState<{ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean} | null>(null)
   const [testing, setTesting] = useState(false)
+  const [showAddSecret, setShowAddSecret] = useState(false)
+  const [savingSecret, setSavingSecret] = useState(false)
 
   const createSecret = async () => {
     if (!newSecretName.trim() || !newSecretValue.trim()) return
@@ -2707,7 +2619,13 @@ function PersonalIntegrationsTab() {
             {editId === ig.id && (
               <PersonalIntegrationEdit ig={ig} secrets={secrets}
                 onSave={async (data) => {
-                  await integrationsApi.update(ig.id, data)
+                  // Personal integrations (createdBy !== 'SYSTEM') use the /my/ route
+                  // so non-admin users can save without hitting the admin-only route
+                  if (ig.createdBy && ig.createdBy !== 'SYSTEM') {
+                    await myIntegrationsApi.update(ig.id, data)
+                  } else {
+                    await integrationsApi.update(ig.id, data)
+                  }
                   setEditId(null); await load()
                 }}
                 onCancel={() => setEditId(null)}
