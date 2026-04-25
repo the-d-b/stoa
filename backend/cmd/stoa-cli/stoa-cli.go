@@ -735,7 +735,6 @@ func insertNodes(tx *sql.Tx, nodes []BookmarkNode, parentID interface{}, count *
 		if sortOrder == 0 {
 			sortOrder = i
 		}
-		var err error
 		// Build path: parent path + "/" + name, or just name for root
 		path := n.Title
 		if parentID != nil {
