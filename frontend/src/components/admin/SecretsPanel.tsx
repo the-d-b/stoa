@@ -79,7 +79,7 @@ export default function SecretsPanel() {
             <div>
               <label className="label">Name</label>
               <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
-                placeholder="e.g. OpenWeather API Key" autoFocus />
+                placeholder="e.g. My API Key" autoFocus />
             </div>
             <div>
               <label className="label">Value</label>

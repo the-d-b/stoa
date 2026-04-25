@@ -473,6 +473,12 @@ export interface Portico {
   tags: PorticoTag[]
 }
 
+export const customColumnsApi = {
+  get: (porticoId: string) => api.get<Record<string,number>>(`/panels/custom-columns?portico_id=${porticoId}`),
+  set: (porticoId: string, columns: Record<string,number>, order: string[]) =>
+    api.put('/panels/custom-columns', { porticoId, columns, order }),
+}
+
 export const porticosApi = {
   list: () => api.get<Portico[]>('/porticos'),
   create: (name: string, isDefault?: boolean) => api.post<Portico>('/porticos', { name, isDefault }),

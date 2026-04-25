@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, Panel, Portico, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, customColumnsApi, Panel, Portico, Tag, BookmarkNode } from '../api'
 import { useSSEConnected } from '../hooks/useSSE'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
@@ -32,6 +32,7 @@ export default function DashboardPage() {
   const [subtrees, setSubtrees] = useState<Record<string, BookmarkNode>>({})
   const [activePorticoId, setActivePorticoId] = useState<string>('home')
   const [allExpanded, setAllExpanded] = useState<boolean | null>(null) // null = default
+  const [customColumns, setCustomColumns] = useState<Record<string,number>>({})
 
   // Listen for expand/collapse events from ThemeSwitcher buttons
   useEffect(() => {
@@ -45,7 +46,10 @@ export default function DashboardPage() {
   // Reset expand/collapse state when switching porticos so each starts fresh
   useEffect(() => {
     setAllExpanded(null)
+    setCustomColumns({})
   }, [activePorticoId])
+
+
   const [activeTags, setActiveTags] = useState<string[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -55,6 +59,15 @@ export default function DashboardPage() {
   const [showTagFilter, setShowTagFilter] = useState(false) // mobile toggle
   const [density, setDensity] = useState('normal')
   const [activePortico, setActivePortico] = useState<Portico | null>(null)
+
+  // Load custom column assignments when portico or layout changes
+  useEffect(() => {
+    if (activePortico?.layout === 'custom' && activePorticoId !== 'home') {
+      customColumnsApi.get(activePorticoId).then(r => setCustomColumns(r.data || {}))
+    } else {
+      setCustomColumns({})
+    }
+  }, [activePorticoId, activePortico?.layout])
 
   useEffect(() => {
     const load = async () => {
@@ -248,7 +261,13 @@ export default function DashboardPage() {
 
   if (panels.length === 0) return <EmptyState isAdmin={isAdmin} />
 
+  const colCount = activePortico?.columnCount ?? 3
+  const containerMax = colCount >= 5 ? '98vw' : colCount >= 4 ? '1400px' : '1100px'
+  const containerPadding = colCount >= 5 ? '0 8px' : colCount >= 4 ? '0 16px' : '0 24px'
+
   return (
+    <div style={{ maxWidth: containerMax, margin: '0 auto', padding: containerPadding,
+      boxSizing: 'border-box', width: '100%' }}>
     <div style={{ display: 'flex', gap: 20, position: 'relative' }}>
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -328,6 +347,7 @@ export default function DashboardPage() {
           portico={activePortico}
           density={density}
           allExpanded={allExpanded}
+          customColumns={customColumns}
         />
 
         {visiblePanels.length === 0 && activeTags !== null && (
@@ -362,6 +382,7 @@ export default function DashboardPage() {
         </div>
       )}
     <SearchModal allNodes={searchNodes} />
+    </div>
     </div>
   )
 }
@@ -499,12 +520,13 @@ const DENSITY_MIN_WIDTH: Record<string, number> = {
 const ROW_UNIT = 120 // px per 1x height unit
 const GRID_GAP = 16  // gap between panels
 
-function PanelGrid({ panels, subtrees, portico, density, allExpanded }: {
+function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColumns }: {
   panels: Panel[]
   subtrees: Record<string, BookmarkNode>
   portico: Portico | null
   density: string
   allExpanded?: boolean | null
+  customColumns?: Record<string,number>
 }) {
   const layout      = portico?.layout      ?? (portico?.id === 'home' ? 'seira' : 'stylos')
   const colCount    = portico?.columnCount  ?? 3
@@ -556,6 +578,36 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded }: {
           }}>
             {row.map(panel => (
               <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
+            ))}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // ── Custom: user-assigned columns ───────────────────────────────────────────
+  if (layout === 'custom') {
+    const cols: Panel[][] = Array.from({ length: colCount }, () => [])
+    let currentCol = 0
+    for (const panel of panels) {
+      // Column assignment from customColumns, clamped to [1, colCount], cascade-down behavior
+      const assigned = (customColumns?.[panel.id] ?? 1)
+      const col = Math.min(Math.max(assigned, 1), colCount) - 1
+      if (col > currentCol) currentCol = col
+      cols[currentCol].push(panel)
+    }
+    return (
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${colCount}, minmax(${minColWidth}px, 1fr))`,
+        gap: GRID_GAP,
+        alignItems: 'start',
+      }}>
+        {cols.map((col, ci) => (
+          <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
+            {col.map(panel => (
+              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]}
+                allExpanded={allExpanded} />
             ))}
           </div>
         ))}

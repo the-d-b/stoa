@@ -159,38 +159,16 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
     )
   }
 
-  // RSS ticker — always scrolls, each item links to its article
+  // RSS ticker — scroll or swoosh mode
   if (ticker.type === 'rss') {
     if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
-    // Support both new {items:[{title,link}]} and legacy {headlines:[...]} format
     const rssItems: {title: string; link: string}[] = rawData.items
       || (rawData.headlines || []).map((h: string) => ({ title: h, link: '' }))
     if (rssItems.length === 0) return (
       <div style={{ padding: '4px 16px', fontSize: 11, color: 'var(--text-dim)' }}>No headlines</div>
     )
-    const doubled = [...rssItems, ...rssItems]
-    return (
-      <div style={{ overflow: 'hidden', flex: 1 }}>
-        <div style={{
-          display: 'flex', gap: 48, whiteSpace: 'nowrap',
-          animation: `ticker-scroll ${rssItems.length * 6}s linear infinite`,
-        }}>
-          {doubled.map((item, i) => (
-            item.link
-              ? <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0,
-                    textDecoration: 'none' }}
-                  onMouseOver={e => e.currentTarget.style.color = 'var(--text)'}
-                  onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}>
-                  {item.title.length > 80 ? item.title.slice(0, 80) + '…' : item.title}
-                </a>
-              : <span key={i} style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
-                  {item.title.length > 80 ? item.title.slice(0, 80) + '…' : item.title}
-                </span>
-          ))}
-        </div>
-      </div>
-    )
+    if (mode === 'scroll') return <RSSMarquee items={rssItems} />
+    return <RSSRotator items={rssItems} />
   }
 
   // Stocks / Crypto (original path)
@@ -199,6 +177,102 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   )
   if (mode === 'scroll') return <ScrollingTicker quotes={quotes} />
   return <StaticTicker quotes={quotes} swoosh={swoosh} />
+}
+
+// ── RSS Marquee — continuous horizontal scroll ───────────────────────────────
+function RSSMarquee({ items }: { items: {title:string;link:string}[] }) {
+  const doubled = [...items, ...items]
+  return (
+    <div style={{ overflow: 'hidden', flex: 1 }}>
+      <div style={{
+        display: 'flex', gap: 64, whiteSpace: 'nowrap', width: 'max-content',
+        animation: `rss-marquee ${items.length * 12}s linear infinite`,
+      }}>
+        {doubled.map((item, i) => (
+          item.link
+            ? <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+                style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0,
+                  textDecoration: 'none' }}
+                onMouseOver={e => e.currentTarget.style.color = 'var(--text)'}
+                onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}>
+                {item.title}
+              </a>
+            : <span key={i} style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
+                {item.title}
+              </span>
+        ))}
+      </div>
+      <style>{`
+        @keyframes rss-marquee {
+          from { transform: translateX(0); }
+          to   { transform: translateX(-50%); }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+// ── RSS Rotator — one article at a time, scroll or swoosh ────────────────────
+function RSSRotator({ items }: { items: {title:string;link:string}[] }) {
+  const [idx, setIdx] = useState(0)
+  const [phase, setPhase] = useState<'in'|'hold'|'out'>('in')
+  const holdSecs = 18
+
+  useEffect(() => {
+    if (items.length === 0) return
+    let timer: ReturnType<typeof setTimeout>
+    if (phase === 'in') {
+      // Slide in takes 0.4s, then hold
+      timer = setTimeout(() => setPhase('hold'), 400)
+    } else if (phase === 'hold') {
+      timer = setTimeout(() => setPhase('out'), holdSecs * 1000)
+    } else {
+      // Slide out, then advance to next
+      timer = setTimeout(() => {
+        setIdx(i => (i + 1) % items.length)
+        setPhase('in')
+      }, 400)
+    }
+    return () => clearTimeout(timer)
+  }, [phase, items.length])
+
+  const item = items[idx]
+  if (!item) return null
+
+  const slideIn  = 'translateX(0)'
+  const slideRight = 'translateX(110%)'
+  const slideLeft  = 'translateX(-110%)'
+
+  const transform = phase === 'in' ? slideRight : phase === 'out' ? slideLeft : slideIn
+  const opacity = phase === 'hold' ? 1 : 0
+
+  const inner = (
+    <span style={{
+      fontSize: 12, color: 'var(--text-muted)', whiteSpace: 'nowrap',
+      overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
+      transform, opacity,
+      transition: 'transform 0.4s ease, opacity 0.3s ease',
+    }}>
+      {item.title}
+    </span>
+  )
+
+  return (
+    <div style={{ overflow: 'hidden', flex: 1, display: 'flex', alignItems: 'center' }}>
+      {item.link
+        ? <a href={item.link} target="_blank" rel="noopener noreferrer"
+            style={{ flex: 1, overflow: 'hidden', textDecoration: 'none' }}
+            onMouseOver={e => (e.currentTarget.querySelector('span') as HTMLElement).style.color = 'var(--text)'}
+            onMouseOut={e => (e.currentTarget.querySelector('span') as HTMLElement).style.color = 'var(--text-muted)'}>
+            {inner}
+          </a>
+        : <div style={{ flex: 1, overflow: 'hidden' }}>{inner}</div>
+      }
+      <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, marginLeft: 8, fontFamily: 'DM Mono, monospace' }}>
+        {idx + 1}/{items.length}
+      </span>
+    </div>
+  )
 }
 
 // ── Static ticker with swoosh animation ──────────────────────────────────────

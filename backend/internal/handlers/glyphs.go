@@ -214,83 +214,56 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-// ── Weather fetch ─────────────────────────────────────────────────────────────
+// ── Weather fetch (Open-Meteo, no API key required) ──────────────────────────
 
 func fetchWeather(db *sql.DB, config map[string]interface{}) (interface{}, error) {
-	zip := stringVal(config, "zip")
-	country := stringVal(config, "country")
-	if country == "" {
-		country = "US"
+	lat := stringVal(config, "lat")
+	lon := stringVal(config, "lon")
+	if lat == "" || lon == "" {
+		return nil, fmt.Errorf("location not configured — set lat/lon in glyph config")
 	}
-	units := stringVal(config, "units")
-	if units == "" {
-		units = "imperial"
+	unit := stringVal(config, "unit")
+	tempUnit := "fahrenheit"
+	if unit == "c" {
+		tempUnit = "celsius"
 	}
-	secretID := stringVal(config, "secretId")
-
-	if zip == "" {
-		return nil, fmt.Errorf("zip code not configured")
-	}
-	if secretID == "" {
-		return nil, fmt.Errorf("API key secret not configured")
-	}
-
-	// Resolve secret value
-	var encryptedVal string
-	err := db.QueryRow("SELECT value FROM secrets WHERE id=?", secretID).Scan(&encryptedVal)
-	if err != nil {
-		return nil, fmt.Errorf("secret not found")
-	}
-	apiKey := decryptSecret(encryptedVal)
-
 	url := fmt.Sprintf(
-		"https://api.openweathermap.org/data/2.5/weather?zip=%s,%s&appid=%s&units=%s",
-		zip, country, apiKey, units,
+		"https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=%s&timezone=auto&forecast_days=1",
+		lat, lon, tempUnit,
 	)
-
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("weather API unreachable")
 	}
 	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("weather API returned %d", resp.StatusCode)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("invalid weather response")
 	}
-
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response")
-	}
-
-	var result interface{}
-	json.Unmarshal(body, &result)
 	return result, nil
 }
 
-func decryptSecret(val string) string {
-	// Currently stored as "enc:<plaintext>" — proper encryption in future
-	if len(val) > 4 && val[:4] == "enc:" {
-		return val[4:]
-	}
-	return val
-}
+
+// ── Utility helpers ───────────────────────────────────────────────────────────
 
 func stringVal(m map[string]interface{}, key string) string {
-	if v, ok := m[key]; ok {
-		if s, ok := v.(string); ok {
-			return s
-		}
-	}
-	return ""
+	v, _ := m[key].(string)
+	return v
 }
 
 func boolToInt(b bool) int {
-	if b {
-		return 1
-	}
+	if b { return 1 }
 	return 0
+}
+
+func decryptSecret(val string) string {
+	// Secrets are prefixed with "enc:" by encryptSecret — strip it
+	if strings.HasPrefix(val, "enc:") {
+		return val[4:]
+	}
+	return val
 }
 
 // ── Ticker CRUD ───────────────────────────────────────────────────────────────

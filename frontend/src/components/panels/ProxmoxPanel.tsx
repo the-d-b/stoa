@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 import ArcGauge from './ArcGauge'
 
 interface ProxmoxGauge { used: number; label: string }
@@ -52,7 +53,10 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
   const [loading, setLoading] = useState(true)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId = config.integrationId as string | undefined
   const refreshSecs = config.refreshSecs || 30
+  // SSE fires whenever Proxmox worker pushes a cache update (~3s)
+  const sseUpdate = useSSE<any>(integrationId)
 
   const load = useCallback(async () => {
     try {
@@ -68,6 +72,11 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
     const interval = setInterval(load, refreshSecs * 1000)
     return () => clearInterval(interval)
   }, [load, refreshSecs])
+
+  // Re-fetch immediately when SSE signals a cache update
+  useEffect(() => {
+    if (sseUpdate !== null) load()
+  }, [sseUpdate, load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>

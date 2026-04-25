@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { glyphsApi, Glyph } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 function pctColor(p: number) {
   return p >= 90 ? 'var(--red)' : p >= 75 ? 'var(--amber)' : 'var(--text-muted)'
@@ -8,6 +9,8 @@ function pctColor(p: number) {
 export default function ProxmoxGlyph({ glyph }: { glyph: Glyph }) {
   const cfg = (() => { try { return JSON.parse(glyph.config) } catch { return {} } })()
   const [data, setData] = useState<any>(null)
+
+  const sseUpdate = useSSE<any>(cfg.integrationId)
 
   const load = useCallback(async () => {
     try { setData((await glyphsApi.getData(glyph.id)).data) } catch {}
@@ -18,6 +21,10 @@ export default function ProxmoxGlyph({ glyph }: { glyph: Glyph }) {
     const interval = setInterval(load, (cfg.refreshSecs || 30) * 1000)
     return () => clearInterval(interval)
   }, [load, cfg.refreshSecs])
+
+  useEffect(() => {
+    if (sseUpdate !== null) load()
+  }, [sseUpdate, load])
 
   if (!data) return null
   const cpu = data.cpuPercent ?? 0

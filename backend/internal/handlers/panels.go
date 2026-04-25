@@ -304,20 +304,20 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 
 		for _, item := range req.Order {
 			if !isHome {
-				// Named wall
+				// Named portico — upsert on the actual unique index
 				rowID := claims.UserID + "-" + item.PanelID + "-" + porticoIDStr
 				tx.Exec(`
 					INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position)
 					VALUES (?, ?, ?, ?, ?)
-					ON CONFLICT(id) DO UPDATE SET position = excluded.position
+					ON CONFLICT(user_id, panel_id, COALESCE(portico_id,''))
+					DO UPDATE SET position = excluded.position
 				`, rowID, claims.UserID, item.PanelID, porticoIDStr, item.Position)
 			} else {
-				// Home wall — portico_id IS NULL, use DELETE+INSERT to avoid NULL issues
+				// Home — portico_id IS NULL; DELETE+INSERT to avoid SQLite NULL conflict issues
 				rowID := claims.UserID + "-" + item.PanelID + "-home"
-				tx.Exec(`
-					DELETE FROM user_panel_order_v3
-					WHERE user_id = ? AND panel_id = ? AND portico_id IS NULL
-				`, claims.UserID, item.PanelID)
+				tx.Exec(`DELETE FROM user_panel_order_v3
+					WHERE user_id = ? AND panel_id = ? AND portico_id IS NULL`,
+					claims.UserID, item.PanelID)
 				tx.Exec(`
 					INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position)
 					VALUES (?, ?, ?, NULL, ?)
@@ -431,5 +431,79 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 			panels = append(panels, p)
 		}
 		writeJSON(w, http.StatusOK, panels)
+	}
+}
+
+
+// GetCustomColumns returns panel→column assignments for a portico
+func GetCustomColumns(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		porticoID := r.URL.Query().Get("portico_id")
+		if porticoID == "" {
+			writeError(w, http.StatusBadRequest, "portico_id required")
+			return
+		}
+		rows, err := db.Query(`
+			SELECT panel_id, COALESCE(custom_column, 1)
+			FROM user_panel_order_v3
+			WHERE user_id = ? AND portico_id = ?
+			ORDER BY position ASC
+		`, claims.UserID, porticoID)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		defer rows.Close()
+
+		// Read in order, then enforce monotonically non-decreasing columns.
+		// If a panel was reordered and now has a column lower than its predecessor,
+		// snap it down to match — keeps the breakpoint model consistent.
+		type entry struct{ id string; col int }
+		var entries []entry
+		for rows.Next() {
+			var panelID string
+			var col int
+			rows.Scan(&panelID, &col)
+			entries = append(entries, entry{panelID, col})
+		}
+		result := map[string]int{}
+		minCol := 1
+		for _, e := range entries {
+			col := e.col
+			if col < minCol { col = minCol }
+			if col > minCol { minCol = col }
+			result[e.id] = col
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+// SetCustomColumns saves panel→column assignments for a portico.
+// Setting a panel to column N also cascades all subsequent panels to >= N.
+func SetCustomColumns(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var req struct {
+			PorticoID string         `json:"porticoId"`
+			Columns   map[string]int `json:"columns"` // panelId -> column
+			Order     []string       `json:"order"`   // panelIds in position order
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PorticoID == "" {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		for i, panelID := range req.Order {
+			col := req.Columns[panelID]
+			rowID := claims.UserID + "-" + panelID + "-" + req.PorticoID
+			db.Exec(`
+				INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position, custom_column)
+				VALUES (?, ?, ?, ?, ?, ?)
+				ON CONFLICT(user_id, panel_id, COALESCE(portico_id,'')) DO UPDATE
+				SET custom_column = excluded.custom_column
+			`, rowID, claims.UserID, panelID, req.PorticoID, i, col)
+			_ = i // position only used for initial insert, not update
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

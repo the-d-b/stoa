@@ -111,6 +111,8 @@ func main() {
 	// Panels (read + reorder)
 	protected.HandleFunc("/panels", handlers.ListPanels(database)).Methods("GET")
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
+	protected.HandleFunc("/panels/custom-columns", handlers.GetCustomColumns(database)).Methods("GET")
+	protected.HandleFunc("/panels/custom-columns", handlers.SetCustomColumns(database)).Methods("PUT")
 
 	// SSE — browser tab event stream (handles own auth via ?token= param)
 	api.HandleFunc("/stream", handlers.SSEHandler(database, authService)).Methods("GET")

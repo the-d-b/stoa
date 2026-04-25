@@ -382,7 +382,7 @@ func UpdatePortico(db *sql.DB) http.HandlerFunc {
 		}
 
 		// Validate
-		validLayouts := map[string]bool{"columns": true, "flow": true, "seira": true, "stylos": true, "rema": true}
+		validLayouts := map[string]bool{"columns": true, "flow": true, "seira": true, "stylos": true, "rema": true, "custom": true}
 		if !validLayouts[req.Layout] {
 			req.Layout = "stylos"
 		}

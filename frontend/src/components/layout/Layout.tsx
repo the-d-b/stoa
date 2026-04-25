@@ -170,7 +170,7 @@ export default function Layout() {
       </header>
 
       {/* Main */}
-      <main className="main-content" style={{ flex: 1, maxWidth: 1100, margin: '0 auto', width: '100%', padding: '32px 24px' }}>
+      <main className="main-content" style={{ flex: 1, margin: '0 auto', width: '100%', padding: '32px 24px', boxSizing: 'border-box' }}>
         <Outlet />
       </main>
 

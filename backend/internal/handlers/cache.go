@@ -247,6 +247,12 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 		return
 	}
 
+	// Proxmox uses a fast 3s poll for CPU/mem/net + slow poll for VMs/storage/temps
+	if ig.igType == "proxmox" {
+		StartProxmoxWorker(db, ig, stop)
+		return
+	}
+
 	go func() {
 		// Fetch immediately on start so cache is warm right away
 		refreshCache(db, ig)

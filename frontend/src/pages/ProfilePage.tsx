@@ -7,7 +7,7 @@ import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
@@ -529,6 +529,137 @@ function MailSettingsTab() {
 // ── Portico layout preview ────────────────────────────────────────────────────
 // Renders a tiny schematic of the portico layout — proportional blocks
 // representing panels in their computed positions. Mirrors PanelGrid logic.
+function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; colCount: number }) {
+  const [open, setOpen] = useState(false)
+  const [panels, setPanels] = useState<Panel[]>([])
+  const [columns, setColumns] = useState<Record<string,number>>({})
+  const [saving, setSaving] = useState(false)
+
+  const load = async () => {
+    const [pr, cr] = await Promise.all([
+      panelsApi.list(porticoId),
+      customColumnsApi.get(porticoId),
+    ])
+    setPanels(pr.data || [])
+    setColumns(cr.data || {})
+  }
+
+  useEffect(() => { if (open) load() }, [open, porticoId])
+
+  const setCol = (panelId: string, col: number, allPanels: Panel[]) => {
+    const idx = allPanels.findIndex(p => p.id === panelId)
+    if (idx < 0) return
+    const next = { ...columns }
+    next[panelId] = col
+
+    // Cascade forward: panels after this one must be >= col (if increasing)
+    // Cascade backward: panels after this one must be <= col (if decreasing)
+    // Rule: the list must always be non-decreasing in column number.
+    // Going UP (col > old): push everything after up to at least col
+    // Going DOWN (col < old): pull everything after down to at most col
+    const old = columns[panelId] ?? 1
+    if (col > old) {
+      // Pushed up — cascade forward: everything below must be >= col
+      for (let i = idx + 1; i < allPanels.length; i++) {
+        if ((next[allPanels[i].id] ?? 1) < col) next[allPanels[i].id] = col
+        else break // already >= col, stop cascading
+      }
+    } else if (col < old) {
+      // Pulled down — cascade forward: everything below must be <= col
+      for (let i = idx + 1; i < allPanels.length; i++) {
+        if ((next[allPanels[i].id] ?? 1) > col) next[allPanels[i].id] = col
+        else break // already <= col, stop cascading
+      }
+      // Also cascade backward: panels before this one must be <= col
+      for (let i = idx - 1; i >= 0; i--) {
+        if ((next[allPanels[i].id] ?? 1) > col) next[allPanels[i].id] = col
+        else break
+      }
+    }
+
+    setColumns(next)
+  }
+
+  const save = async () => {
+    setSaving(true)
+    await customColumnsApi.set(porticoId, columns, panels.map(p => p.id))
+    setSaving(false)
+    setOpen(false)
+  }
+
+  if (!open) return (
+    <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setOpen(true)}>
+      Configure columns
+    </button>
+  )
+
+  // Full-screen modal so it doesn't interact with page scroll
+  return (
+    <>
+      <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setOpen(false)}>
+        Configure columns ✕
+      </button>
+      <div style={{
+        position: 'fixed', inset: 0, zIndex: 500,
+        background: 'rgba(0,0,0,0.5)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }} onClick={e => { if (e.target === e.currentTarget) setOpen(false) }}>
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, padding: 24, width: 480, maxWidth: '92vw',
+          maxHeight: '80vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.3)',
+        }}>
+          <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>
+            Column assignments
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12 }}>
+            Click a number to set the column. Panels cascade — changing one panel
+            adjusts adjacent panels to maintain a valid order.
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {panels.length === 0
+              ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No panels in this portico yet.</div>
+              : panels.map(p => {
+                  const col = columns[p.id] ?? 1
+                  return (
+                    <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                      padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                      <div style={{ flex: 1, fontSize: 12, color: 'var(--text-muted)',
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.title}
+                      </div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {Array.from({ length: colCount }, (_, i) => i + 1).map(n => (
+                          <button key={n} onClick={() => setCol(p.id, n, panels)}
+                            style={{
+                              width: 28, height: 24, borderRadius: 5, fontSize: 11, fontWeight: 600,
+                              cursor: 'pointer', border: '1px solid var(--border)',
+                              background: col === n ? 'var(--accent)' : 'var(--surface2)',
+                              color: col === n ? 'white' : 'var(--text-dim)',
+                            }}>{n}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })
+            }
+          </div>
+          <div style={{ marginTop: 16, display: 'flex', gap: 8, paddingTop: 12,
+            borderTop: '1px solid var(--border)' }}>
+            <button className="btn btn-primary" style={{ fontSize: 12 }}
+              onClick={save} disabled={saving}>
+              {saving ? <span className="spinner" /> : 'Save'}
+            </button>
+            <button className="btn btn-ghost" style={{ fontSize: 12 }}
+              onClick={() => setOpen(false)}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    </>
+  )
+}
+
 function PorticoPreview({ portico, panels }: { portico: Portico; panels: Panel[] }) {
   if (panels.length === 0) return (
     <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic', padding: '6px 0' }}>
@@ -828,6 +959,7 @@ function PorticosTab() {
                     <option value="stylos">Stylos</option>
                     <option value="seira">Seira</option>
                     <option value="rema">Rema</option>
+                    <option value="custom">Custom</option>
                   </select>
                   <select
                     value={colCount}
@@ -840,6 +972,9 @@ function PorticosTab() {
                     title="Number of columns">
                     {[2,3,4,5].map(n => <option key={n} value={n}>{n} cols</option>)}
                   </select>
+                  {layout === 'custom' && (
+                    <CustomColumnConfigurator porticoId={portico.id} colCount={colCount} />
+                  )}
                   {(layout === 'stylos' || layout === 'columns') && (
                     <select
                       value={colHeight}
@@ -1266,7 +1401,10 @@ function GlyphsTab() {
             <div>
               <label className="label">Type</label>
               <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
-                {GLYPH_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                {GLYPH_TYPES.map(t => {
+                  const hasInt = !t.needsIntegration || integrations.some(i => i.type === t.id)
+                  return <option key={t.id} value={t.id}>{t.label}{!hasInt ? ' ⚠ needs integration' : ''}</option>
+                })}
               </select>
             </div>
             <div>
@@ -1282,7 +1420,16 @@ function GlyphsTab() {
           </div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 10 }}>
             {GLYPH_TYPES.find(t => t.id === newType)?.desc}
-            {GLYPH_TYPES.find(t => t.id === newType)?.needsIntegration && ' · Requires an integration'}
+            {(() => {
+              const t = GLYPH_TYPES.find(g => g.id === newType)
+              if (!t?.needsIntegration) return null
+              const hasInt = integrations.some(i => i.type === newType)
+              if (hasInt) return <span style={{ color: 'var(--green)', marginLeft: 6 }}>✓ integration available</span>
+              return <span style={{ color: 'var(--amber)', marginLeft: 6 }}>
+                ⚠ No {newType} integration configured.{' '}
+                <a href="/admin/integrations" style={{ color: 'var(--accent2)' }}>Add one →</a>
+              </span>
+            })()}
           </div>
         </div>
       )}
@@ -3003,24 +3150,24 @@ function PersonalTagsTab() {
 // ── My Panels ────────────────────────────────────────────────────────────────
 
 const PANEL_TYPES = [
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel' },
-  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources' },
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings' },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
-  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page' },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking' },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking' },
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking' },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
-  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content' },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',              needsIntegration: true  },
+  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
+  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                 needsIntegration: true  },
+  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',              needsIntegration: false },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking',                needsIntegration: true  },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',               needsIntegration: true  },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',              needsIntegration: true  },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server',                  needsIntegration: true  },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                    needsIntegration: true  },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                needsIntegration: true  },
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking',              needsIntegration: true  },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                needsIntegration: true  },
+  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',   needsIntegration: false },
+  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',             needsIntegration: true  },
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                needsIntegration: true  },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',             needsIntegration: true  },
 ]
 
 const HEIGHT_OPTIONS = [
@@ -3218,8 +3365,20 @@ function MyPanelsTab() {
                 <select className="input" value={newType}
                   onChange={e => { setNewType(e.target.value); setNewIntegrationId('') }}
                   style={{ cursor: 'pointer' }}>
-                  {PANEL_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  {PANEL_TYPES.map(t => {
+                    const hasInt = !t.needsIntegration || integrations.some((i: any) => i.type === t.id)
+                    return <option key={t.id} value={t.id}>{t.label}{!hasInt ? ' ⚠' : ''}</option>
+                  })}
                 </select>
+                {(() => {
+                  const t = PANEL_TYPES.find(p => p.id === newType)
+                  if (!t?.needsIntegration) return null
+                  const hasInt = integrations.some((i: any) => i.type === newType)
+                  if (hasInt) return <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 4 }}>✓ integration available</div>
+                  return <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                    ⚠ No {newType} integration. <a href="/profile?tab=integrations" style={{ color: 'var(--accent2)' }}>Add one →</a>
+                  </div>
+                })()}
               </div>
               <div style={{ flex: 0.4 }}>
                 <label className="label">Height</label>

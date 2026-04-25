@@ -48,6 +48,17 @@ function IfaceCapEditorWithSave({ initialCaps, onSave }: {
   )
 }
 
+// Panel types that require a matching integration to be configured
+const PANEL_NEEDS_INTEGRATION: Record<string, string> = {
+  authentik: 'authentik', gluetun: 'gluetun', lidarr: 'lidarr',
+  opnsense: 'opnsense', photoprism: 'photoprism', plex: 'plex',
+  proxmox: 'proxmox', radarr: 'radarr', sonarr: 'sonarr',
+  tautulli: 'tautulli', transmission: 'transmission', truenas: 'truenas',
+  kuma: 'kuma',
+  // customapi: no integration needed (self-contained)
+  // bookmarks, calendar: no integration needed
+}
+
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -165,25 +176,38 @@ export default function PanelsAdminPanel() {
             </div>
             <div style={{ flex: 0.5 }}>
               <label className="label">Panel type</label>
-              <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
-                <option value="authentik">Authentik</option>
-                <option value="bookmarks">Bookmarks</option>
-                <option value="calendar">Calendar</option>
-                <option value="customapi">Custom API</option>
-                <option value="gluetun">Gluetun</option>
-                <option value="lidarr">Lidarr</option>
-                <option value="opnsense">OPNsense</option>
-                <option value="photoprism">PhotoPrism</option>
-                <option value="plex">Plex</option>
-                <option value="proxmox">Proxmox</option>
-                <option value="radarr">Radarr</option>
-                <option value="sonarr">Sonarr</option>
-                <option value="tautulli">Tautulli</option>
-                <option value="transmission">Transmission</option>
-                <option value="truenas">TrueNAS</option>
-                <option value="kuma">Uptime Kuma</option>
-              </select>
+              {(() => {
+                const PANEL_LABELS: Record<string,string> = {
+                  authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar',
+                  customapi:'Custom API', gluetun:'Gluetun', lidarr:'Lidarr',
+                  opnsense:'OPNsense', photoprism:'PhotoPrism', plex:'Plex',
+                  proxmox:'Proxmox', radarr:'Radarr', sonarr:'Sonarr',
+                  tautulli:'Tautulli', transmission:'Transmission', truenas:'TrueNAS',
+                  kuma:'Uptime Kuma',
+                }
+                return (
+                  <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
+                    {Object.entries(PANEL_LABELS).map(([type, label]) => {
+                      const needed = PANEL_NEEDS_INTEGRATION[type]
+                      const hasInt = !needed || integrations.some(i => i.type === type)
+                      return <option key={type} value={type}>{label}{!hasInt ? ' ⚠' : ''}</option>
+                    })}
+                  </select>
+                )
+              })()}
             </div>
+            {(() => {
+              const needed = PANEL_NEEDS_INTEGRATION[newType]
+              if (!needed) return null
+              const hasInt = integrations.some(i => i.type === newType)
+              if (hasInt) return null
+              return (
+                <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                  ⚠ No {newType} integration configured.{' '}
+                  <a href="/admin/integrations" style={{ color: 'var(--accent2)' }}>Add one →</a>
+                </div>
+              )
+            })()}
             {newType === 'bookmarks' && (
               <div style={{ flex: 1 }}>
                 <label className="label">Bookmark root (optional)</label>

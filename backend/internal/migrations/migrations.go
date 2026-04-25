@@ -414,6 +414,13 @@ var migrations = []migration{
 			);
 		`,
 	},
+	{
+		version: 18,
+		name:    "custom_layout_column",
+		up: `
+			ALTER TABLE user_panel_order_v3 ADD COLUMN custom_column INTEGER DEFAULT NULL;
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {
