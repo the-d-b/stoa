@@ -654,7 +654,17 @@ function PorticosTab() {
   const loadPreview = async (porticoId: string) => {
     try {
       const res = await panelsApi.list(porticoId)
-      setPreviewPanels(res.data || [])
+      const allPanels: Panel[] = res.data || []
+      // Filter to panels that match the portico's active tags
+      const portico = (await porticosApi.list()).data?.find((p: any) => p.id === porticoId)
+      const activeTags: string[] = (portico?.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId)
+      if (activeTags.length === 0) {
+        setPreviewPanels(allPanels)
+      } else {
+        setPreviewPanels(allPanels.filter(p =>
+          (p.tags || []).some((t: any) => activeTags.includes(t.id))
+        ))
+      }
     } catch { setPreviewPanels([]) }
   }
 

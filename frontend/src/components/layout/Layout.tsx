@@ -186,12 +186,16 @@ export default function Layout() {
           maxWidth: 1100, margin: '0 auto',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16,
         }}>
-          <GlyphZone glyphs={glyphs} zone="footer-left" activePorticoId={activePorticoId} />
-          <GlyphZone glyphs={glyphs} zone="footer-center" activePorticoId={activePorticoId} />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>stoa {APP_VERSION}</span>
+          {/* Left: version + footer-left glyphs */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
+              opacity: 0.5 }}>v{APP_VERSION}</span>
+            <GlyphZone glyphs={glyphs} zone="footer-left" activePorticoId={activePorticoId} />
           </div>
+          {/* Center */}
+          <GlyphZone glyphs={glyphs} zone="footer-center" activePorticoId={activePorticoId} />
+          {/* Right: footer-right glyphs anchored to right edge */}
+          <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
         </div>
         </footer>
       </div>

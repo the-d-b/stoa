@@ -32,14 +32,17 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 		for rows.Next() {
 			var p models.Portico
 			rows.Scan(&p.ID, &p.UserID, &p.Name, &p.IsDefault, &p.Layout, &p.ColumnCount, &p.ColumnHeight, &p.CreatedAt)
-			// Load tag states
+			// Load tag states with name and color for dot display
 			tagRows, _ := db.Query(`
-				SELECT tag_id, active FROM portico_tags WHERE portico_id = ?
+				SELECT pt.tag_id, COALESCE(t.name,''), COALESCE(t.color,''), pt.active
+				FROM portico_tags pt
+				LEFT JOIN tags t ON t.id = pt.tag_id
+				WHERE pt.portico_id = ?
 			`, p.ID)
 			if tagRows != nil {
 				for tagRows.Next() {
 					var wt models.PorticoTag
-					tagRows.Scan(&wt.TagID, &wt.Active)
+					tagRows.Scan(&wt.TagID, &wt.Name, &wt.Color, &wt.Active)
 					p.Tags = append(p.Tags, wt)
 				}
 				tagRows.Close()

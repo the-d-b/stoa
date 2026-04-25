@@ -952,53 +952,89 @@ func fetchRSSTicker(config map[string]interface{}) (interface{}, error) {
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
-
-	// Simple RSS/Atom title extraction without full XML parsing
-	// Works for both RSS 2.0 and Atom feeds
-	var headlines []string
 	bodyStr := string(body)
 
-	// Extract <title> tags, skipping the first (feed title)
-	start := 0
-	firstSkipped := false
-	for {
-		ti := strings.Index(bodyStr[start:], "<title")
-		if ti < 0 {
-			break
+	type RSSItem struct {
+		Title string `json:"title"`
+		Link  string `json:"link,omitempty"`
+	}
+
+	// Parse <item> or <entry> blocks and extract title + link from each
+	var items []RSSItem
+
+	// Helper: extract tag content
+	extractTag := func(s, tag string) string {
+		open := "<" + tag
+		i := strings.Index(s, open)
+		if i < 0 { return "" }
+		gt := strings.Index(s[i:], ">")
+		if gt < 0 { return "" }
+		start := i + gt + 1
+		close := "</" + tag + ">"
+		end := strings.Index(s[start:], close)
+		if end < 0 { return "" }
+		v := strings.TrimSpace(s[start : start+end])
+		if strings.HasPrefix(v, "<![CDATA[") {
+			v = strings.TrimSuffix(strings.TrimPrefix(v, "<![CDATA["), "]]>")
 		}
-		ti += start
-		end := strings.Index(bodyStr[ti:], "</title>")
-		if end < 0 {
-			break
+		return decodeHTMLEntities(strings.TrimSpace(v))
+	}
+
+	// Try RSS 2.0 <item> blocks first
+	itemTag, closeTag := "<item>", "</item>"
+	if !strings.Contains(bodyStr, "<item>") {
+		// Fall back to Atom <entry> blocks
+		itemTag, closeTag = "<entry>", "</entry>"
+	}
+
+	pos := 0
+	for len(items) < 20 {
+		start := strings.Index(bodyStr[pos:], itemTag)
+		if start < 0 { break }
+		start += pos
+		end := strings.Index(bodyStr[start:], closeTag)
+		if end < 0 { break }
+		end += start + len(closeTag)
+		block := bodyStr[start:end]
+
+		title := extractTag(block, "title")
+		if title == "" || title == "&#xFEFF;" {
+			pos = end; continue
 		}
-		end += ti
-		// Extract content between > and </title>
-		inner := bodyStr[ti : end+8]
-		gt := strings.Index(inner, ">")
-		if gt < 0 {
-			start = end + 8
-			continue
-		}
-		title := strings.TrimSpace(inner[gt+1 : len(inner)-8])
-		// Strip CDATA
-		if strings.HasPrefix(title, "<![CDATA[") {
-			title = strings.TrimSuffix(strings.TrimPrefix(title, "<![CDATA["), "]]>")
-		}
-		title = strings.TrimSpace(title)
-		// Decode common HTML entities
-		title = decodeHTMLEntities(title)
-		if title != "" && title != "&#xFEFF;" {
-			if !firstSkipped {
-				firstSkipped = true
-			} else if len(headlines) < 20 {
-				headlines = append(headlines, title)
+
+		// RSS 2.0: <link>url</link> or <link href="url"/>
+		// Atom: <link href="url" rel="alternate"/>
+		link := extractTag(block, "link")
+		if link == "" {
+			// Try <link href="..."> attribute form
+			li := strings.Index(block, "<link ")
+			if li >= 0 {
+				hrefAttr := `href="`
+				hi := strings.Index(block[li:], hrefAttr)
+				if hi >= 0 {
+					hi += li + len(hrefAttr)
+					he := strings.Index(block[hi:], `"`)
+					if he >= 0 { link = block[hi : hi+he] }
+				}
 			}
 		}
-		start = end + 8
+		// Also try <guid isPermaLink="true"> as link fallback
+		if link == "" {
+			guid := extractTag(block, "guid")
+			if strings.HasPrefix(guid, "http") { link = guid }
+		}
+
+		items = append(items, RSSItem{Title: title, Link: link})
+		pos = end
 	}
+
+	// Legacy: also return flat headlines for backwards compat
+	headlines := make([]string, len(items))
+	for i, item := range items { headlines[i] = item.Title }
 
 	return map[string]interface{}{
 		"headlines": headlines,
-		"count":     len(headlines),
+		"items":     items,
+		"count":     len(items),
 	}, nil
 }

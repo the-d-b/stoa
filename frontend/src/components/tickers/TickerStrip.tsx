@@ -159,31 +159,34 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
     )
   }
 
-  // RSS ticker — always scrolls
+  // RSS ticker — always scrolls, each item links to its article
   if (ticker.type === 'rss') {
     if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
-    const headlines: string[] = rawData.headlines || []
-    if (headlines.length === 0) return (
+    // Support both new {items:[{title,link}]} and legacy {headlines:[...]} format
+    const rssItems: {title: string; link: string}[] = rawData.items
+      || (rawData.headlines || []).map((h: string) => ({ title: h, link: '' }))
+    if (rssItems.length === 0) return (
       <div style={{ padding: '4px 16px', fontSize: 11, color: 'var(--text-dim)' }}>No headlines</div>
     )
-    const feedUrl = (() => { try { return JSON.parse(ticker.config).url || '' } catch { return '' } })()
-    const items = [...headlines, ...headlines]
+    const doubled = [...rssItems, ...rssItems]
     return (
       <div style={{ overflow: 'hidden', flex: 1 }}>
         <div style={{
           display: 'flex', gap: 48, whiteSpace: 'nowrap',
-          animation: `ticker-scroll ${headlines.length * 6}s linear infinite`,
+          animation: `ticker-scroll ${rssItems.length * 6}s linear infinite`,
         }}>
-          {items.map((h, i) => (
-            feedUrl
-              ? <a key={i} href={feedUrl} target="_blank" rel="noopener noreferrer"
+          {doubled.map((item, i) => (
+            item.link
+              ? <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
                   style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0,
                     textDecoration: 'none' }}
                   onMouseOver={e => e.currentTarget.style.color = 'var(--text)'}
                   onMouseOut={e => e.currentTarget.style.color = 'var(--text-muted)'}>
-                  {h.length > 40 ? h.slice(0, 40) + '…' : h}
+                  {item.title.length > 80 ? item.title.slice(0, 80) + '…' : item.title}
                 </a>
-              : <span key={i} style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>{h.length > 40 ? h.slice(0, 40) + '…' : h}</span>
+              : <span key={i} style={{ fontSize: 12, color: 'var(--text-muted)', flexShrink: 0 }}>
+                  {item.title.length > 80 ? item.title.slice(0, 80) + '…' : item.title}
+                </span>
           ))}
         </div>
       </div>

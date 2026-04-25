@@ -290,6 +290,7 @@ export default function DashboardPage() {
           <PorticoTab label="Home" active={activePorticoId === 'home'} onClick={() => selectWall('home')} />
           {porticos.map(wall => (
             <PorticoTab key={wall.id} label={wall.name} active={activePorticoId === wall.id}
+              activeTags={(wall.tags || []).filter(t => t.active)}
               onClick={() => selectWall(wall)}
               onDelete={async () => {
                 await porticosApi.delete(wall.id)
@@ -403,9 +404,11 @@ function TagFilter({ allTags, activeTags, onToggle, onAll, onNone }: {
   )
 }
 
-function PorticoTab({ label, active, onClick, onDelete }: {
+function PorticoTab({ label, active, onClick, onDelete, activeTags }: {
   label: string; active: boolean; onClick: () => void; onDelete?: () => void
+  activeTags?: { color: string }[]
 }) {
+  const dots = (activeTags || []).filter(t => t.color)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 2, marginBottom: -1 }}>
       <button onClick={onClick} style={{
@@ -414,7 +417,20 @@ function PorticoTab({ label, active, onClick, onDelete }: {
         border: 'none', borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
         padding: '7px 12px', fontSize: 13, fontWeight: active ? 500 : 400,
         cursor: 'pointer', borderRadius: '6px 6px 0 0', transition: 'all 0.15s',
-      }}>{label}</button>
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+      }}>
+        {label}
+        {dots.length > 0 && (
+          <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
+            {dots.map((t, i) => (
+              <span key={i} style={{
+                width: 5, height: 5, borderRadius: '50%',
+                background: t.color, display: 'inline-block', flexShrink: 0,
+              }} />
+            ))}
+          </div>
+        )}
+      </button>
       {onDelete && (
         <button onClick={onDelete} style={{
           background: 'none', border: 'none', cursor: 'pointer',
@@ -432,17 +448,21 @@ function PorticoTab({ label, active, onClick, onDelete }: {
 // Wrapper that owns the grid-row span; inner card sizes itself freely
 // This lets the card collapse to pill height without fighting the grid slot
 
-function FlowSlot({ heightUnits, children }: { heightUnits: number; children: React.ReactNode }) {
-  const [collapsed, setCollapsed] = React.useState(false)
-  // When collapsed: use gridRowEnd auto + fixed small height to escape gridAutoRows constraint
-  // When expanded: span the full height units
-  const PILL_HEIGHT = 42 // collapsed card header height in px
+function FlowSlot({ heightUnits, children, allExpanded }: {
+  heightUnits: number; children: React.ReactNode; allExpanded?: boolean | null
+}) {
+  const [collapsedManual, setCollapsedManual] = React.useState<boolean | null>(null)
+  // When a global expand/collapse fires, reset manual override so it takes full effect
+  React.useEffect(() => {
+    if (allExpanded !== null && allExpanded !== undefined) setCollapsedManual(null)
+  }, [allExpanded])
+  const collapsed = collapsedManual !== null ? collapsedManual
+    : allExpanded !== null && allExpanded !== undefined ? !allExpanded : false
+  const PILL_HEIGHT = 42
   return (
     <div style={
       collapsed
         ? {
-            // Escape gridAutoRows by overriding with explicit pixel height
-            // grid-row: span 1 would still be 136px; instead use auto placement
             gridRow: 'auto',
             height: `${PILL_HEIGHT}px`,
             alignSelf: 'start',
@@ -453,7 +473,7 @@ function FlowSlot({ heightUnits, children }: { heightUnits: number; children: Re
           }
     }>
       {React.cloneElement(children as React.ReactElement, {
-        onCollapseChange: setCollapsed,
+        onCollapseChange: (c: boolean) => setCollapsedManual(c),
       })}
     </div>
   )
@@ -507,7 +527,7 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded }: {
         {panels.map(panel => {
           const h = getPanelHeight(panel)
           return (
-            <FlowSlot key={panel.id} heightUnits={h}>
+            <FlowSlot key={panel.id} heightUnits={h} allExpanded={allExpanded}>
               <PanelCard panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
             </FlowSlot>
           )
@@ -605,7 +625,10 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
 }) {
   const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
   const [collapsedManual, setCollapsedManual] = useState<boolean | null>(null)
-  // allExpanded overrides manual unless the user has explicitly toggled this panel
+  // When a global expand/collapse fires, reset the manual override so it takes full effect
+  useEffect(() => {
+    if (allExpanded !== null && allExpanded !== undefined) setCollapsedManual(null)
+  }, [allExpanded])
   const collapsed = collapsedManual !== null ? collapsedManual
     : allExpanded !== null && allExpanded !== undefined ? !allExpanded : false
   const heightUnits = getPanelHeight(panel)
