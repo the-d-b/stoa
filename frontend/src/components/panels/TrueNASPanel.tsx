@@ -100,44 +100,85 @@ function Arc({ pct, label, sub, size = 72 }: { pct: number; label: string; sub?:
   )
 }
 
-// ── Static label arc (no percentage — just a value display) ──────────────────
-function ArcStatic({ value, label, sub, color, size = 72 }: {
-  value: string; label: string; sub?: string; color?: string; size?: number
-}) {
-  const r = (size - 10) / 2
-  const cx = size / 2; const cy = size / 2
-  const sw = size < 60 ? 5 : 7
-  const col = color || 'var(--accent)'
-
-  function pt(deg: number) {
-    const rad = (deg - 90) * Math.PI / 180
-    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-  }
-  function arc(s: number, e: number) {
-    const a = pt(s); const b = pt(e)
-    const large = e - s > 180 ? 1 : 0
-    return `M ${a.x} ${a.y} A ${r} ${r} 0 ${large} 1 ${b.x} ${b.y}`
-  }
+// ── Thermometer — for temperatures ──────────────────────────────────────────
+function Thermometer({ tempC, label, size = 72 }: { tempC: number; label: string; size?: number }) {
+  const maxTemp = 100
+  const minTemp = 20
+  const pct = Math.min(Math.max((tempC - minTemp) / (maxTemp - minTemp) * 100, 0), 100)
+  const col = tempC >= 80 ? 'var(--red)' : tempC >= 65 ? 'var(--amber)' : tempC >= 50 ? '#f59e0b' : 'var(--green)'
+  const h = size * 0.55  // tube height
+  const w = size < 60 ? 10 : 13
+  const bulbR = w * 1.05
+  const tubeW = w * 0.52
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, width: size }}>
-      <div style={{ position: 'relative', width: size, height: size * 0.6 }}>
-        <svg width={size} height={size} style={{ position: 'absolute', top: 0, left: 0 }}>
-          <path d={arc(270, 270 + 180)} fill="none" stroke={col}
-            strokeWidth={sw} strokeLinecap="round" opacity={0.9} />
-        </svg>
-        <div style={{ position: 'absolute', top: '42%', left: 0, right: 0,
-          display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <span style={{ fontSize: size < 60 ? 10 : 13, fontWeight: 700,
-            fontFamily: 'DM Mono, monospace', color: col, lineHeight: 1 }}>
-            {value}
-          </span>
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: size }}>
+      <svg width={size} height={h + bulbR * 2 + 4} style={{ overflow: 'visible' }}>
+        {/* Tube background */}
+        <rect x={(size - tubeW) / 2} y={4} width={tubeW} height={h}
+          rx={tubeW / 2} fill="var(--surface2)" />
+        {/* Tube fill */}
+        <rect x={(size - tubeW) / 2} y={4 + h * (1 - pct / 100)} width={tubeW}
+          height={h * pct / 100} rx={tubeW / 2} fill={col} style={{ transition: 'all 0.6s ease' }} />
+        {/* Bulb background */}
+        <circle cx={size / 2} cy={h + 4 + bulbR * 0.6} r={bulbR} fill="var(--surface2)" />
+        {/* Bulb fill */}
+        <circle cx={size / 2} cy={h + 4 + bulbR * 0.6} r={bulbR * 0.78} fill={col}
+          style={{ transition: 'all 0.6s ease' }} />
+        {/* Temp label */}
+        <text x={size / 2} y={h + 4 + bulbR * 0.5 + 2}
+          textAnchor="middle" dominantBaseline="middle"
+          fontSize={size < 60 ? 5 : 7} fontWeight="700" fontFamily="DM Mono, monospace"
+          fill="var(--surface)">{tempC.toFixed(0)}°</text>
+      </svg>
+      <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2,
+        fontFamily: 'DM Mono, monospace' }}>{label}</div>
+    </div>
+  )
+}
+
+// ── StatPill — compact label+value for metrics with no meaningful % ───────────
+function StatPill({ value, label, color, size = 72 }: {
+  value: string; label: string; color?: string; size?: number
+}) {
+  const col = color || 'var(--accent)'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', width: size, height: size * 0.7,
+      background: 'var(--surface2)', borderRadius: 10,
+      border: `1px solid ${col}30` }}>
+      <span style={{ fontSize: size < 60 ? 13 : 16, fontWeight: 700,
+        fontFamily: 'DM Mono, monospace', color: col, lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 3,
+        fontFamily: 'DM Mono, monospace' }}>{label}</span>
+    </div>
+  )
+}
+
+// ── NetWidget — directional throughput display ────────────────────────────────
+function NetWidget({ rxMbs, txMbs, size = 72 }: { rxMbs: number; txMbs: number; size?: number }) {
+  function fmt(n: number) {
+    if (n >= 1000) return `${(n/1000).toFixed(1)}G`
+    if (n >= 1) return `${n.toFixed(1)}M`
+    if (n > 0) return `${(n*1000).toFixed(0)}K`
+    return '0'
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', width: size, height: size * 0.7,
+      background: 'var(--surface2)', borderRadius: 10,
+      border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        <span style={{ color: 'var(--green)', fontSize: 8 }}>↓</span>
+        <span style={{ fontSize: size < 60 ? 8 : 10, fontFamily: 'DM Mono, monospace',
+          color: 'var(--green)', fontWeight: 600, minWidth: '4ch', textAlign: 'right' }}>{fmt(rxMbs)}</span>
       </div>
-      <div style={{ fontSize: 9, color: 'var(--text-dim)', textAlign: 'center',
-        marginTop: 1, width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}{sub ? ` · ${sub}` : ''}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
+        <span style={{ color: 'var(--amber)', fontSize: 8 }}>↑</span>
+        <span style={{ fontSize: size < 60 ? 8 : 10, fontFamily: 'DM Mono, monospace',
+          color: 'var(--amber)', fontWeight: 600, minWidth: '4ch', textAlign: 'right' }}>{fmt(txMbs)}</span>
       </div>
+      <span style={{ fontSize: 7, color: 'var(--text-dim)', marginTop: 3 }}>net</span>
     </div>
   )
 }
@@ -159,7 +200,6 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
-  const maxNetMbs = config.maxNetMbs || 1000
 
   const sseData = useSSE<TrueNASData>(integrationId)
   useEffect(() => {
@@ -196,8 +236,6 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   // Aggregate network throughput across all interfaces
   const totalRxMbs = netIfaces.reduce((s, i) => s + (i.rxMbs || 0), 0)
   const totalTxMbs = netIfaces.reduce((s, i) => s + (i.txMbs || 0), 0)
-  const totalNetMbs = totalRxMbs + totalTxMbs
-  const netPct = Math.min((totalNetMbs / maxNetMbs) * 100, 100)
 
   // Avg disk temp
   const avgDiskTemp = disks.length > 0
@@ -254,12 +292,10 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
       <Arc pct={data.diskBusy} label={`${(data.diskBusy ?? 0).toFixed(0)}%`}
         sub={(data.diskReadMbs ?? 0) > 0 ? `↓${fmtMbs((data.diskReadMbs ?? 0))}` : 'disk'} size={size} />
       {avgDiskTemp > 0 && (
-        <ArcStatic value={`${avgDiskTemp.toFixed(0)}°`} label="temp"
-          color={tempColor(avgDiskTemp)} size={size} />
+        <Thermometer tempC={avgDiskTemp} label="disk temp" size={size} />
       )}
       {(data.cpuTempC ?? 0) > 0 && avgDiskTemp === 0 && (
-        <ArcStatic value={`${(data.cpuTempC ?? 0).toFixed(0)}°`} label="cpu temp"
-          color={tempColor(data.cpuTempC)} size={size} />
+        <Thermometer tempC={data.cpuTempC} label="cpu temp" size={size} />
       )}
     </ArcRow>
   )
@@ -270,11 +306,10 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
       <Arc pct={data.ramPercent} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
         sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
       {(data.arcUsedGb ?? 0) > 0 && (
-        <ArcStatic value={fmtSize(data.arcUsedGb)} label="arc" color="var(--accent)" size={size} />
+        <StatPill value={fmtSize(data.arcUsedGb)} label="arc" color="var(--accent)" size={size} />
       )}
-      {totalNetMbs > 0 && (
-        <Arc pct={netPct} label={fmtMbs(totalNetMbs)}
-          sub={`↓${fmtMbs(totalRxMbs)} ↑${fmtMbs(totalTxMbs)}`} size={size} />
+      {(totalRxMbs > 0 || totalTxMbs > 0) && (
+        <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} size={size} />
       )}
     </ArcRow>
   )

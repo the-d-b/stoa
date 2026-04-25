@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -248,6 +249,10 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 			})
 		}
 	}
+	// Sort interfaces by device name so order is stable across re-renders
+	sort.Slice(data.Interfaces, func(i, j int) bool {
+		return data.Interfaces[i].Device < data.Interfaces[j].Device
+	})
 
 	// ── Parse DNS stats ────────────────────────────────────────────────────
 	if body, ok := results["dns"]; ok {

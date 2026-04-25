@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"io"
 	"strings"
 )
@@ -24,6 +25,7 @@ type TautulliMediaStat struct {
 	PlayCount        int    `json:"playCount"`
 	TotalDuration    int    `json:"totalDuration"` // seconds
 	ThumbURL         string `json:"thumbUrl,omitempty"`
+	RatingKey        string `json:"ratingKey,omitempty"`
 }
 
 type TautulliUserStat struct {
@@ -41,6 +43,8 @@ type TautulliHistory struct {
 	Date             int64   `json:"date"`
 	Duration         int     `json:"duration"` // seconds
 	PercentComplete  float64 `json:"percentComplete"`
+	RatingKey        string  `json:"ratingKey,omitempty"`
+	ThumbURL         string  `json:"thumbUrl,omitempty"`
 }
 
 func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*TautulliPanelData, error) {
@@ -70,31 +74,51 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		"&time_range=%d&stats_count=10&stats_type=plays", timeRange,
 	), skipTLS)
 	if err == nil {
+		log.Printf("[TAUTULLI] most-played raw: %.500s", string(mostPlayedBody))
 		var resp struct {
 			Response struct {
 				Data []struct {
 					StatID string `json:"stat_id"`
 					Rows   []struct {
-						Title            string `json:"title"`
-						GrandparentTitle string `json:"grandparent_title"`
-						MediaType        string `json:"media_type"`
-						TotalPlays       int    `json:"total_plays"`
-						TotalDuration    int    `json:"total_duration"`
+						Title                string      `json:"title"`
+						GrandparentTitle     string      `json:"grandparent_title"`
+						MediaType            string      `json:"media_type"`
+						TotalPlays           int         `json:"total_plays"`
+						TotalDuration        int         `json:"total_duration"`
+						RatingKey            interface{} `json:"rating_key"`
+						GrandparentRatingKey interface{} `json:"grandparent_rating_key"`
+						Thumb                string      `json:"thumb"`
 					} `json:"rows"`
 				} `json:"data"`
 			} `json:"response"`
 		}
-		if json.Unmarshal(mostPlayedBody, &resp) == nil {
+		if err2 := json.Unmarshal(mostPlayedBody, &resp); err2 != nil {
+			log.Printf("[TAUTULLI] most-played unmarshal error: %v", err2)
+		} else {
+			log.Printf("[TAUTULLI] most-played parsed: %d stat groups", len(resp.Response.Data))
 			for _, stat := range resp.Response.Data {
-				// top_movies, top_tv, top_music
-				if !strings.HasPrefix(stat.StatID, "top_") { continue }
+				log.Printf("[TAUTULLI] stat_id=%q rows=%d", stat.StatID, len(stat.Rows))
+				// Accept any stat with media rows
 				for _, row := range stat.Rows {
+					rk := ""
+					switch v := row.RatingKey.(type) {
+					case float64:
+						if v > 0 { rk = fmt.Sprintf("%.0f", v) }
+					case string:
+						rk = v
+					}
+					thumbURL := ""
+					if row.Thumb != "" && rk != "" {
+						thumbURL = fmt.Sprintf("%s/api/v2?apikey=%s&cmd=get_image&rating_key=%s&width=150&height=225&fallback=poster", apiURL, apiKey, rk)
+					}
 					data.MostPlayed = append(data.MostPlayed, TautulliMediaStat{
 						Title:            row.Title,
 						GrandparentTitle: row.GrandparentTitle,
 						MediaType:        row.MediaType,
 						PlayCount:        row.TotalPlays,
 						TotalDuration:    row.TotalDuration,
+						RatingKey:        rk,
+						ThumbURL:         thumbURL,
 					})
 				}
 			}
@@ -149,21 +173,25 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 						Date             int64   `json:"date"`
 						Duration         int     `json:"duration"`
 						PercentComplete  float64 `json:"percent_complete"`
+						RatingKey        int     `json:"rating_key"`
 					} `json:"data"`
 				} `json:"data"`
 			} `json:"response"`
 		}
 		if json.Unmarshal(histBody, &resp) == nil {
 			for _, row := range resp.Response.Data.Data {
-				data.History = append(data.History, TautulliHistory{
-					User:             row.FriendlyName,
-					Title:            row.Title,
-					GrandparentTitle: row.GrandparentTitle,
-					MediaType:        row.MediaType,
-					Date:             row.Date,
-					Duration:         row.Duration,
-					PercentComplete:  row.PercentComplete,
-				})
+					hrk := ""
+					if row.RatingKey > 0 { hrk = fmt.Sprintf("%d", row.RatingKey) }
+					data.History = append(data.History, TautulliHistory{
+						User:             row.FriendlyName,
+						Title:            row.Title,
+						GrandparentTitle: row.GrandparentTitle,
+						MediaType:        row.MediaType,
+						Date:             row.Date,
+						Duration:         row.Duration,
+						PercentComplete:  row.PercentComplete,
+						RatingKey:        hrk,
+					})
 			}
 		}
 	}

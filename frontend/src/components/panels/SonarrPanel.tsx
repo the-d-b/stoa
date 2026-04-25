@@ -4,10 +4,12 @@ import { integrationsApi, Panel } from '../../api'
 interface SonarrEpisode {
   id: number; seriesTitle: string; titleSlug: string; title: string
   season: number; episode: number; airDate: string; hasFile: boolean
+  posterUrl?: string
 }
 interface SonarrHistory {
   seriesTitle: string; titleSlug: string; title: string
   date: string; season: number; episode: number
+  posterUrl?: string
 }
 interface SonarrSeries { id: number; title: string; titleSlug: string; year: number }
 interface SonarrData {
@@ -85,6 +87,25 @@ function HistoryGroups({ groups, uiUrl }: {
         </div>
       ))}
     </>
+  )
+}
+
+function PosterStrip({ items, uiUrl }: { items: { posterUrl?: string; titleSlug?: string; seriesTitle?: string }[]; uiUrl: string }) {
+  const posters = items.filter(i => i.posterUrl)
+  if (posters.length === 0) return null
+  return (
+    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
+      scrollbarWidth: 'none' }}>
+      {posters.map((item, i) => (
+        <a key={i} href={uiUrl && item.titleSlug ? `${uiUrl}/series/${item.titleSlug}` : uiUrl}
+          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+          <img src={item.posterUrl} alt={item.seriesTitle || ''}
+            style={{ height: 80, width: 54, objectFit: 'cover', borderRadius: 5,
+              display: 'block', opacity: 0.85 }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        </a>
+      ))}
+    </div>
   )
 }
 
@@ -183,10 +204,13 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
+  const allPosters = [...(data.upcoming || []), ...(data.history || [])]
+
   // ── 2x — stats + recently downloaded ────────────────────────────────────
   if (heightUnits < 3) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
+        <PosterStrip items={allPosters} uiUrl={uiUrl} />
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0
@@ -228,6 +252,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   // ── 4x — stats + recently downloaded + missing on disk ─────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
+      <PosterStrip items={allPosters} uiUrl={uiUrl} />
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
 
       {sectionTitle('Recently downloaded')}

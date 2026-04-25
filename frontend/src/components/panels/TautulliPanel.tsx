@@ -4,6 +4,7 @@ import { integrationsApi, panelsApi, myPanelsApi, Panel } from '../../api'
 interface TautulliMediaStat {
   title: string; grandparentTitle: string; mediaType: string
   playCount: number; totalDuration: number
+  thumbUrl?: string; ratingKey?: string
 }
 interface TautulliUserStat {
   user: string; playCount: number; totalDuration: number
@@ -11,6 +12,7 @@ interface TautulliUserStat {
 interface TautulliHistory {
   user: string; title: string; grandparentTitle: string
   mediaType: string; date: number; percentComplete: number
+  ratingKey?: string
 }
 interface TautulliData {
   uiUrl: string
@@ -28,6 +30,11 @@ const TIME_RANGES = [
 
 const MEDIA_ICON: Record<string, string> = {
   movie: '🎬', episode: '📺', track: '🎵', photo: '📷'
+}
+
+function tautulliInfoUrl(uiUrl: string, ratingKey?: string) {
+  if (!uiUrl || !ratingKey) return uiUrl || ''
+  return `${uiUrl}/info?rating_key=${ratingKey}`
 }
 
 function timeAgo(unixSecs: number) {
@@ -124,17 +131,19 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
             {row.map((m, mi) => {
               const title = m.grandparentTitle || m.title
               return (
-                <div key={mi} style={{
-                  flex: 1, display: 'flex', alignItems: 'center', gap: 5,
-                  padding: '3px 7px', borderRadius: 6,
-                  background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 0,
-                }}>
+                <a key={mi} href={tautulliInfoUrl(data.uiUrl, m.ratingKey)}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', gap: 5,
+                    padding: '3px 7px', borderRadius: 6, textDecoration: 'none', color: 'inherit',
+                    background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 0,
+                  }}>
                   <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[m.mediaType] || '▶'}</span>
                   <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
                   <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
                     color: 'var(--text)', flexShrink: 0 }}>{m.playCount}</span>
-                </div>
+                </a>
               )
             })}
           </div>
@@ -175,11 +184,13 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
       {(data.history || []).map((h, i) => {
         const title = h.grandparentTitle ? `${h.grandparentTitle} — ${h.title}` : h.title
         return (
-          <div key={i} style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '3px 7px', borderRadius: 6,
-            background: 'var(--surface2)', border: '1px solid var(--border)',
-          }}>
+          <a key={i} href={tautulliInfoUrl(data.uiUrl, h.ratingKey)}
+            target="_blank" rel="noopener noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              padding: '3px 7px', borderRadius: 6, textDecoration: 'none', color: 'inherit',
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+            }}>
             <span style={{ fontSize: 11, flexShrink: 0 }}>{MEDIA_ICON[h.mediaType] || '▶'}</span>
             <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={title}>{title}</span>
@@ -190,7 +201,7 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
             </span>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
               fontFamily: 'DM Mono, monospace' }}>{timeAgo(h.date)}</span>
-          </div>
+          </a>
         )
       })}
     </div>

@@ -38,7 +38,11 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
-  const maxMbps = config.maxMbps || 1000
+  // Per-interface bandwidth caps: config.ifaceCaps = { wan: 1000, lan: 100 }
+  // Falls back to config.maxMbps (legacy) then 1000
+  const ifaceCaps: Record<string, number> = config.ifaceCaps || {}
+  const defaultCap = config.maxMbps || 1000
+  const getIfaceCap = (device: string) => ifaceCaps[device] || defaultCap
 
   // Traffic history for sparklines — 60 points max
   const historyRef = useRef<TrafficHistory>({})
@@ -85,7 +89,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
   const gateways = data.gateways || []
-  const ifaces = (data.interfaces || []).filter(i => i.inMbps > 0 || i.outMbps > 0)
+  const ifaces = (data.interfaces || []).filter(i => i.inMbps > 0 || i.outMbps > 0).sort((a, b) => a.device < b.device ? -1 : 1)
   const anyDown = gateways.some(g => g.status === 'offline')
 
   const sectionTitle = (text: string) => (
@@ -147,7 +151,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     <div style={{ display: 'flex', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
       {ifaces.map((iface, i) => {
         const totalMbps = iface.inMbps + iface.outMbps
-        const pct = Math.min((totalMbps / maxMbps) * 100, 100)
+        const pct = Math.min((totalMbps / getIfaceCap(iface.device)) * 100, 100)
         const label = `↓${fmtMbps(iface.inMbps)} ↑${fmtMbps(iface.outMbps)}`
         const ifHistory = history[iface.device]
         const gaugeSize = size || 72
@@ -328,9 +332,10 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     const hitPct = (data.dnsQueries ?? 0) > 0 ? Math.round(data.dnsCacheHits / data.dnsQueries * 100) : 0
     return (
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
+        <div title="Cumulative since last Unbound restart"
+          style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
           borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11 }}>
+          fontSize: 11, cursor: 'help' }}>
           <span style={{ color: 'var(--text-dim)' }}>queries</span>
           <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
             {(data.dnsQueries ?? 0).toLocaleString()}

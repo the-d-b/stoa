@@ -5,6 +5,7 @@ interface LidarrAlbum {
   id: number; title: string; artistName: string
   releaseDate?: string; date?: string
   foreignArtistId?: string; foreignAlbumId?: string
+  coverUrl?: string
 }
 interface LidarrData {
   uiUrl: string
@@ -79,6 +80,26 @@ function HistoryGroups({ groups, uiUrl }: { groups: ReturnType<typeof groupByArt
   )
 }
 
+function AlbumCoverStrip({ items, uiUrl }: { items: LidarrAlbum[]; uiUrl: string }) {
+  const covers = items.filter(a => a.coverUrl)
+  if (covers.length === 0) return null
+  return (
+    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
+      scrollbarWidth: 'none' }}>
+      {covers.map((a, i) => (
+        <a key={i}
+          href={uiUrl && a.foreignArtistId ? `${uiUrl}/artist/${a.foreignArtistId}` : uiUrl}
+          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+          <img src={a.coverUrl} alt={a.title}
+            style={{ height: 64, width: 64, objectFit: 'cover', borderRadius: 5,
+              display: 'block', opacity: 0.85 }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        </a>
+      ))}
+    </div>
+  )
+}
+
 export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<LidarrData | null>(null)
   const [missingSample, setMissingSample] = useState<LidarrAlbum[]>([])
@@ -144,8 +165,11 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
   if (heightUnits <= 1) return <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{statsBar}</div>
 
   // 2x and above — stats + history grouped by artist
+  const allCovers = [...(data.missing || []), ...(data.history || [])]
+
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
+      <AlbumCoverStrip items={allCovers} uiUrl={uiUrl} />
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
       {sectionTitle('Recently downloaded')}
       {historyGroups.length === 0

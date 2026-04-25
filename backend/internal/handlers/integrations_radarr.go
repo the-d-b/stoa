@@ -25,6 +25,7 @@ type RadarrMovie struct {
 	PhysicalRelease string `json:"physicalRelease,omitempty"`
 	HasFile         bool   `json:"hasFile"`
 	Date            string `json:"date,omitempty"`
+	PosterURL       string `json:"posterUrl,omitempty"`
 }
 
 func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPanelData, error) {
@@ -90,5 +91,18 @@ func radarrMovieFromMap(m map[string]interface{}) RadarrMovie {
 	mv.HasFile = m["hasFile"] == true
 	mv.DigitalRelease, _ = m["digitalRelease"].(string)
 	mv.PhysicalRelease, _ = m["physicalRelease"].(string)
+	// Extract poster from images array
+	if images, ok := m["images"].([]interface{}); ok {
+		for _, img := range images {
+			if im, ok := img.(map[string]interface{}); ok {
+				if ct, _ := im["coverType"].(string); ct == "poster" {
+					if ru, _ := im["remoteUrl"].(string); ru != "" {
+						mv.PosterURL = ru
+						break
+					}
+				}
+			}
+		}
+	}
 	return mv
 }

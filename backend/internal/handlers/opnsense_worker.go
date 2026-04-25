@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 )
@@ -106,6 +107,10 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 					})
 				}
 			}
+			// Sort by device name so order is stable on every push
+			sort.Slice(prev.Interfaces, func(i, j int) bool {
+				return prev.Interfaces[i].Device < prev.Interfaces[j].Device
+			})
 			cacheSet(ig.id, &prev)
 
 		case evt := <-fwCh:

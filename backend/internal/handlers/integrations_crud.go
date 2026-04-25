@@ -365,6 +365,8 @@ func UpdateMyIntegration(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "update failed")
 			return
 		}
+		// Restart any running worker so it picks up the new config (e.g. skipTLS change)
+		StartWorkerForIntegration(db, id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

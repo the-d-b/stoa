@@ -27,6 +27,7 @@ type SonarrEpisode struct {
 	Episode     int    `json:"episode"`
 	AirDate     string `json:"airDate"`
 	HasFile     bool   `json:"hasFile"`
+	PosterURL   string `json:"posterUrl,omitempty"`
 }
 
 type SonarrHistory struct {
@@ -36,6 +37,7 @@ type SonarrHistory struct {
 	Season      int    `json:"season"`
 	Episode     int    `json:"episode"`
 	Date        string `json:"date"`
+	PosterURL   string `json:"posterUrl,omitempty"`
 }
 
 type SonarrSeries struct {
@@ -43,6 +45,7 @@ type SonarrSeries struct {
 	Title     string `json:"title"`
 	TitleSlug string `json:"titleSlug"`
 	Year      int    `json:"year"`
+	PosterURL string `json:"posterUrl,omitempty"`
 }
 
 func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPanelData, error) {
@@ -71,11 +74,26 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				seriesTitle, _ = series["title"].(string)
 				titleSlug, _ = series["titleSlug"].(string)
 			}
+			// Extract poster from series images
+			posterURL := ""
+			if series != nil {
+				if images, ok := series["images"].([]interface{}); ok {
+					for _, img := range images {
+						if m, ok := img.(map[string]interface{}); ok {
+							if ct, _ := m["coverType"].(string); ct == "poster" {
+								posterURL, _ = m["remoteUrl"].(string)
+								break
+							}
+						}
+					}
+				}
+			}
 			e := SonarrEpisode{
 				SeriesTitle: seriesTitle,
 				TitleSlug:   titleSlug,
 				AirDate:     stringVal(ep, "airDate"),
 				HasFile:     ep["hasFile"] == true,
+				PosterURL:   posterURL,
 			}
 			if t, ok := ep["title"].(string); ok { e.Title = t }
 			if s, ok := ep["seasonNumber"].(float64); ok { e.Season = int(s) }
@@ -112,6 +130,19 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 					if s, ok := episode["seasonNumber"].(float64); ok { season = int(s) }
 					if n, ok := episode["episodeNumber"].(float64); ok { epNum = int(n) }
 				}
+				hPoster := ""
+				if series != nil {
+					if images, ok := series["images"].([]interface{}); ok {
+						for _, img := range images {
+							if m, ok := img.(map[string]interface{}); ok {
+								if ct, _ := m["coverType"].(string); ct == "poster" {
+									hPoster, _ = m["remoteUrl"].(string)
+									break
+								}
+							}
+						}
+					}
+				}
 				data.History = append(data.History, SonarrHistory{
 					SeriesTitle: seriesTitle,
 					TitleSlug:   titleSlug,
@@ -119,6 +150,7 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 					Date:        stringVal(rec, "date"),
 					Season:      season,
 					Episode:     epNum,
+					PosterURL:   hPoster,
 				})
 			}
 		}

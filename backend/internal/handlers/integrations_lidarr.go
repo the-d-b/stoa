@@ -24,6 +24,7 @@ type LidarrAlbum struct {
 	ArtistName      string `json:"artistName"`
 	ForeignAlbumId  string `json:"foreignAlbumId,omitempty"`
 	ForeignArtistId string `json:"foreignArtistId,omitempty"`
+	CoverURL        string `json:"coverUrl,omitempty"`
 	ReleaseDate  string `json:"releaseDate,omitempty"`
 	HasFile      bool   `json:"hasFile"`
 	Date         string `json:"date,omitempty"`
@@ -115,6 +116,19 @@ func lidarrAlbumFromMap(a map[string]interface{}) LidarrAlbum {
 	al.ForeignAlbumId, _ = a["foreignAlbumId"].(string)
 	if i, ok := a["id"].(float64); ok { al.ID = int(i) }
 	al.HasFile = a["statistics"] != nil
+	// Extract album cover from images
+	if images, ok := a["images"].([]interface{}); ok {
+		for _, img := range images {
+			if m, ok := img.(map[string]interface{}); ok {
+				if ct, _ := m["coverType"].(string); ct == "cover" || ct == "disc" {
+					if ru, _ := m["remoteUrl"].(string); ru != "" {
+						al.CoverURL = ru
+						break
+					}
+				}
+			}
+		}
+	}
 	artist, _ := a["artist"].(map[string]interface{})
 	if artist != nil {
 		al.ArtistName, _ = artist["artistName"].(string)

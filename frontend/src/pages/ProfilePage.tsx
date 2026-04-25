@@ -3020,6 +3020,43 @@ const HEIGHT_OPTIONS = [
   { value: 8, label: '8x — full height' },
 ]
 
+function IfaceCapEditor({ initialCaps, onChange }: {
+  initialCaps: Record<string,number>
+  onChange: (caps: Record<string,number>) => void
+}) {
+  const [pairs, setPairs] = useState<{dev:string;cap:number}[]>(() =>
+    Object.entries(initialCaps).map(([dev, cap]) => ({ dev, cap })))
+  const sync = (next: {dev:string;cap:number}[]) => {
+    setPairs(next)
+    const obj: Record<string,number> = {}
+    for (const { dev, cap } of next) { if (dev) obj[dev] = cap }
+    onChange(obj)
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label className="label">Bandwidth cap per interface</label>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+        Device name (e.g. <code>wan</code>, <code>lan</code>) and cap in Mbps. Scales the arc gauges.
+      </div>
+      {pairs.map((row, idx) => (
+        <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input className="input" value={row.dev} style={{ fontSize: 12, width: 80 }}
+            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,dev:e.target.value} : r))} />
+          <input type="number" className="input" value={row.cap} style={{ fontSize: 12, width: 80 }}
+            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,cap:Number(e.target.value)} : r))} />
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Mbps</span>
+          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+            onClick={() => sync(pairs.filter((_,i) => i !== idx))}>✕</button>
+        </div>
+      ))}
+      <button className="btn btn-ghost" style={{ fontSize: 12 }}
+        onClick={() => sync([...pairs, { dev: '', cap: 1000 }])}>
+        + Add interface
+      </button>
+    </div>
+  )
+}
+
 function MyPanelsTab() {
   const userMode = useUserMode()
   const [systemPanels, setSystemPanels] = useState<Panel[]>([])
@@ -3402,19 +3439,10 @@ function MyPanelsTab() {
                     )
                   })()}
                   {p.type === 'opnsense' && (
-                    <div>
-                      <label className="label">Max link speed (Mbps)</label>
-                      <input className="input" type="number" style={{ fontSize: 12 }}
-                        defaultValue={cfg.maxMbps || 1000}
-                        onChange={e => {
-                          const v = Number(e.target.value)
-                          if (v > 0) cfg.maxMbps = v
-                        }}
-                        placeholder="e.g. 400 for 400 Mbps ISP cap" />
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                        Used to scale the interface arc gauges. Set to your ISP's speed cap.
-                      </div>
-                    </div>
+                    <IfaceCapEditor initialCaps={cfg.ifaceCaps || {}} onChange={caps => {
+                      cfg.ifaceCaps = caps
+                      delete cfg.maxMbps
+                    }} />
                   )}
 
                   {/* Calendar sources */}

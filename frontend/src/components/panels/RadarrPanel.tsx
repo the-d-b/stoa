@@ -4,7 +4,7 @@ import { integrationsApi, Panel } from '../../api'
 interface RadarrMovie {
   id: number; title: string; titleSlug: string; year: number
   digitalRelease?: string; physicalRelease?: string
-  hasFile: boolean; date?: string
+  hasFile: boolean; date?: string; posterUrl?: string
 }
 interface RadarrData {
   uiUrl: string
@@ -30,6 +30,25 @@ function MovieLink({ uiUrl, titleSlug, title, year }: { uiUrl: string; titleSlug
       style={linkStyle} onMouseOver={linkHover} onMouseOut={linkOut}>
       {title}{year ? <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 5 }}>{year}</span> : null}
     </a>
+  )
+}
+
+function MoviePosterStrip({ items, uiUrl }: { items: RadarrMovie[]; uiUrl: string }) {
+  const posters = items.filter(m => m.posterUrl)
+  if (posters.length === 0) return null
+  return (
+    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
+      scrollbarWidth: 'none' }}>
+      {posters.map((m, i) => (
+        <a key={i} href={uiUrl && m.titleSlug ? `${uiUrl}/movie/${m.titleSlug}` : uiUrl}
+          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
+          <img src={m.posterUrl} alt={m.title}
+            style={{ height: 80, width: 54, objectFit: 'cover', borderRadius: 5,
+              display: 'block', opacity: 0.85 }}
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+        </a>
+      ))}
+    </div>
   )
 }
 
@@ -155,8 +174,11 @@ export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heig
   )
 
   // 4x — history + missing sample
+  const allMoviePosters = [...(data.missing || []), ...(data.history || [])]
+
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
+      <MoviePosterStrip items={allMoviePosters} uiUrl={uiUrl} />
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
       {sectionTitle('Recently downloaded')}
       {(data.history || []).length === 0

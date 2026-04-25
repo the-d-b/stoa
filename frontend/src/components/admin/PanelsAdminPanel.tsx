@@ -2,6 +2,52 @@ import { useEffect, useState } from 'react'
 import { panelsApi, myPanelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode, googleApi } from '../../api'
 import SectionHelp from './SectionHelp'
 
+function IfaceCapEditorWithSave({ initialCaps, onSave }: {
+  initialCaps: Record<string,number>
+  onSave: (caps: Record<string,number>) => void
+}) {
+  const [pairs, setPairs] = useState<{dev:string;cap:number}[]>(() =>
+    Object.entries(initialCaps).map(([dev, cap]) => ({ dev, cap })))
+  const [saving, setSaving] = useState(false)
+  const sync = (next: {dev:string;cap:number}[]) => setPairs(next)
+  const save = async () => {
+    setSaving(true)
+    const obj: Record<string,number> = {}
+    for (const { dev, cap } of pairs) { if (dev) obj[dev] = cap }
+    await onSave(obj)
+    setSaving(false)
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+      <label className="label">Bandwidth cap per interface</label>
+      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+        Device name (e.g. <code>wan</code>, <code>lan</code>) and cap in Mbps. Scales the arc gauges.
+      </div>
+      {pairs.map((row, idx) => (
+        <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <input className="input" value={row.dev} style={{ fontSize: 12, width: 80 }}
+            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,dev:e.target.value} : r))} />
+          <input type="number" className="input" value={row.cap} style={{ fontSize: 12, width: 80 }}
+            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,cap:Number(e.target.value)} : r))} />
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Mbps</span>
+          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+            onClick={() => sync(pairs.filter((_,i) => i !== idx))}>✕</button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }}
+          onClick={() => sync([...pairs, { dev: '', cap: 1000 }])}>
+          + Add interface
+        </button>
+        <button className="btn btn-primary" style={{ fontSize: 12 }}
+          onClick={save} disabled={saving}>
+          {saving ? <span className="spinner" /> : 'Save caps'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -12,7 +58,6 @@ export default function PanelsAdminPanel() {
   const [newRootId, setNewRootId] = useState('')
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
-  const [editingMaxMbps, setEditingMaxMbps] = useState<{id: string; val: number} | null>(null)
   const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
   const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -234,30 +279,8 @@ export default function PanelsAdminPanel() {
                     </button>
                   )}
 
-                  {p.type === 'opnsense' && (
-                    editingMaxMbps?.id === p.id ? (
-                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Max Mbps</span>
-                        <input type="number" className="input" style={{ fontSize: 12, width: 80, padding: '3px 6px' }}
-                          value={editingMaxMbps.val}
-                          onChange={e => setEditingMaxMbps(m => m ? { ...m, val: Number(e.target.value) } : null)} />
-                        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                          const cfg = safeParseConfig(p.config)
-                          cfg.maxMbps = editingMaxMbps.val
-                          await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
-                          setEditingMaxMbps(null); load()
-                        }}>Save</button>
-                        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingMaxMbps(null)}>Cancel</button>
-                      </div>
-                    ) : (
-                      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
-                        const mbps = (() => { try { return JSON.parse(p.config||'{}').maxMbps||1000 } catch { return 1000 } })()
-                        setEditingMaxMbps({ id: p.id, val: mbps })
-                      }}>
-                        {(() => { try { return JSON.parse(p.config||'{}').maxMbps||1000 } catch { return 1000 } })()} Mbps
-                      </button>
-                    )
-                  )}
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   {p.type === 'customapi' && (
                     editingCustomAPI?.id === p.id ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0', width: '100%' }}>
@@ -403,6 +426,18 @@ export default function PanelsAdminPanel() {
                         isSystem={true}
                       />
                   </div>
+                )
+              })()}
+
+              {p.type === 'opnsense' && (() => {
+                const cfg = safeParseConfig(p.config)
+                return (
+                  <IfaceCapEditorWithSave initialCaps={cfg.ifaceCaps || {}} onSave={async caps => {
+                    cfg.ifaceCaps = caps
+                    delete cfg.maxMbps
+                    await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
+                    load()
+                  }} />
                 )
               })()}
 
