@@ -630,18 +630,16 @@ func loadBookmarkTree(db *sql.DB, parentID interface{}) []BookmarkNode {
 	var err error
 	if parentID == nil {
 		rows, err = db.Query(`
-			SELECT title, type, COALESCE(url,''), COALESCE(icon,''), sort_order, id
+			SELECT name, type, COALESCE(url,''), COALESCE(icon_url,''), sort_order, id
 			FROM bookmark_nodes
-			WHERE parent_id IS NULL AND (created_by IS NULL OR created_by IN (
-				SELECT id FROM users WHERE role='admin'
-			))
-			ORDER BY sort_order, title`)
+			WHERE parent_id IS NULL AND scope = 'shared'
+			ORDER BY sort_order, name`)
 	} else {
 		rows, err = db.Query(`
-			SELECT title, type, COALESCE(url,''), COALESCE(icon,''), sort_order, id
+			SELECT name, type, COALESCE(url,''), COALESCE(icon_url,''), sort_order, id
 			FROM bookmark_nodes
 			WHERE parent_id=?
-			ORDER BY sort_order, title`, parentID)
+			ORDER BY sort_order, name`, parentID)
 	}
 	if err != nil {
 		return nil
@@ -705,8 +703,7 @@ func bookmarksImport(dbPath string, args []string) {
 				return
 			}
 			// Delete all system bookmarks (cascades to children)
-			db.Exec(`DELETE FROM bookmark_nodes WHERE created_by IS NULL
-				OR created_by IN (SELECT id FROM users WHERE role='admin')`)
+			db.Exec(`DELETE FROM bookmark_nodes WHERE scope = 'shared'`)
 		}
 	}
 
@@ -726,6 +723,11 @@ func bookmarksImport(dbPath string, args []string) {
 	fmt.Printf("✓ Imported %d bookmark node(s) from %s\n", count, inPath)
 }
 
+func nullStrCLI(s string) interface{} {
+	if s == "" { return nil }
+	return s
+}
+
 func insertNodes(tx *sql.Tx, nodes []BookmarkNode, parentID interface{}, count *int) {
 	for i, n := range nodes {
 		id := randID()
@@ -734,17 +736,18 @@ func insertNodes(tx *sql.Tx, nodes []BookmarkNode, parentID interface{}, count *
 			sortOrder = i
 		}
 		var err error
-		if parentID == nil {
-			_, err = tx.Exec(`
-				INSERT INTO bookmark_nodes (id, parent_id, title, type, url, icon, sort_order, created_at)
-				VALUES (?, NULL, ?, ?, ?, ?, ?, datetime('now'))`,
-				id, n.Title, n.Type, n.URL, n.Icon, sortOrder)
-		} else {
-			_, err = tx.Exec(`
-				INSERT INTO bookmark_nodes (id, parent_id, title, type, url, icon, sort_order, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-				id, parentID, n.Title, n.Type, n.URL, n.Icon, sortOrder)
+		// Build path: parent path + "/" + name, or just name for root
+		path := n.Title
+		if parentID != nil {
+			var parentPath string
+			tx.QueryRow("SELECT path FROM bookmark_nodes WHERE id=?", parentID).Scan(&parentPath)
+			path = parentPath + "/" + n.Title
 		}
+		var err error
+		_, err = tx.Exec(`
+			INSERT OR REPLACE INTO bookmark_nodes (id, parent_id, path, name, type, url, icon_url, sort_order, scope)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'shared')`,
+			id, parentID, path, n.Title, n.Type, nullStrCLI(n.URL), nullStrCLI(n.Icon), sortOrder)
 		if err != nil {
 			tx.Rollback()
 			fatalf("failed to insert node '%s': %v\n", n.Title, err)
