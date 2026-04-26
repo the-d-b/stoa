@@ -229,6 +229,35 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		}
 	}
 
+	// ── Checklist due dates ─────────────────────────────────────────────────
+	// Any checklist source type pulls due-date items from checklist panels
+	for _, src := range sources {
+		source, _ := src.(map[string]interface{})
+		if source == nil || stringVal(source, "type") != "checklist" { continue }
+		panelID := stringVal(source, "panelId")
+		if panelID == "" { continue }
+		rows, err := db.Query(`
+			SELECT text, due_date FROM checklist_items
+			WHERE panel_id = ? AND due_date IS NOT NULL AND completed = 0
+		`, panelID)
+		if err != nil { continue }
+		for rows.Next() {
+			var text, dueDate string
+			rows.Scan(&text, &dueDate)
+			// Show as event on the day BEFORE the due date ("due tomorrow")
+			due, err := time.Parse("2006-01-02", dueDate)
+			if err != nil { continue }
+			eventDate := due.AddDate(0, 0, -1).Format("2006-01-02")
+			events = append(events, map[string]interface{}{
+				"date":   eventDate,
+				"title":  "Due tomorrow: " + text,
+				"color":  "#f59e0b",
+				"source": "checklist",
+			})
+		}
+		rows.Close()
+	}
+
 	log.Printf("[CAL] fetchCalendarData: returning %d total events", len(events))
 	return map[string]interface{}{"events": events}, nil
 }

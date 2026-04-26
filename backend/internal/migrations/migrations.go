@@ -421,6 +421,23 @@ var migrations = []migration{
 			ALTER TABLE user_panel_order_v3 ADD COLUMN custom_column INTEGER DEFAULT NULL;
 		`,
 	},
+	{
+		version: 19,
+		name:    "checklist_items",
+		up: `
+			CREATE TABLE IF NOT EXISTS checklist_items (
+				id           TEXT PRIMARY KEY,
+				panel_id     TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				text         TEXT NOT NULL,
+				due_date     TEXT DEFAULT NULL,
+				completed    INTEGER NOT NULL DEFAULT 0,
+				completed_at DATETIME DEFAULT NULL,
+				created_by   TEXT DEFAULT NULL,
+				created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_checklist_panel ON checklist_items(panel_id);
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

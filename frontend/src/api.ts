@@ -473,6 +473,23 @@ export interface Portico {
   tags: PorticoTag[]
 }
 
+export interface ChecklistItem {
+  id: string; panelId: string; text: string
+  dueDate?: string; completed: boolean
+  completedAt?: string; createdBy?: string; createdAt: string
+}
+
+export const checklistApi = {
+  list:   (panelId: string) => api.get<ChecklistItem[]>(`/checklist/${panelId}`),
+  create: (panelId: string, text: string, dueDate?: string) =>
+    api.post<{id: string}>(`/checklist/${panelId}`, { text, dueDate }),
+  update: (id: string, text: string, dueDate?: string) =>
+    api.put(`/checklist/item/${id}`, { text, dueDate }),
+  toggle: (id: string, completed: boolean) =>
+    api.put(`/checklist/item/${id}/toggle`, { completed }),
+  delete: (id: string) => api.delete(`/checklist/item/${id}`),
+}
+
 export const customColumnsApi = {
   get: (porticoId: string) => api.get<Record<string,number>>(`/panels/custom-columns?portico_id=${porticoId}`),
   set: (porticoId: string, columns: Record<string,number>, order: string[]) =>

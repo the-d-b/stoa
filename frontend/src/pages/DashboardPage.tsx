@@ -19,6 +19,7 @@ import TransmissionPanel from '../components/panels/TransmissionPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import CustomAPIPanel from '../components/panels/CustomAPIPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
+import ChecklistPanel from '../components/panels/ChecklistPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -788,6 +789,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
           {panel.type === 'photoprism' && <PhotoPrismPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'authentik' && <AuthentikPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'checklist' && <ChecklistPanel panel={panel} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

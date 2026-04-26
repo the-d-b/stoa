@@ -3208,6 +3208,7 @@ function PersonalTagsTab() {
 
 const PANEL_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',              needsIntegration: true  },
+  { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',       needsIntegration: false },
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
@@ -3688,7 +3689,7 @@ function MyPanelsTab() {
                               <span style={{ flex: 1 }}>
                                 {src.type === 'weather'
                                   ? <span>🌤 {src.city || `${src.lat}, ${src.lon}`}</span>
-                                  : src.type === 'google' ? (src.label || src.integrationId) : (ig?.name ?? src.integrationId)
+                                  : src.type === 'google' ? (src.label || src.integrationId) : src.type === 'checklist' ? <>☑ {src.label || 'Checklist'}</> : (ig?.name ?? src.integrationId)
                                 }
                                 {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
                               </span>
@@ -3781,7 +3782,7 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
   integrations: any[]; onAdded: () => void
 }) {
-  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'>('integration')
+  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'|'checklist'>('integration')
   const [intId, setIntId] = useState('')
   const [googleTokenId, setGoogleTokenId] = useState('')
   const [googleCalendarId, setGoogleCalendarId] = useState('primary')
@@ -3792,6 +3793,8 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [adding, setAdding] = useState(false)
+  const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
+  const [checklistPanelId, setChecklistPanelId] = useState('')
 
   useEffect(() => {
     googleApi.getConfig().then((res: any) => {
@@ -3799,6 +3802,10 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
         googleApi.listTokens(isSystem ? 'system' : 'personal').then((r: any) => setGoogleTokens(r.data || []))
       }
     }).catch(() => {})
+    // Load checklist panels — personal only for personal calendar
+    myPanelsApi.list().then((r: any) =>
+      setChecklistPanels((r.data || []).filter((p: any) => p.type === 'checklist'))
+    ).catch(() => {})
   }, [isSystem])
 
   useEffect(() => {
@@ -3833,6 +3840,10 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
         if (!googleTokenId) return
         const tok = googleTokens.find((t: any) => t.id === googleTokenId)
         newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
+      } else if (sourceKind === 'checklist') {
+        if (!checklistPanelId) return
+        const cl = checklistPanels.find((p: any) => p.id === checklistPanelId)
+        newSource = { type: 'checklist', panelId: checklistPanelId, label: cl?.title || 'Checklist' }
       } else {
         if (!intId) return
         const ig = integrations.find((i: any) => i.id === intId)
@@ -3841,7 +3852,7 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
       const sources = [...(cfg.sources || []), newSource]
       const updater = isSystem ? panelsApi : myPanelsApi
       await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([])
+      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('')
       onAdded()
     } finally { setAdding(false) }
   }
@@ -3850,11 +3861,12 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     <div style={{ marginTop: 8 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]) }}
+          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('') }}
           style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
           <option value="integration">Stoa integration</option>
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
           <option value="weather">Weather</option>
+          {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
         </select>
 
         {sourceKind === 'integration' && (
@@ -3866,6 +3878,20 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
             </select>
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
               onClick={() => add()} disabled={adding || !intId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'checklist' && (
+          <>
+            <select className="input" value={checklistPanelId} onChange={e => setChecklistPanelId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select checklist panel —</option>
+              {checklistPanels.map((p: Panel) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => add()} disabled={adding || !checklistPanelId}>
               {adding ? <span className="spinner" /> : 'Add'}
             </button>
           </>

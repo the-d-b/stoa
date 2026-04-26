@@ -178,7 +178,7 @@ export default function PanelsAdminPanel() {
               <label className="label">Panel type</label>
               {(() => {
                 const PANEL_LABELS: Record<string,string> = {
-                  authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar',
+                  authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar', checklist:'Checklist',
                   customapi:'Custom API', gluetun:'Gluetun', iframe:'Web Embed',
                   kuma:'Uptime Kuma', lidarr:'Lidarr', opnsense:'OPNsense',
                   photoprism:'PhotoPrism', plex:'Plex', proxmox:'Proxmox',
@@ -429,9 +429,11 @@ export default function PanelsAdminPanel() {
                               ? <>🌤 {src.city} <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 4 }}>°{(src.unit || 'f').toUpperCase()}</span></>
                               : src.type === 'google'
                                 ? <>📅 {src.label || src.integrationId}</>
-                                : <>{ig?.name ?? src.integrationId}
-                                    {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
-                                  </>
+                                : src.type === 'checklist'
+                                  ? <>☑ {src.label || 'Checklist'}</>
+                                  : <>{ig?.name ?? src.integrationId}
+                                      {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
+                                    </>
                             }
                           </span>
                           <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
@@ -565,7 +567,7 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
   panelId: string; panelTitle: string; panelConfig: string
   integrations: Integration[]; onAdded: () => void; isSystem?: boolean
 }) {
-  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'>('integration')
+  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'|'checklist'>('integration')
   const [intId, setIntId] = useState('')
   const [googleTokenId, setGoogleTokenId] = useState('')
   const [googleCalendarId, setGoogleCalendarId] = useState('primary')
@@ -576,6 +578,8 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
   const [searching, setSearching] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [adding, setAdding] = useState(false)
+  const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
+  const [checklistPanelId, setChecklistPanelId] = useState('')
 
   useEffect(() => {
     googleApi.getConfig().then(res => {
@@ -584,6 +588,10 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
         googleApi.listTokens(scope).then(r => setGoogleTokens(r.data || []))
       }
     })
+    // Load checklist panels — system scope only
+    panelsApi.list(undefined, 'system').then(r =>
+      setChecklistPanels((r.data || []).filter((p: any) => p.type === 'checklist'))
+    ).catch(() => {})
   }, [isSystem])
 
   useEffect(() => {
@@ -618,15 +626,19 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
         if (!googleTokenId) return
         const tok = googleTokens.find((t: any) => t.id === googleTokenId)
         newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
+      } else if (sourceKind === 'checklist') {
+        if (!checklistPanelId) return
+        const cl = checklistPanels.find((p: any) => p.id === checklistPanelId)
+        newSource = { type: 'checklist', panelId: checklistPanelId, label: cl?.title || 'Checklist' }
       } else {
         if (!intId) return
-        const ig = integrations.find(i => i.id === intId)
+        const ig = integrations.find((i: any) => i.id === intId)
         newSource = { type: ig?.type, integrationId: intId, daysAhead: 14 }
       }
       const sources = [...(cfg.sources || []), newSource]
       const updater = isSystem ? panelsApi : myPanelsApi
       await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([])
+      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('')
       onAdded()
     } finally { setAdding(false) }
   }
@@ -635,11 +647,12 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
     <div style={{ marginTop: 8 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]) }}
+          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('') }}
           style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
           <option value="integration">Stoa integration</option>
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
           <option value="weather">Weather</option>
+          {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
         </select>
 
         {sourceKind === 'integration' && (
@@ -651,6 +664,20 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
             </select>
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
               onClick={() => add()} disabled={adding || !intId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'checklist' && (
+          <>
+            <select className="input" value={checklistPanelId} onChange={e => setChecklistPanelId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select checklist panel —</option>
+              {checklistPanels.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => add()} disabled={adding || !checklistPanelId}>
               {adding ? <span className="spinner" /> : 'Add'}
             </button>
           </>

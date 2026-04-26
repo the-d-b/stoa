@@ -112,6 +112,13 @@ func main() {
 	protected.HandleFunc("/panels", handlers.ListPanels(database)).Methods("GET")
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
 	protected.HandleFunc("/panels/custom-columns", handlers.GetCustomColumns(database)).Methods("GET")
+
+	// Checklist panel CRUD — panel_id scoped, shared across users with panel access
+	protected.HandleFunc("/checklist/{panelId}", handlers.ListChecklistItems(database)).Methods("GET")
+	protected.HandleFunc("/checklist/{panelId}", handlers.CreateChecklistItem(database)).Methods("POST")
+	protected.HandleFunc("/checklist/item/{id}", handlers.UpdateChecklistItem(database)).Methods("PUT")
+	protected.HandleFunc("/checklist/item/{id}/toggle", handlers.ToggleChecklistItem(database)).Methods("PUT")
+	protected.HandleFunc("/checklist/item/{id}", handlers.DeleteChecklistItem(database)).Methods("DELETE")
 	protected.HandleFunc("/panels/custom-columns", handlers.SetCustomColumns(database)).Methods("PUT")
 
 	// SSE — browser tab event stream (handles own auth via ?token= param)
