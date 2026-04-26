@@ -692,28 +692,6 @@ func RemoveUserFromGroup(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func AddTagToGroup(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		groupID := mux.Vars(r)["id"]
-		var req struct {
-			TagID string `json:"tagId"`
-		}
-		json.NewDecoder(r.Body).Decode(&req)
-		db.Exec("INSERT OR IGNORE INTO group_tags (group_id, tag_id) VALUES (?, ?)", groupID, req.TagID)
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}
-}
-
-func RemoveTagFromGroup(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		db.Exec("DELETE FROM group_tags WHERE group_id = ? AND tag_id = ?", vars["id"], vars["tagId"])
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}
-}
-
-// ── Tags ──────────────────────────────────────────────────────────────────────
-
 func ListTags(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := r.Context().Value(auth.UserContextKey).(*models.Claims)
@@ -914,17 +892,19 @@ func UpdateProfile(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
 		var req struct {
-			Email string `json:"email"`
+			Email    string `json:"email"`
+			Username string `json:"username"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 
-		_, err := db.Exec("UPDATE users SET email=? WHERE id=?", req.Email, claims.UserID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to update profile")
-			return
+		if req.Email != "" {
+			db.Exec("UPDATE users SET email=? WHERE id=?", req.Email, claims.UserID)
+		}
+		if req.Username != "" {
+			db.Exec("UPDATE users SET username=? WHERE id=?", strings.TrimSpace(req.Username), claims.UserID)
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

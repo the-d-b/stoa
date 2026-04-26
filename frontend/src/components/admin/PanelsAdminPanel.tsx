@@ -179,11 +179,11 @@ export default function PanelsAdminPanel() {
               {(() => {
                 const PANEL_LABELS: Record<string,string> = {
                   authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar',
-                  customapi:'Custom API', gluetun:'Gluetun', lidarr:'Lidarr',
-                  opnsense:'OPNsense', photoprism:'PhotoPrism', plex:'Plex',
-                  proxmox:'Proxmox', radarr:'Radarr', sonarr:'Sonarr',
-                  tautulli:'Tautulli', transmission:'Transmission', truenas:'TrueNAS',
-                  kuma:'Uptime Kuma',
+                  customapi:'Custom API', gluetun:'Gluetun', iframe:'Web Embed',
+                  kuma:'Uptime Kuma', lidarr:'Lidarr', opnsense:'OPNsense',
+                  photoprism:'PhotoPrism', plex:'Plex', proxmox:'Proxmox',
+                  radarr:'Radarr', sonarr:'Sonarr', tautulli:'Tautulli',
+                  custom:'Text/HTML', transmission:'Transmission', truenas:'TrueNAS',
                 }
                 return (
                   <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
@@ -325,7 +325,7 @@ export default function PanelsAdminPanel() {
                         <div>
                           <label className="label">Field mappings</label>
                           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                            One per line: <code>path.to.value | Label</code>
+                            One per line: <code>path | Label</code> or <code>path | Label | format</code> — formats: <code>integer</code>, <code>currency</code>, <code>text</code>
                           </div>
                           <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
                             value={editingCustomAPI.mappings}
@@ -370,8 +370,8 @@ export default function PanelsAdminPanel() {
                               .map((line: string) => line.trim())
                               .filter((line: string) => line.includes('|'))
                               .map((line: string) => {
-                                const [path, ...rest] = line.split('|')
-                                return { path: path.trim(), label: rest.join('|').trim() }
+                                const parts = line.split('|').map((s: string) => s.trim())
+                                return { path: parts[0], label: parts[1] || '', format: parts[2] || '' }
                               })
                             await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
                             setEditingCustomAPI(null); setCustomAPIPreview(null); load()
@@ -400,7 +400,7 @@ export default function PanelsAdminPanel() {
                     ) : (
                       <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
                         const cfg = safeParseConfig(p.config)
-                        const mappings = (cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n')
+                        const mappings = (cfg.mappings || []).map((m: any) => m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n')
                         setCustomAPIPreview(null)
                         setEditingCustomAPI({ id: p.id, url: cfg.url || '', apiKey: cfg.apiKey || '', mappings, refreshSecs: cfg.refreshSecs || 600 })
                       }}>Configure</button>

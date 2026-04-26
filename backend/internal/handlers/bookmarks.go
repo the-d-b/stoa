@@ -171,6 +171,7 @@ func UpdateBookmarkNode(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
+		// Update name, url, icon_url, sort_order
 		_, err := db.Exec(`
 			UPDATE bookmark_nodes SET name=?, url=?, icon_url=?, sort_order=?
 			WHERE id=?
@@ -178,6 +179,40 @@ func UpdateBookmarkNode(db *sql.DB) http.HandlerFunc {
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update node")
 			return
+		}
+
+		// Reslugify: recalculate path for this node and all descendants
+		var currentPath, parentID, scope string
+		db.QueryRow("SELECT path, COALESCE(parent_id,''), COALESCE(scope,'shared') FROM bookmark_nodes WHERE id=?", id).Scan(&currentPath, &parentID, &scope)
+		newSlug := slugify(req.Name)
+		var newPath string
+		if parentID == "" {
+			newPath = "/" + scope + "/" + newSlug
+		} else {
+			var parentPath string
+			db.QueryRow("SELECT path FROM bookmark_nodes WHERE id=?", parentID).Scan(&parentPath)
+			newPath = parentPath + "/" + newSlug
+		}
+		newPath = uniquePath(db, newPath)
+		// Update this node and rebase all descendants
+		if newPath != currentPath {
+			db.Exec("UPDATE bookmark_nodes SET path=? WHERE id=?", newPath, id)
+			// Update descendants: replace old prefix with new prefix
+			rows, _ := db.Query("SELECT id, path FROM bookmark_nodes WHERE path LIKE ?", currentPath+"/%")
+			if rows != nil {
+				type entry struct{ id, path string }
+				var descendants []entry
+				for rows.Next() {
+					var e entry
+					rows.Scan(&e.id, &e.path)
+					descendants = append(descendants, e)
+				}
+				rows.Close()
+				for _, d := range descendants {
+					updatedPath := newPath + d.path[len(currentPath):]
+					db.Exec("UPDATE bookmark_nodes SET path=? WHERE id=?", updatedPath, d.id)
+				}
+			}
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

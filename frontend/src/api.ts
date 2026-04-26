@@ -317,7 +317,7 @@ export const profileApi = {
     id: string; username: string; email: string;
     role: string; authProvider: string; avatarUrl: string
   }>('/profile'),
-  update: (data: { email: string }) => api.put('/profile', data),
+  update: (data: { email?: string; username?: string }) => api.put('/profile', data),
   changePassword: (currentPassword: string, newPassword: string) =>
     api.put('/profile/password', { currentPassword, newPassword }),
   uploadAvatar: (file: File) => {

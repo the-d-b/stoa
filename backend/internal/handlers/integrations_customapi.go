@@ -17,8 +17,9 @@ type CustomAPIPanelData struct {
 }
 
 type CustomAPIField struct {
-	Label string      `json:"label"`
-	Value interface{} `json:"value"`
+	Label  string      `json:"label"`
+	Value  interface{} `json:"value"`
+	Format string      `json:"format,omitempty"` // integer, currency, text, number (default)
 }
 
 func fetchCustomAPIPanelData(db *sql.DB, config map[string]interface{}) (*CustomAPIPanelData, error) {
@@ -72,13 +73,15 @@ func fetchCustomAPIPanelData(db *sql.DB, config map[string]interface{}) (*Custom
 		}
 		label := stringVal(mapping, "label")
 		path := stringVal(mapping, "path")
+		format := stringVal(mapping, "format")
 		if path == "" || label == "" {
 			continue
 		}
 		value := resolvePath(raw, path)
 		data.Fields = append(data.Fields, CustomAPIField{
-			Label: label,
-			Value: value,
+			Label:  label,
+			Value:  value,
+			Format: format,
 		})
 	}
 

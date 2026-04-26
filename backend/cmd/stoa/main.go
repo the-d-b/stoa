@@ -203,8 +203,6 @@ func main() {
 	admin.HandleFunc("/groups/{id}/default", handlers.SetDefaultGroup(database)).Methods("PUT")
 	admin.HandleFunc("/groups/{id}/users", handlers.AddUserToGroup(database)).Methods("POST")
 	admin.HandleFunc("/groups/{id}/users/{userId}", handlers.RemoveUserFromGroup(database)).Methods("DELETE")
-	admin.HandleFunc("/groups/{id}/tags", handlers.AddTagToGroup(database)).Methods("POST")
-	admin.HandleFunc("/groups/{id}/tags/{tagId}", handlers.RemoveTagFromGroup(database)).Methods("DELETE")
 
 	// Tags - list is public to all authenticated users, write ops are admin only
 	protected.HandleFunc("/tags", handlers.ListTags(database)).Methods("GET")

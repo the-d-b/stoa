@@ -1,13 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
 
-interface CustomAPIField { label: string; value: unknown }
+interface CustomAPIField { label: string; value: unknown; format?: string }
 interface CustomAPIData { fields: CustomAPIField[] }
 
-function fmtValue(v: unknown): string {
+function fmtValue(v: unknown, format?: string): string {
   if (v === null || v === undefined) return '—'
-  if (typeof v === 'number') return Number.isInteger(v) ? v.toLocaleString() : v.toFixed(2)
   if (typeof v === 'boolean') return v ? 'yes' : 'no'
+  if (typeof v === 'number' || (typeof v === 'string' && v !== '' && !isNaN(Number(v)))) {
+    const n = Number(v)
+    switch (format) {
+      case 'integer':  return Math.round(n).toString()
+      case 'currency': return '$' + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      case 'text':     return String(v)
+      default:         return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2)
+    }
+  }
   return String(v)
 }
 
@@ -47,7 +55,7 @@ export default function CustomAPIPanel({ panel }: { panel: Panel; heightUnits: n
           background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
           <span style={{ color: 'var(--text-dim)' }}>{f.label}</span>
           <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
-            color: 'var(--text)' }}>{fmtValue(f.value)}</span>
+            color: 'var(--text)' }}>{fmtValue(f.value, f.format)}</span>
         </div>
       ))}
     </div>

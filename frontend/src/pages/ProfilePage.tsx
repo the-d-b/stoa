@@ -144,6 +144,10 @@ function OverviewTab() {
   const [editingEmail, setEditingEmail] = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
   const [emailSaved, setEmailSaved] = useState(false)
+  const [username, setUsername] = useState(user?.username || '')
+  const [editingUsername, setEditingUsername] = useState(false)
+  const [savingUsername, setSavingUsername] = useState(false)
+  const [usernameSaved, setUsernameSaved] = useState(false)
   const [avatarUrl, setAvatarUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState('')
@@ -159,6 +163,7 @@ function OverviewTab() {
   useEffect(() => {
     profileApi.get().then(r => {
       setEmail(r.data.email || '')
+      setUsername(r.data.username || user?.username || '')
       setAvatarUrl(r.data.avatarUrl || '')
     }).catch(() => {})
   }, [])
@@ -172,6 +177,18 @@ function OverviewTab() {
       setEmailSaved(true)
       setTimeout(() => setEmailSaved(false), 2000)
     } finally { setSavingEmail(false) }
+  }
+
+  const saveUsername = async () => {
+    if (!username.trim()) return
+    setSavingUsername(true)
+    try {
+      await profileApi.update({ username: username.trim() })
+      if (setUser) setUser({ ...user, username: username.trim() } as any)
+      setEditingUsername(false)
+      setUsernameSaved(true)
+      setTimeout(() => setUsernameSaved(false), 2000)
+    } finally { setSavingUsername(false) }
   }
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,6 +265,32 @@ function OverviewTab() {
               {emailSaved && <span style={{ color: 'var(--green)', marginLeft: 8, fontSize: 12 }}>✓ saved</span>}
             </span>
             <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingEmail(true)}>Edit</button>
+          </div>
+        )}
+      </div>
+
+      {/* Display name */}
+      <div className="card" style={{ padding: 16 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>Display name</div>
+        {editingUsername ? (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input className="input" value={username} onChange={e => setUsername(e.target.value)}
+              placeholder="Your name" style={{ flex: 1 }}
+              onKeyDown={e => e.key === 'Enter' && saveUsername()} autoFocus />
+            <button className="btn btn-primary" onClick={saveUsername} disabled={savingUsername}>
+              {savingUsername ? <span className="spinner" /> : 'Save'}
+            </button>
+            <button className="btn btn-secondary" onClick={() => { setEditingUsername(false); setUsername(user?.username || '') }}>
+              Cancel
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 13, color: username ? 'var(--text)' : 'var(--text-dim)' }}>
+              {username || 'No name set'}
+              {usernameSaved && <span style={{ color: 'var(--green)', marginLeft: 8, fontSize: 12 }}>✓ saved</span>}
+            </span>
+            <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingUsername(true)}>Edit</button>
           </div>
         )}
       </div>
@@ -1670,34 +1713,41 @@ function GlyphRow({ glyph, integrations, porticos, editing, onEdit, onToggle, on
               </>
             )}
             {/* Portico assignment for glyphs */}
-            {porticos.length > 0 && (
-              <div>
-                <label className="label">Show on porticos (leave all unselected = show everywhere)</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                  {porticos.map(p => {
-                    const on = (localConfig.porticos || []).includes(p.id)
-                    return (
-                      <button key={p.id} onClick={() => setLocalConfig((c: any) => ({
-                        ...c,
-                        porticos: on
-                          ? (c.porticos || []).filter((id: string) => id !== p.id)
-                          : [...(c.porticos || []), p.id]
-                      }))} style={{
-                        padding: '3px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-                        background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                        color: on ? 'var(--accent2)' : 'var(--text-muted)',
-                      }}>{p.name}</button>
-                    )
-                  })}
-                </div>
+            <div>
+              <label className="label">Show on porticos (leave all unselected = show everywhere)</label>
+              {porticos.length === 0 ? (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                  {(localConfig.porticos || []).length === 0
-                    ? 'Showing on all porticos'
-                    : `Showing on ${(localConfig.porticos || []).length} portico${(localConfig.porticos || []).length !== 1 ? 's' : ''}`}
+                  No saved porticos yet — ticker shows everywhere. Create porticos in the{' '}
+                  <a href="/profile?tab=porticos" style={{ color: 'var(--accent2)' }}>Porticos tab</a> to restrict by view.
                 </div>
-              </div>
-            )}
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {porticos.map(p => {
+                      const on = (localConfig.porticos || []).includes(p.id)
+                      return (
+                        <button key={p.id} onClick={() => setLocalConfig((c: any) => ({
+                          ...c,
+                          porticos: on
+                            ? (c.porticos || []).filter((id: string) => id !== p.id)
+                            : [...(c.porticos || []), p.id]
+                        }))} style={{
+                          padding: '3px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                          background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                          border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                          color: on ? 'var(--accent2)' : 'var(--text-muted)',
+                        }}>{p.name}</button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                    {(localConfig.porticos || []).length === 0
+                      ? 'Showing on all porticos'
+                      : `Showing on ${(localConfig.porticos || []).length} portico${(localConfig.porticos || []).length !== 1 ? 's' : ''}`}
+                  </div>
+                </>
+              )}
+            </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" style={{ fontSize: 12 }}
@@ -2450,30 +2500,37 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
             )}
 
             {/* Portico assignment */}
-            {porticos.length > 0 && (
-              <div>
-                <label className="label">Show on porticos (leave all unselected = show everywhere)</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                  {porticos.map(p => {
-                    const on = localPorticos.includes(p.id)
-                    return (
-                      <button key={p.id} onClick={() => setLocalPorticos(prev =>
-                        on ? prev.filter(id => id !== p.id) : [...prev, p.id]
-                      )} style={{
-                        padding: '3px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-                        background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                        color: on ? 'var(--accent2)' : 'var(--text-muted)',
-                        border: `1px solid ${on ? '#7c6fff30' : 'var(--border)'}`,
-                        transition: 'all 0.15s',
-                      }}>{p.name}</button>
-                    )
-                  })}
-                </div>
+            <div>
+              <label className="label">Show on porticos (leave all unselected = show everywhere)</label>
+              {porticos.length === 0 ? (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                  {localPorticos.length === 0 ? 'Showing on all porticos (including Home)' : `Showing on ${localPorticos.length} portico${localPorticos.length !== 1 ? 's' : ''}`}
+                  No saved porticos yet — ticker shows everywhere. Create porticos in the{' '}
+                  <a href="/profile?tab=porticos" style={{ color: 'var(--accent2)' }}>Porticos tab</a> to restrict by view.
                 </div>
-              </div>
-            )}
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+                    {porticos.map(p => {
+                      const on = localPorticos.includes(p.id)
+                      return (
+                        <button key={p.id} onClick={() => setLocalPorticos(prev =>
+                          on ? prev.filter(id => id !== p.id) : [...prev, p.id]
+                        )} style={{
+                          padding: '3px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                          background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                          color: on ? 'var(--accent2)' : 'var(--text-muted)',
+                          border: `1px solid ${on ? '#7c6fff30' : 'var(--border)'}`,
+                          transition: 'all 0.15s',
+                        }}>{p.name}</button>
+                      )
+                    })}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                    {localPorticos.length === 0 ? 'Showing on all porticos (including Home)' : `Showing on ${localPorticos.length} portico${localPorticos.length !== 1 ? 's' : ''}`}
+                  </div>
+                </>
+              )}
+            </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={handleSave}>Save</button>
@@ -3521,7 +3578,7 @@ function MyPanelsTab() {
                   {p.type === 'customapi' && (() => {
                     const ca = customAPIEdit?.url !== undefined ? customAPIEdit
                       : { url: cfg.url || '', apiKey: cfg.apiKey || '',
-                          mappings: (cfg.mappings || []).map((m: any) => `${m.path} | ${m.label}`).join('\n'),
+                          mappings: (cfg.mappings || []).map((m: any) => m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n'),
                           refreshSecs: cfg.refreshSecs || 600 }
                     const setCA = (patch: Partial<typeof ca>) => {
                       setCustomAPIPreview(null)
@@ -3534,7 +3591,7 @@ function MyPanelsTab() {
                       cfg.refreshSecs = customAPIEdit.refreshSecs
                       cfg.mappings = customAPIEdit.mappings.split('\n')
                         .map((l: string) => l.trim()).filter((l: string) => l.includes('|'))
-                        .map((l: string) => { const [path, ...rest] = l.split('|'); return { path: path.trim(), label: rest.join('|').trim() } })
+                        .map((l: string) => { const parts = l.split('|').map((s: string) => s.trim()); return { path: parts[0], label: parts[1] || '', format: parts[2] || '' } })
                     }
                     return (
                       <>
@@ -3553,7 +3610,7 @@ function MyPanelsTab() {
                         <div>
                           <label className="label">Field mappings</label>
                           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-                            One per line: <code>path.to.value | Label</code> e.g. <code>photos.unsorted | Photos to sort</code>
+                            One per line: <code>path | Label</code> or <code>path | Label | format</code> — formats: <code>integer</code>, <code>currency</code>, <code>text</code>
                           </div>
                           <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 100, resize: 'vertical' }}
                             value={ca.mappings} onChange={e => setCA({ mappings: e.target.value })} />

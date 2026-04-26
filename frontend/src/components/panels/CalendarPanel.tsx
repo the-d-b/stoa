@@ -79,6 +79,8 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
 
   const hasSources = (config as any).sources?.length > 0
   const [allForecasts, setAllForecasts] = useState<{ city: string; unit: string; days: DayForecast[] }[]>([])
+  // Source filter — null means all visible (resets on unmount)
+  const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set())
 
   // Fetch 7-day weather for all weather sources
   const weatherSources: any[] = ((config as any).sources || []).filter((s: any) => s.type === 'weather')
@@ -122,10 +124,15 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
 
   useEffect(() => { loadEvents() }, [loadEvents])
 
-  // Get events for a given date string (YYYY-MM-DD)
+  // Derive unique sources for pill rendering
+  const allSources = Array.from(new Map(
+    events.map(e => [e.source, { source: e.source, color: e.color }])
+  ).values())
+
+  // Get events for a given date string, filtered by hidden sources
   const eventsForDate = (year: number, month: number, day: number): CalendarEvent[] => {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-    return events.filter(e => e.date?.startsWith(dateStr))
+    return events.filter(e => e.date?.startsWith(dateStr) && !hiddenSources.has(e.source))
   }
 
   const eventsForSelected = eventsForDate(viewDate.getFullYear(), viewDate.getMonth(), selectedDay)
@@ -290,9 +297,35 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         {dayGrid}
       </div>
       <div style={{ flex: 1, borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 8, overflow: 'auto', minHeight: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
           {MONTHS[month]} {selectedDay}
         </div>
+        {/* Source filter pills */}
+        {allSources.length > 1 && (
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
+            {allSources.map(({ source, color }) => {
+              const hidden = hiddenSources.has(source)
+              return (
+                <button key={source} onClick={() => setHiddenSources(prev => {
+                    const next = new Set(prev)
+                    if (next.has(source)) next.delete(source); else next.add(source)
+                    return next
+                  })} style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  padding: '2px 7px', borderRadius: 10, fontSize: 10, fontWeight: 500,
+                  cursor: 'pointer', border: `1px solid ${hidden ? 'var(--border)' : color}`,
+                  background: hidden ? 'transparent' : color + '22',
+                  color: hidden ? 'var(--text-dim)' : 'var(--text)',
+                  transition: 'all 0.15s',
+                }}>
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
+                    background: hidden ? 'var(--border)' : color }} />
+                  {source}
+                </button>
+              )
+            })}
+          </div>
+        )}
         {/* Weather for selected day — one tile per city */}
         {allForecasts.length > 0 && (() => {
           const selDate = `${viewDate.getFullYear()}-${String(viewDate.getMonth()+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`
