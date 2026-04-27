@@ -81,9 +81,8 @@ export default function ChatPanel({ open, onClose, currentUserId }: ChatPanelPro
     setSending(true)
     setInput('')
     try {
-      const res = await chatApi.send(text)
-      // Own message arrives via API response, others via SSE
-      setMessages(prev => [...prev, { ...res.data, own: true }])
+      await chatApi.send(text)
+      // Message will arrive via SSE broadcast to all clients including sender
     } finally { setSending(false) }
   }
 
