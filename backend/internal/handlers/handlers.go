@@ -236,6 +236,12 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		}
 
 		logger.LoginSuccess(r, user.Username, "local")
+
+		// Record session for audit trail
+		sessionIP := r.Header.Get("X-Forwarded-For")
+		if sessionIP == "" { sessionIP = r.RemoteAddr }
+		go RecordSession(db, user.ID, sessionIP, r.UserAgent(), time.Now().Add(authSvc.SessionDuration()))
+
 		writeJSON(w, http.StatusOK, map[string]interface{}{"token": token, "user": user})
 	}
 }
@@ -434,7 +440,8 @@ func SaveOAuthConfig(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 func ListUsers(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.Query(`
-			SELECT id, username, email, role, auth_provider, created_at, last_login
+			SELECT id, username, email, role, auth_provider, created_at, last_login,
+				COALESCE(enabled, 1)
 			FROM users WHERE id != 'SYSTEM' ORDER BY created_at ASC
 		`)
 		if err != nil {
@@ -449,7 +456,9 @@ func ListUsers(db *sql.DB) http.HandlerFunc {
 			var u models.User
 			var lastLogin sql.NullTime
 			var email sql.NullString
-			rows.Scan(&u.ID, &u.Username, &email, &u.Role, &u.AuthProvider, &u.CreatedAt, &lastLogin)
+			var enabled int
+			rows.Scan(&u.ID, &u.Username, &email, &u.Role, &u.AuthProvider, &u.CreatedAt, &lastLogin, &enabled)
+			u.Enabled = enabled == 1
 			if email.Valid {
 				u.Email = email.String
 			}

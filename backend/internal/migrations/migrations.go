@@ -435,7 +435,6 @@ var migrations = []migration{
 				created_by   TEXT DEFAULT NULL,
 				created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
 			);
-			CREATE INDEX IF NOT EXISTS idx_checklist_panel ON checklist_items(panel_id);
 		`,
 	},
 	{
@@ -450,7 +449,6 @@ var migrations = []migration{
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			);
-			CREATE INDEX IF NOT EXISTS idx_notes_panel ON notes(panel_id);
 		`,
 	},
 	{
@@ -473,6 +471,64 @@ var migrations = []migration{
 		up: `
 			ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;
 		`,
+	},
+	{
+		version: 23,
+		name:    "sessions",
+		up: `
+			CREATE TABLE IF NOT EXISTS sessions (
+				id           TEXT PRIMARY KEY,
+				user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				ip           TEXT,
+				user_agent   TEXT,
+				issued_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+				expires_at   DATETIME,
+				last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)
+		`,
+	},
+	{
+		version: 24,
+		name:    "sessions_ip",
+		up: `ALTER TABLE sessions ADD COLUMN ip TEXT`,
+	},
+	{
+		version: 25,
+		name:    "sessions_ua",
+		up: `ALTER TABLE sessions ADD COLUMN user_agent TEXT`,
+	},
+	{
+		version: 26,
+		name:    "sessions_noop",
+		up: `SELECT 1`,
+	},
+	{
+		version: 27,
+		name:    "sessions_lastseen_noop",
+		up: `SELECT 1`,
+	},
+	{
+		version: 28,
+		name:    "sessions_noop2",
+		up: `SELECT 1`,
+	},
+	{
+		version: 29,
+		name:    "sessions_drop",
+		up: `DROP TABLE sessions`,
+	},
+	{
+		version: 30,
+		name:    "sessions_recreate",
+		up: `CREATE TABLE sessions (
+			id           TEXT PRIMARY KEY,
+			user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			ip           TEXT,
+			user_agent   TEXT,
+			issued_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+			expires_at   DATETIME,
+			last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	},
 }
 

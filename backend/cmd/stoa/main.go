@@ -113,6 +113,8 @@ func main() {
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
 	protected.HandleFunc("/panels/custom-columns", handlers.GetCustomColumns(database)).Methods("GET")
 
+	// Sessions route registered after admin subrouter is declared (see below)
+
 	// RSS panel — proxy fetch with 5m cache, no integration needed
 	protected.HandleFunc("/rss-panel", handlers.GetRSSPanelData).Methods("GET")
 
@@ -169,6 +171,10 @@ func main() {
 
 	// ── Admin only ────────────────────────────────────────
 	admin := protected.PathPrefix("").Subrouter()
+
+	// Sessions — audit trail and presence (admin only, enforced in handler)
+	admin.HandleFunc("/sessions", handlers.ListSessions(database)).Methods("GET")
+	protected.HandleFunc("/sessions/toggle-user", handlers.ToggleUserEnabled(database)).Methods("PUT")
 	admin.Use(authService.AdminMiddleware)
 
 	// Mail config & session duration

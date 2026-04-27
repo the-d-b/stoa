@@ -92,6 +92,10 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 
 		log.Printf("[SSE] client connected: %s", clientID)
 
+		// Track presence and update last_seen
+		MarkUserOnline(claims.UserID)
+		go UpdateLastSeen(db, claims.UserID)
+
 		// Notify worker manager — spins up workers if this is the first client
 		if GlobalWorkerManager != nil {
 			GlobalWorkerManager.ClientConnected()
@@ -102,6 +106,8 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 			delete(sseClients, clientID)
 			sseMu.Unlock()
 			log.Printf("[SSE] client disconnected: %s", clientID)
+			MarkUserOffline(claims.UserID)
+			go UpdateLastSeen(db, claims.UserID)
 			// Notify worker manager — may spin down workers after grace period
 			if GlobalWorkerManager != nil {
 				GlobalWorkerManager.ClientDisconnected()

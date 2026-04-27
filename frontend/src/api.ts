@@ -46,6 +46,7 @@ export interface User {
   authProvider: AuthProvider
   createdAt: string
   lastLogin?: string
+  enabled?: boolean
 }
 
 export interface Group {
@@ -118,6 +119,8 @@ export const usersApi = {
   get: (id: string) => api.get<User>(`/users/${id}`),
   updateRole: (id: string, role: Role) => api.put(`/users/${id}/role`, { role }),
   delete: (id: string) => api.delete(`/users/${id}`),
+  toggleEnabled: (userId: string, enabled: boolean) =>
+    api.put('/sessions/toggle-user', { userId, enabled }),
 }
 
 // ── Groups ────────────────────────────────────────────────────────────────────
@@ -487,6 +490,19 @@ export interface Note {
 export interface NoteActivityUser {
   userId: string; username: string; avatarUrl?: string
   lastReadAt?: string; lastEditAt?: string
+}
+
+export interface SessionRow {
+  id: string; userId: string; username: string; avatarUrl?: string
+  role: string; enabled: boolean; ip: string; userAgent: string
+  issuedAt: string; expiresAt?: string; lastSeenAt: string; online: boolean
+}
+
+export const sessionsApi = {
+  list: (days?: '1'|'7'|'30') =>
+    api.get<SessionRow[]>(`/sessions${days ? `?days=${days}` : ''}`),
+  toggleUser: (userId: string, enabled: boolean) =>
+    api.put('/sessions/toggle-user', { userId, enabled }),
 }
 
 export const rssPanelApi = {

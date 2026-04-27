@@ -10,6 +10,7 @@ import PanelsAdminPanel from '../components/admin/PanelsAdminPanel'
 import SecretsPanel from '../components/admin/SecretsPanel'
 import IntegrationsPanel from '../components/admin/IntegrationsPanel'
 import MailConfigPanel from '../components/admin/MailConfigPanel'
+import SessionsPanel from '../components/admin/SessionsPanel'
 
 const tabs = [
   { path: '/admin/bookmarks', label: 'Bookmarks',        icon: '↗' },
@@ -19,6 +20,7 @@ const tabs = [
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
   { path: '/admin/mail',      label: 'Mail & Sessions', icon: '✉' },
   { path: '/admin/google',    label: 'Google Cal', icon: '📅' },
+  { path: '/admin/sessions',  label: 'Sessions',  icon: '◎' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
   { path: '/admin/groups',    label: 'Groups',    icon: '◈' },
   { path: '/admin/tags',      label: 'Tags',      icon: '◇' },
@@ -38,7 +40,7 @@ export default function AdminPage() {
     },
     {
       label: 'Access',
-      items: tabs.filter(t => ['/admin/users', '/admin/groups', '/admin/tags'].includes(t.path)),
+      items: tabs.filter(t => ['/admin/sessions', '/admin/users', '/admin/groups', '/admin/tags'].includes(t.path)),
     },
     {
       label: 'Config',
@@ -95,6 +97,7 @@ export default function AdminPage() {
           <Route path="oauth"     element={<OAuthConfigPanel />} />
           <Route path="mail"      element={<MailConfigPanel />} />
           <Route path="google"    element={<div style={{padding:16}}><GoogleCalendarConfigPanel /></div>} />
+          <Route path="sessions"  element={<SessionsPanel />} />
           <Route path="users"     element={<UsersPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />
           <Route path="tags"      element={<TagsPanel />} />

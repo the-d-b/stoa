@@ -54,6 +54,13 @@ export default function UsersPanel() {
     } finally { setCreating(false) }
   }
 
+  const toggleEnabled = async (u: User) => {
+    try {
+      await usersApi.toggleEnabled(u.id, !u.enabled)
+      await load()
+    } catch (e) { console.error('toggleEnabled failed', e) }
+  }
+
   const toggleRole = async (u: User) => {
     try {
       await usersApi.updateRole(u.id, u.role === 'admin' ? 'user' : 'admin')
@@ -203,6 +210,12 @@ export default function UsersPanel() {
                     <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}
                       onClick={() => toggleRole(u)}>
                       {u.role === 'admin' ? 'Demote' : 'Promote'}
+                    </button>
+                    <button className="btn btn-ghost" style={{
+                      fontSize: 12, padding: '4px 10px',
+                      color: u.enabled === false ? 'var(--green)' : 'var(--red)'
+                    }} onClick={() => toggleEnabled(u)}>
+                      {u.enabled === false ? 'Enable' : 'Disable'}
                     </button>
                     {u.authProvider === 'local' && (
                       <button className="btn btn-ghost" style={{ fontSize: 12, padding: '4px 10px' }}

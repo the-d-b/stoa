@@ -92,7 +92,7 @@ func (s *Service) initOAuth(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) sessionDuration() time.Duration {
+func (s *Service) SessionDuration() time.Duration {
 	var hoursStr string
 	s.db.QueryRow("SELECT value FROM app_config WHERE key='session_duration_hours'").Scan(&hoursStr)
 	if hoursStr == "" {
@@ -110,7 +110,7 @@ func (s *Service) GenerateToken(user *models.User) (string, error) {
 		s.db.QueryRow("SELECT value FROM app_config WHERE key = 'session_secret'").Scan(&secret)
 	}
 
-	duration := s.sessionDuration()
+	duration := s.SessionDuration()
 	claims := jwt.MapClaims{
 		"userId":   user.ID,
 		"username": user.Username,

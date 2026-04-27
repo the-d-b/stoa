@@ -36,6 +36,7 @@ type User struct {
 	AuthProvider AuthProvider `json:"authProvider"`
 	CreatedAt    time.Time    `json:"createdAt"`
 	LastLogin    *time.Time   `json:"lastLogin,omitempty"`
+	Enabled      bool         `json:"enabled"`
 }
 
 type UserPreferences struct {
