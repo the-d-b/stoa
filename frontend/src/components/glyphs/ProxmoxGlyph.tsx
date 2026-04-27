@@ -33,9 +33,12 @@ export default function ProxmoxGlyph({ glyph }: { glyph: Glyph }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11,
       fontFamily: 'DM Mono, monospace' }}>
-      <span style={{ color: 'var(--text-dim)' }}>PVE</span>
-      <span style={{ color: pctColor(cpu), fontWeight: 600 }}>CPU {cpu.toFixed(0)}%</span>
-      <span style={{ color: pctColor(mem) }}>MEM {mem.toFixed(0)}%</span>
+      <span style={{ color: pctColor(cpu), fontWeight: 600 }}>
+        CPU <span style={{ display: 'inline-block', minWidth: '3ch', textAlign: 'right' }}>{cpu.toFixed(0)}</span>%
+      </span>
+      <span style={{ color: pctColor(mem) }}>
+        MEM <span style={{ display: 'inline-block', minWidth: '3ch', textAlign: 'right' }}>{mem.toFixed(0)}</span>%
+      </span>
     </div>
   )
 }

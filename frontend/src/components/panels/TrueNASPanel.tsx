@@ -81,7 +81,7 @@ function Arc({ pct, label, sub, size = 72 }: { pct: number; label: string; sub?:
               stroke={color} strokeWidth={sw} strokeLinecap="round" />
           )}
         </svg>
-        <div style={{ position: 'absolute', top: '42%', left: 0, right: 0,
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
           display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <span style={{ fontSize: size < 60 ? 11 : 14, fontWeight: 700,
             fontFamily: 'DM Mono, monospace', color, lineHeight: 1 }}>
@@ -106,7 +106,7 @@ function Thermometer({ tempC, label, size = 72 }: { tempC: number; label: string
   const minTemp = 20
   const pct = Math.min(Math.max((tempC - minTemp) / (maxTemp - minTemp) * 100, 0), 100)
   const col = tempC >= 80 ? 'var(--red)' : tempC >= 65 ? 'var(--amber)' : tempC >= 50 ? '#f59e0b' : 'var(--green)'
-  const h = size * 0.55  // tube height
+  const h = size * 0.42  // tube height (shortened 25%)
   const w = size < 60 ? 10 : 13
   const bulbR = w * 1.05
   const tubeW = w * 0.52
@@ -155,7 +155,8 @@ function StatPill({ value, label, color, size = 72 }: {
   )
 }
 
-// ── NetWidget — directional throughput display ────────────────────────────────
+// ── CrossNetWidget — percent-sign style network display ──────────────────────
+// Top-left: egress (green), diagonal arrow ↗. Bottom-right: ingress (orange), diagonal arrow ↙
 function NetWidget({ rxMbs, txMbs, size = 72 }: { rxMbs: number; txMbs: number; size?: number }) {
   function fmt(n: number) {
     if (n >= 1000) return `${(n/1000).toFixed(1)}G`
@@ -163,22 +164,50 @@ function NetWidget({ rxMbs, txMbs, size = 72 }: { rxMbs: number; txMbs: number; 
     if (n > 0) return `${(n*1000).toFixed(0)}K`
     return '0'
   }
+  const w = size; const h = size * 0.85
+  const pad = 10  // more padding = shorter lines
+  const gap = 7   // gap between the two diagonal lines
+  // Egress: full line BL→TR, then trim 20% from start (move start 20% toward end)
+  const ex1_full = pad; const ey1_full = h - pad
+  const ex2 = w - pad; const ey2 = pad
+  const ex1 = ex1_full + (ex2 - ex1_full) * 0.20
+  const ey1 = ey1_full + (ey2 - ey1_full) * 0.20
+  // Ingress: full line TR→BL, trim 20% from start (move start 20% toward end)
+  const ix1_full = w - pad; const iy1_full = pad + gap
+  const ix2 = pad; const iy2 = h - pad + gap
+  const ix1 = ix1_full + (ix2 - ix1_full) * 0.20
+  const iy1 = iy1_full + (iy2 - iy1_full) * 0.20
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
-      justifyContent: 'center', width: size, height: size * 0.7,
-      background: 'var(--surface2)', borderRadius: 10,
-      border: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-        <span style={{ color: 'var(--green)', fontSize: 8 }}>↓</span>
-        <span style={{ fontSize: size < 60 ? 8 : 10, fontFamily: 'DM Mono, monospace',
-          color: 'var(--green)', fontWeight: 600, minWidth: '4ch', textAlign: 'right' }}>{fmt(rxMbs)}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 2 }}>
-        <span style={{ color: 'var(--amber)', fontSize: 8 }}>↑</span>
-        <span style={{ fontSize: size < 60 ? 8 : 10, fontFamily: 'DM Mono, monospace',
-          color: 'var(--amber)', fontWeight: 600, minWidth: '4ch', textAlign: 'right' }}>{fmt(txMbs)}</span>
-      </div>
-      <span style={{ fontSize: 7, color: 'var(--text-dim)', marginTop: 3 }}>net</span>
+    <div style={{ position: 'relative', width: size, display: 'flex',
+      flexDirection: 'column', alignItems: 'center' }}>
+      <svg width={w} height={h} style={{ overflow: 'visible' }}>
+        <defs>
+          <marker id="arrowG" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto">
+            <path d="M0,0 L5,2.5 L0,5 Z" fill="var(--green)" />
+          </marker>
+          <marker id="arrowA" markerWidth="5" markerHeight="5" refX="2.5" refY="2.5" orient="auto">
+            <path d="M0,0 L5,2.5 L0,5 Z" fill="var(--amber)" />
+          </marker>
+        </defs>
+        {/* Egress line BL → TR (green) */}
+        <line x1={ex1} y1={ey1} x2={ex2} y2={ey2}
+          stroke="var(--green)" strokeWidth={2.5} strokeLinecap="round"
+          markerEnd="url(#arrowG)" opacity={0.85} />
+        {/* Ingress line TR → BL (amber) — offset below */}
+        <line x1={ix1} y1={iy1} x2={ix2} y2={iy2}
+          stroke="var(--amber)" strokeWidth={2.5} strokeLinecap="round"
+          markerEnd="url(#arrowA)" opacity={0.85} />
+        {/* Egress value — top left */}
+        <text x={pad-2} y={ey2+2} fontSize={size < 60 ? 9 : 10}
+          fontFamily="DM Mono, monospace" fill="var(--green)" fontWeight="700"
+          dominantBaseline="hanging">{fmt(txMbs)}</text>
+        {/* Ingress value — bottom right */}
+        <text x={w-pad+2} y={iy2} fontSize={size < 60 ? 9 : 10}
+          fontFamily="DM Mono, monospace" fill="var(--amber)" fontWeight="700"
+          textAnchor="end" dominantBaseline="auto">{fmt(rxMbs)}</text>
+      </svg>
+      <span style={{ fontSize: 8, color: 'var(--text-dim)', marginTop: 2,
+        fontFamily: 'DM Mono, monospace' }}>net</span>
     </div>
   )
 }
@@ -286,30 +315,31 @@ export default function TrueNASPanel({ panel, heightUnits }: { panel: Panel; hei
   )
 
   // ── Row 1 arcs: CPU, Disk I/O, Temp ──────────────────────────────────────
+  // Row 1: CPU, RAM, IOPS — core metrics first like Proxmox
   const Row1Arcs = ({ size = 72 }: { size?: number }) => (
     <ArcRow>
       <Arc pct={data.cpuPercent} label={`${(data.cpuPercent ?? 0).toFixed(0)}%`} sub="cpu" size={size} />
-      <Arc pct={data.diskBusy} label={`${(data.diskBusy ?? 0).toFixed(0)}%`}
-        sub={(data.diskReadMbs ?? 0) > 0 ? `↓${fmtMbs((data.diskReadMbs ?? 0))}` : 'disk'} size={size} />
-      {avgDiskTemp > 0 && (
-        <Thermometer tempC={avgDiskTemp} label="disk temp" size={size} />
-      )}
-      {(data.cpuTempC ?? 0) > 0 && avgDiskTemp === 0 && (
-        <Thermometer tempC={data.cpuTempC} label="cpu temp" size={size} />
-      )}
+      <Arc pct={data.ramPercent} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
+        sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
+      <Arc pct={Math.min(data.diskBusy ?? 0, 100)}
+        label={`io ${(data.diskBusy ?? 0).toFixed(0)}%`}
+        sub={(data.diskReadMbs ?? 0) > 0 ? `↓${fmtMbs((data.diskReadMbs ?? 0))}` : 'disk busy'} size={size} />
     </ArcRow>
   )
 
-  // ── Row 2 arcs: RAM, ARC, Network ────────────────────────────────────────
+  // Row 2: Temp, Network, ARC
   const Row2Arcs = ({ size = 72 }: { size?: number }) => (
     <ArcRow>
-      <Arc pct={data.ramPercent} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
-        sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
-      {(data.arcUsedGb ?? 0) > 0 && (
-        <StatPill value={fmtSize(data.arcUsedGb)} label="arc" color="var(--accent)" size={size} />
-      )}
+      {avgDiskTemp > 0
+        ? <Thermometer tempC={avgDiskTemp} label="disk temp" size={size} />
+        : (data.cpuTempC ?? 0) > 0
+          ? <Thermometer tempC={data.cpuTempC} label="cpu temp" size={size} />
+          : null}
       {(totalRxMbs > 0 || totalTxMbs > 0) && (
         <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} size={size} />
+      )}
+      {(data.arcUsedGb ?? 0) > 0 && (
+        <StatPill value={fmtSize(data.arcUsedGb)} label="arc" color="var(--accent)" size={size} />
       )}
     </ArcRow>
   )
