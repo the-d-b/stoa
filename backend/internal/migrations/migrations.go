@@ -530,6 +530,16 @@ var migrations = []migration{
 			last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 31,
+		name:    "chat_messages",
+		up: `CREATE TABLE chat_messages (
+			id         TEXT PRIMARY KEY,
+			user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			text       TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
 }
 
 func Run(db *sql.DB) error {

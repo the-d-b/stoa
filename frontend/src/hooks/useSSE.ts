@@ -8,6 +8,7 @@ type SSEListener = (data: unknown) => void
 
 interface SSEManager {
   subscribe: (integrationId: string, cb: SSEListener) => () => void
+  subscribeChat: (cb: (data: unknown) => void) => () => void
   isConnected: () => boolean
 }
 
@@ -19,6 +20,8 @@ function getSSEManager(): SSEManager {
   const listeners = new Map<string, Set<SSEListener>>()
   let connected = false
   let es: EventSource | null = null
+
+  const chatListeners = new Set<(data: unknown) => void>()
 
   function connect() {
     const token = localStorage.getItem('stoa_token')
@@ -40,10 +43,16 @@ function getSSEManager(): SSEManager {
       }
     })
 
+    es.addEventListener('chat', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data)
+        chatListeners.forEach(cb => cb(data))
+      } catch {}
+    })
+
     es.onerror = () => {
       connected = false
       es?.close()
-      // Reconnect after 5 seconds
       setTimeout(connect, 5000)
     }
   }
@@ -59,6 +68,10 @@ function getSSEManager(): SSEManager {
       return () => {
         listeners.get(integrationId)?.delete(cb)
       }
+    },
+    subscribeChat(cb: (data: unknown) => void) {
+      chatListeners.add(cb)
+      return () => chatListeners.delete(cb)
     },
     isConnected: () => connected,
   }
@@ -95,4 +108,15 @@ export function useSSEConnected(): boolean {
     return () => clearInterval(interval)
   }, [])
   return connected
+}
+
+// ── useChatSSE hook ───────────────────────────────────────────────────────────
+// Calls cb whenever a chat message arrives via SSE
+export function useChatSSE(cb: (msg: unknown) => void) {
+  const cbRef = useRef(cb)
+  cbRef.current = cb
+  useEffect(() => {
+    const mgr = getSSEManager()
+    return mgr.subscribeChat((data) => cbRef.current(data))
+  }, [])
 }

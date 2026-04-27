@@ -498,6 +498,20 @@ export interface SessionRow {
   issuedAt: string; expiresAt?: string; lastSeenAt: string; online: boolean
 }
 
+export interface ChatMessage {
+  id: string; userId: string; username: string; avatarUrl?: string
+  text: string; createdAt: string; own?: boolean
+}
+export interface PresenceUser {
+  userId: string; username: string; avatarUrl?: string; online: boolean
+}
+
+export const chatApi = {
+  messages: () => api.get<ChatMessage[]>('/chat/messages'),
+  send: (text: string) => api.post<ChatMessage>('/chat/messages', { text }),
+  presence: () => api.get<PresenceUser[]>('/chat/presence'),
+}
+
 export const sessionsApi = {
   list: (days?: '1'|'7'|'30') =>
     api.get<SessionRow[]>(`/sessions${days ? `?days=${days}` : ''}`),

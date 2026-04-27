@@ -115,6 +115,11 @@ func main() {
 
 	// Sessions route registered after admin subrouter is declared (see below)
 
+	// Chat
+	protected.HandleFunc("/chat/messages", handlers.GetChatMessages(database)).Methods("GET")
+	protected.HandleFunc("/chat/messages", handlers.SendChatMessage(database)).Methods("POST")
+	protected.HandleFunc("/chat/presence", handlers.GetChatPresence(database)).Methods("GET")
+
 	// RSS panel — proxy fetch with 5m cache, no integration needed
 	protected.HandleFunc("/rss-panel", handlers.GetRSSPanelData).Methods("GET")
 

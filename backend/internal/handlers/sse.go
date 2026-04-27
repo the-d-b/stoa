@@ -23,7 +23,9 @@ type sseClient struct {
 
 type sseEvent struct {
 	IntegrationID string
+	Event         string // custom event name (e.g. "chat"), empty = "cache-update"
 	Data          interface{}
+	RawData       string // pre-serialized JSON, used when Event is set
 }
 
 var (
@@ -96,12 +98,22 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		MarkUserOnline(claims.UserID)
 		go UpdateLastSeen(db, claims.UserID)
 
+		// Register chat broadcast listener for this client
+		unregisterChat := RegisterChatListener(func(msg ChatMessage) {
+			b, _ := json.Marshal(msg)
+			select {
+			case client.ch <- sseEvent{Event: "chat", RawData: string(b)}:
+			default:
+			}
+		})
+
 		// Notify worker manager — spins up workers if this is the first client
 		if GlobalWorkerManager != nil {
 			GlobalWorkerManager.ClientConnected()
 		}
 
 		defer func() {
+			unregisterChat()
 			sseMu.Lock()
 			delete(sseClients, clientID)
 			sseMu.Unlock()
@@ -150,14 +162,19 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 				fmt.Fprintf(w, ": heartbeat\n\n")
 				flusher.Flush()
 			case evt := <-client.ch:
-				data, err := json.Marshal(map[string]interface{}{
-					"integrationId": evt.IntegrationID,
-					"data":          evt.Data,
-				})
-				if err != nil {
-					continue
+				if evt.Event != "" {
+					// Custom event (e.g. chat)
+					fmt.Fprintf(w, "event: %s\ndata: %s\n\n", evt.Event, evt.RawData)
+				} else {
+					data, err := json.Marshal(map[string]interface{}{
+						"integrationId": evt.IntegrationID,
+						"data":          evt.Data,
+					})
+					if err != nil {
+						continue
+					}
+					fmt.Fprintf(w, "event: cache-update\ndata: %s\n\n", string(data))
 				}
-				fmt.Fprintf(w, "event: cache-update\ndata: %s\n\n", string(data))
 				flusher.Flush()
 			}
 		}

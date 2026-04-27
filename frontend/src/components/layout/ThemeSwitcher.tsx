@@ -13,7 +13,7 @@ export default function ThemeSwitcher() {
   const lightThemes = THEMES.filter(t => !t.dark)
 
   return (
-    <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 200 }}>
+    <div style={{ position: 'fixed', bottom: 52, right: 20, zIndex: 200 }}>
       {open && (
         <div style={{
           position: 'absolute', bottom: 48, right: 0,

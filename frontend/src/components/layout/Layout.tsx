@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
+import ChatPanel from './ChatPanel'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
 
 export default function Layout() {
@@ -16,6 +17,7 @@ export default function Layout() {
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
   const [tickers, setTickers] = useState<any[]>([])
   const [activePorticoId, setActivePorticoId] = useState(() => sessionStorage.getItem('active_portico') || 'home')
+  const [chatOpen, setChatOpen] = useState(false)
 
   const location = useLocation()
 
@@ -55,6 +57,7 @@ export default function Layout() {
   const modeLoaded = useUserModeLoaded()
 
   return (
+    <>
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
       {/* Header */}
       <header style={{
@@ -194,11 +197,24 @@ export default function Layout() {
           </div>
           {/* Center */}
           <GlyphZone glyphs={glyphs} zone="footer-center" activePorticoId={activePorticoId} />
-          {/* Right: footer-right glyphs anchored to right edge */}
-          <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
+          {/* Right: footer-right glyphs then chat icon at far right */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
+            <button onClick={() => setChatOpen(v => !v)} title="Chat"
+              style={{
+                width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
+                background: chatOpen ? 'var(--accent-bg)' : 'var(--surface)',
+                color: chatOpen ? 'var(--accent2)' : 'var(--text-dim)',
+                cursor: 'pointer', fontSize: 15, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>💬</button>
+          </div>
         </div>
         </footer>
       </div>
     </div>
+    <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)}
+      currentUserId={user?.id || ''} />
+    </>
   )
 }
