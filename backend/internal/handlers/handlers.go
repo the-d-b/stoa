@@ -205,7 +205,7 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		var email sql.NullString
 		err := db.QueryRow(`
 			SELECT id, username, email, role, auth_provider, password_hash
-			FROM users WHERE username = ? AND auth_provider = 'local'
+			FROM users WHERE username = ? AND auth_provider = 'local' AND enabled = 1
 		`, req.Username).Scan(&user.ID, &user.Username, &email, &user.Role, &user.AuthProvider, &hash)
 
 		if err != nil {

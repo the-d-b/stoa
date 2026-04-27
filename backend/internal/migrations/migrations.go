@@ -467,6 +467,13 @@ var migrations = []migration{
 			);
 		`,
 	},
+	{
+		version: 22,
+		name:    "users_enabled",
+		up: `
+			ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {

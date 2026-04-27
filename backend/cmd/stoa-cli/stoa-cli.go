@@ -268,18 +268,97 @@ func configSetMode(dbPath string, args []string) {
 	db := openDB(dbPath)
 	defer db.Close()
 
-	mode := ""
-	if len(args) > 0 {
-		mode = args[0]
-	} else {
-		mode = prompt("Mode (single/multi)", false)
+	if len(args) == 0 {
+		fatalf("Usage: stoa-cli config set-mode <single|multi> [--user <username>] [--no-auth]\n")
 	}
+	mode := args[0]
 	if mode != "single" && mode != "multi" {
 		fatalf("mode must be 'single' or 'multi'\n")
 	}
 
-	db.Exec("UPDATE app_config SET value=? WHERE key='user_mode'", mode)
-	fmt.Printf("✓ User mode set to '%s'\n", mode)
+	if mode == "multi" {
+		// Re-enable all users
+		db.Exec("UPDATE users SET enabled=1 WHERE id != 'SYSTEM'")
+		db.Exec("DELETE FROM app_config WHERE key='auto_login_user_id'")
+		db.Exec(`INSERT INTO app_config (key, value) VALUES ('user_mode', 'multi')
+			ON CONFLICT(key) DO UPDATE SET value='multi'`)
+		fmt.Println("✓ Switched to multi-user mode")
+		fmt.Println("  All user accounts re-enabled")
+		return
+	}
+
+	// Single mode — require --user
+	username := ""
+	noAuth := false
+	for i := 1; i < len(args); i++ {
+		switch args[i] {
+		case "--user":
+			if i+1 >= len(args) { fatalf("--user requires a username\n") }
+			i++
+			username = args[i]
+		case "--no-auth":
+			noAuth = true
+		}
+	}
+	if username == "" {
+		fatalf("single mode requires --user <username>\nUsage: stoa-cli config set-mode single --user <username> [--no-auth]\n")
+	}
+
+	// Validate user exists
+	var userID, role string
+	err := db.QueryRow("SELECT id, role FROM users WHERE username=? AND id != 'SYSTEM'", username).Scan(&userID, &role)
+	if err != nil {
+		fatalf("user %q not found\n", username)
+	}
+
+	// Count other users
+	var otherCount int
+	db.QueryRow("SELECT COUNT(*) FROM users WHERE id != 'SYSTEM' AND id != ?", userID).Scan(&otherCount)
+
+	// Confirm
+	authDesc := "login required"
+	if noAuth { authDesc = "no login required (auto-login)" }
+	fmt.Printf("\nSwitching to single-user mode:\n")
+	fmt.Printf("  Single user : %s (role: %s)\n", username, role)
+	fmt.Printf("  Auth        : %s\n", authDesc)
+	if otherCount > 0 {
+		fmt.Printf("  Other users : %d account(s) will be disabled (data preserved)\n", otherCount)
+	}
+	fmt.Printf("\nProceed? [y/N] ")
+	var confirm string
+	fmt.Scanln(&confirm)
+	if confirm != "y" && confirm != "Y" {
+		fmt.Println("Aborted.")
+		return
+	}
+
+	// Apply
+	db.Exec(`INSERT INTO app_config (key, value) VALUES ('user_mode', 'single')
+		ON CONFLICT(key) DO UPDATE SET value='single'`)
+
+	if noAuth {
+		db.Exec(`INSERT INTO app_config (key, value) VALUES ('auto_login_user_id', ?)
+			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, userID)
+	} else {
+		db.Exec("DELETE FROM app_config WHERE key='auto_login_user_id'")
+	}
+
+	// Disable other users
+	if otherCount > 0 {
+		db.Exec("UPDATE users SET enabled=0 WHERE id != 'SYSTEM' AND id != ?", userID)
+	}
+	// Ensure designated user is enabled
+	db.Exec("UPDATE users SET enabled=1 WHERE id=?", userID)
+
+	fmt.Printf("\n✓ Switched to single-user mode (user: %s)\n", username)
+	if noAuth {
+		fmt.Println("  Auto-login enabled — no password required")
+	} else {
+		fmt.Println("  Login required — use your existing password")
+	}
+	if otherCount > 0 {
+		fmt.Printf("  %d other account(s) disabled (re-enable with: stoa-cli config set-mode multi)\n", otherCount)
+	}
 }
 
 func configShow(dbPath string) {
@@ -774,7 +853,8 @@ User commands:
 
 Config commands:
   config show                      Show all app config values
-  config set-mode <single|multi>   Switch between single and multi user mode
+  config set-mode single --user <username> [--no-auth]   Switch to single-user mode
+  config set-mode multi                                  Switch to multi-user mode
 
 Geo-IP commands:
   geo stats                        Show geo-IP cache statistics
@@ -795,6 +875,8 @@ Bookmark commands:
 Examples:
   stoa-cli user list
   stoa-cli user reset-password admin
+  stoa-cli config set-mode single --user admin
+  stoa-cli config set-mode single --user admin --no-auth
   stoa-cli config set-mode multi
   stoa-cli geo prune --older-than 90d
   stoa-cli db backup /data/backup-2026.db
