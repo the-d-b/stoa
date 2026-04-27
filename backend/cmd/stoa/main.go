@@ -113,6 +113,18 @@ func main() {
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
 	protected.HandleFunc("/panels/custom-columns", handlers.GetCustomColumns(database)).Methods("GET")
 
+	// RSS panel — proxy fetch with 5m cache, no integration needed
+	protected.HandleFunc("/rss-panel", handlers.GetRSSPanelData).Methods("GET")
+
+	// Notes panel CRUD
+	protected.HandleFunc("/notes/{panelId}", handlers.ListNotes(database)).Methods("GET")
+	protected.HandleFunc("/notes/{panelId}", handlers.CreateNote(database)).Methods("POST")
+	// More specific routes first so gorilla mux doesn't swallow /activity and /read
+	protected.HandleFunc("/notes/note/{id}/activity", handlers.GetNoteActivity(database)).Methods("GET")
+	protected.HandleFunc("/notes/note/{id}/read", handlers.TrackNoteRead(database)).Methods("POST")
+	protected.HandleFunc("/notes/note/{id}", handlers.UpdateNote(database)).Methods("PUT")
+	protected.HandleFunc("/notes/note/{id}", handlers.DeleteNote(database)).Methods("DELETE")
+
 	// Checklist panel CRUD — panel_id scoped, shared across users with panel access
 	protected.HandleFunc("/checklist/{panelId}", handlers.ListChecklistItems(database)).Methods("GET")
 	protected.HandleFunc("/checklist/{panelId}", handlers.CreateChecklistItem(database)).Methods("POST")

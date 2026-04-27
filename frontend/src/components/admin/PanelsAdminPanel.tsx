@@ -59,6 +59,35 @@ const PANEL_NEEDS_INTEGRATION: Record<string, string> = {
   // bookmarks, calendar: no integration needed
 }
 
+function RSSFeedURLEditor({ panelId, panelTitle, initialUrl, initialUiUrl, onSave }: {
+  panelId: string; panelTitle: string; initialUrl: string; initialUiUrl: string; onSave: () => void
+}) {
+  const [url, setUrl] = useState(initialUrl)
+  const [uiUrl, setUiUrl] = useState(initialUiUrl)
+  const [saving, setSaving] = useState(false)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+      <label className="label">Feed URL</label>
+      <input className="input" type="url" value={url} onChange={e => setUrl(e.target.value)}
+        placeholder="https://example.com/feed.xml" style={{ fontSize: 12 }} />
+      <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — e.g. your FreshRSS instance)</span></label>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input className="input" type="url" value={uiUrl} onChange={e => setUiUrl(e.target.value)}
+          placeholder="https://freshrss.example.com" style={{ flex: 1, fontSize: 12 }} />
+        <button className="btn btn-primary" style={{ fontSize: 12 }} disabled={saving}
+          onClick={async () => {
+            setSaving(true)
+            const cfg = { feedUrl: url, uiUrl }
+            await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify(cfg) })
+            setSaving(false); onSave()
+          }}>
+          {saving ? <span className="spinner" /> : 'Save'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -180,6 +209,7 @@ export default function PanelsAdminPanel() {
                 const PANEL_LABELS: Record<string,string> = {
                   authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar', checklist:'Checklist',
                   customapi:'Custom API', gluetun:'Gluetun', iframe:'Web Embed',
+                  notes:'Notes', rss:'RSS Feed',
                   kuma:'Uptime Kuma', lidarr:'Lidarr', opnsense:'OPNsense',
                   photoprism:'PhotoPrism', plex:'Plex', proxmox:'Proxmox',
                   radarr:'Radarr', sonarr:'Sonarr', tautulli:'Tautulli',
@@ -452,6 +482,14 @@ export default function PanelsAdminPanel() {
                         isSystem={true}
                       />
                   </div>
+                )
+              })()}
+
+              {p.type === 'rss' && (() => {
+                const cfg = safeParseConfig(p.config)
+                return (
+                  <RSSFeedURLEditor panelId={p.id} panelTitle={p.title}
+                    initialUrl={cfg.feedUrl || ''} initialUiUrl={cfg.uiUrl || ''} onSave={load} />
                 )
               })()}
 

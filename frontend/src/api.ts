@@ -479,6 +479,31 @@ export interface ChecklistItem {
   completedAt?: string; createdBy?: string; createdAt: string
 }
 
+export interface Note {
+  id: string; panelId: string; title: string; body: string
+  createdAt: string; updatedAt: string
+}
+
+export interface NoteActivityUser {
+  userId: string; username: string; avatarUrl?: string
+  lastReadAt?: string; lastEditAt?: string
+}
+
+export const rssPanelApi = {
+  fetch: (url: string) => api.get<{items: {title:string;link:string}[]}>(`/rss-panel?url=${encodeURIComponent(url)}`),
+}
+
+export const notesApi = {
+  list:     (panelId: string, sort?: 'asc'|'desc') =>
+    api.get<Note[]>(`/notes/${panelId}?sort=${sort || 'desc'}`),
+  create:   (panelId: string) => api.post<{id: string}>(`/notes/${panelId}`, {}),
+  update:   (id: string, title: string, body: string) =>
+    api.put(`/notes/note/${id}`, { title, body }),
+  delete:   (id: string) => api.delete(`/notes/note/${id}`),
+  activity: (id: string) => api.get<NoteActivityUser[]>(`/notes/note/${id}/activity`),
+  trackRead:(id: string) => api.post(`/notes/note/${id}/read`, {}),
+}
+
 export const checklistApi = {
   list:   (panelId: string) => api.get<ChecklistItem[]>(`/checklist/${panelId}`),
   create: (panelId: string, text: string, dueDate?: string) =>

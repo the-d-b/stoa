@@ -3209,6 +3209,8 @@ function PersonalTagsTab() {
 const PANEL_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',              needsIntegration: true  },
   { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',       needsIntegration: false },
+  { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',       needsIntegration: false },
+  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',      needsIntegration: false },
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
@@ -3665,6 +3667,20 @@ function MyPanelsTab() {
                       </>
                     )
                   })()}
+                  {p.type === 'rss' && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <label className="label">Feed URL</label>
+                      <input className="input" type="url" style={{ fontSize: 12 }}
+                        defaultValue={cfg.feedUrl || ''}
+                        onChange={e => { cfg.feedUrl = e.target.value }}
+                        placeholder="https://example.com/feed.xml" />
+                      <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+                      <input className="input" type="url" style={{ fontSize: 12 }}
+                        defaultValue={cfg.uiUrl || ''}
+                        onChange={e => { cfg.uiUrl = e.target.value }}
+                        placeholder="https://freshrss.example.com" />
+                    </div>
+                  )}
                   {p.type === 'opnsense' && (
                     <IfaceCapEditor initialCaps={cfg.ifaceCaps || {}} onChange={caps => {
                       cfg.ifaceCaps = caps

@@ -20,6 +20,8 @@ import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import CustomAPIPanel from '../components/panels/CustomAPIPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
+import NotesPanel from '../components/panels/NotesPanel'
+import RSSPanel from '../components/panels/RSSPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -790,6 +792,8 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
           {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'authentik' && <AuthentikPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'checklist' && <ChecklistPanel panel={panel} />}
+          {panel.type === 'notes' && <NotesPanel panel={panel} />}
+          {panel.type === 'rss' && <RSSPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

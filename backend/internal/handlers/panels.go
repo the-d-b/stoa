@@ -77,12 +77,14 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
 			p.Tags = loadPanelTags(db, p.ID)
-			// Enrich with uiUrl from the panel's integration
+			// Enrich with uiUrl from integration or directly from config (e.g. RSS panels)
 			if cfg := parsePanelConfig(p.Config); cfg != nil {
 				if iid, _ := cfg["integrationId"].(string); iid != "" {
 					var uiURL string
 					db.QueryRow("SELECT ui_url FROM integrations WHERE id=?", iid).Scan(&uiURL)
 					p.UIUrl = uiURL
+				} else if u, _ := cfg["uiUrl"].(string); u != "" {
+					p.UIUrl = u
 				}
 			}
 
@@ -420,12 +422,14 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 			var p models.Panel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope, &p.CreatedBy, &p.CreatedAt)
 			p.Tags = loadPanelTags(db, p.ID)
-			// Enrich with uiUrl from the panel's integration
+			// Enrich with uiUrl from integration or directly from config (e.g. RSS panels)
 			if cfg := parsePanelConfig(p.Config); cfg != nil {
 				if iid, _ := cfg["integrationId"].(string); iid != "" {
 					var uiURL string
 					db.QueryRow("SELECT ui_url FROM integrations WHERE id=?", iid).Scan(&uiURL)
 					p.UIUrl = uiURL
+				} else if u, _ := cfg["uiUrl"].(string); u != "" {
+					p.UIUrl = u
 				}
 			}
 			panels = append(panels, p)

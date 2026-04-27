@@ -41,9 +41,10 @@ export default function SearchModal({ allNodes }: Props) {
   // Open on any printable keypress (not in an input)
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      // Ignore if already in an input/textarea
+      // Ignore if already in an input/textarea/contenteditable
       const tag = (e.target as HTMLElement).tagName
       if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+      if ((e.target as HTMLElement).isContentEditable) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if (e.key === 'Escape') { setOpen(false); setQuery(''); return }
 

@@ -438,6 +438,35 @@ var migrations = []migration{
 			CREATE INDEX IF NOT EXISTS idx_checklist_panel ON checklist_items(panel_id);
 		`,
 	},
+	{
+		version: 20,
+		name:    "notes",
+		up: `
+			CREATE TABLE IF NOT EXISTS notes (
+				id         TEXT PRIMARY KEY,
+				panel_id   TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+				title      TEXT NOT NULL DEFAULT 'Untitled',
+				body       TEXT NOT NULL DEFAULT '',
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			);
+			CREATE INDEX IF NOT EXISTS idx_notes_panel ON notes(panel_id);
+		`,
+	},
+	{
+		version: 21,
+		name:    "note_activity",
+		up: `
+			ALTER TABLE notes ADD COLUMN updated_by TEXT DEFAULT NULL;
+			CREATE TABLE IF NOT EXISTS note_activity (
+				note_id       TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+				user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				last_read_at  DATETIME DEFAULT NULL,
+				last_edit_at  DATETIME DEFAULT NULL,
+				PRIMARY KEY (note_id, user_id)
+			);
+		`,
+	},
 }
 
 func Run(db *sql.DB) error {
