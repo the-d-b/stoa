@@ -70,12 +70,6 @@ export default function GlyphZone({ glyphs, zone, activePorticoId = 'home', styl
     })
     .sort((a, b) => a.position - b.position)
 
-  // Debug: log when glyphs array changes
-  if (glyphs.length > 0) {
-    console.log(`[GlyphZone:${zone}] total=${glyphs.length} enabled-in-zone=${zoneGlyphs.length}`,
-      glyphs.map(g => `${g.type}@${g.zone}(enabled=${g.enabled})`))
-  }
-
   if (zoneGlyphs.length === 0) return null
 
   return (

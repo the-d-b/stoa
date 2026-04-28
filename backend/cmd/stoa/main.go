@@ -58,6 +58,9 @@ func main() {
 	api.PathPrefix("/icons/").HandlerFunc(handlers.ServeIcon(iconsDir))
 	api.HandleFunc("/auth/google/callback", handlers.GoogleOAuthCallback(database)).Methods("GET")
 
+	// ── Health check (public) ───────────────────────────────
+	api.HandleFunc("/health", handlers.HealthCheck(database)).Methods("GET")
+
 	// ── Protected (any authenticated user) ───────────────
 	protected := api.PathPrefix("").Subrouter()
 	protected.Use(authService.Middleware)

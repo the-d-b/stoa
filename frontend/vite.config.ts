@@ -12,17 +12,7 @@ export default defineConfig({
         secure: false,
         ws: true,
         compress: false,
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq, req) => {
-            console.log('[PROXY]', req.method, req.url, '->', 'http://localhost:8080' + req.url)
-          })
-          proxy.on('proxyRes', (proxyRes, req) => {
-            console.log('[PROXY]', req.method, req.url, '<-', proxyRes.statusCode)
-          })
-          proxy.on('error', (err, req) => {
-            console.log('[PROXY ERROR]', req.method, req.url, err.message)
-          })
-        },
+
       },
     },
   },

@@ -199,13 +199,14 @@ func StopWorkerForIntegration(integrationID string) {
 
 type integrationMeta struct {
 	id          string
+	name        string
 	igType      string
 	refreshSecs int
 }
 
 func loadAllIntegrations(db *sql.DB) ([]integrationMeta, error) {
 	rows, err := db.Query(`
-		SELECT id, type, COALESCE(refresh_secs, 60)
+		SELECT id, COALESCE(name,''), type, COALESCE(refresh_secs, 60)
 		FROM integrations
 		WHERE enabled = 1
 	`)
@@ -216,7 +217,7 @@ func loadAllIntegrations(db *sql.DB) ([]integrationMeta, error) {
 	var result []integrationMeta
 	for rows.Next() {
 		var ig integrationMeta
-		if err := rows.Scan(&ig.id, &ig.igType, &ig.refreshSecs); err != nil {
+		if err := rows.Scan(&ig.id, &ig.name, &ig.igType, &ig.refreshSecs); err != nil {
 			continue
 		}
 		if ig.refreshSecs < 15 {
@@ -286,8 +287,10 @@ func refreshCache(db *sql.DB, ig integrationMeta) {
 	data, err := fetcher(db, config)
 	if err != nil {
 		log.Printf("[CACHE] refresh error %s (%s): %v", ig.id, ig.igType, err)
+		RecordIntegrationError(ig.id, ig.name, err.Error())
 		return
 	}
+	ClearIntegrationError(ig.id)
 	cacheSet(ig.id, data)
 	log.Printf("[CACHE] refreshed %s (%s)", ig.id, ig.igType)
 }

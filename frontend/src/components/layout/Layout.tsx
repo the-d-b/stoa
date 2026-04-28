@@ -32,7 +32,6 @@ export default function Layout() {
     const loadGlyphs = () => {
       tickersApi.list().then(r => setTickers(r.data || [])).catch(() => {})
       glyphsApi.list().then(r => {
-        console.log('[Layout] glyphs loaded:', r.data?.length)
         setGlyphs(r.data || [])
       }).catch(() => {})
     }

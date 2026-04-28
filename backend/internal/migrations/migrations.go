@@ -9,7 +9,8 @@ import (
 type migration struct {
 	version int
 	name    string
-	up      string
+	up      string    // single SQL statement
+	stmts   []string  // multiple statements (use when up would need semicolons)
 }
 
 var migrations = []migration{
@@ -424,103 +425,53 @@ var migrations = []migration{
 	{
 		version: 19,
 		name:    "checklist_items",
-		up: `
-			CREATE TABLE IF NOT EXISTS checklist_items (
-				id           TEXT PRIMARY KEY,
-				panel_id     TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
-				text         TEXT NOT NULL,
-				due_date     TEXT DEFAULT NULL,
-				completed    INTEGER NOT NULL DEFAULT 0,
-				completed_at DATETIME DEFAULT NULL,
-				created_by   TEXT DEFAULT NULL,
-				created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
-			);
-		`,
+		up: `CREATE TABLE IF NOT EXISTS checklist_items (
+			id           TEXT PRIMARY KEY,
+			panel_id     TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+			text         TEXT NOT NULL,
+			due_date     TEXT DEFAULT NULL,
+			completed    INTEGER NOT NULL DEFAULT 0,
+			completed_at DATETIME DEFAULT NULL,
+			created_by   TEXT DEFAULT NULL,
+			created_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	},
 	{
 		version: 20,
 		name:    "notes",
-		up: `
-			CREATE TABLE IF NOT EXISTS notes (
-				id         TEXT PRIMARY KEY,
-				panel_id   TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
-				title      TEXT NOT NULL DEFAULT 'Untitled',
-				body       TEXT NOT NULL DEFAULT '',
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-			);
-		`,
+		up: `CREATE TABLE IF NOT EXISTS notes (
+			id         TEXT PRIMARY KEY,
+			panel_id   TEXT NOT NULL REFERENCES panels(id) ON DELETE CASCADE,
+			title      TEXT NOT NULL DEFAULT 'Untitled',
+			body       TEXT NOT NULL DEFAULT '',
+			updated_by TEXT DEFAULT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
 	},
 	{
 		version: 21,
 		name:    "note_activity",
-		up: `
-			ALTER TABLE notes ADD COLUMN updated_by TEXT DEFAULT NULL;
-			CREATE TABLE IF NOT EXISTS note_activity (
-				note_id       TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
-				user_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-				last_read_at  DATETIME DEFAULT NULL,
-				last_edit_at  DATETIME DEFAULT NULL,
+		stmts: []string{
+			`CREATE TABLE IF NOT EXISTS note_activity (
+				note_id      TEXT NOT NULL REFERENCES notes(id) ON DELETE CASCADE,
+				user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				last_read_at DATETIME DEFAULT NULL,
+				last_edit_at DATETIME DEFAULT NULL,
 				PRIMARY KEY (note_id, user_id)
-			);
-		`,
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_note_activity_note ON note_activity(note_id)`,
+		},
 	},
 	{
 		version: 22,
 		name:    "users_enabled",
-		up: `
-			ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1;
-		`,
+		up: `ALTER TABLE users ADD COLUMN enabled INTEGER NOT NULL DEFAULT 1`,
 	},
 	{
 		version: 23,
 		name:    "sessions",
-		up: `
-			CREATE TABLE IF NOT EXISTS sessions (
-				id           TEXT PRIMARY KEY,
-				user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-				ip           TEXT,
-				user_agent   TEXT,
-				issued_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
-				expires_at   DATETIME,
-				last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
-			)
-		`,
-	},
-	{
-		version: 24,
-		name:    "sessions_ip",
-		up: `ALTER TABLE sessions ADD COLUMN ip TEXT`,
-	},
-	{
-		version: 25,
-		name:    "sessions_ua",
-		up: `ALTER TABLE sessions ADD COLUMN user_agent TEXT`,
-	},
-	{
-		version: 26,
-		name:    "sessions_noop",
-		up: `SELECT 1`,
-	},
-	{
-		version: 27,
-		name:    "sessions_lastseen_noop",
-		up: `SELECT 1`,
-	},
-	{
-		version: 28,
-		name:    "sessions_noop2",
-		up: `SELECT 1`,
-	},
-	{
-		version: 29,
-		name:    "sessions_drop",
-		up: `DROP TABLE sessions`,
-	},
-	{
-		version: 30,
-		name:    "sessions_recreate",
-		up: `CREATE TABLE sessions (
+		up: `CREATE TABLE IF NOT EXISTS sessions (
 			id           TEXT PRIMARY KEY,
 			user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			ip           TEXT,
@@ -531,9 +482,24 @@ var migrations = []migration{
 		)`,
 	},
 	{
-		version: 31,
+		version: 24,
+		name:    "sessions_index",
+		up: `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`,
+	},
+	{
+		version: 25,
+		name:    "checklist_index",
+		up: `CREATE INDEX IF NOT EXISTS idx_checklist_panel ON checklist_items(panel_id)`,
+	},
+	{
+		version: 26,
+		name:    "notes_index",
+		up: `CREATE INDEX IF NOT EXISTS idx_notes_panel ON notes(panel_id)`,
+	},
+	{
+		version: 27,
 		name:    "chat_messages",
-		up: `CREATE TABLE chat_messages (
+		up: `CREATE TABLE IF NOT EXISTS chat_messages (
 			id         TEXT PRIMARY KEY,
 			user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 			text       TEXT NOT NULL,
@@ -541,6 +507,8 @@ var migrations = []migration{
 		)`,
 	},
 }
+
+func min(a, b int) int { if a < b { return a }; return b }
 
 func Run(db *sql.DB) error {
 	_, err := db.Exec(`
@@ -574,9 +542,16 @@ func Run(db *sql.DB) error {
 			if err != nil {
 				return fmt.Errorf("failed to begin transaction for migration %d: %w", m.version, err)
 			}
-			if _, err := tx.Exec(m.up); err != nil {
-				tx.Rollback()
-				return fmt.Errorf("failed to apply migration %d: %w", m.version, err)
+			// Execute either multi-statement or single-statement migration
+			stmts := m.stmts
+			if len(stmts) == 0 && m.up != "" {
+				stmts = []string{m.up}
+			}
+			for _, stmt := range stmts {
+				if _, err := tx.Exec(stmt); err != nil {
+					tx.Rollback()
+					return fmt.Errorf("failed to apply migration %d stmt %q: %w", m.version, stmt[:min(40, len(stmt))], err)
+				}
 			}
 			if _, err := tx.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", m.version, m.name); err != nil {
 				tx.Rollback()
