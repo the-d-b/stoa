@@ -531,7 +531,7 @@ func storagePrune(dbPath string, args []string) {
 			if !referenced[e.Name()] {
 				info, _ := e.Info()
 				totalSize += info.Size()
-				orpans = append(orphans, filepath.Join(dir, e.Name()))
+				orphans = append(orphans, filepath.Join(dir, e.Name()))
 			}
 		}
 	}
