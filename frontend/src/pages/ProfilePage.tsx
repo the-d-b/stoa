@@ -3277,6 +3277,7 @@ function MyPanelsTab() {
   const userMode = useUserMode()
   const [systemPanels, setSystemPanels] = useState<Panel[]>([])
   const [myPanels, setMyPanels] = useState<Panel[]>([])
+  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [systemCollapsed, setSystemCollapsed] = useState(true)
@@ -3783,7 +3784,6 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   const [adding, setAdding] = useState(false)
   const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
   const [checklistPanelId, setChecklistPanelId] = useState('')
-  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
 
   useEffect(() => {
     googleApi.getConfig().then((res: any) => {
