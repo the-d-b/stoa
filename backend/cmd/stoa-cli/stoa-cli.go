@@ -473,8 +473,9 @@ func storagePrune(dbPath string, args []string) {
 	db := openDB(dbPath)
 	defer db.Close()
 
-	// Find the data directory relative to the DB path
-	dataDir := filepath.Join(filepath.Dir(filepath.Dir(dbPath)), "uploads")
+	baseDir := filepath.Dir(filepath.Dir(dbPath))
+	uploadsDir := filepath.Join(baseDir, "uploads")
+	iconsDir := filepath.Join(baseDir, "icons")
 
 	dryRun := false
 	for _, a := range args {
@@ -483,11 +484,11 @@ func storagePrune(dbPath string, args []string) {
 		}
 	}
 
-	// Collect all referenced image filenames from DB
+	// Collect all referenced filenames from DB
 	referenced := map[string]bool{}
 
-	// Bookmark icons
-	rows, _ := db.Query("SELECT icon FROM bookmark_nodes WHERE icon IS NOT NULL AND icon != ''")
+	// Bookmark icon_url references
+	rows, _ := db.Query("SELECT icon_url FROM bookmark_nodes WHERE icon_url IS NOT NULL AND icon_url != ''")
 	for rows.Next() {
 		var icon string
 		rows.Scan(&icon)
@@ -495,8 +496,8 @@ func storagePrune(dbPath string, args []string) {
 	}
 	rows.Close()
 
-	// User avatars
-	rows, _ = db.Query("SELECT avatar FROM users WHERE avatar IS NOT NULL AND avatar != ''")
+	// User avatars (stored in user_preferences.avatar_url)
+	rows, _ = db.Query("SELECT avatar_url FROM user_preferences WHERE avatar_url IS NOT NULL AND avatar_url != ''")
 	for rows.Next() {
 		var avatar string
 		rows.Scan(&avatar)
@@ -504,28 +505,39 @@ func storagePrune(dbPath string, args []string) {
 	}
 	rows.Close()
 
-	if _, err := os.Stat(dataDir); os.IsNotExist(err) {
-		fmt.Printf("Upload directory not found: %s\nNothing to prune.\n", dataDir)
-		return
+	// Glyph icons referenced in glyphs table
+	rows, _ = db.Query("SELECT icon_path FROM glyphs WHERE icon_path IS NOT NULL AND icon_path != ''")
+	for rows.Next() {
+		var icon string
+		rows.Scan(&icon)
+		referenced[filepath.Base(icon)] = true
 	}
-
-	entries, err := os.ReadDir(dataDir)
-	if err != nil {
-		fatalf("failed to read upload directory: %v\n", err)
-	}
+	rows.Close()
 
 	var orphans []string
 	var totalSize int64
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
+
+	scanDir := func(dir string) {
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			return
 		}
-		if !referenced[e.Name()] {
-			info, _ := e.Info()
-			totalSize += info.Size()
-			orphans = append(orphans, filepath.Join(dataDir, e.Name()))
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			fmt.Printf("warning: could not read %s: %v\n", dir, err)
+			return
+		}
+		for _, e := range entries {
+			if e.IsDir() { continue }
+			if !referenced[e.Name()] {
+				info, _ := e.Info()
+				totalSize += info.Size()
+				orpans = append(orphans, filepath.Join(dir, e.Name()))
+			}
 		}
 	}
+
+	scanDir(uploadsDir)
+	scanDir(iconsDir)
 
 	if len(orphans) == 0 {
 		fmt.Println("No orphaned files found.")
@@ -534,7 +546,7 @@ func storagePrune(dbPath string, args []string) {
 
 	fmt.Printf("Found %d orphaned file(s) totalling %.1f KB\n", len(orphans), float64(totalSize)/1024)
 	for _, f := range orphans {
-		fmt.Printf("  %s\n", filepath.Base(f))
+		fmt.Printf("  %s\n", f)
 	}
 
 	if dryRun {
@@ -551,6 +563,8 @@ func storagePrune(dbPath string, args []string) {
 	for _, f := range orphans {
 		if err := os.Remove(f); err == nil {
 			deleted++
+		} else {
+			fmt.Printf("  warning: could not delete %s: %v\n", filepath.Base(f), err)
 		}
 	}
 	fmt.Printf("✓ Deleted %d orphaned file(s)\n", deleted)

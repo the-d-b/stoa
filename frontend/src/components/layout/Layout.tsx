@@ -213,7 +213,7 @@ export default function Layout() {
       </div>
     </div>
     <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)}
-      currentUserId={user?.id || ''} />
+      currentUserId={user?.id || ''} singleUser={userMode === 'single'} />
     </>
   )
 }

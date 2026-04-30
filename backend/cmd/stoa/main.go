@@ -123,6 +123,8 @@ func main() {
 	protected.HandleFunc("/chat/messages", handlers.SendChatMessage(database)).Methods("POST")
 	protected.HandleFunc("/chat/presence", handlers.GetChatPresence(database)).Methods("GET")
 
+	protected.HandleFunc("/customapi/preview", handlers.PreviewCustomAPI(database)).Methods("POST")
+
 	// RSS panel — proxy fetch with 5m cache, no integration needed
 	protected.HandleFunc("/rss-panel", handlers.GetRSSPanelData).Methods("GET")
 
@@ -211,7 +213,6 @@ func main() {
 	admin.HandleFunc("/integrations/{id}", handlers.UpdateIntegration(database)).Methods("PUT")
 	admin.HandleFunc("/integrations/{id}", handlers.DeleteIntegration(database)).Methods("DELETE")
 	protected.HandleFunc("/integrations/test", handlers.TestIntegration(database)).Methods("POST")
-	protected.HandleFunc("/customapi/preview", handlers.PreviewCustomAPI(database)).Methods("POST")
 	admin.HandleFunc("/integrations/{id}/groups", handlers.GetIntegrationGroups(database)).Methods("GET")
 	admin.HandleFunc("/integrations/{id}/groups", handlers.SetIntegrationGroups(database)).Methods("PUT")
 	admin.HandleFunc("/panels/{id}/groups", handlers.SetPanelGroups(database)).Methods("PUT")

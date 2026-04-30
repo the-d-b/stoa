@@ -17,10 +17,10 @@ import GluetunPanel from '../components/panels/GluetunPanel'
 import OPNsensePanel from '../components/panels/OPNsensePanel'
 import TransmissionPanel from '../components/panels/TransmissionPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
-import CustomAPIPanel from '../components/panels/CustomAPIPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
 import NotesPanel from '../components/panels/NotesPanel'
+import CustomAPIPanel from '../components/panels/CustomAPIPanel'
 import RSSPanel from '../components/panels/RSSPanel'
 import SearchModal from '../components/SearchModal'
 
@@ -789,10 +789,10 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
           {panel.type === 'opnsense' && <OPNsensePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'photoprism' && <PhotoPrismPanel panel={panel} heightUnits={heightUnits} />}
-          {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'authentik' && <AuthentikPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'checklist' && <ChecklistPanel panel={panel} />}
           {panel.type === 'notes' && <NotesPanel panel={panel} />}
+          {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'rss' && <RSSPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()

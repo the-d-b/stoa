@@ -39,9 +39,10 @@ interface ChatPanelProps {
   open: boolean
   onClose: () => void
   currentUserId: string
+  singleUser?: boolean
 }
 
-export default function ChatPanel({ open, onClose, currentUserId }: ChatPanelProps) {
+export default function ChatPanel({ open, onClose, currentUserId, singleUser }: ChatPanelProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [presence, setPresence] = useState<PresenceUser[]>([])
   const [input, setInput] = useState('')
@@ -144,8 +145,31 @@ export default function ChatPanel({ open, onClose, currentUserId }: ChatPanelPro
           </div>
         </div>
 
+        {/* Single-user mode notice */}
+        {singleUser && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', padding: '24px 20px',
+            textAlign: 'center', gap: 12 }}>
+            <span style={{ fontSize: 32 }}>💬</span>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
+              If a tree falls in the woods...
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+              Stoa chat connects Stoa users — it doesn't bridge to Slack, Teams,
+              or anywhere outside. Right now you're the only one here, so there's
+              nobody to hear it. Add more users and switch to multi-user mode to
+              start chatting.
+            </div>
+            <code style={{ fontFamily: 'DM Mono, monospace', fontSize: 11,
+              background: 'var(--surface2)', padding: '3px 8px', borderRadius: 4,
+              color: 'var(--text-muted)' }}>
+              stoa-cli config set-mode multi --user &lt;username&gt;
+            </code>
+          </div>
+        )}
+
         {/* Messages */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px',
+        {!singleUser && <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px',
           display: 'flex', flexDirection: 'column', gap: 6 }}>
           {messages.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center',
@@ -192,10 +216,10 @@ export default function ChatPanel({ open, onClose, currentUserId }: ChatPanelPro
             )
           })}
           <div ref={bottomRef} />
-        </div>
+        </div>}
 
         {/* Input */}
-        <div style={{ padding: '8px 12px 12px', borderTop: '1px solid var(--border)',
+        {!singleUser && <div style={{ padding: '8px 12px 12px', borderTop: '1px solid var(--border)',
           flexShrink: 0, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
           <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey} placeholder="Message... (Enter to send)"
@@ -214,7 +238,7 @@ export default function ChatPanel({ open, onClose, currentUserId }: ChatPanelPro
             fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
             flexShrink: 0, transition: 'all 0.15s',
           }}>↑</button>
-        </div>
+        </div>}
       </div>
     </>
   )

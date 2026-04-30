@@ -2547,7 +2547,6 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
 
 const INTEGRATION_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Uptime monitoring' },
   { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
@@ -3209,11 +3208,11 @@ function PersonalTagsTab() {
 const PANEL_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',              needsIntegration: true  },
   { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',       needsIntegration: false },
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',       needsIntegration: false },
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',      needsIntegration: false },
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                 needsIntegration: true  },
   { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',              needsIntegration: false },
   { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking',                needsIntegration: true  },
@@ -3297,8 +3296,6 @@ function MyPanelsTab() {
   const [newHeight, setNewHeight] = useState(2)
   const [newIntegrationId, setNewIntegrationId] = useState('')
   const [creating, setCreating] = useState(false)
-  const [customAPIEdit, setCustomAPIEdit] = useState<{url: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
-  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
 
   const load = async () => {
     const [system, mine, allI, t] = await Promise.all([
@@ -3500,7 +3497,7 @@ function MyPanelsTab() {
                     setEditHtml(cfg.html || '')
                     setEditIntegrationId(cfg.integrationId || '')
                   }
-                  setExpandedPanelId(expanded ? null : p.id); setCustomAPIEdit(null); setCustomAPIPreview(null)
+                  setExpandedPanelId(expanded ? null : p.id)
                 }}>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{expanded ? '▼' : '▶'}</span>
                 <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
@@ -3579,94 +3576,69 @@ function MyPanelsTab() {
                   )}
                   {/* OPNsense max link speed */}
                   {p.type === 'customapi' && (() => {
-                    const ca = customAPIEdit?.url !== undefined ? customAPIEdit
-                      : { url: cfg.url || '', apiKey: cfg.apiKey || '',
-                          mappings: (cfg.mappings || []).map((m: any) => m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n'),
-                          refreshSecs: cfg.refreshSecs || 600 }
-                    const setCA = (patch: Partial<typeof ca>) => {
-                      setCustomAPIPreview(null)
-                      setCustomAPIEdit(prev => ({ ...(prev ?? ca), ...patch }))
-                    }
-                    // Sync cfg mutations so save button works
-                    if (customAPIEdit) {
-                      cfg.url = customAPIEdit.url
-                      cfg.apiKey = customAPIEdit.apiKey
-                      cfg.refreshSecs = customAPIEdit.refreshSecs
-                      cfg.mappings = customAPIEdit.mappings.split('\n')
-                        .map((l: string) => l.trim()).filter((l: string) => l.includes('|'))
-                        .map((l: string) => { const parts = l.split('|').map((s: string) => s.trim()); return { path: parts[0], label: parts[1] || '', format: parts[2] || '' } })
-                    }
+                    const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
                     return (
-                      <>
-                        <div>
-                          <label className="label">API URL</label>
-                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                            value={ca.url} onChange={e => setCA({ url: e.target.value })}
-                            placeholder="http://host:port/api/stats" />
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
+                        <label className="label">API URL</label>
+                        <input className="input" type="url" style={{ fontSize: 12 }}
+                          defaultValue={cfg.url || ''}
+                          onChange={e => { cfg.url = e.target.value }}
+                          placeholder="http://host:port/api/stats" />
+                        <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+                        <input className="input" type="url" style={{ fontSize: 12 }}
+                          defaultValue={cfg.uiUrl || ''}
+                          onChange={e => { cfg.uiUrl = e.target.value }}
+                          placeholder="http://host:port/dashboard" />
+                        <label className="label">Bearer token (optional)</label>
+                        <input className="input" style={{ fontSize: 12 }}
+                          defaultValue={cfg.apiKey || ''}
+                          onChange={e => { cfg.apiKey = e.target.value }}
+                          placeholder="Leave blank if no auth required" />
+                        <label className="label">Field mappings</label>
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>
+                          One per line: <code>path | Label</code> or <code>path | Label | format</code>
                         </div>
-                        <div>
-                          <label className="label">Bearer token (optional)</label>
-                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                            value={ca.apiKey} onChange={e => setCA({ apiKey: e.target.value })}
-                            placeholder="Leave blank if no auth required" />
-                        </div>
-                        <div>
-                          <label className="label">Field mappings</label>
-                          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
-                            One per line: <code>path | Label</code> or <code>path | Label | format</code> — formats: <code>integer</code>, <code>currency</code>, <code>text</code>
-                          </div>
-                          <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 100, resize: 'vertical' }}
-                            value={ca.mappings} onChange={e => setCA({ mappings: e.target.value })} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh (sec)</label>
-                          <input className="input" type="number" style={{ fontSize: 12, width: 80 }}
-                            value={ca.refreshSecs} onChange={e => setCA({ refreshSecs: Number(e.target.value) })} />
-                          <button className="btn btn-secondary" style={{ fontSize: 12 }}
-                            disabled={customAPIPreview?.loading || !ca.url}
+                        <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 60, resize: 'vertical' }}
+                          defaultValue={(cfg.mappings || []).map((m: any) =>
+                            m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n')}
+                          onChange={e => { cfg.mappings = e.target.value.split('\n')
+                            .map((l: string) => l.trim()).filter((l: string) => l.includes('|'))
+                            .map((l: string) => { const p = l.split('|').map((s: string) => s.trim()); return { path: p[0], label: p[1]||'', format: p[2]||'' } }) }} />
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <button className="btn btn-secondary" style={{ fontSize: 11 }}
+                            disabled={customAPIPreview?.loading}
                             onClick={async () => {
+                              if (!cfg.url) return
                               setCustomAPIPreview({ loading: true, json: '', error: '' })
                               try {
                                 const res = await fetch('/api/customapi/preview', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
-                                  body: JSON.stringify({ url: ca.url, apiKey: ca.apiKey })
+                                  body: JSON.stringify({ url: cfg.url, apiKey: cfg.apiKey })
                                 })
-                                if (!res.ok) {
-                                  const err = await res.json().catch(() => ({}))
-                                  throw new Error(err.error || `HTTP ${res.status}`)
-                                }
-                                const raw = await res.json()
-                                setCustomAPIPreview({ loading: false, json: JSON.stringify(raw, null, 2), error: '' })
+                                if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                                setCustomAPIPreview({ loading: false, json: JSON.stringify(await res.json(), null, 2), error: '' })
                               } catch (e: any) {
-                                setCustomAPIPreview({ loading: false, json: '', error: e.message || 'Fetch failed' })
+                                setCustomAPIPreview({ loading: false, json: '', error: e.message })
                               }
                             }}>
                             {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
                           </button>
                         </div>
                         {customAPIPreview && !customAPIPreview.loading && (
-                          <div style={{ marginTop: 4 }}>
-                            {customAPIPreview.error
-                              ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
-                              : <>
-                                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                                    Raw response — copy field paths for mappings (e.g. <code>data.temperature | Temp</code>)
-                                  </div>
-                                  <textarea readOnly value={customAPIPreview.json}
-                                    style={{ width: '100%', minHeight: 140, fontSize: 11,
-                                      fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
-                                      border: '1px solid var(--border)', borderRadius: 6,
-                                      padding: 8, color: 'var(--text-muted)', resize: 'vertical',
-                                      boxSizing: 'border-box' }} />
-                                </>
-                            }
-                          </div>
+                          customAPIPreview.error
+                            ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
+                            : <textarea readOnly value={customAPIPreview.json}
+                                style={{ width: '100%', minHeight: 120, fontSize: 11,
+                                  fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
+                                  border: '1px solid var(--border)', borderRadius: 6, padding: 8,
+                                  color: 'var(--text-muted)', resize: 'vertical', boxSizing: 'border-box' }} />
                         )}
-                      </>
+                      </div>
                     )
                   })()}
+
                   {p.type === 'rss' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       <label className="label">Feed URL</label>
@@ -3811,6 +3783,7 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   const [adding, setAdding] = useState(false)
   const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
   const [checklistPanelId, setChecklistPanelId] = useState('')
+  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
 
   useEffect(() => {
     googleApi.getConfig().then((res: any) => {

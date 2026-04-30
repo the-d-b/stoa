@@ -55,7 +55,6 @@ const PANEL_NEEDS_INTEGRATION: Record<string, string> = {
   proxmox: 'proxmox', radarr: 'radarr', sonarr: 'sonarr',
   tautulli: 'tautulli', transmission: 'transmission', truenas: 'truenas',
   kuma: 'kuma',
-  // customapi: no integration needed (self-contained)
   // bookmarks, calendar: no integration needed
 }
 
@@ -98,11 +97,11 @@ export default function PanelsAdminPanel() {
   const [newRootId, setNewRootId] = useState('')
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
-  const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
-  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [search, setSearch] = useState('')
+  const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; uiUrl: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
+  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
   const [loadingTree, setLoadingTree] = useState(false)
 
@@ -335,110 +334,119 @@ export default function PanelsAdminPanel() {
 
                 </div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {p.type === 'customapi' && (
-                    editingCustomAPI?.id === p.id ? (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0', width: '100%' }}>
-                        <div>
-                          <label className="label">API URL</label>
-                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                            value={editingCustomAPI.url}
-                            onChange={e => setEditingCustomAPI(c => c ? { ...c, url: e.target.value } : null)}
-                            placeholder="http://host:port/api/stats" />
-                        </div>
-                        <div>
-                          <label className="label">Bearer token (optional)</label>
-                          <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                            value={editingCustomAPI.apiKey}
-                            onChange={e => setEditingCustomAPI(c => c ? { ...c, apiKey: e.target.value } : null)}
-                            placeholder="Leave blank if no auth required" />
-                        </div>
-                        <div>
-                          <label className="label">Field mappings</label>
-                          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                            One per line: <code>path | Label</code> or <code>path | Label | format</code> — formats: <code>integer</code>, <code>currency</code>, <code>text</code>
-                          </div>
-                          <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
-                            value={editingCustomAPI.mappings}
-                            onChange={e => setEditingCustomAPI(c => c ? { ...c, mappings: e.target.value } : null)} />
-                        </div>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <label className="label" style={{ margin: 0 }}>Refresh (sec)</label>
-                          <input type="number" className="input" style={{ fontSize: 12, width: 80 }}
-                            value={editingCustomAPI.refreshSecs}
-                            onChange={e => setEditingCustomAPI(c => c ? { ...c, refreshSecs: Number(e.target.value) } : null)} />
-                          <button className="btn btn-secondary" style={{ fontSize: 12 }}
-                            disabled={customAPIPreview?.loading}
-                            onClick={async () => {
-                              if (!editingCustomAPI.url) return
-                              setCustomAPIPreview({ loading: true, json: '', error: '' })
-                              try {
-                                // Use preview endpoint with current (possibly unsaved) URL
-                                const res = await fetch('/api/customapi/preview', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
-                                  body: JSON.stringify({ url: editingCustomAPI.url, apiKey: editingCustomAPI.apiKey })
-                                })
-                                if (!res.ok) {
-                                  const err = await res.json().catch(() => ({}))
-                                  throw new Error(err.error || `HTTP ${res.status}`)
-                                }
-                                const raw = await res.json()
-                                setCustomAPIPreview({ loading: false, json: JSON.stringify(raw, null, 2), error: '' })
-                              } catch (e: any) {
-                                setCustomAPIPreview({ loading: false, json: '', error: e.message || 'Fetch failed' })
-                              }
-                            }}>
-                            {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
-                          </button>
-                          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                            const cfg = safeParseConfig(p.config)
-                            cfg.url = editingCustomAPI.url
-                            cfg.apiKey = editingCustomAPI.apiKey
-                            cfg.refreshSecs = editingCustomAPI.refreshSecs
-                            cfg.mappings = editingCustomAPI.mappings.split('\n')
-                              .map((line: string) => line.trim())
-                              .filter((line: string) => line.includes('|'))
-                              .map((line: string) => {
-                                const parts = line.split('|').map((s: string) => s.trim())
-                                return { path: parts[0], label: parts[1] || '', format: parts[2] || '' }
-                              })
-                            await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
-                            setEditingCustomAPI(null); setCustomAPIPreview(null); load()
-                          }}>Save</button>
-                          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => { setEditingCustomAPI(null); setCustomAPIPreview(null) }}>Cancel</button>
-                        </div>
-                        {customAPIPreview && !customAPIPreview.loading && (
-                          <div style={{ marginTop: 4 }}>
-                            {customAPIPreview.error
-                              ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
-                              : <>
-                                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                                    Raw response — copy field paths for use in mappings (e.g. <code>data.temperature | Temp</code>)
-                                  </div>
-                                  <textarea readOnly value={customAPIPreview.json}
-                                    style={{ width: '100%', minHeight: 160, fontSize: 11,
-                                      fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
-                                      border: '1px solid var(--border)', borderRadius: 6,
-                                      padding: 8, color: 'var(--text-muted)', resize: 'vertical',
-                                      boxSizing: 'border-box' }} />
-                                </>
-                            }
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
-                        const cfg = safeParseConfig(p.config)
-                        const mappings = (cfg.mappings || []).map((m: any) => m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n')
-                        setCustomAPIPreview(null)
-                        setEditingCustomAPI({ id: p.id, url: cfg.url || '', apiKey: cfg.apiKey || '', mappings, refreshSecs: cfg.refreshSecs || 600 })
-                      }}>Configure</button>
-                    )
-                  )}
                   <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
                 </div>
               </div>
+
+              {/* Custom API config editor */}
+              {p.type === 'customapi' && (
+                editingCustomAPI?.id === p.id ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0', width: '100%' }}>
+                    <div>
+                      <label className="label">API URL</label>
+                      <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                        value={editingCustomAPI.url}
+                        onChange={e => setEditingCustomAPI(c => c ? { ...c, url: e.target.value } : null)}
+                        placeholder="http://host:port/api/stats" />
+                    </div>
+                    <div>
+                      <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — makes panel title a link)</span></label>
+                      <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                        value={editingCustomAPI.uiUrl}
+                        onChange={e => setEditingCustomAPI(c => c ? { ...c, uiUrl: e.target.value } : null)}
+                        placeholder="http://host:port/dashboard" />
+                    </div>
+                    <div>
+                      <label className="label">Bearer token (optional)</label>
+                      <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
+                        value={editingCustomAPI.apiKey}
+                        onChange={e => setEditingCustomAPI(c => c ? { ...c, apiKey: e.target.value } : null)}
+                        placeholder="Leave blank if no auth required" />
+                    </div>
+                    <div>
+                      <label className="label">Field mappings</label>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                        One per line: <code>path | Label</code> or <code>path | Label | format</code> — formats: <code>integer</code>, <code>currency</code>, <code>text</code>
+                      </div>
+                      <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
+                        value={editingCustomAPI.mappings}
+                        onChange={e => setEditingCustomAPI(c => c ? { ...c, mappings: e.target.value } : null)} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <label className="label" style={{ margin: 0 }}>Refresh (sec)</label>
+                      <input type="number" className="input" style={{ fontSize: 12, width: 80 }}
+                        value={editingCustomAPI.refreshSecs}
+                        onChange={e => setEditingCustomAPI(c => c ? { ...c, refreshSecs: Number(e.target.value) } : null)} />
+                      <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                        disabled={customAPIPreview?.loading}
+                        onClick={async () => {
+                          if (!editingCustomAPI.url) return
+                          setCustomAPIPreview({ loading: true, json: '', error: '' })
+                          try {
+                            const res = await fetch('/api/customapi/preview', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
+                              body: JSON.stringify({ url: editingCustomAPI.url, apiKey: editingCustomAPI.apiKey })
+                            })
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+                            const raw = await res.json()
+                            setCustomAPIPreview({ loading: false, json: JSON.stringify(raw, null, 2), error: '' })
+                          } catch (e: any) {
+                            setCustomAPIPreview({ loading: false, json: '', error: e.message || 'Fetch failed' })
+                          }
+                        }}>
+                        {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
+                      </button>
+                      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                        const cfg = safeParseConfig(p.config)
+                        cfg.url = editingCustomAPI.url
+                        cfg.uiUrl = editingCustomAPI.uiUrl
+                        cfg.apiKey = editingCustomAPI.apiKey
+                        cfg.refreshSecs = editingCustomAPI.refreshSecs
+                        cfg.mappings = editingCustomAPI.mappings.split('\n')
+                          .map((line: string) => line.trim())
+                          .filter((line: string) => line.includes('|'))
+                          .map((line: string) => {
+                            const parts = line.split('|').map((s: string) => s.trim())
+                            return { path: parts[0], label: parts[1] || '', format: parts[2] || '' }
+                          })
+                        await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
+                        setEditingCustomAPI(null); setCustomAPIPreview(null); load()
+                      }}>Save</button>
+                      <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                        onClick={() => { setEditingCustomAPI(null); setCustomAPIPreview(null) }}>Cancel</button>
+                    </div>
+                    {customAPIPreview && !customAPIPreview.loading && (
+                      <div style={{ marginTop: 4 }}>
+                        {customAPIPreview.error
+                          ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
+                          : <>
+                              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
+                                Raw response — copy field paths for mappings (e.g. <code>data.temperature | Temp</code>)
+                              </div>
+                              <textarea readOnly value={customAPIPreview.json}
+                                style={{ width: '100%', minHeight: 160, fontSize: 11,
+                                  fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
+                                  border: '1px solid var(--border)', borderRadius: 6,
+                                  padding: 8, color: 'var(--text-muted)', resize: 'vertical',
+                                  boxSizing: 'border-box' }} />
+                            </>
+                        }
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
+                    const cfg = safeParseConfig(p.config)
+                    const mappings = (cfg.mappings || []).map((m: any) =>
+                      m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n')
+                    setCustomAPIPreview(null)
+                    setEditingCustomAPI({ id: p.id, url: cfg.url || '', uiUrl: cfg.uiUrl || '',
+                      apiKey: cfg.apiKey || '', mappings, refreshSecs: cfg.refreshSecs || 600 })
+                  }}>Configure</button>
+                )
+              )}
 
               {/* Calendar sources - inline */}
               {p.type === 'calendar' && (() => {

@@ -20,6 +20,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"sonarr":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSonarrPanelData(db, cfg) },
 	"radarr":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRadarrPanelData(db, cfg) },
 	"lidarr":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLidarrPanelData(db, cfg) },
+	"customapi":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCustomAPIPanelData(db, cfg) },
 	"calendar": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCalendarData(db, cfg) },
 	"plex":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPlexPanelData(db, cfg) },
 	"tautulli": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTautulliPanelData(db, cfg) },
@@ -30,7 +31,6 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"opnsense":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOPNsensePanelData(db, cfg) },
 	"transmission":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTransmissionPanelData(db, cfg) },
 	"photoprism":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPhotoPrismPanelData(db, cfg) },
-	"customapi":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCustomAPIPanelData(db, cfg) },
 	"authentik":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchAuthentikPanelData(db, cfg) },
 }
 
