@@ -430,7 +430,7 @@ function TagFilter({ allTags, activeTags, onToggle, onAll, onNone }: {
 
 function PorticoTab({ label, active, onClick, onDelete, activeTags }: {
   label: string; active: boolean; onClick: () => void; onDelete?: () => void
-  activeTags?: { color: string }[]
+  activeTags?: { color: string; name: string }[]
 }) {
   const dots = (activeTags || []).filter(t => t.color)
   return (
@@ -447,9 +447,10 @@ function PorticoTab({ label, active, onClick, onDelete, activeTags }: {
         {dots.length > 0 && (
           <div style={{ display: 'flex', gap: 3, justifyContent: 'center' }}>
             {dots.map((t, i) => (
-              <span key={i} style={{
+              <span key={i} title={t.name} style={{
                 width: 5, height: 5, borderRadius: '50%',
                 background: t.color, display: 'inline-block', flexShrink: 0,
+                cursor: 'help',
               }} />
             ))}
           </div>

@@ -444,7 +444,7 @@ export interface MailConfig {
 export const mailConfigApi = {
   get: () => api.get<MailConfig>('/mail-config'),
   save: (cfg: MailConfig) => api.put('/mail-config', cfg),
-  test: (to: string) => api.post('/mail-config/test', { to }),
+  test: (to: string, cfg?: MailConfig) => api.post('/mail-config/test', { to, cfg }),
 }
 export const sessionConfigApi = {
   get: () => api.get<{ sessionDurationHours: string }>('/session-config'),
@@ -524,6 +524,7 @@ export const rssPanelApi = {
 }
 
 export const notesApi = {
+  get:      (id: string) => api.get<Note & { lockedBy?: string; lockedByName?: string }>(`/notes/note/${id}`),
   list:     (panelId: string, sort?: 'asc'|'desc') =>
     api.get<Note[]>(`/notes/${panelId}?sort=${sort || 'desc'}`),
   create:   (panelId: string) => api.post<{id: string}>(`/notes/${panelId}`, {}),
@@ -531,6 +532,8 @@ export const notesApi = {
     api.put(`/notes/note/${id}`, { title, body }),
   delete:   (id: string) => api.delete(`/notes/note/${id}`),
   activity: (id: string) => api.get<NoteActivityUser[]>(`/notes/note/${id}/activity`),
+  lock:     (id: string) => api.post(`/notes/note/${id}/lock`, {}),
+  unlock:   (id: string) => api.delete(`/notes/note/${id}/lock`),
   trackRead:(id: string) => api.post(`/notes/note/${id}/read`, {}),
 }
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { sessionsApi, SessionRow } from '../../api'
+import { sessionsApi, sessionConfigApi, SessionRow } from '../../api'
 
 function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000
@@ -36,7 +36,21 @@ export default function SessionsPanel() {
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<TimeFilter>('7')
+  const [sessionHours, setSessionHours] = useState('24')
+  const [savingSession, setSavingSession] = useState(false)
+  const [savedSession, setSavedSession] = useState(false)
 
+  useEffect(() => {
+    sessionConfigApi.get().then((r: any) => setSessionHours(r.data.sessionDurationHours || '24')).catch(() => {})
+  }, [])
+
+  const saveSession = async () => {
+    setSavingSession(true); setSavedSession(false)
+    try {
+      await sessionConfigApi.save(sessionHours)
+      setSavedSession(true); setTimeout(() => setSavedSession(false), 3000)
+    } finally { setSavingSession(false) }
+  }
 
   const load = async (f: TimeFilter = filter) => {
     setLoading(true)
@@ -56,6 +70,31 @@ export default function SessionsPanel() {
 
   return (
     <div>
+      {/* Session duration */}
+      <div style={{ marginBottom: 24, padding: '16px 20px', background: 'var(--surface2)',
+        borderRadius: 10, border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Session duration</div>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.6 }}>
+          How long a login session stays valid before the user must sign in again.
+          SSO sessions may be shorter depending on your identity provider.
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <select className="input" value={sessionHours} onChange={e => setSessionHours(e.target.value)}
+            style={{ cursor: 'pointer', maxWidth: 240 }}>
+            <option value="0.167">10 minutes (QA testing only)</option>
+            <option value="1">1 hour</option>
+            <option value="4">4 hours</option>
+            <option value="8">8 hours</option>
+            <option value="24">24 hours (default)</option>
+            <option value="48">48 hours</option>
+            <option value="168">7 days</option>
+          </select>
+          <button className="btn btn-primary" onClick={saveSession} disabled={savingSession}>
+            {savingSession ? <span className="spinner" /> : savedSession ? '✓ Saved' : 'Save'}
+          </button>
+        </div>
+      </div>
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>

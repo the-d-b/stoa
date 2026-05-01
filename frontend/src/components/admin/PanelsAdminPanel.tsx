@@ -679,7 +679,7 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
       } else {
         if (!intId) return
         const ig = integrations.find((i: any) => i.id === intId)
-        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14 }
+        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14, label: ig?.name || ig?.type }
       }
       const sources = [...(cfg.sources || []), newSource]
       const updater = isSystem ? panelsApi : myPanelsApi

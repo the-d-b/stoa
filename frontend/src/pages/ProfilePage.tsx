@@ -2796,7 +2796,7 @@ function PersonalIntegrationsTab() {
                 <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
                 <input className="input" type="number" min={15} value={newRefreshSecs}
                   onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
-                  style={{ width: 72 }} />
+                  style={{ width: 100 }} />
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
               </div>
               <div style={{ flex: 1 }} />
@@ -2928,7 +2928,7 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
             <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
             <input className="input" type="number" min={15} value={refreshSecs}
               onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
-              style={{ width: 72 }} />
+              style={{ width: 100 }} />
             <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
           </div>
           <div style={{ flex: 1 }} />
@@ -3836,7 +3836,7 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
       } else {
         if (!intId) return
         const ig = integrations.find((i: any) => i.id === intId)
-        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14 }
+        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14, label: ig?.name || ig?.type }
       }
       const sources = [...(cfg.sources || []), newSource]
       const updater = isSystem ? panelsApi : myPanelsApi

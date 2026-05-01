@@ -36,6 +36,22 @@ export default function IntegrationsPanel() {
   const [newSecretId, setNewSecretId] = useState('')
   const [newSkipTls, setNewSkipTls] = useState(false)
   const [newRefreshSecs, setNewRefreshSecs] = useState(60)
+  const [showNewSecret, setShowNewSecret] = useState(false)
+  const [newSecretNameField, setNewSecretNameField] = useState('')
+  const [newSecretValueField, setNewSecretValueField] = useState('')
+  const [savingNewSecret, setSavingNewSecret] = useState(false)
+
+  const createNewSecret = async () => {
+    if (!newSecretNameField.trim() || !newSecretValueField.trim()) return
+    setSavingNewSecret(true)
+    try {
+      const res = await secretsApi.create({ name: newSecretNameField.trim(), value: newSecretValueField.trim(), scope: 'shared' })
+      const newSec = { id: res.data.id, name: newSecretNameField.trim() }
+      secrets.push(newSec)
+      setNewSecretId(newSec.id)
+      setNewSecretNameField(''); setNewSecretValueField(''); setShowNewSecret(false)
+    } finally { setSavingNewSecret(false) }
+  }
   const [creating, setCreating] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
   const [testing, setTesting] = useState(false)
@@ -131,11 +147,42 @@ export default function IntegrationsPanel() {
               </div>
               <div style={{ flex: 1 }}>
                 <label className="label">API key secret</label>
-                <select className="input" value={newSecretId} onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
-                  style={{ cursor: 'pointer' }}>
-                  <option value="">— None —</option>
-                  {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select className="input" value={newSecretId} onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
+                    style={{ cursor: 'pointer', flex: 1 }}>
+                    <option value="">— None —</option>
+                    {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
+                    onClick={() => setShowNewSecret(v => !v)}>
+                    {showNewSecret ? 'Cancel' : '+ New'}
+                  </button>
+                </div>
+                {showNewSecret && (
+                  <div style={{ marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                    background: 'var(--surface2)', border: '1px solid var(--border)',
+                    display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <label className="label">Name</label>
+                        <input className="input" value={newSecretNameField}
+                          onChange={e => setNewSecretNameField(e.target.value)}
+                          placeholder="e.g. Sonarr API Key" autoFocus />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label className="label">Value</label>
+                        <input className="input" type="password" value={newSecretValueField}
+                          onChange={e => setNewSecretValueField(e.target.value)}
+                          placeholder="Paste key here" />
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                      disabled={savingNewSecret || !newSecretNameField || !newSecretValueField}
+                      onClick={createNewSecret}>
+                      {savingNewSecret ? <span className="spinner" /> : 'Save & select'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -178,7 +225,7 @@ export default function IntegrationsPanel() {
                 <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
                 <input className="input" type="number" min={15} value={newRefreshSecs}
                   onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
-                  style={{ width: 72 }} />
+                  style={{ width: 100 }} />
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
               </div>
               <div style={{ flex: 1 }} />
@@ -255,6 +302,22 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const [apiUrl, setApiUrl] = useState(ig.apiUrl)
   const [uiUrl, setUiUrl] = useState(ig.uiUrl)
   const [secretId, setSecretId] = useState(ig.secretId || '')
+  const [showAddSecret, setShowAddSecret] = useState(false)
+  const [newSecretName, setNewSecretName] = useState('')
+  const [newSecretValue, setNewSecretValue] = useState('')
+  const [savingSecret, setSavingSecret] = useState(false)
+
+  const createSecret = async () => {
+    if (!newSecretName.trim() || !newSecretValue.trim()) return
+    setSavingSecret(true)
+    try {
+      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'shared' })
+      const newSec = { id: res.data.id, name: newSecretName.trim() }
+      secrets.push(newSec)
+      setSecretId(newSec.id)
+      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
+    } finally { setSavingSecret(false) }
+  }
   const [skipTls, setSkipTls] = useState(ig.skipTls || false)
   const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
@@ -325,12 +388,43 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                 </div>
                 <div style={{ flex: 1 }}>
                   <label className="label">API key secret</label>
-                  <select className="input" value={secretId}
-                    onChange={e => { setSecretId(e.target.value); setTestResult(null) }}
-                    style={{ cursor: 'pointer' }}>
-                    <option value="">— None —</option>
-                    {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <select className="input" value={secretId}
+                      onChange={e => { setSecretId(e.target.value); setTestResult(null) }}
+                      style={{ cursor: 'pointer', flex: 1 }}>
+                      <option value="">— None —</option>
+                      {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
+                      onClick={() => setShowAddSecret(v => !v)}>
+                      {showAddSecret ? 'Cancel' : '+ New'}
+                    </button>
+                  </div>
+                  {showAddSecret && (
+                    <div style={{ marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <label className="label">Name</label>
+                          <input className="input" value={newSecretName}
+                            onChange={e => setNewSecretName(e.target.value)}
+                            placeholder="e.g. Sonarr API Key" autoFocus />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label className="label">Value</label>
+                          <input className="input" type="password" value={newSecretValue}
+                            onChange={e => setNewSecretValue(e.target.value)}
+                            placeholder="Paste key here" />
+                        </div>
+                      </div>
+                      <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                        disabled={savingSecret || !newSecretName || !newSecretValue}
+                        onClick={createSecret}>
+                        {savingSecret ? <span className="spinner" /> : 'Save & select'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 10 }}>
@@ -368,7 +462,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
                   <input className="input" type="number" min={15} value={refreshSecs}
                     onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
-                    style={{ width: 72 }} />
+                    style={{ width: 100 }} />
                   <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
                 </div>
                 <div style={{ flex: 1 }} />

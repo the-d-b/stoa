@@ -82,6 +82,16 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   // Source filter — null means all visible (resets on unmount)
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set())
 
+  // Build a label map: source type → friendly name from config
+  // Sources can have a label (integration name) set when added
+  // For sources with the same type but different labels, we track by integrationId
+  const sourceLabelMap: Record<string, string> = {}
+  ;((config as any).sources || []).forEach((src: any) => {
+    const key = src.type
+    if (src.label) sourceLabelMap[key] = src.label
+  })
+  const getSourceLabel = (source: string) => sourceLabelMap[source] || source
+
   // Fetch 7-day weather for all weather sources
   const weatherSources: any[] = ((config as any).sources || []).filter((s: any) => s.type === 'weather')
   useEffect(() => {
@@ -320,7 +330,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
                 }}>
                   <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
                     background: hidden ? 'var(--border)' : color }} />
-                  {source}
+                  {getSourceLabel(source)}
                 </button>
               )
             })}

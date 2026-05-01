@@ -10,7 +10,7 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric' })
 }
 
-function RichEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function RichEditor({ value, onChange, readOnly = false }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const lastVal = useRef(value)
 
@@ -23,6 +23,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
   }, [])
 
   const cmd = (command: string, val?: string) => {
+    if (readOnly) return
     ref.current?.focus()
     document.execCommand(command, false, val)
     if (ref.current) {
@@ -51,7 +52,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {/* Toolbar */}
       <div style={{ display: 'flex', gap: 4, padding: '6px 0', borderBottom: '1px solid var(--border)',
-        flexShrink: 0, flexWrap: 'wrap' }}>
+        flexShrink: 0, flexWrap: 'wrap', opacity: readOnly ? 0.4 : 1, pointerEvents: readOnly ? 'none' : 'auto' }}>
         <button style={btnStyle()} onClick={() => cmd('bold')} title="Bold"><b>B</b></button>
         <button style={btnStyle()} onClick={() => cmd('italic')} title="Italic"><i>I</i></button>
         <button style={btnStyle()} onClick={() => cmd('underline')} title="Underline"><u>U</u></button>
@@ -68,7 +69,7 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
       {/* Editor */}
       <div
         ref={ref}
-        contentEditable
+        contentEditable={!readOnly}
         suppressContentEditableWarning
         onInput={handleInput}
         style={{
@@ -88,24 +89,56 @@ function RichEditor({ value, onChange }: { value: string; onChange: (v: string) 
   )
 }
 
-function NoteOverlay({ note, onClose, onDelete }: {
+function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
   note: Note; onClose: (updated: Note) => void; onDelete: (id: string) => void
+  initialLockedBy?: string | null
 }) {
   const [title, setTitle] = useState(note.title || '')
   const [body, setBody] = useState(note.body || '')
   const [saved, setSaved] = useState(true)
   const [activity, setActivity] = useState<NoteActivityUser[]>([])
+  // null = we own lock, string = locked by someone else, 'pending' = checking
+  const [lockedBy, setLockedBy] = useState<string | null>(initialLockedBy || 'pending')
   const saveTimer = useRef<ReturnType<typeof setTimeout>>()
+  const heartbeatTimer = useRef<ReturnType<typeof setInterval>>()
   const latestTitle = useRef(title)
   const latestBody = useRef(body)
 
   latestTitle.current = title
   latestBody.current = body
 
-  // Track read and load activity on open
+  const readOnly = lockedBy !== null // pending or locked-by-other both block editing
+
+  // Acquire lock, start heartbeat, track read, load activity on open
   useEffect(() => {
+    if (initialLockedBy) {
+      // Already know it's locked — don't attempt to acquire
+      setLockedBy(initialLockedBy)
+    } else {
+      notesApi.lock(note.id)
+        .then(() => setLockedBy(null)) // we got the lock — null means we own it
+        .catch((e: any) => {
+          const status = e.response?.status
+          const data = e.response?.data
+          if (status === 409 && data?.error === 'locked') {
+            setLockedBy(data.lockedBy || 'another user')
+          } else {
+            setLockedBy(null) // fail open
+          }
+        })
+    }
     notesApi.trackRead(note.id)
     notesApi.activity(note.id).then(r => setActivity(r.data || []))
+
+    // Heartbeat — refresh lock every 30s
+    heartbeatTimer.current = setInterval(() => {
+      if (!readOnly) notesApi.lock(note.id).catch(() => {})
+    }, 30000)
+
+    return () => {
+      clearInterval(heartbeatTimer.current)
+      notesApi.unlock(note.id).catch(() => {})
+    }
   }, [note.id])
 
   const save = useCallback(async (t = latestTitle.current, b = latestBody.current) => {
@@ -121,7 +154,9 @@ function NoteOverlay({ note, onClose, onDelete }: {
 
   const handleClose = async () => {
     clearTimeout(saveTimer.current)
-    await save()
+    clearInterval(heartbeatTimer.current)
+    if (!readOnly) await save()
+    await notesApi.unlock(note.id).catch(() => {})
     onClose({ ...note, title: latestTitle.current, body: latestBody.current,
       updatedAt: new Date().toISOString() })
   }
@@ -151,16 +186,34 @@ function NoteOverlay({ note, onClose, onDelete }: {
         display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
         padding: '20px 24px',
       }}>
+        {/* Lock banner */}
+        {lockedBy === 'pending' && (
+          <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 8, flexShrink: 0,
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 12, color: 'var(--text-dim)' }}>
+            Checking availability...
+          </div>
+        )}
+        {lockedBy && lockedBy !== 'pending' && (
+          <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 8, flexShrink: 0,
+            background: '#fef3c720', border: '1px solid #f59e0b',
+            fontSize: 12, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 8 }}>
+            🔒 <strong>{lockedBy}</strong> is currently editing this note. You can read but not edit.
+          </div>
+        )}
+
         {/* Header row */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, flexShrink: 0 }}>
           <input
             className="input"
             value={title}
-            onChange={e => { setTitle(e.target.value); schedSave(e.target.value, latestBody.current) }}
+            readOnly={readOnly}
+            onChange={e => { if (!readOnly) { setTitle(e.target.value); schedSave(e.target.value, latestBody.current) } }}
             placeholder="Note title"
             style={{ flex: 1, fontSize: 18, fontWeight: 600, border: 'none',
               background: 'transparent', padding: '4px 0', outline: 'none',
-              borderBottom: '1px solid var(--border)' }}
+              borderBottom: '1px solid var(--border)',
+              opacity: readOnly ? 0.7 : 1, cursor: readOnly ? 'default' : 'text' }}
           />
           <span style={{ fontSize: 11, color: saved ? 'var(--green)' : 'var(--text-dim)',
             fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
@@ -197,10 +250,12 @@ function NoteOverlay({ note, onClose, onDelete }: {
               })}
             </div>
           )}
-          <button onClick={handleDelete} style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text-dim)', fontSize: 14, padding: '4px 6px', borderRadius: 5,
-          }} title="Delete note">🗑</button>
+          {!readOnly && (
+            <button onClick={handleDelete} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-dim)', fontSize: 14, padding: '4px 6px', borderRadius: 5,
+            }} title="Delete note">🗑</button>
+          )}
           <button onClick={handleClose} style={{
             background: 'none', border: 'none', cursor: 'pointer',
             color: 'var(--text-dim)', fontSize: 20, lineHeight: 1, padding: '2px 4px',
@@ -210,7 +265,8 @@ function NoteOverlay({ note, onClose, onDelete }: {
         {/* Rich editor */}
         <RichEditor
           value={body}
-          onChange={v => { setBody(v); schedSave(latestTitle.current, v) }}
+          readOnly={readOnly}
+          onChange={v => { if (!readOnly) { setBody(v); schedSave(latestTitle.current, v) } }}
         />
       </div>
     </div>
@@ -224,6 +280,8 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
   const [sort, setSort] = useState<'asc'|'desc'>(config.notesSort || 'desc')
   const [search, setSearch] = useState('')
   const [openNote, setOpenNote] = useState<Note | null>(null)
+  const [openingId, setOpeningId] = useState<string | null>(null)
+  const [initialLockedBy, setInitialLockedBy] = useState<string | null>(null)
 
   const load = async (s = sort) => {
     try {
@@ -247,6 +305,7 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
   const handleClose = (updated: Note) => {
     setNotes(prev => prev.map(n => n.id === updated.id ? updated : n))
     setOpenNote(null)
+    setInitialLockedBy(null)
   }
 
   const handleDelete = (id: string) => {
@@ -296,7 +355,21 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
           </div>
         )}
         {filtered.map(note => (
-          <div key={note.id} onClick={() => setOpenNote(note)}
+          <div key={note.id} onClick={async () => {
+            if (openingId) return
+            setOpeningId(note.id)
+            try {
+              const res = await notesApi.get(note.id)
+              const fresh = res.data
+              setInitialLockedBy(fresh.lockedByName || fresh.lockedBy || null)
+              setOpenNote({ ...note, title: fresh.title, body: fresh.body })
+            } catch {
+              setOpenNote(note) // fallback to stale on error
+              setInitialLockedBy(null)
+            } finally {
+              setOpeningId(null)
+            }
+          }}
             style={{ padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
               borderBottom: '1px solid var(--border)',
               transition: 'background 0.1s',
@@ -304,8 +377,11 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
             onMouseOver={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface2)'}
             onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
             <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {note.title || <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Untitled</span>}
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'center', gap: 6 }}>
+              {openingId === note.id
+                ? <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>Opening...</span>
+                : (note.title || <span style={{ color: 'var(--text-dim)', fontStyle: 'italic' }}>Untitled</span>)}
             </div>
             <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2,
               fontFamily: 'DM Mono, monospace', display: 'flex', gap: 8 }}>
@@ -318,7 +394,8 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
 
       {/* Note overlay */}
       {openNote && (
-        <NoteOverlay note={openNote} onClose={handleClose} onDelete={handleDelete} />
+        <NoteOverlay note={openNote} onClose={handleClose} onDelete={handleDelete}
+          initialLockedBy={initialLockedBy} />
       )}
     </div>
   )

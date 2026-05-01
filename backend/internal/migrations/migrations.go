@@ -506,6 +506,14 @@ var migrations = []migration{
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 28,
+		name:    "notes_lock",
+		stmts: []string{
+			`ALTER TABLE notes ADD COLUMN locked_by TEXT DEFAULT NULL`,
+			`ALTER TABLE notes ADD COLUMN locked_at DATETIME DEFAULT NULL`,
+		},
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

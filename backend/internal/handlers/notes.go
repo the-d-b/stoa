@@ -54,6 +54,40 @@ func ListNotes(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func GetNote(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id := mux.Vars(r)["id"]
+		var n Note
+		var lockedBy sql.NullString
+		var lockedAt sql.NullString
+		err := db.QueryRow(`
+			SELECT id, panel_id, title, body, created_at, updated_at,
+				COALESCE(locked_by,''), COALESCE(locked_at,'')
+			FROM notes WHERE id=?`, id).Scan(
+			&n.ID, &n.PanelID, &n.Title, &n.Body, &n.CreatedAt, &n.UpdatedAt,
+			&lockedBy, &lockedAt)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "note not found")
+			return
+		}
+		// Check if locked by someone else and within TTL
+		result := map[string]interface{}{
+			"id": n.ID, "panelId": n.PanelID, "title": n.Title, "body": n.Body,
+			"createdAt": n.CreatedAt, "updatedAt": n.UpdatedAt,
+		}
+		if lockedBy.Valid && lockedBy.String != "" {
+			lockedAtTime, _ := time.Parse(time.RFC3339, lockedAt.String)
+			if time.Since(lockedAtTime).Seconds() < noteLockTTL {
+				var username string
+				db.QueryRow("SELECT username FROM users WHERE id=?", lockedBy.String).Scan(&username)
+				result["lockedBy"] = lockedBy.String
+				result["lockedByName"] = username
+			}
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
 func CreateNote(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_ = r.Context().Value(auth.UserContextKey).(*models.Claims)
@@ -189,6 +223,58 @@ func TrackNoteRead(db *sql.DB) http.HandlerFunc {
 			VALUES (?, ?, ?)
 			ON CONFLICT(note_id, user_id) DO UPDATE SET last_read_at = excluded.last_read_at
 		`, noteID, claims.UserID, now)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+const noteLockTTL = 90 // seconds — lock expires after this many seconds of no heartbeat
+
+// AcquireNoteLock tries to lock a note for the requesting user.
+// Returns 409 if locked by someone else and still within TTL.
+func AcquireNoteLock(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		now := time.Now().UTC()
+
+		// Check current lock state
+		var lockedBy sql.NullString
+		var lockedAt sql.NullTime
+		db.QueryRow("SELECT locked_by, locked_at FROM notes WHERE id=?", id).Scan(&lockedBy, &lockedAt)
+
+		// If locked by someone else and within TTL — reject
+		if lockedBy.Valid && lockedBy.String != claims.UserID {
+			if lockedAt.Valid && now.Sub(lockedAt.Time).Seconds() < noteLockTTL {
+				// Get locker's username for the message
+				var username string
+				db.QueryRow("SELECT username FROM users WHERE id=?", lockedBy.String).Scan(&username)
+				if username == "" { username = "another user" }
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusConflict)
+				json.NewEncoder(w).Encode(map[string]interface{}{
+					"error":      "locked",
+					"lockedBy":   username,
+					"lockedById": lockedBy.String,
+				})
+				return
+			}
+		}
+
+		// Acquire or refresh lock
+		db.Exec("UPDATE notes SET locked_by=?, locked_at=? WHERE id=?",
+			claims.UserID, now.Format(time.RFC3339), id)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "locked"})
+	}
+}
+
+// ReleaseNoteLock clears the lock if held by the requesting user.
+func ReleaseNoteLock(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		// Only release if we own the lock
+		db.Exec("UPDATE notes SET locked_by=NULL, locked_at=NULL WHERE id=? AND locked_by=?",
+			id, claims.UserID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

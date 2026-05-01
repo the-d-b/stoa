@@ -18,7 +18,7 @@ const tabs = [
   { path: '/admin/secrets',   label: 'System Secrets',   icon: '🔑' },
   { path: '/admin/integrations', label: 'System Integrations', icon: '⇄' },
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
-  { path: '/admin/mail',      label: 'Mail & Sessions', icon: '✉' },
+  { path: '/admin/mail',      label: 'Mail',            icon: '✉' },
   { path: '/admin/google',    label: 'Google Cal', icon: '📅' },
   { path: '/admin/sessions',  label: 'Sessions',  icon: '◎' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },

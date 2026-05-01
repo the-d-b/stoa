@@ -47,19 +47,30 @@ func TestMailConfig(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[MAIL] POST /admin/mail-config/test called")
 		var req struct {
-			To string `json:"to"`
+			To  string     `json:"to"`
+			Cfg *MailConfig `json:"cfg"` // optional inline config — uses current form values
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.To == "" {
 			log.Printf("[MAIL] test: missing recipient")
 			writeError(w, http.StatusBadRequest, "recipient email required")
 			return
 		}
+		// Use inline config if provided, fall back to saved DB config
+		cfg := getMailConfig(db)
+		if req.Cfg != nil {
+			if req.Cfg.Host != "" { cfg.Host = req.Cfg.Host }
+			if req.Cfg.Port != "" { cfg.Port = req.Cfg.Port }
+			if req.Cfg.TLSMode != "" { cfg.TLSMode = req.Cfg.TLSMode }
+			if req.Cfg.Username != "" { cfg.Username = req.Cfg.Username }
+			if req.Cfg.Password != "" { cfg.Password = req.Cfg.Password }
+			if req.Cfg.From != "" { cfg.From = req.Cfg.From }
+		}
 		html := `<div style="font-family:sans-serif;padding:20px">
 			<h2 style="color:#7c6fff">Stoa mail test</h2>
 			<p>If you're reading this, your mail configuration is working correctly.</p>
 		</div>`
-		log.Printf("[MAIL] test: sending to %q", req.To)
-		if err := sendMail(db, req.To, "Stoa mail test", html); err != nil {
+		log.Printf("[MAIL] test: sending to %q via %q", req.To, cfg.Host)
+		if err := sendMailWithConfig(cfg, req.To, "Stoa mail test", html); err != nil {
 			log.Printf("[MAIL] test send failed: %v", err)
 			writeError(w, http.StatusBadRequest, "mail send failed: "+err.Error())
 			return

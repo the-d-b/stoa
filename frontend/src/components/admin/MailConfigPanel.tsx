@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { mailConfigApi, sessionConfigApi, MailConfig } from '../../api'
+import { mailConfigApi, MailConfig } from '../../api'
 import SectionHelp from './SectionHelp'
 
 function MailField({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -16,22 +16,18 @@ export default function MailConfigPanel() {
   const [cfg, setCfg] = useState<MailConfig>({
     host: '', port: '587', username: '', password: '', from: '', tlsMode: 'starttls'
   })
-  const [sessionHours, setSessionHours] = useState('24')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [savingSession, setSavingSession] = useState(false)
-  const [savedSession, setSavedSession] = useState(false)
   const [testEmail, setTestEmail] = useState('')
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    Promise.all([mailConfigApi.get(), sessionConfigApi.get()])
-      .then(([m, s]) => {
+    mailConfigApi.get()
+      .then(m => {
         setCfg(m.data)
-        setSessionHours(s.data.sessionDurationHours || '24')
       })
       .catch(e => {
         setError('Load failed: ' + (e.response?.data?.error || e.message))
@@ -53,21 +49,11 @@ export default function MailConfigPanel() {
     if (!testEmail.trim()) return
     setTesting(true); setTestResult(null)
     try {
-      await mailConfigApi.test(testEmail.trim())
+      await mailConfigApi.test(testEmail.trim(), cfg)
       setTestResult({ ok: true, msg: `Test email sent to ${testEmail}` })
     } catch (e: any) {
       setTestResult({ ok: false, msg: e.response?.data?.error || `Failed (${e.response?.status ?? e.message})` })
     } finally { setTesting(false) }
-  }
-
-  const saveSession = async () => {
-    setSavingSession(true); setSavedSession(false)
-    try {
-      await sessionConfigApi.save(sessionHours)
-      setSavedSession(true); setTimeout(() => setSavedSession(false), 3000)
-    } catch (e: any) {
-      setError(e.response?.data?.error || 'Failed to save session config')
-    } finally { setSavingSession(false) }
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
@@ -153,30 +139,6 @@ export default function MailConfigPanel() {
         </div>
       )}
 
-      <div style={{ height: 1, background: 'var(--border)', margin: '4px 0 24px 0' }} />
-
-      {/* ── Session duration ─────────────────────────────────────────────────── */}
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Session duration</div>
-      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.6 }}>
-        How long a login session stays valid before the user must sign in again.
-        SSO sessions may be shorter depending on your identity provider.
-      </div>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <select className="input" value={sessionHours}
-          onChange={e => setSessionHours(e.target.value)}
-          style={{ cursor: 'pointer', maxWidth: 240 }}>
-          <option value="0.167">10 minutes (QA testing only)</option>
-          <option value="1">1 hour</option>
-          <option value="4">4 hours</option>
-          <option value="8">8 hours</option>
-          <option value="24">24 hours (default)</option>
-          <option value="48">48 hours</option>
-          <option value="168">7 days</option>
-        </select>
-        <button className="btn btn-primary" onClick={saveSession} disabled={savingSession}>
-          {savingSession ? <span className="spinner" /> : savedSession ? '✓ Saved' : 'Save'}
-        </button>
-      </div>
     </div>
   )
 }

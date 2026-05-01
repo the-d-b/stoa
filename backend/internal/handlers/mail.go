@@ -89,6 +89,56 @@ func saveMailConfig(db *sql.DB, cfg MailConfig) error {
 
 // ── Send mail ─────────────────────────────────────────────────────────────────
 
+// sendMailWithConfig sends using an explicit MailConfig (used for testing unsaved config)
+func sendMailWithConfig(cfg MailConfig, to, subject, htmlBody string) error {
+	if cfg.Host == "" {
+		return fmt.Errorf("mail server not configured")
+	}
+	from := cfg.From
+	if from == "" {
+		from = "stoa@" + cfg.Host
+	}
+	msg := buildMIME(from, to, subject, htmlBody)
+	addr := net.JoinHostPort(cfg.Host, cfg.Port)
+	switch cfg.TLSMode {
+	case "tls":
+		tlsCfg := &tls.Config{ServerName: cfg.Host}
+		conn, err := tls.Dial("tcp", addr, tlsCfg)
+		if err != nil { return fmt.Errorf("TLS dial: %w", err) }
+		client, err := smtp.NewClient(conn, cfg.Host)
+		if err != nil { return fmt.Errorf("SMTP client: %w", err) }
+		defer client.Close()
+		if cfg.Username != "" {
+			if err := client.Auth(smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)); err != nil {
+				return fmt.Errorf("SMTP auth: %w", err)
+			}
+		}
+		return sendSMTP(client, from, to, msg)
+	case "starttls":
+		client, err := smtp.Dial(addr)
+		if err != nil { return fmt.Errorf("SMTP dial: %w", err) }
+		defer client.Close()
+		tlsCfg := &tls.Config{ServerName: cfg.Host}
+		if err := client.StartTLS(tlsCfg); err != nil { return fmt.Errorf("STARTTLS: %w", err) }
+		if cfg.Username != "" {
+			if err := client.Auth(smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)); err != nil {
+				return fmt.Errorf("SMTP auth: %w", err)
+			}
+		}
+		return sendSMTP(client, from, to, msg)
+	default:
+		client, err := smtp.Dial(addr)
+		if err != nil { return fmt.Errorf("SMTP dial: %w", err) }
+		defer client.Close()
+		if cfg.Username != "" {
+			if err := client.Auth(smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)); err != nil {
+				return fmt.Errorf("SMTP auth: %w", err)
+			}
+		}
+		return sendSMTP(client, from, to, msg)
+	}
+}
+
 func sendMail(db *sql.DB, to, subject, htmlBody string) error {
 	log.Printf("[MAIL] sendMail: to=%q subject=%q", to, subject)
 	cfg := getMailConfig(db)
