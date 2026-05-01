@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { useUserMode } from '../context/UserModeContext'
+import { useAuth } from '../context/AuthContext'
 
 const GITHUB = 'https://github.com/the-d-b/stoa'
 const DOCS   = `${GITHUB}/tree/main/docs`
@@ -46,6 +47,7 @@ function QRow({ q, a }: { q: string; a: React.ReactNode }) {
 export default function HelpPage() {
   const userMode = useUserMode()
   const isMulti = userMode === 'multi'
+  const { isAdmin } = useAuth()
   return (
     <div style={{ maxWidth: 680, margin: '0 auto', padding: '32px 24px' }}>
 
@@ -120,7 +122,7 @@ export default function HelpPage() {
             { label: 'Admin → Groups', to: '/admin/groups', always: false },
             { label: 'Admin → Users', to: '/admin/users', always: false },
             { label: 'Admin → OAuth', to: '/admin/oauth', always: false },
-          ].filter(s => s.always || isMulti).map(({ label, to }) => (
+          ].filter(s => s.always || (isMulti && isAdmin)).map(({ label, to }) => (
             <Link key={to} to={to} style={{
               fontSize: 12, padding: '4px 10px', borderRadius: 6,
               background: 'var(--surface2)', border: '1px solid var(--border)',

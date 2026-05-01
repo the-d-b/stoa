@@ -3230,10 +3230,14 @@ const PANEL_TYPES = [
 ]
 
 const HEIGHT_OPTIONS = [
-  { value: 1, label: '1x — compact' },
-  { value: 2, label: '2x — standard' },
-  { value: 4, label: '4x — tall' },
-  { value: 8, label: '8x — full height' },
+  { value: 1, label: '1x' },
+  { value: 2, label: '2x' },
+  { value: 3, label: '3x' },
+  { value: 4, label: '4x' },
+  { value: 5, label: '5x' },
+  { value: 6, label: '6x' },
+  { value: 7, label: '7x' },
+  { value: 8, label: '8x' },
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
@@ -3533,7 +3537,11 @@ function MyPanelsTab() {
                         style={{ cursor: 'pointer' }}>
                         <option value={1}>1x</option>
                         <option value={2}>2x</option>
+                        <option value={3}>3x</option>
                         <option value={4}>4x</option>
+                        <option value={5}>5x</option>
+                        <option value={6}>6x</option>
+                        <option value={7}>7x</option>
                         <option value={8}>8x</option>
                       </select>
                     </div>

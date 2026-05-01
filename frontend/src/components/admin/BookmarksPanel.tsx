@@ -34,6 +34,29 @@ export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState<{ parentId?: string; type: 'section' | 'bookmark' } | null>(null)
   const [movingId, setMovingId] = useState<string | null>(null)
+  const [globalExpanded, setGlobalExpanded] = useState<boolean | null>(null) // null=default, true=all, false=none
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [multiMoving, setMultiMoving] = useState(false)
+
+  const toggleSelect = (id: string) => setSelectedIds(prev => {
+    const next = new Set(prev)
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  })
+
+  const handleMultiMove = async (newParentId: string | null) => {
+    setMultiMoving(true)
+    try {
+      for (const id of selectedIds) {
+        await api.move(id, newParentId)
+      }
+      setSelectedIds(new Set())
+      setMovingId(null)
+      await load()
+    } catch (e: any) {
+      alert(e.response?.data?.error || 'Failed to move items')
+    } finally { setMultiMoving(false) }
+  }
 
   // api.tree() returns shared nodes only (scope=shared), rooted under /shared/
   const load = () => api.tree().then((r: any) => setTree(r.data || [])).finally(() => setLoading(false))
@@ -57,7 +80,24 @@ export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, lineHeight: 1.7, maxWidth: 460 }}>
           Sections sort before bookmarks alphabetically at every level. Use ↕ to move a node to a new parent.
+          {selectedIds.size > 0 && <span style={{ color: 'var(--accent2)', marginLeft: 8 }}>{selectedIds.size} selected</span>}
         </p>
+        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }}
+            onClick={() => setGlobalExpanded(true)}>Expand all</button>
+          <button className="btn btn-ghost" style={{ fontSize: 12 }}
+            onClick={() => setGlobalExpanded(false)}>Collapse all</button>
+          {selectedIds.size > 1 && (
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={() => setMovingId('__multi__')}>
+              Move {selectedIds.size} items
+            </button>
+          )}
+          {selectedIds.size > 0 && (
+            <button className="btn btn-ghost" style={{ fontSize: 12 }}
+              onClick={() => setSelectedIds(new Set())}>Clear</button>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: 8, flexShrink: 0, marginLeft: 16 }}>
           <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={() => setAdding({ type: 'section' })}>+ Section</button>
           <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => setAdding({ type: 'bookmark' })}>+ Bookmark</button>
@@ -72,6 +112,23 @@ export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}
 
 
 
+      {/* Multi-item move picker */}
+      {movingId === '__multi__' && selectedIds.size > 0 && (() => {
+        const firstId = Array.from(selectedIds)[0]
+        const fakeNode = { id: firstId, name: `${selectedIds.size} selected items`, parentId: undefined, path: '', type: 'bookmark' as const, children: [], sortOrder: 0, scope: 'shared', createdAt: '' }
+        return (
+          <div style={{ marginBottom: 12 }}>
+            <MovePicker
+              node={fakeNode as BookmarkNode}
+              sections={flatSections(tree)}
+              onMove={(_id, parentId) => handleMultiMove(parentId)}
+              onCancel={() => setMovingId(null)}
+              loading={multiMoving}
+            />
+          </div>
+        )
+      })()}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         {tree.length === 0 && <Empty message="No bookmarks yet. Add a section to get started." />}
         {tree.map(node => (
@@ -82,7 +139,10 @@ export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}
             allTree={tree}
             onMoveConfirm={handleMove}
             onMoveCancel={() => setMovingId(null)}
-            bookmarkApi={api} />
+            bookmarkApi={api}
+            globalExpanded={globalExpanded}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect} />
         ))}
       </div>
     </div>
@@ -91,20 +151,28 @@ export default function BookmarksPanel({ apiOverride }: BookmarksPanelProps = {}
 
 // ── Move picker ───────────────────────────────────────────────────────────────
 
-function MovePicker({ node, sections, onMove, onCancel }: {
+function MovePicker({ node, sections, onMove, onCancel, loading: externalLoading }: {
   node: BookmarkNode
   sections: BookmarkNode[]
   onMove: (nodeId: string, newParentId: string | null) => void
   onCancel: () => void
+  loading?: boolean
 }) {
   const [selected, setSelected] = useState<string>('__root__')
   const [moving, setMoving] = useState(false)
+  const [filter, setFilter] = useState('')
+
+  const isMoving = moving || externalLoading
 
   const handleConfirm = async () => {
     setMoving(true)
     await onMove(node.id, selected === '__root__' ? null : selected)
     setMoving(false)
   }
+
+  const filteredSections = filter.trim()
+    ? sections.filter(s => s.name.toLowerCase().includes(filter.toLowerCase()))
+    : sections
 
   return (
     <div style={{
@@ -114,6 +182,9 @@ function MovePicker({ node, sections, onMove, onCancel }: {
       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
         Move <span style={{ color: 'var(--accent2)' }}>"{node.name}"</span> to:
       </div>
+
+      <input className="input" value={filter} onChange={e => setFilter(e.target.value)}
+        placeholder="Filter sections..." style={{ fontSize: 12, marginBottom: 8 }} autoFocus />
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14, maxHeight: 240, overflowY: 'auto' }}>
         {/* Root option */}
@@ -126,7 +197,7 @@ function MovePicker({ node, sections, onMove, onCancel }: {
           current={!node.parentId}
         />
         {/* All sections */}
-        {sections.map(s => (
+        {filteredSections.map(s => (
           <ParentOption
             key={s.id}
             id={s.id}
@@ -145,11 +216,11 @@ function MovePicker({ node, sections, onMove, onCancel }: {
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn btn-primary" onClick={handleConfirm} disabled={moving ||
+        <button className="btn btn-primary" onClick={handleConfirm} disabled={isMoving ||
           (selected === '__root__' && !node.parentId) ||
           (selected === node.parentId)
         }>
-          {moving ? <span className="spinner" /> : 'Move here'}
+          {isMoving ? <span className="spinner" /> : 'Move here'}
         </button>
         <button className="btn btn-secondary" onClick={onCancel}>Cancel</button>
       </div>
@@ -184,7 +255,7 @@ function ParentOption({ id, label, depth, selected, onSelect, current }: {
 
 // ── Tree node ─────────────────────────────────────────────────────────────────
 
-function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId, allTree, onMoveConfirm, onMoveCancel, bookmarkApi }: {
+function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId, allTree, onMoveConfirm, onMoveCancel, bookmarkApi, globalExpanded, selectedIds, onToggleSelect }: {
   node: BookmarkNode; depth: number; onRefresh: () => void
   adding: { parentId?: string; type: 'section' | 'bookmark' } | null
   setAdding: (v: any) => void
@@ -194,8 +265,16 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
   onMoveConfirm: (nodeId: string, newParentId: string | null) => void
   onMoveCancel: () => void
   bookmarkApi: any
+  globalExpanded?: boolean | null
+  selectedIds?: Set<string>
+  onToggleSelect?: (id: string) => void
 }) {
-  const [expanded, setExpanded] = useState(true)
+  const [expandedLocal, setExpandedLocal] = useState(true)
+  const expanded = globalExpanded !== null && globalExpanded !== undefined ? globalExpanded : expandedLocal
+  const setExpanded = (v: boolean | ((p: boolean) => boolean)) => {
+    const next = typeof v === 'function' ? v(expandedLocal) : v
+    setExpandedLocal(next)
+  }
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState(node.name)
   const [editUrl, setEditUrl] = useState(node.url || '')
@@ -234,6 +313,13 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
         borderRadius: 8, marginBottom: 2,
         background: 'var(--surface)', border: '1px solid var(--border)',
       }}>
+        {/* Multi-select checkbox */}
+        {onToggleSelect && (
+          <input type="checkbox" checked={selectedIds?.has(node.id) || false}
+            onChange={() => onToggleSelect(node.id)}
+            style={{ width: 13, height: 13, cursor: 'pointer', flexShrink: 0, accentColor: 'var(--accent)' }} />
+        )}
+
         {/* Expand toggle */}
         {node.type === 'section' ? (
           <button onClick={() => setExpanded(e => !e)} style={{
@@ -351,7 +437,10 @@ function TreeNode({ node, depth, onRefresh, adding, setAdding, onMove, movingId,
           onRefresh={onRefresh} adding={adding} setAdding={setAdding} onMove={onMove}
           movingId={movingId} allTree={allTree}
           onMoveConfirm={onMoveConfirm} onMoveCancel={onMoveCancel}
-          bookmarkApi={bookmarkApi} />
+          bookmarkApi={bookmarkApi}
+          globalExpanded={globalExpanded}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect} />
       ))}
     </div>
   )

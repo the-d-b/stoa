@@ -267,10 +267,14 @@ export default function PanelsAdminPanel() {
               <select className="input" value={newHeight}
                 onChange={e => setNewHeight(Number(e.target.value))}
                 style={{ cursor: 'pointer' }}>
-                <option value={1}>1x — Compact</option>
-                <option value={2}>2x — Normal</option>
-                <option value={4}>4x — Tall</option>
-                <option value={8}>8x — Full</option>
+                <option value={1}>1x</option>
+                <option value={2}>2x</option>
+                <option value={3}>3x</option>
+                <option value={4}>4x</option>
+                <option value={5}>5x</option>
+                <option value={6}>6x</option>
+                <option value={7}>7x</option>
+                <option value={8}>8x</option>
               </select>
             </div>
             <button className="btn btn-primary" onClick={create} disabled={creating}>
@@ -309,10 +313,14 @@ export default function PanelsAdminPanel() {
                       <select className="input" style={{ fontSize: 12, padding: '3px 8px', cursor: 'pointer' }}
                         value={editingHeight.height}
                         onChange={e => setEditingHeight(eh => eh ? { ...eh, height: Number(e.target.value) } : null)}>
-                        <option value={1}>1x — Compact</option>
-                        <option value={2}>2x — Normal</option>
-                        <option value={4}>4x — Tall</option>
-                        <option value={8}>8x — Full</option>
+                        <option value={1}>1x</option>
+                        <option value={2}>2x</option>
+                        <option value={3}>3x</option>
+                        <option value={4}>4x</option>
+                        <option value={5}>5x</option>
+                        <option value={6}>6x</option>
+                        <option value={7}>7x</option>
+                        <option value={8}>8x</option>
                       </select>
                       <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
                         const config = safeParseConfig(p.config)
