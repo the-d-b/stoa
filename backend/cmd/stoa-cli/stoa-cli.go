@@ -487,32 +487,24 @@ func storagePrune(dbPath string, args []string) {
 	// Collect all referenced filenames from DB
 	referenced := map[string]bool{}
 
-	// Bookmark icon_url references
-	rows, _ := db.Query("SELECT icon_url FROM bookmark_nodes WHERE icon_url IS NOT NULL AND icon_url != ''")
-	for rows.Next() {
-		var icon string
-		rows.Scan(&icon)
-		referenced[filepath.Base(icon)] = true
+	queryIntoReferenced := func(query string) {
+		rows, err := db.Query(query)
+		if err != nil {
+			return // table or column may not exist — skip silently
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var val string
+			rows.Scan(&val)
+			if val != "" {
+				referenced[filepath.Base(val)] = true
+			}
+		}
 	}
-	rows.Close()
 
-	// User avatars (stored in user_preferences.avatar_url)
-	rows, _ = db.Query("SELECT avatar_url FROM user_preferences WHERE avatar_url IS NOT NULL AND avatar_url != ''")
-	for rows.Next() {
-		var avatar string
-		rows.Scan(&avatar)
-		referenced[filepath.Base(avatar)] = true
-	}
-	rows.Close()
-
-	// Glyph icons referenced in glyphs table
-	rows, _ = db.Query("SELECT icon_path FROM glyphs WHERE icon_path IS NOT NULL AND icon_path != ''")
-	for rows.Next() {
-		var icon string
-		rows.Scan(&icon)
-		referenced[filepath.Base(icon)] = true
-	}
-	rows.Close()
+	queryIntoReferenced("SELECT icon_url FROM bookmark_nodes WHERE icon_url IS NOT NULL AND icon_url != ''")
+	queryIntoReferenced("SELECT avatar_url FROM user_preferences WHERE avatar_url IS NOT NULL AND avatar_url != ''")
+	queryIntoReferenced("SELECT icon_path FROM glyphs WHERE icon_path IS NOT NULL AND icon_path != ''")
 
 	var orphans []string
 	var totalSize int64
