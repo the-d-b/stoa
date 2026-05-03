@@ -495,6 +495,8 @@ function FlowSlot({ heightUnits, children, allExpanded }: {
         : {
             gridRow: `span ${heightUnits}`,
             alignSelf: 'start',
+            minWidth: 0,  // prevents grid cell from expanding to content width
+            overflow: 'hidden',
           }
     }>
       {React.cloneElement(children as React.ReactElement, {

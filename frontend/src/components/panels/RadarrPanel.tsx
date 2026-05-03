@@ -38,7 +38,7 @@ function MoviePosterStrip({ items, uiUrl }: { items: RadarrMovie[]; uiUrl: strin
   if (posters.length === 0) return null
   return (
     <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
-      scrollbarWidth: 'none' }}>
+      scrollbarWidth: 'none', maxWidth: '100%', minWidth: 0 }}>
       {posters.map((m, i) => (
         <a key={i} href={uiUrl && m.titleSlug ? `${uiUrl}/movie/${m.titleSlug}` : uiUrl}
           target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>

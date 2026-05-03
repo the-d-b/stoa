@@ -425,6 +425,8 @@ export const panelsApi = {
   delete: (id: string) => api.delete(`/panels/${id}`),
   addTag: (panelId: string, tagId: string) => api.post(`/panels/${panelId}/tags`, { tagId }),
   removeTag: (panelId: string, tagId: string) => api.delete(`/panels/${panelId}/tags/${tagId}`),
+  getOrder: (porticoId?: string) =>
+    api.get<Record<string,number>>(`/panels/order${porticoId ? `?portico_id=${porticoId}` : ''}`),
   updateOrder: (porticoId: string | null, order: { panelId: string; position: number }[]) =>
     api.put('/panels/order', { porticoId: porticoId ?? null, order }),
 }
@@ -546,6 +548,20 @@ export const checklistApi = {
   toggle: (id: string, completed: boolean) =>
     api.put(`/checklist/item/${id}/toggle`, { completed }),
   delete: (id: string) => api.delete(`/checklist/item/${id}`),
+}
+
+export const porticoConfigApi = {
+  panels: (porticoId: string) =>
+    api.get<{ id: string; type: string; title: string; config: string; scope: string; position: number; customColumn: number }[]>(
+      `/panels/portico-config?portico_id=${porticoId}`
+    ),
+}
+
+export const porticoPanelsApi = {
+  list: (porticoId: string) =>
+    api.get<{ id: string; type: string; title: string; config: string; position: number; customColumn: number }[]>(
+      `/panels/portico-panels?portico_id=${porticoId}`
+    ),
 }
 
 export const customColumnsApi = {

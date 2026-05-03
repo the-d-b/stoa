@@ -84,7 +84,7 @@ function AlbumCoverStrip({ items, uiUrl }: { items: LidarrAlbum[]; uiUrl: string
   const covers = items.filter(a => a.coverUrl)
   if (covers.length === 0) return null
   return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
+    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10, maxWidth: '100%', minWidth: 0,
       scrollbarWidth: 'none' }}>
       {covers.map((a, i) => (
         <a key={i}

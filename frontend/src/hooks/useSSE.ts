@@ -2,14 +2,15 @@ import { useEffect, useRef, useState } from 'react'
 
 // ── SSE singleton ─────────────────────────────────────────────────────────────
 // One EventSource connection per browser tab, shared across all panels.
-// Panels subscribe by integrationId and receive updates when cache changes.
 
 type SSEListener = (data: unknown) => void
+export type SSEStatus = 'connected' | 'reconnecting' | 'offline'
 
 interface SSEManager {
   subscribe: (integrationId: string, cb: SSEListener) => () => void
   subscribeChat: (cb: (data: unknown) => void) => () => void
-  isConnected: () => boolean
+  subscribeStatus: (cb: (status: SSEStatus) => void) => () => void
+  getStatus: () => SSEStatus
 }
 
 let manager: SSEManager | null = null
@@ -17,29 +18,63 @@ let manager: SSEManager | null = null
 function getSSEManager(): SSEManager {
   if (manager) return manager
 
-  const listeners = new Map<string, Set<SSEListener>>()
-  let connected = false
-  let es: EventSource | null = null
-
+  const listeners     = new Map<string, Set<SSEListener>>()
   const chatListeners = new Set<(data: unknown) => void>()
+  const statusListeners = new Set<(s: SSEStatus) => void>()
+
+  let status: SSEStatus = 'offline'
+  let es: EventSource | null = null
+  let lastPingAt: number = Date.now()
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let deadTimer: ReturnType<typeof setInterval> | null = null
+  let reconnectCount = 0
+
+  function setStatus(s: SSEStatus) {
+    if (status === s) return
+    status = s
+    statusListeners.forEach(cb => cb(s))
+  }
+
+  function scheduleReconnect(delayMs: number) {
+    if (reconnectTimer) return // already scheduled
+    reconnectCount++
+    console.log(`[SSE] scheduling reconnect #${reconnectCount} in ${delayMs}ms`)
+    setStatus('reconnecting')
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null
+      connect()
+    }, delayMs)
+  }
 
   function connect() {
     const token = localStorage.getItem('stoa_token')
-    if (!token) return
+    if (!token) {
+      console.log('[SSE] no token, not connecting')
+      setStatus('offline')
+      return
+    }
 
+    console.log(`[SSE] connecting (attempt #${reconnectCount + 1})`)
+    es?.close()
     es = new EventSource(`/api/stream?token=${encodeURIComponent(token)}`)
 
-    es.addEventListener('connected', () => {
-      connected = true
+    es.addEventListener('connected', (e: MessageEvent) => {
+      console.log('[SSE] connected', e.data)
+      lastPingAt = Date.now()
+      setStatus('connected')
+    })
+
+    es.addEventListener('ping', (_e: MessageEvent) => {
+      lastPingAt = Date.now()
+      // Uncomment for verbose logging: console.log('[SSE] ping', e.data)
     })
 
     es.addEventListener('cache-update', (e: MessageEvent) => {
       try {
         const { integrationId, data } = JSON.parse(e.data)
-        const cbs = listeners.get(integrationId)
-        if (cbs) cbs.forEach(cb => cb(data))
+        listeners.get(integrationId)?.forEach(cb => cb(data))
       } catch {
-        // malformed event — ignore
+        console.warn('[SSE] malformed cache-update event')
       }
     })
 
@@ -47,42 +82,55 @@ function getSSEManager(): SSEManager {
       try {
         const data = JSON.parse(e.data)
         chatListeners.forEach(cb => cb(data))
-      } catch {}
+      } catch {
+        console.warn('[SSE] malformed chat event')
+      }
     })
 
-    es.onerror = () => {
-      connected = false
+    es.onerror = (e) => {
+      console.warn('[SSE] onerror fired, readyState=', es?.readyState, e)
+      setStatus('reconnecting')
       es?.close()
-      setTimeout(connect, 5000)
+      es = null
+      scheduleReconnect(5000)
     }
+
+    // Dead connection detector — if no ping in 60s, force reconnect
+    if (deadTimer) clearInterval(deadTimer)
+    deadTimer = setInterval(() => {
+      const silentMs = Date.now() - lastPingAt
+      if (silentMs > 60000 && status !== 'offline') {
+        console.warn(`[SSE] no ping in ${Math.round(silentMs/1000)}s — forcing reconnect`)
+        es?.close()
+        es = null
+        scheduleReconnect(1000)
+      }
+    }, 15000) // check every 15s
   }
 
   connect()
 
   manager = {
-    subscribe(integrationId: string, cb: SSEListener) {
-      if (!listeners.has(integrationId)) {
-        listeners.set(integrationId, new Set())
-      }
+    subscribe(integrationId, cb) {
+      if (!listeners.has(integrationId)) listeners.set(integrationId, new Set())
       listeners.get(integrationId)!.add(cb)
-      return () => {
-        listeners.get(integrationId)?.delete(cb)
-      }
+      return () => listeners.get(integrationId)?.delete(cb)
     },
-    subscribeChat(cb: (data: unknown) => void) {
+    subscribeChat(cb) {
       chatListeners.add(cb)
-      return () => chatListeners.delete(cb)
+      return () => { chatListeners.delete(cb) }
     },
-    isConnected: () => connected,
+    subscribeStatus(cb) {
+      statusListeners.add(cb)
+      return () => { statusListeners.delete(cb) }
+    },
+    getStatus: () => status,
   }
 
   return manager
 }
 
-// ── useSSE hook ───────────────────────────────────────────────────────────────
-// Drop-in replacement for polling. Returns latest cached data for an integration.
-// Falls back to null until first push arrives (panel uses its own initial load).
-
+// ── useSSE ────────────────────────────────────────────────────────────────────
 export function useSSE<T>(integrationId: string | undefined): T | null {
   const [data, setData] = useState<T | null>(null)
   const cbRef = useRef<SSEListener>()
@@ -91,27 +139,29 @@ export function useSSE<T>(integrationId: string | undefined): T | null {
     if (!integrationId) return
     const mgr = getSSEManager()
     cbRef.current = (d) => setData(d as T)
-    const unsub = mgr.subscribe(integrationId, cbRef.current)
-    return unsub
+    return mgr.subscribe(integrationId, cbRef.current)
   }, [integrationId])
 
   return data
 }
 
-// ── SSE connection status ─────────────────────────────────────────────────────
-export function useSSEConnected(): boolean {
-  const [connected, setConnected] = useState(false)
+// ── useSSEStatus ──────────────────────────────────────────────────────────────
+export function useSSEStatus(): SSEStatus {
+  const [status, setStatus] = useState<SSEStatus>(() => getSSEManager().getStatus())
   useEffect(() => {
-    const interval = setInterval(() => {
-      setConnected(getSSEManager().isConnected())
-    }, 2000)
-    return () => clearInterval(interval)
+    const mgr = getSSEManager()
+    setStatus(mgr.getStatus())
+    return mgr.subscribeStatus(setStatus)
   }, [])
-  return connected
+  return status
 }
 
-// ── useChatSSE hook ───────────────────────────────────────────────────────────
-// Calls cb whenever a chat message arrives via SSE
+// ── useSSEConnected (legacy) ──────────────────────────────────────────────────
+export function useSSEConnected(): boolean {
+  return useSSEStatus() === 'connected'
+}
+
+// ── useChatSSE ────────────────────────────────────────────────────────────────
 export function useChatSSE(cb: (msg: unknown) => void) {
   const cbRef = useRef(cb)
   cbRef.current = cb

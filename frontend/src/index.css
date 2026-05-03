@@ -178,6 +178,9 @@
   /* Dashboard: single column on mobile — both Seira and Stylos collapse cleanly */
   .panel-grid-seira  { grid-template-columns: 1fr !important; }
   .panel-grid-stylos { grid-template-columns: 1fr !important; }
+  /* Prevent grid cells from expanding beyond column width */
+  .panel-grid-seira > *, .panel-grid-stylos > *,
+  .panel-grid-rema-row > * { min-width: 0; overflow: hidden; }
   /* Legacy class names for safety */
   .panel-grid-columns { grid-template-columns: 1fr !important; }
   .panel-grid-flow    { grid-template-columns: 1fr !important; }

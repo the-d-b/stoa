@@ -64,6 +64,14 @@ func main() {
 	// ── Protected (any authenticated user) ───────────────
 	protected := api.PathPrefix("").Subrouter()
 	protected.Use(authService.Middleware)
+	// Update last_seen_at on every authenticated request (not just SSE)
+	protected.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+			// Update async so it never adds latency to the request
+			go handlers.UpdateLastSeenFromContext(database, r.Context())
+		})
+	})
 
 	protected.HandleFunc("/auth/me", handlers.Me(authService)).Methods("GET")
 	protected.HandleFunc("/profile", handlers.GetProfile(database)).Methods("GET")
@@ -113,7 +121,10 @@ func main() {
 
 	// Panels (read + reorder)
 	protected.HandleFunc("/panels", handlers.ListPanels(database)).Methods("GET")
+	protected.HandleFunc("/panels/order", handlers.GetPanelOrder(database)).Methods("GET")
 	protected.HandleFunc("/panels/order", handlers.UpdatePanelOrder(database)).Methods("PUT")
+	protected.HandleFunc("/panels/portico-config", handlers.ListPorticoConfigPanels(database)).Methods("GET")
+	protected.HandleFunc("/panels/portico-panels", handlers.ListPorticoPanels(database)).Methods("GET")
 	protected.HandleFunc("/panels/custom-columns", handlers.GetCustomColumns(database)).Methods("GET")
 
 	// Sessions route registered after admin subrouter is declared (see below)

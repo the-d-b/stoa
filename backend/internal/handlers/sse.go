@@ -92,7 +92,11 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		sseClients[clientID] = client
 		sseMu.Unlock()
 
-		log.Printf("[SSE] client connected: %s", clientID)
+		sseMu.RLock()
+		clientCount := len(sseClients)
+		sseMu.RUnlock()
+		log.Printf("[SSE] connect  user=%s client=%s total=%d ip=%s",
+			claims.Username, clientID, clientCount, r.RemoteAddr)
 
 		// Track presence and update last_seen
 		MarkUserOnline(claims.UserID)
@@ -116,8 +120,10 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 			unregisterChat()
 			sseMu.Lock()
 			delete(sseClients, clientID)
+			remainingClients := len(sseClients)
 			sseMu.Unlock()
-			log.Printf("[SSE] client disconnected: %s", clientID)
+			log.Printf("[SSE] disconnect user=%s client=%s remaining=%d",
+				claims.Username, clientID, remainingClients)
 			MarkUserOffline(claims.UserID)
 			go UpdateLastSeen(db, claims.UserID)
 			// Notify worker manager — may spin down workers after grace period
@@ -149,7 +155,8 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		}()
 		flusher.Flush()
 
-		// ── Heartbeat — keeps connection alive through NPM/nginx ──────────
+		// ── Heartbeat — keeps connection alive through proxies ──────────────
+		// Named 'ping' event so client can detect dead connections
 		heartbeat := time.NewTicker(25 * time.Second)
 		defer heartbeat.Stop()
 
@@ -157,9 +164,11 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		for {
 			select {
 			case <-r.Context().Done():
+				log.Printf("[SSE] context done user=%s client=%s", claims.Username, clientID)
 				return
 			case <-heartbeat.C:
-				fmt.Fprintf(w, ": heartbeat\n\n")
+				// Named ping event — client uses this to detect dead connections
+				fmt.Fprintf(w, "event: ping\ndata: {\"t\":%d}\n\n", time.Now().Unix())
 				flusher.Flush()
 			case evt := <-client.ch:
 				if evt.Event != "" {

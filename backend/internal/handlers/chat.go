@@ -27,27 +27,32 @@ type ChatMessage struct {
 }
 
 var (
-	chatBroadcastMu sync.Mutex
-	chatBroadcast   []func(ChatMessage) // registered SSE senders
+	chatBroadcastMu  sync.Mutex
+	chatListenerSeq  uint64
+	chatBroadcast    = map[uint64]func(ChatMessage){} // map avoids slice-index panic on concurrent remove
 )
 
 func RegisterChatListener(fn func(ChatMessage)) func() {
 	chatBroadcastMu.Lock()
-	chatBroadcast = append(chatBroadcast, fn)
-	idx := len(chatBroadcast) - 1
+	chatListenerSeq++
+	id := chatListenerSeq
+	chatBroadcast[id] = fn
 	chatBroadcastMu.Unlock()
 	return func() {
 		chatBroadcastMu.Lock()
-		chatBroadcast = append(chatBroadcast[:idx], chatBroadcast[idx+1:]...)
+		delete(chatBroadcast, id)
 		chatBroadcastMu.Unlock()
 	}
 }
 
 func broadcastChat(msg ChatMessage) {
 	chatBroadcastMu.Lock()
-	fns := make([]func(ChatMessage), len(chatBroadcast))
-	copy(fns, chatBroadcast)
+	fns := make([]func(ChatMessage), 0, len(chatBroadcast))
+	for _, fn := range chatBroadcast {
+		fns = append(fns, fn)
+	}
 	chatBroadcastMu.Unlock()
+	log.Printf("[CHAT] broadcasting to %d listeners", len(fns))
 	for _, fn := range fns {
 		fn(msg)
 	}

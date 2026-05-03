@@ -95,7 +95,7 @@ function PosterStrip({ items, uiUrl }: { items: { posterUrl?: string; titleSlug?
   if (posters.length === 0) return null
   return (
     <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
-      scrollbarWidth: 'none' }}>
+      scrollbarWidth: 'none', maxWidth: '100%', minWidth: 0 }}>
       {posters.map((item, i) => (
         <a key={i} href={uiUrl && item.titleSlug ? `${uiUrl}/series/${item.titleSlug}` : uiUrl}
           target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>

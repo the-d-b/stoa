@@ -110,7 +110,8 @@ type Panel struct {
 	CreatedBy string    `json:"createdBy,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	Tags      []Tag     `json:"tags,omitempty"`
-	Position  int       `json:"position,omitempty"`
+	Position     int    `json:"position,omitempty"`
+	CustomColumn int    `json:"customColumn,omitempty"`
 	UIUrl     string    `json:"uiUrl,omitempty"`
 }
 

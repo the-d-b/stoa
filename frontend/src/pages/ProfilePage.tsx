@@ -512,7 +512,7 @@ function PanelsOrderTab() {
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 500 }}>{panel.title}</div>
               <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 1, fontFamily: 'DM Mono, monospace' }}>
-                {panel.scope === 'personal' ? 'personal' : 'shared'} · {panel.type}
+                {panel.scope === 'personal' ? 'personal' : 'shared'} · {panel.type} · {(() => { try { return (JSON.parse(panel.config || '{}').height || 2) + 'x' } catch { return '2x' } })()}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 3 }}>
@@ -579,12 +579,28 @@ function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; 
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
-    const [pr, cr] = await Promise.all([
-      panelsApi.list(porticoId),
-      customColumnsApi.get(porticoId),
-    ])
-    setPanels(pr.data || [])
-    setColumns(cr.data || {})
+    // Use the same panelsApi.list(porticoId) call that panel order tab uses —
+    // it already returns the correct panels for this portico with position + customColumn
+    const pr = await panelsApi.list(porticoId)
+    // Only panels with a saved position for this portico — position=0 means not in this portico's order
+    const items: Panel[] = (pr.data || []).filter((p: Panel) => (p.position || 0) > 0)
+
+    // Items are already sorted by position from the backend.
+    // Build column map — validate monotonically non-decreasing, reset to 1 if invalid
+    const colData: Record<string,number> = {}
+    let lastCol = 1
+    let valid = true
+    for (const p of items) {
+      const col = (p as any).customColumn || 1
+      if (col < lastCol) { valid = false; break }
+      lastCol = col
+    }
+    items.forEach((p: Panel) => {
+      colData[p.id] = valid ? ((p as any).customColumn || 1) : 1
+    })
+
+    setPanels(items)
+    setColumns(colData)
   }
 
   useEffect(() => { if (open) load() }, [open, porticoId])
@@ -2104,10 +2120,9 @@ function TickersTab() {
 
   const [porticos, setPorticos] = useState<Portico[]>([])
   const load = async () => {
-    const [t, sysS, myS, p] = await Promise.all([tickersApi.list(), secretsApi.list(), mySecretsApi.list(), porticosApi.list()])
-    const s = { data: [...(sysS.data || []), ...(myS.data || [])] }
+    const [t, sysS, p] = await Promise.all([tickersApi.list(), secretsApi.list(), porticosApi.list()])
     setTickers(t.data || [])
-    setSecrets(s.data || [])
+    setSecrets(sysS.data || []) // /secrets already includes user's own + accessible system secrets
     setPorticos(p.data || [])
     setLoading(false)
   }
@@ -2593,21 +2608,20 @@ function PersonalIntegrationsTab() {
     try {
       const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'personal' })
       setNewSecretId(res.data.id)
-      setSecrets((prev: any[]) => [...prev, { id: res.data.id, name: newSecretName.trim() }])
       setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
+      await load() // re-fetch authoritative list — avoids duplicate from optimistic + fetch
     } finally { setSavingSecret(false) }
   }
 
   const load = async () => {
-    const [shared, personal, sysS, myS] = await Promise.all([
+    const [shared, personal, sysS] = await Promise.all([
       integrationsApi.list(),
       myIntegrationsApi.list(),
-      secretsApi.list(),
-      mySecretsApi.list(),
+      secretsApi.list(), // already includes user's own + accessible system secrets
     ])
     setShared((shared.data || []).filter((i: Integration) => i.createdBy === 'SYSTEM'))
     setPersonal(personal.data || [])
-    setSecrets([...(sysS.data || []), ...(myS.data || [])])
+    setSecrets(sysS.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])

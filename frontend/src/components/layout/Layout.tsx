@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { profileApi } from '../../api'
 import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
+import { useSSEStatus, useChatSSE } from '../../hooks/useSSE'
 import ChatPanel from './ChatPanel'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
 
@@ -18,6 +19,13 @@ export default function Layout() {
   const [tickers, setTickers] = useState<any[]>([])
   const [activePorticoId, setActivePorticoId] = useState(() => sessionStorage.getItem('active_portico') || 'home')
   const [chatOpen, setChatOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const sseStatus = useSSEStatus()
+
+  // Increment unread when chat message arrives and panel is closed
+  useChatSSE(() => {
+    if (!chatOpen) setUnreadCount(c => c + 1)
+  })
 
   const location = useLocation()
 
@@ -192,21 +200,47 @@ export default function Layout() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
               opacity: 0.5 }}>v{APP_VERSION}</span>
-            <GlyphZone glyphs={glyphs} zone="footer-left" activePorticoId={activePorticoId} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <GlyphZone glyphs={glyphs} zone="footer-left" activePorticoId={activePorticoId} />
+              <span title={`SSE: ${sseStatus}`} style={{
+                width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                background: sseStatus === 'connected' ? 'var(--green)'
+                  : sseStatus === 'reconnecting' ? 'var(--amber)'
+                  : 'var(--red)',
+                boxShadow: sseStatus === 'connected' ? '0 0 4px var(--green)' : 'none',
+                transition: 'background 0.3s',
+              }} />
+            </div>
           </div>
           {/* Center */}
           <GlyphZone glyphs={glyphs} zone="footer-center" activePorticoId={activePorticoId} />
           {/* Right: footer-right glyphs then chat icon at far right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
-            <button onClick={() => setChatOpen(v => !v)} title="Chat"
+            <button onClick={() => { setChatOpen(v => !v); setUnreadCount(0) }}
+              title={unreadCount > 0 ? `Chat (${unreadCount} unread)` : 'Chat'}
               style={{
                 width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
                 background: chatOpen ? 'var(--accent-bg)' : 'var(--surface)',
                 color: chatOpen ? 'var(--accent2)' : 'var(--text-dim)',
                 cursor: 'pointer', fontSize: 15, display: 'flex',
                 alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>💬</button>
+                position: 'relative',
+              }}>
+              💬
+              {unreadCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: -4, right: -4,
+                  minWidth: 16, height: 16, borderRadius: 8,
+                  background: 'var(--red)', color: 'white',
+                  fontSize: 10, fontWeight: 700, lineHeight: '16px',
+                  textAlign: 'center', padding: '0 3px',
+                  boxSizing: 'border-box', pointerEvents: 'none',
+                }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+            </button>
           </div>
         </div>
         </footer>

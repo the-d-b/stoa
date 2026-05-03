@@ -88,17 +88,17 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 				}
 			}
 
-			// Load saved position for this user + wall combination
+			// Load saved position + custom_column for this user + wall combination
 			if wallID != "" {
 				db.QueryRow(`
-					SELECT position FROM user_panel_order_v3
+					SELECT position, COALESCE(custom_column, 1) FROM user_panel_order_v3
 					WHERE user_id = ? AND panel_id = ? AND portico_id = ?
-				`, claims.UserID, p.ID, wallID).Scan(&p.Position)
+				`, claims.UserID, p.ID, wallID).Scan(&p.Position, &p.CustomColumn)
 			} else {
 				db.QueryRow(`
-					SELECT position FROM user_panel_order_v3
+					SELECT position, COALESCE(custom_column, 1) FROM user_panel_order_v3
 					WHERE user_id = ? AND panel_id = ? AND portico_id IS NULL
-				`, claims.UserID, p.ID).Scan(&p.Position)
+				`, claims.UserID, p.ID).Scan(&p.Position, &p.CustomColumn)
 			}
 			panels = append(panels, p)
 		}
@@ -276,6 +276,42 @@ func RemoveTagFromPanel(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// GetPanelOrder returns saved position order for a user+portico
+func GetPanelOrder(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		porticoID := r.URL.Query().Get("portico_id") // empty = home
+		var rows *sql.Rows
+		var err error
+		if porticoID == "" {
+			rows, err = db.Query(`
+				SELECT panel_id, position FROM user_panel_order_v3
+				WHERE user_id = ? AND portico_id IS NULL
+				ORDER BY position ASC
+			`, claims.UserID)
+		} else {
+			rows, err = db.Query(`
+				SELECT panel_id, position FROM user_panel_order_v3
+				WHERE user_id = ? AND portico_id = ?
+				ORDER BY position ASC
+			`, claims.UserID, porticoID)
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		defer rows.Close()
+		order := map[string]int{}
+		for rows.Next() {
+			var panelID string
+			var position int
+			rows.Scan(&panelID, &position)
+			order[panelID] = position
+		}
+		writeJSON(w, http.StatusOK, order)
+	}
+}
+
 func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
@@ -438,6 +474,164 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+
+// ListPorticoConfigPanels returns panels for a portico's configure-columns UI.
+// Does a proper DB join: system panels tagged for this portico + personal panels
+// assigned to this portico, LEFT JOINed with the user's saved order and column
+// assignments for this specific portico. Single query, no client-side guessing.
+func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		porticoID := r.URL.Query().Get("portico_id")
+		if porticoID == "" {
+			writeError(w, http.StatusBadRequest, "portico_id required")
+			return
+		}
+
+		// System panels: tagged with an active tag on this portico
+		// Also panels with NO tags (always visible) that the user can access
+		// LEFT JOIN order + column scoped to THIS portico only
+		rows, err := db.Query(`
+			SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
+				COALESCE(p.created_by,''),
+				COALESCE(upo.position, 99999),
+				COALESCE(upo.custom_column, 1)
+			FROM panels p
+			LEFT JOIN user_panel_order_v3 upo
+				ON upo.panel_id = p.id
+				AND upo.user_id = ?
+				AND upo.portico_id = ?
+			WHERE p.created_by = 'SYSTEM'
+			AND (
+				-- Panels with no tags: always visible on all porticos
+				NOT EXISTS (SELECT 1 FROM panel_tags WHERE panel_id = p.id)
+				OR
+				-- Panels whose tag appears in portico_tags for this portico
+				-- (active/inactive = temporary filter, not membership)
+				EXISTS (
+					SELECT 1 FROM panel_tags ptag
+					JOIN portico_tags pt ON pt.tag_id = ptag.tag_id
+					WHERE ptag.panel_id = p.id
+					AND pt.portico_id = ?
+				)
+			)
+			AND (
+				NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
+				OR EXISTS (
+					SELECT 1 FROM panel_groups pg
+					JOIN user_groups ug ON ug.group_id = pg.group_id
+					WHERE pg.panel_id = p.id AND ug.user_id = ?
+				)
+			)
+			UNION
+			-- Personal panels assigned to this portico via assignedWalls in config
+			SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
+				COALESCE(p.created_by,''),
+				COALESCE(upo2.position, 99999),
+				COALESCE(upo2.custom_column, 1)
+			FROM panels p
+			LEFT JOIN user_panel_order_v3 upo2
+				ON upo2.panel_id = p.id
+				AND upo2.user_id = ?
+				AND upo2.portico_id = ?
+			WHERE p.created_by = ?
+			AND p.scope = 'personal'
+			AND json_extract(p.config, '$.assignedWalls') LIKE '%' || ? || '%'
+			ORDER BY 7, p.id
+		`, claims.UserID, porticoID, porticoID, claims.UserID,
+		   claims.UserID, porticoID, claims.UserID, porticoID)
+
+		if err != nil {
+			log.Printf("[PANELS] portico config panels error: %v", err)
+			writeError(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		defer rows.Close()
+		log.Printf("[PANELS] portico config query OK portico=%s user=%s", porticoID, claims.UserID)
+		// Debug: count tagless system panels that should always show
+		var taglessCount int
+		db.QueryRow(`SELECT COUNT(*) FROM panels p
+			WHERE p.created_by = 'SYSTEM'
+			AND NOT EXISTS (SELECT 1 FROM panel_tags WHERE panel_id = p.id)
+			AND (NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
+				OR EXISTS (SELECT 1 FROM panel_groups pg JOIN user_groups ug ON ug.group_id = pg.group_id
+					WHERE pg.panel_id = p.id AND ug.user_id = ?))`,
+			claims.UserID).Scan(&taglessCount)
+		log.Printf("[PANELS] tagless system panels accessible to user: %d", taglessCount)
+
+		type ConfigPanel struct {
+			ID           string `json:"id"`
+			Type         string `json:"type"`
+			Title        string `json:"title"`
+			Config       string `json:"config"`
+			Scope        string `json:"scope"`
+			CreatedBy    string `json:"createdBy"`
+			Position     int    `json:"position"`
+			CustomColumn int    `json:"customColumn"`
+		}
+		var panels []ConfigPanel
+		seen := map[string]bool{}
+		for rows.Next() {
+			var p ConfigPanel
+			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope,
+				&p.CreatedBy, &p.Position, &p.CustomColumn)
+			if seen[p.ID] { continue }
+			seen[p.ID] = true
+			panels = append(panels, p)
+		}
+		if panels == nil { panels = []ConfigPanel{} }
+		log.Printf("[PANELS] portico config returning %d panels", len(panels))
+		writeJSON(w, http.StatusOK, panels)
+	}
+}
+
+// ListPorticoPanels returns only panels the user has in their order for a specific portico.
+// This is the inner join — only panels with a row in user_panel_order_v3 for this user+portico.
+func ListPorticoPanels(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		porticoID := r.URL.Query().Get("portico_id")
+		if porticoID == "" {
+			writeError(w, http.StatusBadRequest, "portico_id required")
+			return
+		}
+		rows, err := db.Query(`
+			SELECT p.id, p.type, p.title, p.config, p.scope,
+				COALESCE(p.created_by,''), p.created_at,
+				COALESCE(upo.position, 0), COALESCE(upo.custom_column, 1)
+			FROM user_panel_order_v3 upo
+			JOIN panels p ON p.id = upo.panel_id
+			WHERE upo.user_id = ? AND upo.portico_id = ?
+			ORDER BY upo.position ASC, p.created_at ASC
+		`, claims.UserID, porticoID)
+		if err != nil {
+			log.Printf("[PANELS] portico panels error: %v", err)
+			writeError(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		defer rows.Close()
+		type PorticoPanel struct {
+			ID           string `json:"id"`
+			Type         string `json:"type"`
+			Title        string `json:"title"`
+			Config       string `json:"config"`
+			Scope        string `json:"scope"`
+			CreatedBy    string `json:"createdBy"`
+			CreatedAt    string `json:"createdAt"`
+			Position     int    `json:"position"`
+			CustomColumn int    `json:"customColumn"`
+		}
+		var panels []PorticoPanel
+		for rows.Next() {
+			var p PorticoPanel
+			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope,
+				&p.CreatedBy, &p.CreatedAt, &p.Position, &p.CustomColumn)
+			panels = append(panels, p)
+		}
+		if panels == nil { panels = []PorticoPanel{} }
+		writeJSON(w, http.StatusOK, panels)
+	}
+}
 
 // GetCustomColumns returns panel→column assignments for a portico
 func GetCustomColumns(db *sql.DB) http.HandlerFunc {

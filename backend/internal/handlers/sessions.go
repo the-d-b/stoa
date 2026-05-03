@@ -87,6 +87,16 @@ func RecordSession(db *sql.DB, userID, ip, userAgent string, expiresAt time.Time
 	`, id, userID, ip, ua, expiresAt.UTC().Format(time.RFC3339))
 }
 
+// UpdateLastSeenFromContext extracts userID from request context and updates last_seen.
+// Used by the auth middleware to track activity on every API request.
+func UpdateLastSeenFromContext(db *sql.DB, ctx interface{ Value(interface{}) interface{} }) {
+	if v := ctx.Value(auth.UserContextKey); v != nil {
+		if claims, ok := v.(*models.Claims); ok {
+			UpdateLastSeen(db, claims.UserID)
+		}
+	}
+}
+
 func UpdateLastSeen(db *sql.DB, userID string) {
 	db.Exec(`
 		UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP
