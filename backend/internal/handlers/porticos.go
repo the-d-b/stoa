@@ -429,18 +429,26 @@ func SavePreferences(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		var req struct {
-			Theme   string `json:"theme"`
-			Density string `json:"density"`
+			Theme   *string `json:"theme"`   // pointer so we know if it was sent
+			Density *string `json:"density"` // pointer so we know if it was sent
 		}
 		json.NewDecoder(r.Body).Decode(&req)
-		if req.Density != "compact" && req.Density != "normal" && req.Density != "comfortable" {
-			req.Density = "normal"
+
+		// Ensure row exists first
+		db.Exec(`INSERT INTO user_preferences (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING`,
+			claims.UserID)
+
+		// Only update fields that were actually provided — never blank a field
+		if req.Theme != nil {
+			db.Exec(`UPDATE user_preferences SET theme = ? WHERE user_id = ?`,
+				*req.Theme, claims.UserID)
 		}
-		db.Exec(`
-			INSERT INTO user_preferences (user_id, theme, density)
-			VALUES (?, ?, ?)
-			ON CONFLICT(user_id) DO UPDATE SET theme = excluded.theme, density = excluded.density
-		`, claims.UserID, req.Theme, req.Density)
+		if req.Density != nil {
+			valid := *req.Density == "compact" || *req.Density == "normal" || *req.Density == "comfortable"
+			if !valid { *req.Density = "normal" }
+			db.Exec(`UPDATE user_preferences SET density = ? WHERE user_id = ?`,
+				*req.Density, claims.UserID)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

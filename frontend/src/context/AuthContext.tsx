@@ -9,6 +9,8 @@ interface AuthContextType {
   logout: () => void
   isAdmin: boolean
   setUser: (user: User | null) => void
+  avatarUrl: string
+  setAvatarUrl: (url: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -16,6 +18,7 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [avatarUrl, setAvatarUrl] = useState('')
 
   useEffect(() => {
     // Handle OAuth callback token in URL — but ONLY if not on a public page
@@ -31,7 +34,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Fetch user profile using the new token explicitly
       authApi.meWithToken(urlToken)
-        .then((res) => setUser(res.data))
+        .then((res) => {
+          setUser(res.data)
+          preferencesApi.get().then(p => {
+            if (p.data.avatarUrl) setAvatarUrl(p.data.avatarUrl)
+          }).catch(() => {})
+        })
         .catch(() => localStorage.removeItem('stoa_token'))
         .finally(() => setLoading(false))
       return
@@ -54,7 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     authApi.me()
-      .then((res) => setUser(res.data))
+      .then((res) => {
+        setUser(res.data)
+        preferencesApi.get().then(p => {
+          if (p.data.avatarUrl) setAvatarUrl(p.data.avatarUrl)
+        }).catch(() => {})
+      })
       .catch(async () => {
         localStorage.removeItem('stoa_token')
         // Token expired — if auto-login is configured, get a fresh token silently
@@ -64,6 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const r = await authApi.autoLogin()
             localStorage.setItem('stoa_token', r.data.token)
             setUser(r.data.user)
+            preferencesApi.get().then(p => {
+              if (p.data.avatarUrl) setAvatarUrl(p.data.avatarUrl)
+            }).catch(() => {})
           }
         } catch { /* not auto-login mode, will show login page */ }
       })
@@ -74,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('stoa_token', token)
     setUser(user)
     setLoading(false)
-    // Load this user's theme preference
+    // Load this user's theme and avatar
     preferencesApi.get().then(r => {
       const t = r.data.theme as ThemeName
       if (t) {
@@ -85,6 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           Object.entries(def.vars).forEach(([k, v]) => root.style.setProperty(k, v))
         }
       }
+      if (r.data.avatarUrl) setAvatarUrl(r.data.avatarUrl)
     }).catch(() => {})
   }
 
@@ -95,7 +112,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ setUser,
+    <AuthContext.Provider value={{ setUser, avatarUrl, setAvatarUrl,
       user,
       loading,
       login,

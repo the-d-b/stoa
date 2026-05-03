@@ -4,7 +4,7 @@ import GlyphZone from '../glyphs/GlyphZone'
 import TickerStrip from '../tickers/TickerStrip'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
-import { profileApi } from '../../api'
+
 import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
 import { useSSEStatus, useChatSSE } from '../../hooks/useSSE'
@@ -14,7 +14,7 @@ import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/User
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
-  const [avatarUrl, setAvatarUrl] = useState('')
+  const { avatarUrl, setAvatarUrl } = useAuth()
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
   const [tickers, setTickers] = useState<any[]>([])
   const [activePorticoId, setActivePorticoId] = useState(() => sessionStorage.getItem('active_portico') || 'home')
@@ -31,7 +31,7 @@ export default function Layout() {
 
   useEffect(() => {
     if (!user) return
-    profileApi.get().then((r: any) => setAvatarUrl(r.data.avatarUrl || '')).catch(() => {})
+    // avatarUrl comes from AuthContext — no separate fetch needed
   }, [user?.id])
 
   // Reload glyphs on every route change so navigating from /profile -> / shows updates immediately

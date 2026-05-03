@@ -191,6 +191,8 @@ function OverviewTab() {
     } finally { setSavingUsername(false) }
   }
 
+  const { setAvatarUrl: setSharedAvatarUrl } = useAuth()
+
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -199,7 +201,9 @@ function OverviewTab() {
     setUploadingAvatar(true)
     try {
       const res = await profileApi.uploadAvatar(file)
-      setAvatarUrl(res.data.avatarUrl + '?t=' + Date.now())
+      const freshUrl = res.data.avatarUrl + '?t=' + Date.now()
+      setAvatarUrl(freshUrl)       // update local profile display
+      setSharedAvatarUrl(freshUrl) // update AuthContext → Layout top-right avatar
     } catch { setAvatarError('Upload failed') }
     finally { setUploadingAvatar(false) }
   }
@@ -719,7 +723,9 @@ function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; 
   )
 }
 
-function PorticoPreview({ portico, panels }: { portico: Portico; panels: Panel[] }) {
+function PorticoPreview({ portico, panels, columnAssignments = {} }: {
+  portico: Portico; panels: Panel[]; columnAssignments?: Record<string,number>
+}) {
   if (panels.length === 0) return (
     <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic', padding: '6px 0' }}>
       No panels match this portico's tags
@@ -729,6 +735,7 @@ function PorticoPreview({ portico, panels }: { portico: Portico; panels: Panel[]
   const layout    = portico.layout    || 'stylos'
   const colCount  = portico.columnCount  || 3
   const colHeight = portico.columnHeight || 8
+  const isCustom  = layout === 'custom'
   const W = 200; const UNIT = 10; const GAP = 2
 
   function getPanelHeight(p: Panel): number {
@@ -758,18 +765,32 @@ function PorticoPreview({ portico, panels }: { portico: Portico; panels: Panel[]
   const colW = (W - (colCount - 1) * GAP) / colCount
 
   if (layout === 'seira' || layout === 'flow') {
-    // Left-to-right rows
-    let col = 0; let maxRowH = 0; let rowY = 0
+    // Simulate CSS Grid auto-placement with gridRow: span N.
+    // Grid cells are UNIT px tall. Track which row-unit each column is occupied up to.
+    // For each panel, find the first row-unit where it fits across its column span of 1.
+    const colFill = new Array(colCount).fill(0) // next free row-unit per column
     panels.forEach(p => {
-      const h = getPanelHeight(p) * UNIT
-      const x = col * (colW + GAP)
-      blocks.push({ x, y: rowY, w: colW, h: h - GAP, color: panelColor(p) })
-      maxRowH = Math.max(maxRowH, h)
-      col++
-      if (col >= colCount) { col = 0; rowY += maxRowH + GAP; maxRowH = 0 }
+      const h = getPanelHeight(p) // in row units
+      // Find leftmost column with enough consecutive free space
+      // CSS grid auto-placement: scan row by row left to right
+      let placed = false
+      for (let row = 0; !placed; row++) {
+        for (let col = 0; col < colCount; col++) {
+          if (colFill[col] <= row) {
+            // Place here
+            const y = row * UNIT
+            const x = col * (colW + GAP)
+            blocks.push({ x, y, w: colW, h: h * UNIT - GAP, color: panelColor(p) })
+            colFill[col] = row + h
+            placed = true
+            break
+          }
+        }
+      }
     })
   } else if (layout === 'rema') {
-    // Rows that size to tallest panel
+    // Rows of colCount panels. Each panel renders at its OWN height.
+    // Row reserves space = tallest panel height but shorter panels don't stretch.
     let rowY = 0
     for (let i = 0; i < panels.length; i += colCount) {
       const row = panels.slice(i, i + colCount)
@@ -780,8 +801,25 @@ function PorticoPreview({ portico, panels }: { portico: Portico; panels: Panel[]
       })
       rowY += rowH + GAP
     }
+  } else if (isCustom && Object.keys(columnAssignments).length > 0) {
+    // Custom layout — use saved column assignments
+    // Each panel goes into its assigned column (1-based), rendered top-to-bottom per column
+    const cols: Panel[][] = Array.from({ length: colCount }, () => [])
+    panels.forEach(p => {
+      const col = (columnAssignments[p.id] || 1) - 1 // convert to 0-based
+      const safeCol = Math.min(Math.max(col, 0), colCount - 1)
+      cols[safeCol].push(p)
+    })
+    cols.forEach((col, ci) => {
+      let y = 0
+      col.forEach(p => {
+        const h = getPanelHeight(p) * UNIT
+        blocks.push({ x: ci * (colW + GAP), y, w: colW, h: h - GAP, color: panelColor(p) })
+        y += h + GAP
+      })
+    })
   } else {
-    // Stylos — top-to-bottom column fill
+    // Stylos — top-to-bottom column fill (greedy)
     const cols: Panel[][] = Array.from({ length: colCount }, () => [])
     const fill = new Array(colCount).fill(0)
     let cur = 0
@@ -834,6 +872,7 @@ function PorticosTab() {
   const [editName, setEditName] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [previewPanels, setPreviewPanels] = useState<Panel[]>([])
+  const [previewColumns, setPreviewColumns] = useState<Record<string,number>>({})
 
   const load = async () => {
     const [w, sysT] = await Promise.all([porticosApi.list(), tagsApi.list()])
@@ -843,19 +882,29 @@ function PorticosTab() {
 
   const loadPreview = async (porticoId: string) => {
     try {
-      const res = await panelsApi.list(porticoId)
+      const [res, colRes, porticoRes] = await Promise.all([
+        panelsApi.list(),
+        customColumnsApi.get(porticoId),
+        porticosApi.list(),
+      ])
       const allPanels: Panel[] = res.data || []
-      // Filter to panels that match the portico's active tags
-      const portico = (await porticosApi.list()).data?.find((p: any) => p.id === porticoId)
+      const colData: Record<string,number> = colRes.data || {}
+      const portico = porticoRes.data?.find((p: any) => p.id === porticoId)
       const activeTags: string[] = (portico?.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId)
-      if (activeTags.length === 0) {
-        setPreviewPanels(allPanels)
-      } else {
-        setPreviewPanels(allPanels.filter(p =>
-          (p.tags || []).some((t: any) => activeTags.includes(t.id))
-        ))
-      }
-    } catch { setPreviewPanels([]) }
+      const filtered = allPanels.filter((p: Panel) => {
+        if (p.scope === 'personal') {
+          const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+          return (cfg.assignedWalls || []).includes(porticoId)
+        }
+        if (!p.tags || p.tags.length === 0) return true
+        if (activeTags.length === 0) return false
+        return p.tags.some((t: any) => activeTags.includes(t.id) || activeTags.includes(t.tagId))
+      })
+      // Sort by saved position if available
+      filtered.sort((a, b) => (a.position || 9999) - (b.position || 9999))
+      setPreviewPanels(filtered)
+      setPreviewColumns(colData)
+    } catch { setPreviewPanels([]); setPreviewColumns({}) }
   }
 
   useEffect(() => {
@@ -1070,7 +1119,7 @@ function PorticosTab() {
             <button onClick={e => { e.stopPropagation(); const nextId = expandedId === portico.id ? null : portico.id
               setExpandedId(nextId)
               if (nextId) loadPreview(nextId)
-              else setPreviewPanels([]) }}
+              else { setPreviewPanels([]); setPreviewColumns({}) } }}
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: expandedId === portico.id ? 'var(--accent2)' : 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Edit tags">◉</button>
@@ -1115,7 +1164,7 @@ function PorticosTab() {
                   No system tags yet. Add tags in My Setup → My Tags or admin settings.
                 </div>
               )}
-              <PorticoPreview portico={portico} panels={previewPanels} />
+              <PorticoPreview portico={portico} panels={previewPanels} columnAssignments={previewColumns} />
             </div>
           )}
         </div>
