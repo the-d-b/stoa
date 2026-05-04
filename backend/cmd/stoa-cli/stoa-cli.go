@@ -66,6 +66,8 @@ func main() {
 		runConfig(dbPath, sub, rest)
 	case "geo":
 		runGeo(dbPath, sub, rest)
+	case "chat":
+		runChat(dbPath, sub, rest)
 	case "storage":
 		runStorage(dbPath, sub, rest)
 	case "db":
@@ -456,6 +458,79 @@ func geoStats(dbPath string) {
 	fmt.Printf("Cached in last 7 days:   %d\n", week)
 	fmt.Printf("Cached in last 30 days:  %d\n", month)
 	fmt.Printf("Older than 30 days:      %d\n", total-month)
+}
+
+// ── chat ─────────────────────────────────────────────────────────────────────
+
+func runChat(dbPath, sub string, args []string) {
+	switch sub {
+	case "prune":
+		chatPrune(dbPath, args)
+	default:
+		fatalf("unknown chat command: %s\nAvailable: prune\n", sub)
+	}
+}
+
+func chatPrune(dbPath string, args []string) {
+	db := openDB(dbPath)
+	defer db.Close()
+
+	var beforeStr string
+	dryRun := false
+	for i, a := range args {
+		if a == "--dry-run" {
+			dryRun = true
+		} else if a == "--before" && i+1 < len(args) {
+			beforeStr = args[i+1]
+		} else if strings.HasPrefix(a, "--before=") {
+			beforeStr = strings.TrimPrefix(a, "--before=")
+		}
+	}
+
+	if beforeStr == "" {
+		fatalf("--before <date> is required\nExample: stoa-cli chat prune --before 2026-01-01\n")
+	}
+
+	// Parse date — accept YYYY-MM-DD or full RFC3339
+	var beforeTime time.Time
+	var err error
+	if len(beforeStr) == 10 {
+		beforeTime, err = time.Parse("2006-01-02", beforeStr)
+	} else {
+		beforeTime, err = time.Parse(time.RFC3339, beforeStr)
+	}
+	if err != nil {
+		fatalf("invalid date %q — use YYYY-MM-DD format\n", beforeStr)
+	}
+	beforeISO := beforeTime.UTC().Format(time.RFC3339)
+
+	// Count messages to be deleted
+	var count int
+	db.QueryRow(`SELECT COUNT(*) FROM chat_messages WHERE created_at < ?`, beforeISO).Scan(&count)
+
+	if count == 0 {
+		fmt.Printf("No messages found before %s\n", beforeStr)
+		return
+	}
+
+	fmt.Printf("Found %d message(s) before %s\n", count, beforeStr)
+
+	if dryRun {
+		fmt.Println("(dry run — no messages deleted)")
+		return
+	}
+
+	if !confirm(fmt.Sprintf("Delete %d message(s)?", count)) {
+		fmt.Println("Aborted.")
+		return
+	}
+
+	res, err := db.Exec(`DELETE FROM chat_messages WHERE created_at < ?`, beforeISO)
+	if err != nil {
+		fatalf("delete failed: %v\n", err)
+	}
+	deleted, _ := res.RowsAffected()
+	fmt.Printf("✓ Deleted %d message(s)\n", deleted)
 }
 
 // ── storage ───────────────────────────────────────────────────────────────────

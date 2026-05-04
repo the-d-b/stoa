@@ -514,6 +514,11 @@ var migrations = []migration{
 			`ALTER TABLE notes ADD COLUMN locked_at DATETIME DEFAULT NULL`,
 		},
 	},
+	{
+		version: 32,
+		name:    "chat_last_read",
+		up:      `ALTER TABLE user_preferences ADD COLUMN last_chat_read_message_id TEXT DEFAULT NULL`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

@@ -54,6 +54,9 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// Track whether any override was applied — overridden requests bypass cache
 		// so filters like 1d/7d/30d always return fresh data, not stale cached data.
 		hasOverride := false
+		if r.URL.Query().Get("nocache") == "1" {
+			hasOverride = true
+		}
 		if d := r.URL.Query().Get("days"); d != "" {
 			var daysVal float64
 			if _, err := fmt.Sscanf(d, "%f", &daysVal); err == nil {

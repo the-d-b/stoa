@@ -47,14 +47,30 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
   const [presence, setPresence] = useState<PresenceUser[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
+  const [hasOlder, setHasOlder] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const load = useCallback(async () => {
     const [mr, pr] = await Promise.all([chatApi.messages(), chatApi.presence()])
-    setMessages(mr.data || [])
+    const msgs = mr.data || []
+    setMessages(msgs)
+    setHasOlder(msgs.length >= 100)
     setPresence(pr.data || [])
   }, [])
+
+  const loadOlder = async () => {
+    if (messages.length === 0) return
+    setLoadingOlder(true)
+    try {
+      const oldest = messages[0].id
+      const r = await chatApi.messages(oldest)
+      const older = r.data || []
+      setMessages(prev => [...older, ...prev])
+      setHasOlder(older.length >= 100)
+    } finally { setLoadingOlder(false) }
+  }
 
   useEffect(() => {
     if (open) {
@@ -171,6 +187,14 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
         {/* Messages */}
         {!singleUser && <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px',
           display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {hasOlder && (
+            <div style={{ textAlign: 'center', paddingBottom: 4 }}>
+              <button className="btn btn-ghost" style={{ fontSize: 11 }}
+                onClick={loadOlder} disabled={loadingOlder}>
+                {loadingOlder ? 'Loading...' : '↑ Load older messages'}
+              </button>
+            </div>
+          )}
           {messages.length === 0 && (
             <div style={{ fontSize: 12, color: 'var(--text-dim)', textAlign: 'center',
               marginTop: 40 }}>No messages yet. Say hello!</div>

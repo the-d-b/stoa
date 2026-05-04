@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, customColumnsApi, Panel, Portico, Tag, BookmarkNode } from '../api'
+import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, customColumnsApi, integrationsApi, Panel, Portico, Tag, BookmarkNode } from '../api'
 import { useSSEConnected } from '../hooks/useSSE'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
@@ -165,6 +165,25 @@ export default function DashboardPage() {
     setActivePorticoId('')
   }
 
+  // Sync panel order for a portico — saves positions for all currently relevant panels.
+  // Runs on every portico visit so tag changes are reflected without manual reordering.
+  // New panels are appended after existing ordered panels preserving user's custom order.
+  const autoSaveOrder = (porticoId: string, filtered: Panel[]) => {
+    if (filtered.length === 0) return
+    // Panels with saved positions keep their order; new panels append at the end
+    const withPos = filtered.filter(p => (p.position || 0) > 0)
+      .sort((a, b) => (a.position || 0) - (b.position || 0))
+    const withoutPos = filtered.filter(p => (p.position || 0) === 0)
+    const ordered = [...withPos, ...withoutPos]
+    // Only save if something changed (new panels or count mismatch)
+    const hasNew = withoutPos.length > 0
+    const hasMissing = withPos.length < filtered.length
+    if (hasNew || hasMissing || withPos.length === 0) {
+      const order = ordered.map((p, i) => ({ panelId: p.id, position: i + 1 }))
+      panelsApi.updateOrder(porticoId, order).catch(() => {})
+    }
+  }
+
   const selectWall = async (wall: Portico | 'home') => {
     if (wall === 'home') {
       setActivePorticoId('home')
@@ -186,7 +205,20 @@ export default function DashboardPage() {
       // Reload panels with this wall's ordering
       try {
         const sysRes = await panelsApi.list(wall.id)
-        setPanels(sysRes.data || [])
+        const loaded = sysRes.data || []
+        setPanels(loaded)
+        // Auto-save only panels that match this portico's active tags
+        // (same filter as visiblePanels in the render)
+        const wallActiveTags = (wall.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId)
+        const filtered = wallActiveTags.length === 0 ? loaded : loaded.filter((p: Panel) => {
+          if (p.scope === 'personal') {
+            const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+            return (cfg.assignedWalls || []).includes(wall.id)
+          }
+          if (!p.tags || p.tags.length === 0) return true
+          return p.tags.some((t: any) => wallActiveTags.includes(t.id) || wallActiveTags.includes(t.tagId))
+        })
+        autoSaveOrder(wall.id, filtered)
       } catch (e) { console.error('[Dashboard] reload failed:', e) }
     }
   }
@@ -217,7 +249,9 @@ export default function DashboardPage() {
 
       // Reload panels with new portico ordering context
       const sysPanels = await panelsApi.list(wall.id)
-      setPanels(sysPanels.data || [])
+      const savedPanels = sysPanels.data || []
+      setPanels(savedPanels)
+      autoSaveOrder(wall.id, savedPanels)
     } catch (e) {
       console.error('[Dashboard] failed to save portico:', e)
       alert('Failed to save portico. Check console for details.')
@@ -351,6 +385,22 @@ export default function DashboardPage() {
           density={density}
           allExpanded={allExpanded}
           customColumns={customColumns}
+          onPanelResize={(panelId, newHeight) => {
+            // Update local state immediately for instant re-render
+            setPanels(prev => prev.map(p => {
+              if (p.id !== panelId) return p
+              const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+              cfg.height = newHeight
+              return { ...p, config: JSON.stringify(cfg) }
+            }))
+            // Persist to DB
+            const panel = panels.find(p => p.id === panelId)
+            if (panel) {
+              const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+              cfg.height = newHeight
+              panelsApi.update(panelId, { title: panel.title, config: JSON.stringify(cfg) }).catch(() => {})
+            }
+          }}
         />
 
         {visiblePanels.length === 0 && activeTags !== null && (
@@ -526,13 +576,14 @@ const DENSITY_MIN_WIDTH: Record<string, number> = {
 const ROW_UNIT = 120 // px per 1x height unit
 const GRID_GAP = 16  // gap between panels
 
-function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColumns }: {
+function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColumns, onPanelResize }: {
   panels: Panel[]
   subtrees: Record<string, BookmarkNode>
   portico: Portico | null
   density: string
   allExpanded?: boolean | null
   customColumns?: Record<string,number>
+  onPanelResize?: (panelId: string, newHeight: number) => void
 }) {
   const layout      = portico?.layout      ?? (portico?.id === 'home' ? 'seira' : 'stylos')
   const colCount    = portico?.columnCount  ?? 3
@@ -556,7 +607,8 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
           const h = getPanelHeight(panel)
           return (
             <FlowSlot key={panel.id} heightUnits={h} allExpanded={allExpanded}>
-              <PanelCard panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
+              <PanelCard panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded}
+                onResize={onPanelResize} />
             </FlowSlot>
           )
         })}
@@ -583,7 +635,7 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
             alignItems: 'start',
           }}>
             {row.map(panel => (
-              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
+              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} onResize={onPanelResize} />
             ))}
           </div>
         ))}
@@ -659,7 +711,7 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
       {columns.map((col, ci) => (
         <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
           {col.map(panel => (
-            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} />
+            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} onResize={onPanelResize} />
           ))}
         </div>
       ))}
@@ -676,13 +728,16 @@ function getPanelHeight(panel: Panel): number {
 
 // ── Panel card ────────────────────────────────────────────────────────────────
 
-function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
+function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: {
   panel: Panel; subtree?: BookmarkNode
   onCollapseChange?: (collapsed: boolean) => void
   allExpanded?: boolean | null
+  onResize?: (panelId: string, newHeight: number) => void
 }) {
   const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
   const [collapsedManual, setCollapsedManual] = useState<boolean | null>(null)
+  const [resizeMenu, setResizeMenu] = useState<{ x: number; y: number } | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
   // When a global expand/collapse fires, reset the manual override so it takes full effect
   useEffect(() => {
     if (allExpanded !== null && allExpanded !== undefined) setCollapsedManual(null)
@@ -691,6 +746,15 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
     : allExpanded !== null && allExpanded !== undefined ? !allExpanded : false
   const heightUnits = getPanelHeight(panel)
   const cardHeight = heightUnits * (ROW_UNIT + GRID_GAP) - GRID_GAP
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    setResizeMenu(null)
+    try {
+      await integrationsApi.getPanelData(panel.id, { nocache: '1' })
+    } catch { /* cache busted — SSE worker will push fresh data */ }
+    setTimeout(() => setRefreshing(false), 2000)
+  }
 
   // Strip root section — if rootNodeId points to a section, show its children directly
   const displayNodes = (() => {
@@ -706,10 +770,58 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
       display: 'flex', flexDirection: 'column',
       height: collapsed ? 'auto' : `${cardHeight}px`,
+      position: 'relative',
     }}
       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
+      onContextMenu={onResize ? e => {
+        e.preventDefault()
+        setResizeMenu({ x: e.clientX, y: e.clientY })
+      } : undefined}
     >
+      {/* Right-click / resize context menu */}
+      {resizeMenu && onResize && (
+        <>
+          {/* Click-away backdrop */}
+          <div style={{ position: 'fixed', inset: 0, zIndex: 999 }}
+            onClick={() => setResizeMenu(null)} />
+          <div style={{
+            position: 'fixed', left: resizeMenu.x, top: resizeMenu.y,
+            zIndex: 1000, background: 'var(--surface2)',
+            border: '1px solid var(--border)', borderRadius: 8,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            padding: '6px 0', minWidth: 140,
+          }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '4px 12px 6px',
+              borderBottom: '1px solid var(--border)', marginBottom: 4 }}>
+              Panel options
+            </div>
+            <button onClick={handleRefresh}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '5px 12px', fontSize: 13, cursor: refreshing ? 'default' : 'pointer',
+                background: 'none', color: refreshing ? 'var(--text-dim)' : 'var(--text)',
+                border: 'none',
+              }}>
+              {refreshing ? '⟳ Refreshing...' : '⟳ Refresh now'}
+            </button>
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '4px 12px 2px' }}>Resize</div>
+            {[1,2,3,4,5,6,7,8].map(h => (
+              <button key={h} onClick={() => { onResize(panel.id, h); setResizeMenu(null) }}
+                style={{
+                  display: 'block', width: '100%', textAlign: 'left',
+                  padding: '5px 12px', fontSize: 13, cursor: 'pointer',
+                  background: heightUnits === h ? 'var(--accent-bg)' : 'none',
+                  color: heightUnits === h ? 'var(--accent2)' : 'var(--text)',
+                  border: 'none', fontWeight: heightUnits === h ? 600 : 400,
+                }}>
+                {h}x {h === heightUnits ? '✓' : ''}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       {/* Header */}
       <div style={{
         padding: '8px 14px',
@@ -749,6 +861,20 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded }: {
                 <span key={t.id} style={{ width: 6, height: 6, borderRadius: '50%', background: t.color }} title={t.name} />
               ))}
             </span>
+            {onResize && (
+              <button title="Resize panel (or right-click)" onClick={e => {
+                const rect = e.currentTarget.getBoundingClientRect()
+                setResizeMenu({ x: rect.left, y: rect.bottom + 4 })
+              }} style={{
+                width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',
+                background: 'var(--surface2)', color: 'var(--text-muted)', cursor: 'pointer',
+                fontSize: 11, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                lineHeight: 1, padding: 0, opacity: 0.6,
+              }}
+              onMouseOver={e => e.currentTarget.style.opacity = '1'}
+              onMouseOut={e => e.currentTarget.style.opacity = '0.6'}
+              >⊞</button>
+            )}
             {panel.type === 'bookmarks' && <>
               <button onClick={() => setTreeExpanded(s => s === true ? null : true)} title="Expand all"
                 style={{ width: 20, height: 20, borderRadius: 4, border: '1px solid var(--border)',

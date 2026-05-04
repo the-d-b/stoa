@@ -509,8 +509,10 @@ export interface PresenceUser {
 }
 
 export const chatApi = {
-  messages: () => api.get<ChatMessage[]>('/chat/messages'),
+  messages: (beforeId?: string) => api.get<ChatMessage[]>(`/chat/messages${beforeId ? '?before='+beforeId : ''}`),
   send: (text: string) => api.post<ChatMessage>('/chat/messages', { text }),
+  unreadCount: () => api.get<{ count: number }>('/chat/unread'),
+  markRead: (lastMessageId: string) => api.put('/chat/read', { lastMessageId }),
   presence: () => api.get<PresenceUser[]>('/chat/presence'),
 }
 

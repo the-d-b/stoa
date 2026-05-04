@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext'
 import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
 import { useSSEStatus, useChatSSE } from '../../hooks/useSSE'
+import { chatApi } from '../../api'
 import ChatPanel from './ChatPanel'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
 
@@ -24,19 +25,27 @@ export default function Layout() {
   const chatOpenRef = useRef(false)
   chatOpenRef.current = chatOpen
 
-  // Request notification permission on mount (silently — no prompt if already decided)
+  // Load unread count from DB on mount
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission()
-    }
+    chatApi.unreadCount().then(r => {
+      const c = r.data.count || 0
+      setUnreadCount(c)
+      if (c > 0) document.title = `(${c}) Stoa`
+    }).catch(() => {})
   }, [])
 
-  // Reset title and unread count when chat opens
+  // Update title when unread count changes
   useEffect(() => {
-    if (chatOpen) {
-      setUnreadCount(0)
-      document.title = 'Stoa'
-    }
+    if (unreadCount > 0) document.title = `(${unreadCount}) Stoa`
+  }, [unreadCount])
+
+  // Mark messages as read and reset badge when chat opens
+  useEffect(() => {
+    if (!chatOpen) return
+    setUnreadCount(0)
+    document.title = 'Stoa'
+    // Mark current timestamp as last-read — backend stores it, no message ID needed
+    chatApi.markRead('now').catch(() => {})
   }, [chatOpen])
 
   // Increment unread, update title, fire notification when message arrives and panel is closed
@@ -45,6 +54,7 @@ export default function Layout() {
     setUnreadCount(c => {
       const next = c + 1
       document.title = `(${next}) Stoa`
+      // Also mark the message ID so DB stays in sync
       return next
     })
     // Web Notification — only if tab is not focused
@@ -250,7 +260,13 @@ export default function Layout() {
           {/* Right: footer-right glyphs then chat icon at far right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
-            <button onClick={() => { setChatOpen(v => !v); setUnreadCount(0); document.title = 'Stoa' }}
+            <button onClick={() => {
+              setChatOpen(v => !v)
+              // Request notification permission on first chat open (requires user gesture)
+              if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission()
+              }
+            }}
               title={unreadCount > 0 ? `Chat (${unreadCount} unread)` : 'Chat'}
               style={{
                 width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
