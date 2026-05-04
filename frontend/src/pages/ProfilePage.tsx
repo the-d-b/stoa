@@ -3646,6 +3646,21 @@ function MyPanelsTab() {
                       )}
                     </div>
                   )}
+                  {['radarr','sonarr','plex'].includes(p.type) && (() => {
+                    const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+                    return (
+                      <div>
+                        <label className="label">Allowed ratings <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional, comma separated)</span></label>
+                        <input className="input" style={{ fontSize: 12 }}
+                          defaultValue={cfg.allowedRatings || ''}
+                          onChange={e => { cfg.allowedRatings = e.target.value }}
+                          placeholder="e.g. G, PG, PG-13 — blank = show all" />
+                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                          Unrated / NR content is excluded when a filter is active.
+                        </div>
+                      </div>
+                    )
+                  })()}
                   {/* OPNsense max link speed */}
                   {p.type === 'customapi' && (() => {
                     const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()

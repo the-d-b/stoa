@@ -11,7 +11,7 @@ interface SonarrHistory {
   date: string; season: number; episode: number
   posterUrl?: string
 }
-interface SonarrSeries { id: number; title: string; titleSlug: string; year: number }
+interface SonarrSeries { id: number; title: string; titleSlug: string; year: number; certification?: string }
 interface SonarrData {
   upcoming: SonarrEpisode[]; history: SonarrHistory[]
   zeroByte: SonarrSeries[]; zeroByteCount: number; uiUrl: string
@@ -29,6 +29,13 @@ function epCode(season: number, episode: number) {
 }
 
 // Link to Sonarr series page if uiUrl + titleSlug available, else TVDB
+function CertBadge({ cert }: { cert?: string }) {
+  if (!cert) return null
+  return <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 3px', borderRadius: 3,
+    border: '1px solid var(--border)', color: 'var(--text-dim)', flexShrink: 0,
+    marginLeft: 4, verticalAlign: 'middle' }}>{cert}</span>
+}
+
 function seriesHref(uiUrl: string, titleSlug: string, title: string) {
   if (uiUrl && titleSlug) return `${uiUrl}/series/${titleSlug}`
   if (titleSlug) return `https://www.thetvdb.com/series/${titleSlug}`
@@ -240,6 +247,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
                 <span style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   <SeriesLink uiUrl={uiUrl} titleSlug={s.titleSlug} title={s.title} />
                   {s.year > 0 && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 5 }}>{s.year}</span>}
+                  <CertBadge cert={s.certification} />
                 </span>
               </div>
             ))}

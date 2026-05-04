@@ -78,22 +78,36 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// Serve from cache only when no query param overrides are active.
 		// Filtered requests (1d/7d/30d) always bypass cache for fresh data.
 		integrationID, _ := config["integrationId"].(string)
-		if integrationID != "" && !hasOverride {
-			if cached, ok := cacheGet(integrationID); ok {
-				log.Printf("[CACHE] panel hit %s (%s)", integrationID, panelType)
+		allowedRatings, _ := config["allowedRatings"].(string)
+
+		// Plex session panels with a rating filter always fetch live —
+		// "who's watching" data must be fresh; stale filtered cache causes
+		// stopped streams to persist indefinitely since worker only refreshes
+		// the unfiltered integration cache key, not per-panel filtered keys.
+		plexFiltered := panelType == "plex" && allowedRatings != ""
+
+		// Cache key includes allowedRatings so panels with different filters
+		// get separate cache entries even when sharing the same integration
+		cacheKey := integrationID
+		if allowedRatings != "" {
+			cacheKey = integrationID + "|" + allowedRatings
+		}
+		if cacheKey != "" && !hasOverride && !plexFiltered {
+			if cached, ok := cacheGet(cacheKey); ok {
+				log.Printf("[CACHE] panel hit %s (%s)", cacheKey, panelType)
 				writeJSON(w, http.StatusOK, cached)
 				return
 			}
 		}
 
-		// Cache miss — fetch live and store
+		// Cache miss (or plex filtered — always live) — fetch and optionally store
 		data, err := fetcher(db, config)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
-		if integrationID != "" {
-			cacheSet(integrationID, data)
+		if cacheKey != "" && !plexFiltered {
+			cacheSet(cacheKey, data)
 		}
 		writeJSON(w, http.StatusOK, data)
 	}

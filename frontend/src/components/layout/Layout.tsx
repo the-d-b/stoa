@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { glyphsApi, tickersApi, Glyph } from '../../api'
 import GlyphZone from '../glyphs/GlyphZone'
 import TickerStrip from '../tickers/TickerStrip'
@@ -21,10 +21,43 @@ export default function Layout() {
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const sseStatus = useSSEStatus()
+  const chatOpenRef = useRef(false)
+  chatOpenRef.current = chatOpen
 
-  // Increment unread when chat message arrives and panel is closed
-  useChatSSE(() => {
-    if (!chatOpen) setUnreadCount(c => c + 1)
+  // Request notification permission on mount (silently — no prompt if already decided)
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
+
+  // Reset title and unread count when chat opens
+  useEffect(() => {
+    if (chatOpen) {
+      setUnreadCount(0)
+      document.title = 'Stoa'
+    }
+  }, [chatOpen])
+
+  // Increment unread, update title, fire notification when message arrives and panel is closed
+  useChatSSE((msg: any) => {
+    if (chatOpenRef.current) return // panel is open — user already sees it
+    setUnreadCount(c => {
+      const next = c + 1
+      document.title = `(${next}) Stoa`
+      return next
+    })
+    // Web Notification — only if tab is not focused
+    if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+      const sender = msg?.username || msg?.user || 'Someone'
+      const text = msg?.text || msg?.message || 'New message'
+      const n = new Notification(`Stoa — ${sender}`, {
+        body: text.length > 80 ? text.slice(0, 80) + '…' : text,
+        icon: '/favicon.ico',
+        tag: 'stoa-chat', // replaces previous notification instead of stacking
+      })
+      n.onclick = () => { window.focus(); n.close() }
+    }
   })
 
   const location = useLocation()
@@ -217,7 +250,7 @@ export default function Layout() {
           {/* Right: footer-right glyphs then chat icon at far right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
-            <button onClick={() => { setChatOpen(v => !v); setUnreadCount(0) }}
+            <button onClick={() => { setChatOpen(v => !v); setUnreadCount(0); document.title = 'Stoa' }}
               title={unreadCount > 0 ? `Chat (${unreadCount} unread)` : 'Chat'}
               style={{
                 width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',

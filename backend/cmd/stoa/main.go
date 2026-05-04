@@ -37,6 +37,15 @@ func main() {
 
 	iconsDir := cfg.IconsDir
 
+	// Clear stale note locks from previous server session.
+	// Locks persist in DB across restarts — clear on startup so crashed
+	// clients don't leave notes permanently locked.
+	if _, err := database.Exec(`UPDATE notes SET locked_by = NULL, locked_at = NULL WHERE locked_by IS NOT NULL`); err != nil {
+		log.Printf("[NOTES] lock cleanup error: %v", err)
+	} else {
+		log.Printf("[NOTES] cleared stale locks on startup")
+	}
+
 	r := mux.NewRouter()
 	api := r.PathPrefix("/api").Subrouter()
 

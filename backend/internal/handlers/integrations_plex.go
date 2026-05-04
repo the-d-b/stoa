@@ -39,6 +39,7 @@ type PlexSession struct {
 	TranscodeDecision string  `json:"transcodeDecision"`
 	Quality           string  `json:"quality"`
 	Player            string  `json:"player"`
+	ContentRating     string  `json:"contentRating,omitempty"`
 }
 
 
@@ -77,6 +78,7 @@ type plexVideo struct {
 	AddedAt          int64          `xml:"addedAt,attr"`
 	Year             int            `xml:"year,attr"`
 	Thumb            string         `xml:"thumb,attr"`
+	ContentRating    string         `xml:"contentRating,attr"`
 
 	ViewOffset       int64          `xml:"viewOffset,attr"`
 	Duration         int64          `xml:"duration,attr"`
@@ -115,6 +117,25 @@ type plexTranscode struct {
 
 type plexMediaItem struct {
 	VideoResolution string `xml:"videoResolution,attr"`
+}
+
+func allowedPlexRatings(config map[string]interface{}) map[string]bool {
+	raw, _ := config["allowedRatings"].(string)
+	if raw == "" { return nil }
+	set := map[string]bool{}
+	for _, r := range strings.Split(raw, ",") {
+		r = strings.TrimSpace(strings.ToUpper(r))
+		if r != "" { set[r] = true }
+	}
+	if len(set) == 0 { return nil }
+	return set
+}
+
+func plexRatingAllowed(rating string, filter map[string]bool) bool {
+	if filter == nil { return true }
+	c := strings.TrimSpace(strings.ToUpper(rating))
+	if c == "" || c == "NR" || c == "NOT RATED" { return false }
+	return filter[c]
 }
 
 func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelData, error) {
@@ -186,11 +207,15 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 	if err == nil {
 		var mc plexMediaContainer
 		if xml.Unmarshal(sessBody, &mc) == nil {
+			plexRatings := allowedPlexRatings(config)
 			for _, v := range mc.Videos {
 				sess := plexSessionFromVideo(v)
-				data.Sessions = append(data.Sessions, sess)
+				if plexRatingAllowed(sess.ContentRating, plexRatings) {
+					data.Sessions = append(data.Sessions, sess)
+				}
 			}
 			for _, t := range mc.Tracks {
+				// Music tracks rarely have content ratings — pass through when filter active
 				sess := plexSessionFromTrack(t)
 				data.Sessions = append(data.Sessions, sess)
 			}
@@ -213,6 +238,7 @@ func plexSessionFromVideo(v plexVideo) PlexSession {
 		Title:            v.Title,
 		GrandparentTitle: v.GrandparentTitle,
 		Type:             v.Type,
+		ContentRating:    v.ContentRating,
 	}
 	if v.User != nil { sess.User = v.User.Title }
 	if v.Player != nil {

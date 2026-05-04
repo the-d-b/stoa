@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -29,6 +30,19 @@ func cacheGet(integrationID string) (interface{}, bool) {
 		return nil, false
 	}
 	return e.data, true
+}
+
+// cacheDeletePrefix removes all cache entries whose key starts with the given prefix.
+// Used to bust cache when panel config changes (e.g. allowedRatings edited).
+func cacheDeletePrefix(prefix string) {
+	panelCacheMu.Lock()
+	defer panelCacheMu.Unlock()
+	for k := range panelCache {
+		if strings.HasPrefix(k, prefix) {
+			delete(panelCache, k)
+			log.Printf("[CACHE] busted %s", k)
+		}
+	}
 }
 
 func cacheSet(integrationID string, data interface{}) {

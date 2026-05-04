@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"fmt"
 	"log"
 )
@@ -26,6 +27,7 @@ type RadarrMovie struct {
 	HasFile         bool   `json:"hasFile"`
 	Date            string `json:"date,omitempty"`
 	PosterURL       string `json:"posterUrl,omitempty"`
+	Certification   string `json:"certification,omitempty"`
 }
 
 func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPanelData, error) {
@@ -45,6 +47,7 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 	if err == nil {
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
+		ratingsFilter := allowedRatings(config)
 		if records, ok := histResp["records"].([]interface{}); ok {
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
@@ -53,7 +56,9 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 				if movie == nil { continue }
 				m := radarrMovieFromMap(movie)
 				m.Date = stringVal(rec, "date")
-				data.History = append(data.History, m)
+				if ratingAllowed(m.Certification, ratingsFilter) {
+					data.History = append(data.History, m)
+				}
 			}
 		}
 	}
@@ -68,11 +73,12 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 		log.Printf("[RADARR] movie fetch error: %v", err)
 	} else {
 		data.MovieCount = len(movieList)
+		ratingsFilter2 := allowedRatings(config)
 		for _, m := range movieList {
+			mv := radarrMovieFromMap(m)
 			if m["hasFile"] == true {
 				data.OnDiskCount++
-			} else {
-				mv := radarrMovieFromMap(m)
+			} else if ratingAllowed(mv.Certification, ratingsFilter2) {
 				data.Missing = append(data.Missing, mv)
 			}
 		}
@@ -80,6 +86,30 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 	}
 	data.MissingCount = len(data.Missing)
 	return data, nil
+}
+
+// allowedRatings parses a comma-separated ratings config string into a set.
+// Returns nil if empty (no filtering).
+func allowedRatings(config map[string]interface{}) map[string]bool {
+	raw, _ := config["allowedRatings"].(string)
+	if raw == "" { return nil }
+	set := map[string]bool{}
+	for _, r := range strings.Split(raw, ",") {
+		r = strings.TrimSpace(strings.ToUpper(r))
+		if r != "" { set[r] = true }
+	}
+	if len(set) == 0 { return nil }
+	return set
+}
+
+// ratingAllowed returns true if the movie/show should be shown.
+// If filter is nil (not configured), everything passes.
+// NR/empty certification is excluded when filter is active.
+func ratingAllowed(certification string, filter map[string]bool) bool {
+	if filter == nil { return true }
+	c := strings.TrimSpace(strings.ToUpper(certification))
+	if c == "" || c == "NR" || c == "NOT RATED" { return false }
+	return filter[c]
 }
 
 func radarrMovieFromMap(m map[string]interface{}) RadarrMovie {
@@ -91,6 +121,7 @@ func radarrMovieFromMap(m map[string]interface{}) RadarrMovie {
 	mv.HasFile = m["hasFile"] == true
 	mv.DigitalRelease, _ = m["digitalRelease"].(string)
 	mv.PhysicalRelease, _ = m["physicalRelease"].(string)
+	mv.Certification, _ = m["certification"].(string)
 	// Extract poster from images array
 	if images, ok := m["images"].([]interface{}); ok {
 		for _, img := range images {

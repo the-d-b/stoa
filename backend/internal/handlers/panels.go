@@ -207,6 +207,15 @@ func UpdatePanel(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusForbidden, "panel not found or permission denied")
 			return
 		}
+		// Bust cache for this panel's integration so new config takes effect immediately
+		var configStr string
+		db.QueryRow("SELECT COALESCE(config,'{}') FROM panels WHERE id=?", id).Scan(&configStr)
+		var cfg map[string]interface{}
+		if json.Unmarshal([]byte(configStr), &cfg) == nil {
+			if integrationID, _ := cfg["integrationId"].(string); integrationID != "" {
+				cacheDeletePrefix(integrationID)
+			}
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -547,17 +556,6 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		defer rows.Close()
-		log.Printf("[PANELS] portico config query OK portico=%s user=%s", porticoID, claims.UserID)
-		// Debug: count tagless system panels that should always show
-		var taglessCount int
-		db.QueryRow(`SELECT COUNT(*) FROM panels p
-			WHERE p.created_by = 'SYSTEM'
-			AND NOT EXISTS (SELECT 1 FROM panel_tags WHERE panel_id = p.id)
-			AND (NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
-				OR EXISTS (SELECT 1 FROM panel_groups pg JOIN user_groups ug ON ug.group_id = pg.group_id
-					WHERE pg.panel_id = p.id AND ug.user_id = ?))`,
-			claims.UserID).Scan(&taglessCount)
-		log.Printf("[PANELS] tagless system panels accessible to user: %d", taglessCount)
 
 		type ConfigPanel struct {
 			ID           string `json:"id"`
@@ -580,7 +578,6 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 			panels = append(panels, p)
 		}
 		if panels == nil { panels = []ConfigPanel{} }
-		log.Printf("[PANELS] portico config returning %d panels", len(panels))
 		writeJSON(w, http.StatusOK, panels)
 	}
 }

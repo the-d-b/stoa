@@ -6,6 +6,7 @@ interface PlexSession {
   user: string; title: string; grandparentTitle: string; type: string
   state: string; progress: number; transcodeDecision: string
   quality: string; player: string
+  contentRating?: string
 }
 interface PlexData {
   uiUrl: string; serverName: string; version: string
@@ -123,6 +124,13 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {displayTitle}
               </span>
+              {s.contentRating && (
+                <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 3px',
+                  borderRadius: 3, border: '1px solid var(--border)',
+                  color: 'var(--text-dim)', flexShrink: 0 }}>
+                  {s.contentRating}
+                </span>
+              )}
               <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
                 color: isDirect ? 'var(--green)' : 'var(--amber)', flexShrink: 0 }}>
                 {pct.toFixed(0)}%

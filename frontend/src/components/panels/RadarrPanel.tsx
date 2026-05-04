@@ -4,7 +4,7 @@ import { integrationsApi, Panel } from '../../api'
 interface RadarrMovie {
   id: number; title: string; titleSlug: string; year: number
   digitalRelease?: string; physicalRelease?: string
-  hasFile: boolean; date?: string; posterUrl?: string
+  hasFile: boolean; date?: string; posterUrl?: string; certification?: string
 }
 interface RadarrData {
   uiUrl: string
@@ -113,12 +113,18 @@ export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heig
     </div>
   )
 
+  const CertBadge = ({ cert }: { cert?: string }) => cert
+    ? <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 3px', borderRadius: 3,
+        border: '1px solid var(--border)', color: 'var(--text-dim)', flexShrink: 0 }}>{cert}</span>
+    : null
+
   const HistoryRow = ({ m }: { m: RadarrMovie }) => (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8,
       padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         <MovieLink uiUrl={uiUrl} titleSlug={m.titleSlug} title={m.title} year={m.year} />
       </span>
+      <CertBadge cert={m.certification} />
       {m.date && (
         <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace' }}>
           {formatDate(m.date)}
@@ -137,6 +143,7 @@ export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heig
         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           <MovieLink uiUrl={uiUrl} titleSlug={m.titleSlug} title={m.title} year={m.year} />
         </span>
+        <CertBadge cert={m.certification} />
         <span style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
           {digital && (
             <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}

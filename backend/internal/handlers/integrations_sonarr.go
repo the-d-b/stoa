@@ -3,6 +3,7 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
+	"strings"
 	"fmt"
 	"log"
 )
@@ -26,26 +27,51 @@ type SonarrEpisode struct {
 	Season      int    `json:"season"`
 	Episode     int    `json:"episode"`
 	AirDate     string `json:"airDate"`
-	HasFile     bool   `json:"hasFile"`
-	PosterURL   string `json:"posterUrl,omitempty"`
+	HasFile       bool   `json:"hasFile"`
+	PosterURL     string `json:"posterUrl,omitempty"`
+	Certification string `json:"certification,omitempty"`
 }
 
 type SonarrHistory struct {
-	SeriesTitle string `json:"seriesTitle"`
-	TitleSlug   string `json:"titleSlug"`
-	Title       string `json:"title"`
-	Season      int    `json:"season"`
-	Episode     int    `json:"episode"`
-	Date        string `json:"date"`
-	PosterURL   string `json:"posterUrl,omitempty"`
+	SeriesTitle   string `json:"seriesTitle"`
+	TitleSlug     string `json:"titleSlug"`
+	Title         string `json:"title"`
+	Season        int    `json:"season"`
+	Episode       int    `json:"episode"`
+	Date          string `json:"date"`
+	PosterURL     string `json:"posterUrl,omitempty"`
+	Certification string `json:"certification,omitempty"`
 }
 
 type SonarrSeries struct {
-	ID        int    `json:"id"`
-	Title     string `json:"title"`
-	TitleSlug string `json:"titleSlug"`
-	Year      int    `json:"year"`
-	PosterURL string `json:"posterUrl,omitempty"`
+	ID            int    `json:"id"`
+	Title         string `json:"title"`
+	TitleSlug     string `json:"titleSlug"`
+	Year          int    `json:"year"`
+	PosterURL     string `json:"posterUrl,omitempty"`
+	Certification string `json:"certification,omitempty"`
+}
+
+// allowedRatings and ratingAllowed are also defined in integrations_radarr.go.
+// Duplicated here to keep files self-contained; both use identical logic.
+// allowedRatings parses comma-separated ratings config. Returns nil = no filter.
+func sonarrAllowedRatings(config map[string]interface{}) map[string]bool {
+	raw, _ := config["allowedRatings"].(string)
+	if raw == "" { return nil }
+	set := map[string]bool{}
+	for _, r := range strings.Split(raw, ",") {
+		r = strings.TrimSpace(strings.ToUpper(r))
+		if r != "" { set[r] = true }
+	}
+	if len(set) == 0 { return nil }
+	return set
+}
+
+func sonarrRatingAllowed(certification string, filter map[string]bool) bool {
+	if filter == nil { return true }
+	c := strings.TrimSpace(strings.ToUpper(certification))
+	if c == "" || c == "NR" || c == "NOT RATED" { return false }
+	return filter[c]
 }
 
 func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPanelData, error) {
@@ -88,18 +114,25 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 					}
 				}
 			}
+			certification := ""
+			if series != nil {
+				certification, _ = series["certification"].(string)
+			}
 			e := SonarrEpisode{
-				SeriesTitle: seriesTitle,
-				TitleSlug:   titleSlug,
-				AirDate:     stringVal(ep, "airDate"),
-				HasFile:     ep["hasFile"] == true,
-				PosterURL:   posterURL,
+				SeriesTitle:   seriesTitle,
+				TitleSlug:     titleSlug,
+				AirDate:       stringVal(ep, "airDate"),
+				HasFile:       ep["hasFile"] == true,
+				PosterURL:     posterURL,
+				Certification: certification,
 			}
 			if t, ok := ep["title"].(string); ok { e.Title = t }
 			if s, ok := ep["seasonNumber"].(float64); ok { e.Season = int(s) }
 			if n, ok := ep["episodeNumber"].(float64); ok { e.Episode = int(n) }
 			if i, ok := ep["id"].(float64); ok { e.ID = int(i) }
-			data.Upcoming = append(data.Upcoming, e)
+			if sonarrRatingAllowed(e.Certification, sonarrAllowedRatings(config)) {
+				data.Upcoming = append(data.Upcoming, e)
+			}
 		}
 	}
 
@@ -143,14 +176,20 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 						}
 					}
 				}
+				histCert := ""
+				if series != nil {
+					histCert, _ = series["certification"].(string)
+				}
+				if !sonarrRatingAllowed(histCert, sonarrAllowedRatings(config)) { continue }
 				data.History = append(data.History, SonarrHistory{
-					SeriesTitle: seriesTitle,
-					TitleSlug:   titleSlug,
-					Title:       epTitle,
-					Date:        stringVal(rec, "date"),
-					Season:      season,
-					Episode:     epNum,
-					PosterURL:   hPoster,
+					SeriesTitle:   seriesTitle,
+					TitleSlug:     titleSlug,
+					Title:         epTitle,
+					Date:          stringVal(rec, "date"),
+					Season:        season,
+					Episode:       epNum,
+					PosterURL:     hPoster,
+					Certification: histCert,
 				})
 			}
 		}
@@ -180,7 +219,10 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
 				if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
 				if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
-				data.ZeroByte = append(data.ZeroByte, ss)
+				ss.Certification, _ = s["certification"].(string)
+				if sonarrRatingAllowed(ss.Certification, sonarrAllowedRatings(config)) {
+					data.ZeroByte = append(data.ZeroByte, ss)
+				}
 			}
 		}
 	}

@@ -95,8 +95,10 @@ export default function PanelsAdminPanel() {
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newRootId, setNewRootId] = useState('')
+  const [newAllowedRatings, setNewAllowedRatings] = useState('')
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
+  const [editingRatings, setEditingRatings] = useState<{ id: string; value: string } | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [search, setSearch] = useState('')
@@ -148,7 +150,7 @@ export default function PanelsAdminPanel() {
     const config = newType === 'customapi'
       ? JSON.stringify({ url: '', apiKey: '', mappings: [], refreshSecs: 600, height: newHeight })
       : ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(newType)
-      ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}) })
+      ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}), ...(['sonarr','radarr','plex'].includes(newType) && newAllowedRatings ? { allowedRatings: newAllowedRatings } : {}) })
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
       : JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
@@ -262,6 +264,14 @@ export default function PanelsAdminPanel() {
                 </select>
               </div>
             )}
+            {['radarr','sonarr','plex'].includes(newType) && (
+              <div style={{ flex: 1 }}>
+                <label className="label">Allowed ratings <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+                <input className="input" value={newAllowedRatings}
+                  onChange={e => setNewAllowedRatings(e.target.value)}
+                  placeholder="e.g. G, PG, PG-13 — blank = all" />
+              </div>
+            )}
             <div style={{ flex: 0.4 }}>
               <label className="label">Height</label>
               <select className="input" value={newHeight}
@@ -338,6 +348,36 @@ export default function PanelsAdminPanel() {
                       }}>
                       Resize
                     </button>
+                  )}
+                  {['radarr','sonarr','plex'].includes(p.type) && (
+                    editingRatings?.id === p.id ? (
+                      <>
+                        <input className="input" style={{ fontSize: 12, width: 200 }}
+                          value={editingRatings.value}
+                          onChange={e => setEditingRatings(r => r ? { ...r, value: e.target.value } : null)}
+                          placeholder="e.g. G, PG, PG-13 — blank = all" />
+                        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+                          const config = safeParseConfig(p.config)
+                          if (editingRatings.value.trim()) {
+                            config.allowedRatings = editingRatings.value.trim()
+                          } else {
+                            delete config.allowedRatings
+                          }
+                          await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(config) })
+                          setEditingRatings(null); load()
+                        }}>Save</button>
+                        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingRatings(null)}>Cancel</button>
+                      </>
+                    ) : (
+                      <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                        onClick={() => {
+                          const r = (() => { try { return JSON.parse(p.config||'{}').allowedRatings||'' } catch { return '' } })()
+                          setEditingRatings({ id: p.id, value: r })
+                        }}>
+                        {(() => { try { return JSON.parse(p.config||'{}').allowedRatings } catch { return null } })()
+                          ? 'Edit ratings' : 'Ratings'}
+                      </button>
+                    )
                   )}
 
                 </div>
