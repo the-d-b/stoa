@@ -75,7 +75,7 @@ export default function IntegrationsPanel() {
 
   const selectGeoResult = (r: any) => {
     const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setNewApiUrl(`${r.latitude},${r.longitude},${city},f`)
+    setNewApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
     setGeoResults([]); setGeoQuery('')
   }
 
@@ -233,7 +233,7 @@ export default function IntegrationsPanel() {
                 <label className="label">Location</label>
                 {newApiUrl && (
                   <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
-                    📍 {newApiUrl.split(',').slice(2).join(',') || newApiUrl}
+                    📍 {newApiUrl.includes('|') ? newApiUrl.split('|').slice(2).join('|') : newApiUrl.split(',').slice(2).join(',')}
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -265,7 +265,7 @@ export default function IntegrationsPanel() {
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <label className="label" style={{ marginBottom: 0 }}>Unit:</label>
                   <select className="input" style={{ maxWidth: 160, cursor: 'pointer' }}
-                    value={newApiUrl.split(',')[3] || 'f'}
+                    value={(newApiUrl.includes('|') ? newApiUrl.split('|')[3] : newApiUrl.split(',')[3]) || 'f'}
                     onChange={e => {
                       const parts = newApiUrl.split(',')
                       while (parts.length < 4) parts.push('')
@@ -433,7 +433,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   }
   const rowSelectGeo = (r: any) => {
     const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setApiUrl(`${r.latitude},${r.longitude},${city},f`)
+    setApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
     setRowGeoResults([]); setRowGeoQuery('')
   }
   const rowResolveVanity = async () => {
@@ -579,7 +579,7 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   <label className="label">Location</label>
                   {apiUrl && (
                     <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
-                      📍 {apiUrl.split(',').slice(2).join(',') || apiUrl}
+                      📍 {apiUrl.includes('|') ? apiUrl.split('|').slice(2).join('|') : apiUrl.split(',').slice(2).join(',')}
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -611,12 +611,12 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                     <label className="label" style={{ marginBottom: 0 }}>Unit:</label>
                     <select className="input" style={{ maxWidth: 160, cursor: 'pointer' }}
-                      value={apiUrl.split(',')[3] || 'f'}
+                      value={(apiUrl.includes('|') ? apiUrl.split('|')[3] : apiUrl.split(',')[3]) || 'f'}
                       onChange={e => {
-                        const parts = apiUrl.split(',')
+                        const parts = apiUrl.split('|')
                         while (parts.length < 4) parts.push('')
                         parts[3] = e.target.value
-                        setApiUrl(parts.join(','))
+                        setApiUrl(parts.join('|'))
                       }}>
                       <option value="f">Fahrenheit (°F)</option>
                       <option value="c">Celsius (°C)</option>

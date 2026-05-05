@@ -97,7 +97,8 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   // Build weather forecasts from backend events (weather source data cached by integration worker)
   useEffect(() => {
     if (events.length === 0) { setAllForecasts([]); return }
-    const weatherEvents = events.filter((e: any) => e.source === 'weather')
+    // Respect hiddenSources — if weather pill is toggled off, hide forecast tiles too
+    const weatherEvents = events.filter((e: any) => e.source === 'weather' && !hiddenSources.has('weather'))
     if (weatherEvents.length === 0) { setAllForecasts([]); return }
     // Group by tagId (integrationId) to build per-city forecast
     const byTag: Record<string, CalendarEvent[]> = {}
@@ -119,7 +120,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
       }))
     }))
     setAllForecasts(forecasts)
-  }, [events])
+  }, [events, hiddenSources])
 
   const loadEvents = useCallback(async () => {
     if (!hasSources) return
@@ -141,7 +142,8 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   // Get events for a given date string, filtered by hidden sources
   const eventsForDate = (year: number, month: number, day: number): CalendarEvent[] => {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-    return events.filter(e => e.date?.startsWith(dateStr) && !hiddenSources.has(e.source))
+    // Exclude weather events — they render as forecast tiles, not list items
+    return events.filter(e => e.date?.startsWith(dateStr) && !hiddenSources.has(e.source) && e.source !== 'weather')
   }
 
   const eventsForSelected = eventsForDate(viewDate.getFullYear(), viewDate.getMonth(), selectedDay)

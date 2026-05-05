@@ -94,14 +94,19 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '4px 16px',
         fontFamily: 'DM Mono, monospace', fontSize: 12, overflowX: 'auto', scrollbarWidth: 'none' }}>
-        {locations.map((d: any, i: number) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-            {i > 0 && <span style={{ color: 'var(--border2)' }}>·</span>}
-            <span style={{ color: 'var(--text-muted)' }}>{d.city || 'Weather'}</span>
-            <span style={{ fontWeight: 600 }}>{d.temp}</span>
-            <span style={{ color: 'var(--text-dim)' }}>{d.precipChance}% precip</span>
-          </div>
-        ))}
+        {locations.map((d: any, i: number) => {
+          // Shorten city name — take only the first part before the first comma
+          const shortCity = d.city ? d.city.split(',')[0].trim() : 'Weather'
+          return (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+              {i > 0 && <span style={{ color: 'var(--border2)' }}>·</span>}
+              {d.icon && <span>{d.icon}</span>}
+              <span style={{ color: 'var(--text-muted)' }}>{shortCity}</span>
+              <span style={{ fontWeight: 600 }}>{d.temp}</span>
+              {d.label && <span style={{ color: 'var(--text-dim)' }}>{d.label}</span>}
+            </div>
+          )
+        })}
       </div>
     )
   }

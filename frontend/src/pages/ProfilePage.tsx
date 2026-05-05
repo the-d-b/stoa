@@ -2589,7 +2589,7 @@ function PersonalIntegrationsTab() {
   }
   const pselectGeo = (r: any) => {
     const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setNewApiUrl(`${r.latitude},${r.longitude},${city},f`)
+    setNewApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
     setPgeoResults([]); setPgeoQuery('')
   }
   const presolveVanity = async () => {
@@ -2792,7 +2792,7 @@ function PersonalIntegrationsTab() {
             {newType === 'weather' ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <label className="label">Location</label>
-                {newApiUrl && <div style={{ fontSize: 12, color: 'var(--accent2)' }}>📍 {newApiUrl.split(',').slice(2).join(',') || newApiUrl}</div>}
+                {newApiUrl && <div style={{ fontSize: 12, color: 'var(--accent2)' }}>📍 {newApiUrl.includes('|') ? newApiUrl.split('|').slice(2).join('|') : newApiUrl.split(',').slice(2).join(',')}</div>}
                 <div style={{ display: 'flex', gap: 6 }}>
                   <input className="input" value={pgeoQuery} onChange={e => setPgeoQuery(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && psearchGeo()}
