@@ -51,10 +51,11 @@ type SteamPanelData struct {
 	Player      SteamPlayer      `json:"player"`
 	TotalGames  int              `json:"totalGames"`
 	TotalHours  float64          `json:"totalHours"`
-	TopPlayed   []SteamGame      `json:"topPlayed"`   // top 10 by playtime
-	Recent      []SteamGame      `json:"recent"`      // played last 2 weeks
+	TopPlayed   []SteamGame      `json:"topPlayed"`     // top 10 by playtime
+	Recent      []SteamGame      `json:"recent"`        // played last 2 weeks
 	Achievements []SteamAchievement `json:"achievements"` // recent unlocks from top 3 played
-	Featured    []SteamFeatured  `json:"featured"`    // store sales
+	Featured    []SteamFeatured  `json:"featured"`      // store sales
+	NewReleases []SteamFeatured  `json:"newReleases"`   // new on Steam
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -252,37 +253,48 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 	sort.Slice(data.Achievements, func(i, j int) bool { return data.Achievements[i].Unlocked > data.Achievements[j].Unlocked })
 	if len(data.Achievements) > 10 { data.Achievements = data.Achievements[:10] }
 
-	// ── Featured/sales from Steam store ──────────────────────────────────────
+	// ── Featured/sales + new releases from Steam store ──────────────────────
 	body, err = steamGet("https://store.steampowered.com/api/featuredcategories?cc=us&l=en")
 	if err == nil {
 		var fc map[string]interface{}
 		if json.Unmarshal(body, &fc) == nil {
-			// Grab specials (items on sale)
-			if specials, ok := fc["specials"].(map[string]interface{}); ok {
-				if items, ok := specials["items"].([]interface{}); ok {
-					for _, item := range items {
-						m, ok := item.(map[string]interface{})
-						if !ok { continue }
-						appID := int(toFloat(m["id"]))
-						name, _ := m["name"].(string)
-						header, _ := m["large_capsule_image"].(string)
-						if header == "" { header, _ = m["header_image"].(string) }
-						discountPct := int(toFloat(m["discount_percent"]))
-						finalPriceCents := int(toFloat(m["final_price"]))
-						if appID == 0 || name == "" { continue }
-						data.Featured = append(data.Featured, SteamFeatured{
-							AppID:       appID,
-							Name:        name,
-							HeaderURL:   header,
-							DiscountPct: discountPct,
-							FinalPrice:  float64(finalPriceCents) / 100,
-						})
-						if len(data.Featured) >= 8 { break }
-					}
+			// Helper to extract items from a category
+			extractItems := func(category string, limit int) []SteamFeatured {
+				var out []SteamFeatured
+				cat, ok := fc[category].(map[string]interface{})
+				if !ok { return out }
+				items, ok := cat["items"].([]interface{})
+				if !ok { return out }
+				for _, item := range items {
+					m, ok := item.(map[string]interface{})
+					if !ok { continue }
+					appID := int(toFloat(m["id"]))
+					name, _ := m["name"].(string)
+					header, _ := m["large_capsule_image"].(string)
+					if header == "" { header, _ = m["header_image"].(string) }
+					discountPct := int(toFloat(m["discount_percent"]))
+					finalPriceCents := int(toFloat(m["final_price"]))
+					if appID == 0 || name == "" { continue }
+					out = append(out, SteamFeatured{
+						AppID: appID, Name: name, HeaderURL: header,
+						DiscountPct: discountPct,
+						FinalPrice:  float64(finalPriceCents) / 100,
+					})
+					if len(out) >= limit { break }
 				}
+				return out
 			}
+			data.Featured = extractItems("specials", 8)
+			data.NewReleases = extractItems("new_releases", 8)
 		}
 	}
+
+	// Ensure slices are never nil (marshal to [] not null)
+	if data.Recent == nil { data.Recent = []SteamGame{} }
+	if data.Achievements == nil { data.Achievements = []SteamAchievement{} }
+	if data.Featured == nil { data.Featured = []SteamFeatured{} }
+	if data.NewReleases == nil { data.NewReleases = []SteamFeatured{} }
+	if data.TopPlayed == nil { data.TopPlayed = []SteamGame{} }
 
 	log.Printf("[STEAM] fetched for steamId=%s games=%d recent=%d achievements=%d featured=%d",
 		steamID, data.TotalGames, len(data.Recent), len(data.Achievements), len(data.Featured))

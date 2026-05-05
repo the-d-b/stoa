@@ -22,6 +22,7 @@ interface SteamData {
   totalGames: number; totalHours: number
   topPlayed: SteamGame[]; recent: SteamGame[]
   achievements: SteamAchievement[]; featured: SteamFeatured[]
+  newReleases: SteamFeatured[]
 }
 
 function fmtHours(min: number) {
@@ -91,7 +92,7 @@ function ArtworkGrid({ games }: { games: SteamGame[] }) {
 export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; heightUnits?: number }) {
   const [data, setData] = useState<SteamData | null>(null)
   const [error, setError] = useState('')
-  const [tab, setTab] = useState<'library'|'recent'|'achievements'|'store'>('library')
+  const [tab, setTab] = useState<'library'|'recent'|'achievements'|'store'|'new'>('library')
 
   const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
 
@@ -111,7 +112,12 @@ export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; hei
     <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>Loading Steam data...</div>
   )
 
-  const { player, totalGames, totalHours, topPlayed, recent, achievements, featured } = data
+  const { player, totalGames, totalHours } = data
+  const topPlayed = data.topPlayed || []
+  const recent = data.recent || []
+  const achievements = data.achievements || []
+  const featured = data.featured || []
+  const newReleases = data.newReleases || []
 
   // ── 1x — compact status bar ────────────────────────────────────────────────
   if (heightUnits <= 1) return (
@@ -167,11 +173,12 @@ export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; hei
   )
 
   // ── 4x+ — full tabbed view ─────────────────────────────────────────────────
-  const tabs: { id: typeof tab; label: string }[] = [
-    { id: 'library', label: '📚 Library' },
-    { id: 'recent', label: '🕹️ Recent' },
-    { id: 'achievements', label: '🏆 Achievements' },
-    { id: 'store', label: '🏷️ Sales' },
+  const tabs: { id: typeof tab; icon: string; title: string }[] = [
+    { id: 'library',      icon: '📚', title: 'Library' },
+    { id: 'recent',       icon: '🕹️', title: 'Recent' },
+    { id: 'achievements', icon: '🏆', title: 'Achievements' },
+    { id: 'store',        icon: '🏷️', title: 'Sales' },
+    { id: 'new',          icon: '🆕', title: 'New Releases' },
   ]
 
   return (
@@ -198,12 +205,12 @@ export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; hei
       {/* Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ padding: '6px 12px', fontSize: 11, border: 'none', cursor: 'pointer',
-              background: 'none', color: tab === t.id ? 'var(--accent2)' : 'var(--text-dim)',
+          <button key={t.id} onClick={() => setTab(t.id)} title={t.title}
+            style={{ padding: '6px 10px', fontSize: 16, border: 'none', cursor: 'pointer',
+              background: 'none', opacity: tab === t.id ? 1 : 0.45,
               borderBottom: tab === t.id ? '2px solid var(--accent2)' : '2px solid transparent',
-              fontWeight: tab === t.id ? 600 : 400 }}>
-            {t.label}
+              lineHeight: 1 }}>
+            {t.icon}
           </button>
         ))}
       </div>
@@ -313,6 +320,39 @@ export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; hei
                         ${f.finalPrice.toFixed(2)}
                       </span>
                     </div>
+                  </div>
+                </a>
+              ))
+            }
+          </div>
+        )}
+
+        {tab === 'new' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>Recently released on Steam</div>
+            {newReleases.length === 0
+              ? <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '20px 0', textAlign: 'center' }}>
+                  No new releases available
+                </div>
+              : newReleases.map(f => (
+                <a key={f.appId}
+                  href={`https://store.steampowered.com/app/${f.appId}`}
+                  target="_blank" rel="noopener noreferrer"
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none',
+                    color: 'var(--text)', padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                  <img src={f.headerUrl} alt={f.name}
+                    style={{ width: 80, height: 37, objectFit: 'cover', borderRadius: 3, flexShrink: 0 }}
+                    onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 500,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {f.name}
+                    </div>
+                    {f.finalPrice > 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                        ${f.finalPrice.toFixed(2)}
+                      </div>
+                    )}
                   </div>
                 </a>
               ))
