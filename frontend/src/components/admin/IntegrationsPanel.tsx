@@ -12,6 +12,7 @@ const INTEGRATION_TYPES = [
   { id: 'plex',         label: 'Plex',         desc: 'Media server' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
+  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader' },
   { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
@@ -96,7 +97,9 @@ export default function IntegrationsPanel() {
 
   const load = async () => {
     const [i, s, g] = await Promise.all([integrationsApi.list(), secretsApi.list(), groupsApi.list()])
-    const list: Integration[] = i.data || []
+    // System settings only shows SYSTEM-owned integrations
+    // Admins' personal integrations belong in Profile > My Integrations
+    const list: Integration[] = (i.data || []).filter((ig: any) => ig.createdBy === 'SYSTEM')
     setIntegrations(list)
     setSecrets(s.data || [])
     setGroups(g.data || [])
@@ -342,10 +345,12 @@ export default function IntegrationsPanel() {
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
               </div>
               <div style={{ flex: 1 }} />
-              <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
-                {testing ? <span className="spinner" /> : 'Test'}
-              </button>
-              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || !newApiUrl}>
+              {!['weather','steam','rss'].includes(newType) && (
+                <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
+                  {testing ? <span className="spinner" /> : 'Test'}
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || (['weather','steam','rss'].includes(newType) ? false : !newApiUrl)}>
                 {creating ? <span className="spinner" /> : 'Create'}
               </button>
               <button className="btn btn-ghost" onClick={() => { setShowForm(false); setTestResult(null) }}>Cancel</button>
@@ -413,6 +418,35 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(ig.name)
   const [apiUrl, setApiUrl] = useState(ig.apiUrl)
+  // Geo/vanity state for weather and steam edit forms
+  const [rowGeoQuery, setRowGeoQuery] = useState('')
+  const [rowGeoResults, setRowGeoResults] = useState<any[]>([])
+  const [rowGeoSearching, setRowGeoSearching] = useState(false)
+  const [rowSteamVanity, setRowSteamVanity] = useState('')
+  const [rowSteamResolving, setRowSteamResolving] = useState(false)
+
+  const rowSearchGeo = async () => {
+    if (!rowGeoQuery.trim()) return
+    setRowGeoSearching(true)
+    try { const r = await weatherApi.geocode(rowGeoQuery); setRowGeoResults(r.data || []) }
+    finally { setRowGeoSearching(false) }
+  }
+  const rowSelectGeo = (r: any) => {
+    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
+    setApiUrl(`${r.latitude},${r.longitude},${city},f`)
+    setRowGeoResults([]); setRowGeoQuery('')
+  }
+  const rowResolveVanity = async () => {
+    if (!rowSteamVanity.trim() || !secretId) return
+    setRowSteamResolving(true)
+    try {
+      const sec = secrets.find(s => s.id === secretId)
+      if (!sec) return
+      const r = await steamApi.resolveVanity(rowSteamVanity, sec.value || secretId)
+      setApiUrl(r.data.steamId); setRowSteamVanity('')
+    } catch { alert('Could not resolve vanity URL') }
+    finally { setRowSteamResolving(false) }
+  }
   const [uiUrl, setUiUrl] = useState(ig.uiUrl)
   const [secretId, setSecretId] = useState(ig.secretId || '')
   const [showAddSecret, setShowAddSecret] = useState(false)
@@ -540,17 +574,92 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   )}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
+              {ig.type === 'weather' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label className="label">Location</label>
+                  {apiUrl && (
+                    <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
+                      📍 {apiUrl.split(',').slice(2).join(',') || apiUrl}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input className="input" value={rowGeoQuery}
+                      onChange={e => setRowGeoQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && rowSearchGeo()}
+                      placeholder="Search city to change location..." style={{ flex: 1 }} />
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={rowSearchGeo} disabled={rowGeoSearching}>
+                      {rowGeoSearching ? '...' : 'Search'}
+                    </button>
+                  </div>
+                  {rowGeoResults.length > 0 && (
+                    <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                      {rowGeoResults.map((r, i) => (
+                        <button key={i} onClick={() => rowSelectGeo(r)}
+                          style={{ display: 'block', width: '100%', textAlign: 'left',
+                            padding: '7px 12px', fontSize: 12, background: 'none',
+                            border: 'none', borderBottom: i < rowGeoResults.length-1 ? '1px solid var(--border)' : 'none',
+                            cursor: 'pointer', color: 'var(--text)' }}>
+                          {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
+                          <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 8 }}>
+                            {r.latitude.toFixed(3)}, {r.longitude.toFixed(3)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <label className="label" style={{ marginBottom: 0 }}>Unit:</label>
+                    <select className="input" style={{ maxWidth: 160, cursor: 'pointer' }}
+                      value={apiUrl.split(',')[3] || 'f'}
+                      onChange={e => {
+                        const parts = apiUrl.split(',')
+                        while (parts.length < 4) parts.push('')
+                        parts[3] = e.target.value
+                        setApiUrl(parts.join(','))
+                      }}>
+                      <option value="f">Fahrenheit (°F)</option>
+                      <option value="c">Celsius (°C)</option>
+                    </select>
+                  </div>
+                </div>
+              ) : ig.type === 'steam' ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <label className="label">Steam ID</label>
                   <input className="input" value={apiUrl}
-                    onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
+                    onChange={e => setApiUrl(e.target.value)}
+                    placeholder="76561198000000000" />
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input className="input" value={rowSteamVanity}
+                      onChange={e => setRowSteamVanity(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && rowResolveVanity()}
+                      placeholder="Or enter profile vanity name to resolve..." style={{ flex: 1 }} />
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={rowResolveVanity} disabled={rowSteamResolving}>
+                      {rowSteamResolving ? '...' : 'Resolve'}
+                    </button>
+                  </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-                  <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
+              ) : ig.type === 'rss' ? (
+                <div>
+                  <label className="label">Feed URL</label>
+                  <input className="input" value={apiUrl}
+                    onChange={e => setApiUrl(e.target.value)}
+                    placeholder="https://example.com/feed.xml" />
                 </div>
-              </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
+                    <input className="input" value={apiUrl}
+                      onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
+                    <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
+                  </div>
+                </div>
+              )}
               {testResult && (
                 <div style={{
                   padding: '8px 12px', borderRadius: 7, fontSize: 12,
@@ -579,9 +688,11 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
                   <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
                 </div>
                 <div style={{ flex: 1 }} />
-                <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
-                  {testing ? <span className="spinner" /> : 'Test'}
-                </button>
+                {!['weather','steam','rss'].includes(ig.type) && (
+                  <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
+                    {testing ? <span className="spinner" /> : 'Test'}
+                  </button>
+                )}
                 <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => {
                   onUpdate({ name, apiUrl, uiUrl, secretId: secretId || '', skipTls, refreshSecs })
                   setEditing(false)

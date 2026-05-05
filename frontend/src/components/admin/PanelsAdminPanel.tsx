@@ -54,39 +54,72 @@ const PANEL_NEEDS_INTEGRATION: Record<string, string> = {
   opnsense: 'opnsense', photoprism: 'photoprism', plex: 'plex',
   proxmox: 'proxmox', radarr: 'radarr', sonarr: 'sonarr',
   tautulli: 'tautulli', transmission: 'transmission', truenas: 'truenas',
-  kuma: 'kuma', readarr: 'readarr', weather: 'weather', steam: 'steam',
+  kuma: 'kuma', readarr: 'readarr', rss: 'rss', weather: 'weather', steam: 'steam',
   // bookmarks, calendar, notes, checklist: no integration needed
 }
 
-function RSSFeedURLEditor({ panelId, panelTitle, initialUrl, initialUiUrl, onSave }: {
-  panelId: string; panelTitle: string; initialUrl: string; initialUiUrl: string; onSave: () => void
+
+
+function RSSIntegrationEditor({ panel, integrations, onSave }: {
+  panel: Panel; integrations: any[]; onSave: () => void
 }) {
-  const [url, setUrl] = useState(initialUrl)
-  const [uiUrl, setUiUrl] = useState(initialUiUrl)
-  const [saving, setSaving] = useState(false)
+  const cfg = safeParseConfig(panel.config)
+  const [rssIntId, setRssIntId] = useState(cfg.integrationId || '')
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-      <label className="label">Feed URL</label>
-      <input className="input" type="url" value={url} onChange={e => setUrl(e.target.value)}
-        placeholder="https://example.com/feed.xml" style={{ fontSize: 12 }} />
-      <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — e.g. your FreshRSS instance)</span></label>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <label className="label">RSS Integration</label>
       <div style={{ display: 'flex', gap: 6 }}>
-        <input className="input" type="url" value={uiUrl} onChange={e => setUiUrl(e.target.value)}
-          placeholder="https://freshrss.example.com" style={{ flex: 1, fontSize: 12 }} />
-        <button className="btn btn-primary" style={{ fontSize: 12 }} disabled={saving}
-          onClick={async () => {
-            setSaving(true)
-            const cfg = { feedUrl: url, uiUrl }
-            await panelsApi.update(panelId, { title: panelTitle, config: JSON.stringify(cfg) })
-            setSaving(false); onSave()
-          }}>
-          {saving ? <span className="spinner" /> : 'Save'}
-        </button>
+        <select className="input" value={rssIntId}
+          onChange={e => setRssIntId(e.target.value)} style={{ flex: 1, cursor: 'pointer' }}>
+          <option value="">— Select integration —</option>
+          {integrations.map(i => (
+            <option key={i.id} value={i.id}>{i.name}</option>
+          ))}
+        </select>
+        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+          await panelsApi.update(panel.id, { title: panel.title,
+            config: JSON.stringify({ ...cfg, integrationId: rssIntId }) })
+          onSave()
+        }}>Save</button>
       </div>
+      {integrations.length === 0 && (
+        <div style={{ fontSize: 11, color: 'var(--amber)' }}>
+          No RSS integrations found. Add one in System Integrations first.
+        </div>
+      )}
     </div>
   )
 }
 
+function IntegrationAssignEditor({ panel, integrations, onSave }: {
+  panel: Panel; integrations: any[]; onSave: () => void
+}) {
+  const cfg = safeParseConfig(panel.config)
+  const [editingIntId, setEditingIntId] = useState(cfg.integrationId || '')
+  const [editing, setEditing] = useState(false)
+  const currentName = integrations.find((i: any) => i.id === cfg.integrationId)?.name
+  if (!editing) return (
+    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>
+      {cfg.integrationId ? (currentName || 'Integration') : '⚠ Set integration'}
+    </button>
+  )
+  return (
+    <>
+      <select className="input" style={{ fontSize: 12, width: 180 }}
+        value={editingIntId} onChange={e => setEditingIntId(e.target.value)}>
+        <option value="">— Select integration —</option>
+        {integrations.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+      </select>
+      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+        await panelsApi.update(panel.id, { title: panel.title,
+          config: JSON.stringify({ ...cfg, integrationId: editingIntId }) })
+        setEditing(false); onSave()
+      }}>Save</button>
+      <button className="btn btn-ghost" style={{ fontSize: 12 }}
+        onClick={() => setEditing(false)}>Cancel</button>
+    </>
+  )
+}
 
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
@@ -121,7 +154,8 @@ export default function PanelsAdminPanel() {
     // Admin panel only shows shared panels - personal panels managed in profile
     // Always reload bookmark tree to pick up renames
     const [p, t, b, ig, g] = await Promise.all([panelsApi.list(undefined, 'system'), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list(), groupsApi.list()])
-    setIntegrations(ig.data || [])
+    // System panels only use SYSTEM-owned integrations
+    setIntegrations((ig.data || []).filter((i: any) => i.createdBy === 'SYSTEM'))
     setGroups(g.data || [])
     setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
     setTags(t.data || [])
@@ -151,7 +185,7 @@ export default function PanelsAdminPanel() {
     setCreating(true)
     const config = newType === 'customapi'
       ? JSON.stringify({ url: '', apiKey: '', mappings: [], refreshSecs: 600, height: newHeight })
-      : ['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam'].includes(newType)
+      : ['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}), ...(['sonarr','radarr','plex'].includes(newType) && newAllowedRatings ? { allowedRatings: newAllowedRatings } : {}) })
 
       : newType === 'calendar'
@@ -256,7 +290,7 @@ export default function PanelsAdminPanel() {
                 </select>
               </div>
             )}
-            {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(newType) && (
+            {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(newType) && (
               <div style={{ flex: 1 }}>
                 <label className="label">Integration</label>
                 <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
@@ -354,6 +388,13 @@ export default function PanelsAdminPanel() {
                       }}>
                       Resize
                     </button>
+                  )}
+                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && (
+                    <IntegrationAssignEditor
+                      panel={p}
+                      integrations={integrations.filter((i: any) => i.type === p.type)}
+                      onSave={load}
+                    />
                   )}
                   {['radarr','sonarr','plex'].includes(p.type) && (
                     editingRatings?.id === p.id ? (
@@ -504,7 +545,7 @@ export default function PanelsAdminPanel() {
 
               {/* Calendar sources - inline */}
               {p.type === 'calendar' && (() => {
-                const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr'].includes(i.type))
+                const calIntegrations = integrations // pass all integrations; component filters internally
                 const existingSources: any[] = (() => { try { return JSON.parse(p.config||'{}').sources || [] } catch { return [] } })()
                 return (
                   <div style={{ marginTop: 8 }}>
@@ -518,7 +559,7 @@ export default function PanelsAdminPanel() {
                         }}>
                           <span style={{ flex: 1 }}>
                             {src.type === 'weather'
-                              ? <>🌤 {src.city} <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 4 }}>°{(src.unit || 'f').toUpperCase()}</span></>
+                              ? <>🌤 {src.label || ig?.name || src.integrationId}</>
                               : src.type === 'google'
                                 ? <>📅 {src.label || src.integrationId}</>
                                 : src.type === 'checklist'
@@ -540,20 +581,20 @@ export default function PanelsAdminPanel() {
                     })}
                     <UnifiedCalendarSourceAdder
                         panelId={p.id} panelTitle={p.title} panelConfig={p.config}
-                        integrations={calIntegrations} onAdded={load}
+                        integrations={calIntegrations} onAdded={load} // full list passed
                         isSystem={true}
                       />
                   </div>
                 )
               })()}
 
-              {p.type === 'rss' && (() => {
-                const cfg = safeParseConfig(p.config)
-                return (
-                  <RSSFeedURLEditor panelId={p.id} panelTitle={p.title}
-                    initialUrl={cfg.feedUrl || ''} initialUiUrl={cfg.uiUrl || ''} onSave={load} />
-                )
-              })()}
+              {p.type === 'rss' && (
+                <RSSIntegrationEditor
+                  panel={p}
+                  integrations={integrations.filter((i: any) => i.type === 'rss')}
+                  onSave={load}
+                />
+              )}
 
               {p.type === 'opnsense' && (() => {
                 const cfg = safeParseConfig(p.config)
@@ -667,16 +708,12 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
   panelId: string; panelTitle: string; panelConfig: string
   integrations: Integration[]; onAdded: () => void; isSystem?: boolean
 }) {
-  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'|'checklist'>('integration')
+  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'checklist'>('integration')
   const [intId, setIntId] = useState('')
   const [googleTokenId, setGoogleTokenId] = useState('')
   const [googleCalendarId, setGoogleCalendarId] = useState('primary')
   const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
   const [googleTokens, setGoogleTokens] = useState<any[]>([])
-  const [city, setCity] = useState('')
-  const [unit, setUnit] = useState<'f'|'c'>('f')
-  const [searching, setSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<any[]>([])
   const [adding, setAdding] = useState(false)
   const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
   const [checklistPanelId, setChecklistPanelId] = useState('')
@@ -703,26 +740,12 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
     }
   }, [googleTokenId])
 
-  const search = async () => {
-    if (!city.trim()) return
-    setSearching(true); setSearchResults([])
-    try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=en&format=json`)
-      const data = await res.json()
-      setSearchResults(data.results || [])
-    } catch { setSearchResults([]) }
-    finally { setSearching(false) }
-  }
-
-  const add = async (weatherResult?: any) => {
+  const add = async () => {
     setAdding(true)
     try {
       const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
       let newSource: any
-      if (sourceKind === 'weather' && weatherResult) {
-        const label = `${weatherResult.name}, ${weatherResult.admin1 || weatherResult.country}`
-        newSource = { type: 'weather', lat: String(weatherResult.latitude), lon: String(weatherResult.longitude), city: label, unit }
-      } else if (sourceKind === 'google') {
+      if (sourceKind === 'google') {
         if (!googleTokenId) return
         const tok = googleTokens.find((t: any) => t.id === googleTokenId)
         newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
@@ -738,7 +761,7 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
       const sources = [...(cfg.sources || []), newSource]
       const updater = isSystem ? panelsApi : myPanelsApi
       await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('')
+      setIntId(''); setGoogleTokenId(''); setChecklistPanelId('')
       onAdded()
     } finally { setAdding(false) }
   }
@@ -747,11 +770,10 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
     <div style={{ marginTop: 8 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('') }}
+          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setChecklistPanelId('') }}
           style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
           <option value="integration">Stoa integration</option>
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-          <option value="weather">Weather</option>
           {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
         </select>
 
@@ -760,7 +782,7 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
             <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
               style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
               <option value="">— Select integration —</option>
-              {integrations.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
+              {integrations.filter((i: any) => ['sonarr','radarr','readarr','lidarr','weather'].includes(i.type)).map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
               onClick={() => add()} disabled={adding || !intId}>
@@ -803,36 +825,10 @@ function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrat
           </>
         )}
 
-        {sourceKind === 'weather' && (
-          <>
-            <input className="input" value={city} onChange={e => setCity(e.target.value)}
-              placeholder="City name..." style={{ flex: 1, fontSize: 12 }}
-              onKeyDown={e => e.key === 'Enter' && search()} />
-            <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
-              style={{ width: 65, fontSize: 12, cursor: 'pointer' }}>
-              <option value="f">°F</option>
-              <option value="c">°C</option>
-            </select>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={search} disabled={searching || !city.trim()}>
-              {searching ? <span className="spinner" /> : 'Search'}
-            </button>
-          </>
-        )}
+
       </div>
 
-      {sourceKind === 'weather' && searchResults.length > 0 && (
-        <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          {searchResults.map((r: any, i: number) => (
-            <button key={i} onClick={() => add(r)} disabled={adding}
-              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
-                border: 'none', borderBottom: i < searchResults.length-1 ? '1px solid var(--border)' : 'none',
-                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
-              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
-            </button>
-          ))}
-        </div>
-      )}
+
     </div>
   )
 }

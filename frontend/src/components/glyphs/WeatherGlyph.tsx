@@ -1,20 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { Glyph } from '../../api'
-
-// WMO weather codes → simple emoji
-const wmoEmoji = (code: number): string => {
-  if (code === 0) return '☀️'
-  if (code <= 2) return '⛅'
-  if (code <= 3) return '☁️'
-  if (code <= 49) return '🌫️'
-  if (code <= 59) return '🌧️'
-  if (code <= 69) return '🌨️'
-  if (code <= 79) return '🌨️'
-  if (code <= 82) return '🌦️'
-  if (code <= 84) return '🌧️'
-  if (code <= 94) return '⛈️'
-  return '🌩️'
-}
+import { glyphsApi, Glyph } from '../../api'
 
 export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
   const config = (() => { try { return JSON.parse(glyph.config) } catch { return {} } })()
@@ -22,27 +7,21 @@ export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
-  const lat = config.lat
-  const lon = config.lon
-  const unitSym = (config.unit || config.units) === 'metric' || (config.unit || config.units) === 'c' ? '°C' : '°F'
   const refreshSecs = config.refreshSecs || 1800
 
   const load = useCallback(async () => {
-    if (!lat || !lon) { setError('No location set'); setLoading(false); return }
+    if (!config.integrationId) {
+      setError('No integration')
+      setLoading(false)
+      return
+    }
     try {
-      const tempUnit = unitSym === '°C' ? 'celsius' : 'fahrenheit'
-      const windUnit = unitSym === '°C' ? 'ms' : 'mph'
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-        `&current=temperature_2m,weathercode,windspeed_10m` +
-        `&daily=temperature_2m_max,temperature_2m_min` +
-        `&temperature_unit=${tempUnit}&windspeed_unit=${windUnit}&timezone=auto&forecast_days=1`
-      const res = await fetch(url)
-      const d = await res.json()
-      setData(d); setError('')
+      const r = await glyphsApi.getData(glyph.id)
+      setData(r.data); setError('')
     } catch {
       setError('Failed to load')
     } finally { setLoading(false) }
-  }, [lat, lon, unitSym])
+  }, [glyph.id, config.integrationId])
 
   useEffect(() => {
     load()
@@ -51,20 +30,22 @@ export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
   }, [load, refreshSecs])
 
   if (loading) return <div style={{ fontSize: 16 }}>⛅</div>
-  if (error || !data?.current) return <div style={{ fontSize: 10, color: 'var(--red)' }} title={error}>⚠</div>
+  if (error || !data) return <div style={{ fontSize: 10, color: 'var(--red)' }} title={error}>⚠</div>
 
-  const temp = Math.round(data.current.temperature_2m)
-  const code = data.current.weathercode
-  const hi = Math.round(data.daily?.temperature_2m_max?.[0] ?? temp)
-  const lo = Math.round(data.daily?.temperature_2m_min?.[0] ?? temp)
+  const icon = data.icon || '🌡️'
+  const temp = data.temp != null ? `${Math.round(data.temp)}°` : '—'
+  const unitLabel = data.unit === 'c' ? 'C' : 'F'
+  const label = config.label || data.city || ''
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-      <span style={{ fontSize: 22, lineHeight: 1 }}>{wmoEmoji(code)}</span>
-      <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{temp}{unitSym}</span>
-        <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>H:{hi} L:{lo}</span>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: 1, cursor: 'default' }} title={`${data.city || ''} — ${data.label || ''}`}>
+      <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{temp}{unitLabel}</span>
+      {label && <span style={{ fontSize: 9, color: 'var(--text-dim)', lineHeight: 1,
+        maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {label}
+      </span>}
     </div>
   )
 }

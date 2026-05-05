@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { rssPanelApi, Panel } from '../../api'
+import { integrationsApi, Panel } from '../../api'
 
 interface RSSItem { title: string; link: string; pubDate?: string }
 
@@ -22,23 +22,23 @@ function itemLimit(heightUnits: number): number {
 
 export default function RSSPanel({ panel, heightUnits = 2 }: { panel: Panel; heightUnits?: number }) {
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const feedUrl: string = config.feedUrl || ''
   const [items, setItems] = useState<RSSItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    if (!feedUrl) { setLoading(false); return }
+    const integrationId = config.integrationId
+    if (!integrationId) { setLoading(false); return }
     setLoading(true)
-    rssPanelApi.fetch(feedUrl)
+    integrationsApi.getPanelData(panel.id)
       .then(r => { setItems(r.data.items || []); setError('') })
       .catch(() => setError('Failed to load feed'))
       .finally(() => setLoading(false))
-  }, [feedUrl])
+  }, [panel.id, config.integrationId])
 
-  if (!feedUrl) return (
+  if (!config.integrationId) return (
     <div style={{ padding: 12, fontSize: 12, color: 'var(--text-dim)' }}>
-      No feed URL configured — set one in panel settings.
+      No RSS integration configured — add one in integrations.
     </div>
   )
 

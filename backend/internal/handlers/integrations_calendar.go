@@ -165,6 +165,31 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				})
 			}
 
+		case "weather":
+			// Read from integration cache — same data as weather panel
+			wd, werr := getWeatherData(db, integrationID, source)
+			if werr != nil {
+				log.Printf("[CAL] weather error: %v", werr)
+				continue
+			}
+			// Build one event per day from the 7-day forecast
+			for _, day := range wd.Daily {
+				if day.Date == "" { continue }
+				tmp := day.MaxF
+				tmpMin := day.MinF
+				if wd.Unit == "c" { tmp = day.MaxC; tmpMin = day.MinC }
+				city := wd.City
+				title := fmt.Sprintf("%s %s %.0f°/%.0f°", city, day.Icon, tmp, tmpMin)
+				events = append(events, map[string]interface{}{
+					"source":  "weather",
+					"date":    day.Date,
+					"title":   title,
+					"icon":    day.Icon,
+					"color":   "#60a5fa",
+					"tagId":   integrationID,
+				})
+			}
+
 		case "google":
 			calendarID := stringVal(source, "calendarId")
 			if calendarID == "" {

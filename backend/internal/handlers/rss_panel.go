@@ -1,39 +1,47 @@
 package handlers
 
 import (
-	"encoding/json"
+	"database/sql"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 )
 
-// Simple 5-minute in-memory cache for RSS panel feeds
-type rssCacheEntry struct {
-	items     []rssPanelItem
-	fetchedAt time.Time
-}
-
-type rssPanelItem struct {
+type RSSItem struct {
 	Title   string `json:"title"`
 	Link    string `json:"link"`
 	PubDate string `json:"pubDate,omitempty"`
 }
 
-var (
-	rssPanelCache   = map[string]rssCacheEntry{}
-	rssPanelCacheMu sync.Mutex
-)
+type RSSPanelData struct {
+	FeedURL string    `json:"feedUrl"`
+	UIURL   string    `json:"uiUrl,omitempty"`
+	Items   []RSSItem `json:"items"`
+}
 
-func fetchRSSPanel(feedURL string) ([]rssPanelItem, error) {
-	rssPanelCacheMu.Lock()
-	if e, ok := rssPanelCache[feedURL]; ok && time.Since(e.fetchedAt) < 5*time.Minute {
-		rssPanelCacheMu.Unlock()
-		return e.items, nil
+func fetchRSSPanelData(db *sql.DB, config map[string]interface{}) (*RSSPanelData, error) {
+	integrationID, _ := config["integrationId"].(string)
+	if integrationID == "" {
+		return nil, fmt.Errorf("no integration configured")
 	}
-	rssPanelCacheMu.Unlock()
+	// api_url stores the RSS feed URL; ui_url is optional link target
+	var feedURL, uiURL string
+	db.QueryRow(`SELECT api_url, ui_url FROM integrations WHERE id=? AND enabled=1`,
+		integrationID).Scan(&feedURL, &uiURL)
+	if feedURL == "" {
+		return nil, fmt.Errorf("feed URL not configured")
+	}
 
+	items, err := fetchAndParseRSS(feedURL)
+	if err != nil {
+		return nil, fmt.Errorf("feed fetch failed: %w", err)
+	}
+	return &RSSPanelData{FeedURL: feedURL, UIURL: uiURL, Items: items}, nil
+}
+
+func fetchAndParseRSS(feedURL string) ([]RSSItem, error) {
 	client := &http.Client{Timeout: 8 * time.Second}
 	resp, err := client.Get(feedURL)
 	if err != nil {
@@ -65,7 +73,7 @@ func fetchRSSPanel(feedURL string) ([]rssPanelItem, error) {
 		itemTag, closeTag = "<entry>", "</entry>"
 	}
 
-	var items []rssPanelItem
+	var items []RSSItem
 	pos := 0
 	for len(items) < 50 {
 		start := strings.Index(bodyStr[pos:], itemTag)
@@ -99,28 +107,10 @@ func fetchRSSPanel(feedURL string) ([]rssPanelItem, error) {
 
 		pubDate := extractTag(block, "pubDate")
 		if pubDate == "" { pubDate = extractTag(block, "published") }
-		items = append(items, rssPanelItem{Title: title, Link: link, PubDate: pubDate})
+		items = append(items, RSSItem{Title: title, Link: link, PubDate: pubDate})
 		pos = end
 	}
 
-	rssPanelCacheMu.Lock()
-	rssPanelCache[feedURL] = rssCacheEntry{items: items, fetchedAt: time.Now()}
-	rssPanelCacheMu.Unlock()
-
+	if items == nil { items = []RSSItem{} }
 	return items, nil
-}
-
-func GetRSSPanelData(w http.ResponseWriter, r *http.Request) {
-	feedURL := r.URL.Query().Get("url")
-	if feedURL == "" {
-		writeError(w, http.StatusBadRequest, "url required")
-		return
-	}
-	items, err := fetchRSSPanel(feedURL)
-	if err != nil {
-		writeError(w, http.StatusBadGateway, "feed unreachable")
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{"items": items})
 }

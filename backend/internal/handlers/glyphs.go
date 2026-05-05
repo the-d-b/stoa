@@ -216,33 +216,49 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 
 // ── Weather fetch (Open-Meteo, no API key required) ──────────────────────────
 
+// getWeatherData returns cached WeatherPanelData for an integrationID,
+// fetching live if the cache is cold. Used by glyph, ticker, and calendar.
+func getWeatherData(db *sql.DB, integrationID string, config map[string]interface{}) (*WeatherPanelData, error) {
+	if cached, ok := cacheGet(integrationID); ok {
+		switch v := cached.(type) {
+		case *WeatherPanelData:
+			return v, nil
+		default:
+			b, _ := json.Marshal(v)
+			wd := &WeatherPanelData{}
+			if json.Unmarshal(b, wd) == nil && wd.City != "" { return wd, nil }
+		}
+	}
+	// Cache miss — fetch live via integration
+	cfg := map[string]interface{}{"integrationId": integrationID}
+	result, err := FetchWeatherForIntegration(db, cfg)
+	if err != nil { return nil, err }
+	wd, ok := result.(*WeatherPanelData)
+	if !ok { return nil, fmt.Errorf("unexpected weather data type") }
+	cacheSet(integrationID, wd)
+	return wd, nil
+}
+
 func fetchWeather(db *sql.DB, config map[string]interface{}) (interface{}, error) {
-	lat := stringVal(config, "lat")
-	lon := stringVal(config, "lon")
-	if lat == "" || lon == "" {
-		return nil, fmt.Errorf("location not configured — set lat/lon in glyph config")
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("no weather integration configured")
 	}
-	unit := stringVal(config, "unit")
-	tempUnit := "fahrenheit"
-	if unit == "c" {
-		tempUnit = "celsius"
-	}
-	url := fmt.Sprintf(
-		"https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&current=temperature_2m,weathercode,windspeed_10m&temperature_unit=%s&timezone=auto&forecast_days=1",
-		lat, lon, tempUnit,
-	)
-	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return nil, fmt.Errorf("weather API unreachable")
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-	var result map[string]interface{}
-	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("invalid weather response")
-	}
-	return result, nil
+	wd, err := getWeatherData(db, integrationID, config)
+	if err != nil { return nil, err }
+	cur := wd.Current
+	temp := cur.TempF
+	if wd.Unit == "c" { temp = cur.TempC }
+	return map[string]interface{}{
+		"temp":        temp,
+		"unit":        wd.Unit,
+		"city":        wd.City,
+		"icon":        cur.Icon,
+		"label":       cur.Label,
+		"weatherCode": cur.WeatherCode,
+		"windSpeed":   cur.WindKph,
+		"humidity":    cur.Humidity,
+	}, nil
 }
 
 
@@ -425,8 +441,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 			}
 			writeJSON(w, http.StatusOK, data)
 		case "weather":
-			// No API key needed — Open-Meteo is free
-			data, err := fetchWeatherTicker(config)
+			data, err := fetchWeatherTicker(db, config)
 			if err != nil {
 				log.Printf("[TICKERS] weather fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
@@ -442,7 +457,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 			}
 			writeJSON(w, http.StatusOK, data)
 		case "rss":
-			data, err := fetchRSSTicker(config)
+			data, err := fetchRSSTicker(db, config)
 			if err != nil {
 				log.Printf("[TICKERS] rss fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
@@ -702,81 +717,41 @@ func fetchPingGlyphData(config map[string]interface{}) (interface{}, error) {
 	return map[string]interface{}{"ms": ms, "up": true, "host": host}, nil
 }
 
-// ── Weather ticker — Open-Meteo (no API key) ──────────────────────────────────
-// Supports multiple locations via a "locations" array in config, or a single lat/lon.
-func fetchWeatherTicker(config map[string]interface{}) (interface{}, error) {
-	// Build list of locations to fetch
-	type loc struct{ lat, lon, city, unit string }
-	var locations []loc
-
-	// Check for locations array first
-	if locs, ok := config["locations"].([]interface{}); ok && len(locs) > 0 {
-		for _, l := range locs {
-			if m, ok := l.(map[string]interface{}); ok {
-				locations = append(locations, loc{
-					lat:  stringVal(m, "lat"),
-					lon:  stringVal(m, "lon"),
-					city: stringVal(m, "city"),
-					unit: stringVal(m, "unit"),
-				})
-			}
+// ── Weather ticker — reads from integration cache ────────────────────────────
+func fetchWeatherTicker(db *sql.DB, config map[string]interface{}) (interface{}, error) {
+	var ids []string
+	if arr, ok := config["integrationIds"].([]interface{}); ok {
+		for _, v := range arr {
+			if s, ok := v.(string); ok && s != "" { ids = append(ids, s) }
 		}
 	}
-	// Fall back to single location fields
-	if len(locations) == 0 {
-		lat := stringVal(config, "lat")
-		lon := stringVal(config, "lon")
-		if lat == "" || lon == "" {
-			return nil, fmt.Errorf("location not configured")
-		}
-		locations = []loc{{ lat: lat, lon: lon, city: stringVal(config, "city"), unit: stringVal(config, "unit") }}
+	if len(ids) == 0 {
+		if id := stringVal(config, "integrationId"); id != "" { ids = []string{id} }
 	}
-
-	client := &http.Client{Timeout: 8 * time.Second}
+	if len(ids) == 0 {
+		return nil, fmt.Errorf("no weather integration configured")
+	}
 	type weatherResult map[string]interface{}
 	var results []weatherResult
-
-	for _, l := range locations {
-		unit := l.unit
-		url := fmt.Sprintf(
-			"https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s"+
-				"&current=temperature_2m,weathercode,precipitation_probability&timezone=auto",
-			l.lat, l.lon,
-		)
-		resp, err := client.Get(url)
+	for _, id := range ids {
+		wd, err := getWeatherData(db, id, config)
 		if err != nil { continue }
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
-		resp.Body.Close()
-
-		var raw struct {
-			Current struct {
-				Temp         float64 `json:"temperature_2m"`
-				Code         int     `json:"weathercode"`
-				PrecipChance float64 `json:"precipitation_probability"`
-			} `json:"current"`
-		}
-		if json.Unmarshal(body, &raw) != nil { continue }
-
-		temp := raw.Current.Temp
-		unitLabel := "°C"
-		if unit == "f" {
-			temp = temp*9/5 + 32
-			unitLabel = "°F"
-		}
+		cur := wd.Current
+		temp := cur.TempF
+		unitLabel := "°F"
+		if wd.Unit == "c" { temp = cur.TempC; unitLabel = "°C" }
 		results = append(results, weatherResult{
-			"city":         l.city,
-			"temp":         fmt.Sprintf("%.0f%s", temp, unitLabel),
-			"code":         raw.Current.Code,
-			"precipChance": raw.Current.PrecipChance,
+			"city":      wd.City,
+			"temp":      fmt.Sprintf("%.0f%s", temp, unitLabel),
+			"code":      cur.WeatherCode,
+			"icon":      cur.Icon,
+			"label":     cur.Label,
+			"humidity":  cur.Humidity,
+			"windSpeed": cur.WindKph,
 		})
 	}
-
-	if len(results) == 0 {
-		return nil, fmt.Errorf("no weather data returned")
-	}
-	if len(results) == 1 {
-		return results[0], nil
-	}
+	if len(results) == 0 { return nil, fmt.Errorf("no weather data available") }
+	if len(results) == 1 { return results[0], nil }
 	return results, nil
 }
 
@@ -911,103 +886,29 @@ func decodeHTMLEntities(s string) string {
 	return replacer.Replace(s)
 }
 
-// ── RSS ticker — fetch and parse headlines ────────────────────────────────────
-func fetchRSSTicker(config map[string]interface{}) (interface{}, error) {
-	feedURL := stringVal(config, "url")
-	if feedURL == "" {
-		return nil, fmt.Errorf("RSS URL not configured")
+// ── RSS ticker — reads from integration cache ────────────────────────────────
+func fetchRSSTicker(db *sql.DB, config map[string]interface{}) (interface{}, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("no RSS integration configured")
 	}
-
-	client := &http.Client{Timeout: 8 * time.Second}
-	resp, err := client.Get(feedURL)
-	if err != nil {
-		return nil, fmt.Errorf("RSS feed unreachable")
-	}
-	defer resp.Body.Close()
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
-	bodyStr := string(body)
-
-	type RSSItem struct {
-		Title string `json:"title"`
-		Link  string `json:"link,omitempty"`
-	}
-
-	// Parse <item> or <entry> blocks and extract title + link from each
-	var items []RSSItem
-
-	// Helper: extract tag content
-	extractTag := func(s, tag string) string {
-		open := "<" + tag
-		i := strings.Index(s, open)
-		if i < 0 { return "" }
-		gt := strings.Index(s[i:], ">")
-		if gt < 0 { return "" }
-		start := i + gt + 1
-		close := "</" + tag + ">"
-		end := strings.Index(s[start:], close)
-		if end < 0 { return "" }
-		v := strings.TrimSpace(s[start : start+end])
-		if strings.HasPrefix(v, "<![CDATA[") {
-			v = strings.TrimSuffix(strings.TrimPrefix(v, "<![CDATA["), "]]>")
-		}
-		return decodeHTMLEntities(strings.TrimSpace(v))
-	}
-
-	// Try RSS 2.0 <item> blocks first
-	itemTag, closeTag := "<item>", "</item>"
-	if !strings.Contains(bodyStr, "<item>") {
-		// Fall back to Atom <entry> blocks
-		itemTag, closeTag = "<entry>", "</entry>"
-	}
-
-	pos := 0
-	for len(items) < 20 {
-		start := strings.Index(bodyStr[pos:], itemTag)
-		if start < 0 { break }
-		start += pos
-		end := strings.Index(bodyStr[start:], closeTag)
-		if end < 0 { break }
-		end += start + len(closeTag)
-		block := bodyStr[start:end]
-
-		title := extractTag(block, "title")
-		if title == "" || title == "&#xFEFF;" {
-			pos = end; continue
-		}
-
-		// RSS 2.0: <link>url</link> or <link href="url"/>
-		// Atom: <link href="url" rel="alternate"/>
-		link := extractTag(block, "link")
-		if link == "" {
-			// Try <link href="..."> attribute form
-			li := strings.Index(block, "<link ")
-			if li >= 0 {
-				hrefAttr := `href="`
-				hi := strings.Index(block[li:], hrefAttr)
-				if hi >= 0 {
-					hi += li + len(hrefAttr)
-					he := strings.Index(block[hi:], `"`)
-					if he >= 0 { link = block[hi : hi+he] }
-				}
+	// Read from cache
+	if cached, ok := cacheGet(integrationID); ok {
+		switch v := cached.(type) {
+		case *RSSPanelData:
+			return map[string]interface{}{"items": v.Items, "feedUrl": v.FeedURL}, nil
+		default:
+			b, _ := json.Marshal(v)
+			var pd RSSPanelData
+			if err := json.Unmarshal(b, &pd); err == nil {
+				return map[string]interface{}{"items": pd.Items, "feedUrl": pd.FeedURL}, nil
 			}
 		}
-		// Also try <guid isPermaLink="true"> as link fallback
-		if link == "" {
-			guid := extractTag(block, "guid")
-			if strings.HasPrefix(guid, "http") { link = guid }
-		}
-
-		items = append(items, RSSItem{Title: title, Link: link})
-		pos = end
 	}
-
-	// Legacy: also return flat headlines for backwards compat
-	headlines := make([]string, len(items))
-	for i, item := range items { headlines[i] = item.Title }
-
-	return map[string]interface{}{
-		"headlines": headlines,
-		"items":     items,
-		"count":     len(items),
-	}, nil
+	// Cache miss — fetch live
+	cfg := map[string]interface{}{"integrationId": integrationID}
+	result, err := fetchRSSPanelData(db, cfg)
+	if err != nil { return nil, err }
+	cacheSet(integrationID, result)
+	return map[string]interface{}{"items": result.Items, "feedUrl": result.FeedURL}, nil
 }

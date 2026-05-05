@@ -538,10 +538,6 @@ export const weatherApi = {
     ),
 }
 
-export const rssPanelApi = {
-  fetch: (url: string) => api.get<{items: {title:string;link:string}[]}>(`/rss-panel?url=${encodeURIComponent(url)}`),
-}
-
 export const notesApi = {
   get:      (id: string) => api.get<Note & { lockedBy?: string; lockedByName?: string }>(`/notes/note/${id}`),
   list:     (panelId: string, sort?: 'asc'|'desc') =>

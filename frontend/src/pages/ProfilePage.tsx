@@ -1369,71 +1369,31 @@ const ZONES = [
   { id: 'footer-right',   label: 'Footer right' },
 ]
 
-function WeatherGlyphConfig({ localConfig, setLocalConfig }: { localConfig: any; setLocalConfig: any }) {
-  const [city, setCity] = useState('')
-  const [searching, setSearching] = useState(false)
-  const [results, setResults] = useState<any[]>([])
-  const search = async () => {
-    if (!city.trim()) return
-    setSearching(true); setResults([])
-    try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=6&language=en&format=json`)
-      const d = await res.json()
-      setResults(d.results || [])
-    } catch { setResults([]) }
-    finally { setSearching(false) }
-  }
-  const pick = (r: any) => {
-    const label = r.name
-    setLocalConfig((c: any) => ({ ...c, lat: String(r.latitude), lon: String(r.longitude), label }))
-    setResults([]); setCity('')
-  }
+function WeatherGlyphConfig({ localConfig, setLocalConfig, integrations }: {
+  localConfig: any; setLocalConfig: any; integrations: any[]
+}) {
+  const weatherInts = integrations.filter((i: any) => i.type === 'weather')
   return (
     <>
-      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-        <div style={{ flex: 1 }}>
-          <label className="label">Label (optional)</label>
-          <input className="input" value={localConfig.label || ''}
-            onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
-            placeholder="e.g. Home, Office" />
-        </div>
-        <div>
-          <label className="label">Units</label>
-          <select className="input" value={localConfig.unit || 'f'}
-            onChange={e => setLocalConfig((c: any) => ({ ...c, unit: e.target.value }))}
-            style={{ cursor: 'pointer', width: 72 }}>
-            <option value="f">°F</option>
-            <option value="c">°C</option>
-          </select>
-        </div>
-      </div>
-      {localConfig.lat && localConfig.lon && (
-        <div style={{ fontSize: 12, color: 'var(--green)', padding: '4px 8px',
-          background: 'var(--surface2)', borderRadius: 6 }}>
-          ✓ {localConfig.label || (localConfig.lat + ', ' + localConfig.lon)}
-        </div>
-      )}
       <div>
-        <label className="label">City search — no API key required</label>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input className="input" value={city} onChange={e => setCity(e.target.value)}
-            placeholder="Search city..." onKeyDown={e => e.key === 'Enter' && search()} />
-          <button className="btn btn-secondary" onClick={search} disabled={searching || !city.trim()}>
-            {searching ? <span className="spinner" /> : 'Search'}
-          </button>
-        </div>
-        {results.length > 0 && (
-          <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-            {results.map((r: any, i: number) => (
-              <button key={i} onClick={() => pick(r)}
-                style={{ width: '100%', padding: '7px 12px', background: 'var(--surface2)',
-                  border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
-                  textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
-                {r.name}{r.admin1 ? ', ' + r.admin1 : ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
-              </button>
-            ))}
+        <label className="label">Weather integration</label>
+        <select className="input" value={localConfig.integrationId || ''}
+          onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
+          style={{ cursor: 'pointer' }}>
+          <option value="">— Select integration —</option>
+          {weatherInts.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+        </select>
+        {weatherInts.length === 0 && (
+          <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+            No weather integrations found. Add one in My Integrations first.
           </div>
         )}
+      </div>
+      <div>
+        <label className="label">Label (optional)</label>
+        <input className="input" value={localConfig.label || ''}
+          onChange={e => setLocalConfig((c: any) => ({ ...c, label: e.target.value }))}
+          placeholder="e.g. Home, Office" />
       </div>
     </>
   )
@@ -1709,7 +1669,7 @@ function GlyphRow({ glyph, integrations, porticos, editing, onEdit, onToggle, on
             {/* Weather config */}
 
             {glyph.type === 'weather' && (
-              <WeatherGlyphConfig localConfig={localConfig} setLocalConfig={setLocalConfig} />
+              <WeatherGlyphConfig localConfig={localConfig} setLocalConfig={setLocalConfig} integrations={integrations} />
             )}
             {/* New glyph type configs */}
             {(glyph.type === 'truenas' || glyph.type === 'opnsense' || glyph.type === 'proxmox' || glyph.type === 'kuma') && (
@@ -2168,11 +2128,13 @@ function TickersTab() {
   const [editId, setEditId] = useState<string | null>(null)
 
   const [porticos, setPorticos] = useState<Portico[]>([])
+  const [integrations, setIntegrations] = useState<any[]>([])
   const load = async () => {
-    const [t, sysS, p] = await Promise.all([tickersApi.list(), secretsApi.list(), porticosApi.list()])
+    const [t, sysS, p, allI] = await Promise.all([tickersApi.list(), secretsApi.list(), porticosApi.list(), integrationsApi.list()])
     setTickers(t.data || [])
-    setSecrets(sysS.data || []) // /secrets already includes user's own + accessible system secrets
+    setSecrets(sysS.data || [])
     setPorticos(p.data || [])
+    setIntegrations(allI.data || [])
     setLoading(false)
   }
   useEffect(() => { load() }, [])
@@ -2242,7 +2204,7 @@ function TickersTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {tickers.map(t => (
-          <TickerRow key={t.id} ticker={t} secrets={secrets} porticos={porticos}
+          <TickerRow key={t.id} ticker={t} secrets={secrets} porticos={porticos} integrations={integrations}
             editing={editId === t.id}
             onEdit={() => setEditId(editId === t.id ? null : t.id)}
             onToggle={() => toggleEnabled(t)}
@@ -2261,65 +2223,11 @@ function TickersTab() {
   )
 }
 
-// ── Single location adder — used by multi-location weather ticker ─────────────
-function WeatherLocationAdder({ onAdd }: { onAdd: (loc: any) => void }) {
-  const [citySearch, setCitySearch] = useState('')
-  const [unit, setUnit] = useState<'f'|'c'>('f')
-  const [searching, setSearching] = useState(false)
-  const [results, setResults] = useState<any[]>([])
 
-  const search = async () => {
-    if (!citySearch.trim()) return
-    setSearching(true); setResults([])
-    try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(citySearch)}&count=5&language=en&format=json`)
-      const data = await res.json()
-      setResults(data.results || [])
-    } catch { setResults([]) }
-    finally { setSearching(false) }
-  }
-
-  const pick = (r: any) => {
-    const label = `${r.name}, ${r.admin1 || r.country}`
-    onAdd({ lat: String(r.latitude), lon: String(r.longitude), city: label, unit })
-    setCitySearch(''); setResults([])
-  }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <input className="input" value={citySearch} onChange={e => setCitySearch(e.target.value)}
-          placeholder="Add city..." style={{ flex: 1 }}
-          onKeyDown={e => e.key === 'Enter' && search()} />
-        <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
-          style={{ width: 70, cursor: 'pointer' }}>
-          <option value="f">°F</option>
-          <option value="c">°C</option>
-        </select>
-        <button className="btn btn-secondary" style={{ fontSize: 12 }}
-          onClick={search} disabled={searching || !citySearch.trim()}>
-          {searching ? <span className="spinner" /> : 'Search'}
-        </button>
-      </div>
-      {results.length > 0 && (
-        <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          {results.map((r, i) => (
-            <button key={i} onClick={() => pick(r)}
-              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
-                border: 'none', borderBottom: i < results.length-1 ? '1px solid var(--border)' : 'none',
-                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
-              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ── Weather location config — reused by weather glyph and ticker ─────────────
-function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDelete, onSave, onSecretCreated }: {
-  ticker: Ticker; secrets: any[]; porticos: Portico[]; editing: boolean
+function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, onToggle, onDelete, onSave, onSecretCreated }: {
+  ticker: Ticker; secrets: any[]; porticos: Portico[]; integrations: any[]; editing: boolean
   onEdit: () => void; onToggle: () => void; onDelete: () => void
   onSave: () => void
   onSecretCreated: (secret: any) => void
@@ -2377,11 +2285,11 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
       refreshSecs: localRefresh,
       porticos: localPorticos,
       // Weather fields — locations array or single
-      ...(ticker.type === 'weather' ? { locations: localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : []) } : {}),
+      ...(ticker.type === 'weather' ? { integrationIds: localConfig.integrationIds || [], integrationId: (localConfig.integrationIds || [])[0] || '' } : {}),
       // Sports fields
       ...(ticker.type === 'sports' ? { leagues: localConfig.leagues || [localConfig.league || 'nba'] } : {}),
       // RSS fields
-      ...(ticker.type === 'rss' ? { url: localConfig.url } : {}),
+      ...(ticker.type === 'rss' ? { integrationId: localConfig.integrationId || '' } : {}),
     })
     // Send each changed field independently — never send enabled (would reset it)
     if (localZone !== ticker.zone) {
@@ -2450,6 +2358,7 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
               </div>
             </div>
 
+            {!['rss','weather'].includes(ticker.type) && (
             <div>
               <label className="label">API key secret</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2490,6 +2399,7 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
                 </div>
               )}
             </div>
+            )}
 
             {/* Stocks/Crypto symbols */}
             {(ticker.type === 'stocks' || ticker.type === 'crypto') && (
@@ -2504,26 +2414,39 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
               </div>
             )}
 
-            {/* Weather ticker config — multiple locations */}
-            {ticker.type === 'weather' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : [])).map((loc: any, i: number) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                    background: 'var(--surface2)', borderRadius: 7, fontSize: 13 }}>
-                    <span style={{ flex: 1 }}>📍 {loc.city} <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>°{(loc.unit || 'f').toUpperCase()}</span></span>
-                    <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-                      onClick={() => {
-                        const locs = localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : [])
-                        setLocalConfig((c: any) => ({ ...c, locations: locs.filter((_: any, idx: number) => idx !== i), lat: '', lon: '', city: '' }))
-                      }}>Remove</button>
+            {/* Weather ticker config — multiple integrations */}
+            {ticker.type === 'weather' && (() => {
+              const weatherInts = integrations.filter((i: any) => i.type === 'weather')
+              const selectedIds: string[] = localConfig.integrationIds || (localConfig.integrationId ? [localConfig.integrationId] : [])
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label className="label">Weather integrations (select multiple for scrolling)</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {weatherInts.map((i: any) => {
+                      const on = selectedIds.includes(i.id)
+                      return (
+                        <button key={i.id} onClick={() => {
+                          const next = on ? selectedIds.filter(id => id !== i.id) : [...selectedIds, i.id]
+                          setLocalConfig((c: any) => ({ ...c, integrationIds: next, integrationId: next[0] || '' }))
+                        }} style={{
+                          padding: '6px 12px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
+                          textAlign: 'left', background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                          border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                          color: on ? 'var(--accent2)' : 'var(--text)',
+                        }}>
+                          {on ? '✓ ' : ''}{i.name}
+                        </button>
+                      )
+                    })}
+                    {weatherInts.length === 0 && (
+                      <div style={{ fontSize: 11, color: 'var(--amber)' }}>
+                        No weather integrations found. Add one in My Integrations first.
+                      </div>
+                    )}
                   </div>
-                ))}
-                <WeatherLocationAdder onAdd={(loc: any) => {
-                  const existing = localConfig.locations || (localConfig.lat ? [{ lat: localConfig.lat, lon: localConfig.lon, city: localConfig.city, unit: localConfig.unit }] : [])
-                  setLocalConfig((c: any) => ({ ...c, locations: [...existing, loc], lat: '', lon: '', city: '' }))
-                }} />
-              </div>
-            )}
+                </div>
+              )
+            })()}
 
             {/* Sports ticker config — multiple leagues */}
             {ticker.type === 'sports' && (
@@ -2554,14 +2477,25 @@ function TickerRow({ ticker, secrets, porticos, editing, onEdit, onToggle, onDel
             )}
 
             {/* RSS ticker config */}
-            {ticker.type === 'rss' && (
-              <div>
-                <label className="label">RSS / Atom feed URL</label>
-                <input className="input" value={localConfig.url || ''}
-                  onChange={e => setLocalConfig((c: any) => ({ ...c, url: e.target.value }))}
-                  placeholder="https://feeds.bbci.co.uk/news/rss.xml" />
-              </div>
-            )}
+            {ticker.type === 'rss' && (() => {
+              const rssInts = integrations.filter((i: any) => i.type === 'rss')
+              return (
+                <div>
+                  <label className="label">RSS Integration</label>
+                  <select className="input" value={localConfig.integrationId || ''}
+                    onChange={e => setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value }))}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="">— Select integration —</option>
+                    {rssInts.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  {rssInts.length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                      No RSS integrations found. Add one in My Integrations first.
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Portico assignment */}
             <div>
@@ -2620,6 +2554,7 @@ const INTEGRATION_TYPES = [
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
   { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
+  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader' },
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
   { id: 'transmission', label: 'Transmission', desc: 'Torrent client' },
@@ -2938,10 +2873,12 @@ function PersonalIntegrationsTab() {
                 <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
               </div>
               <div style={{ flex: 1 }} />
-              <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
-                {testing ? <span className="spinner" /> : 'Test'}
-              </button>
-              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || !newApiUrl}>
+              {!['weather','steam','rss'].includes(newType) && (
+                <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
+                  {testing ? <span className="spinner" /> : 'Test'}
+                </button>
+              )}
+              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || (!['weather','steam','rss'].includes(newType) && !newApiUrl)}>
                 {creating ? <span className="spinner" /> : 'Create'}
               </button>
               <button className="btn btn-ghost" onClick={() => { setShowForm(false); setTestResult(null) }}>Cancel</button>
@@ -3070,9 +3007,11 @@ function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
             <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
           </div>
           <div style={{ flex: 1 }} />
-          <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
-            {testing ? <span className="spinner" /> : 'Test'}
-          </button>
+          {!['weather','steam','rss'].includes(ig.type) && (
+            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
+              {testing ? <span className="spinner" /> : 'Test'}
+            </button>
+          )}
           <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId, skipTls, refreshSecs })}>Save</button>
           <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onCancel}>Cancel</button>
         </div>
@@ -3348,7 +3287,7 @@ const PANEL_TYPES = [
   { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',       needsIntegration: false },
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',       needsIntegration: false },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',      needsIntegration: false },
+  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',      needsIntegration: true  },
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                 needsIntegration: true  },
@@ -3706,7 +3645,7 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam'].includes(p.type) && (
+                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && (
                     <div>
                       <label className="label">Integration</label>
                       <select className="input" style={{ cursor: 'pointer' }}
@@ -3806,20 +3745,7 @@ function MyPanelsTab() {
                     )
                   })()}
 
-                  {p.type === 'rss' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      <label className="label">Feed URL</label>
-                      <input className="input" type="url" style={{ fontSize: 12 }}
-                        defaultValue={cfg.feedUrl || ''}
-                        onChange={e => { cfg.feedUrl = e.target.value }}
-                        placeholder="https://example.com/feed.xml" />
-                      <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
-                      <input className="input" type="url" style={{ fontSize: 12 }}
-                        defaultValue={cfg.uiUrl || ''}
-                        onChange={e => { cfg.uiUrl = e.target.value }}
-                        placeholder="https://freshrss.example.com" />
-                    </div>
-                  )}
+
                   {p.type === 'opnsense' && (
                     <IfaceCapEditor initialCaps={cfg.ifaceCaps || {}} onChange={caps => {
                       cfg.ifaceCaps = caps
@@ -3830,7 +3756,7 @@ function MyPanelsTab() {
                   {/* Calendar sources */}
                   {p.type === 'calendar' && (() => {
                     const existingSources: any[] = (() => { try { return JSON.parse(p.config || '{}').sources || [] } catch { return [] } })()
-                    const calIntegrations = integrations.filter((i: any) => ['sonarr','radarr','lidarr'].includes(i.type))
+                    const allIntegrationsForCal = integrations
                     return (
                       <div>
                         <label className="label">Calendar sources</label>
@@ -3843,7 +3769,7 @@ function MyPanelsTab() {
                             }}>
                               <span style={{ flex: 1 }}>
                                 {src.type === 'weather'
-                                  ? <span>🌤 {src.city || `${src.lat}, ${src.lon}`}</span>
+                                  ? <span>🌤 {src.label || ig?.name || 'Weather'}</span>
                                   : src.type === 'google' ? (src.label || src.integrationId) : src.type === 'checklist' ? <>☑ {src.label || 'Checklist'}</> : (ig?.name ?? src.integrationId)
                                 }
                                 {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
@@ -3864,7 +3790,7 @@ function MyPanelsTab() {
                         <UnifiedPersonalCalendarSourceAdder
                           panelId={p.id} panelTitle={p.title} panelConfig={p.config}
                           isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
-                          integrations={calIntegrations}
+                          integrations={allIntegrationsForCal}
                           onAdded={load}
                         />
                       </div>
@@ -3905,7 +3831,7 @@ function MyPanelsTab() {
                           const newCfg = { ...cfg, height: editHeight }
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
-                          if (['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam'].includes(p.type)) newCfg.integrationId = editIntegrationId
+                          if (['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type)) newCfg.integrationId = editIntegrationId
 
 
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
@@ -3939,16 +3865,13 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
   integrations: any[]; onAdded: () => void
 }) {
-  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'weather'|'checklist'>('integration')
+  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'checklist'>('integration')
   const [intId, setIntId] = useState('')
   const [googleTokenId, setGoogleTokenId] = useState('')
   const [googleCalendarId, setGoogleCalendarId] = useState('primary')
   const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
   const [googleTokens, setGoogleTokens] = useState<any[]>([])
-  const [city, setCity] = useState('')
-  const [unit, setUnit] = useState<'f'|'c'>('f')
-  const [searching, setSearching] = useState(false)
-  const [searchResults, setSearchResults] = useState<any[]>([])
+
   const [adding, setAdding] = useState(false)
   const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
   const [checklistPanelId, setChecklistPanelId] = useState('')
@@ -3974,26 +3897,12 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     }
   }, [googleTokenId])
 
-  const search = async () => {
-    if (!city.trim()) return
-    setSearching(true); setSearchResults([])
-    try {
-      const res = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=5&language=en&format=json`)
-      const data = await res.json()
-      setSearchResults(data.results || [])
-    } catch { setSearchResults([]) }
-    finally { setSearching(false) }
-  }
-
-  const add = async (weatherResult?: any) => {
+  const add = async () => {
     setAdding(true)
     try {
       const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
       let newSource: any
-      if (sourceKind === 'weather' && weatherResult) {
-        const label = `${weatherResult.name}, ${weatherResult.admin1 || weatherResult.country}`
-        newSource = { type: 'weather', lat: String(weatherResult.latitude), lon: String(weatherResult.longitude), city: label, unit }
-      } else if (sourceKind === 'google') {
+      if (sourceKind === 'google') {
         if (!googleTokenId) return
         const tok = googleTokens.find((t: any) => t.id === googleTokenId)
         newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
@@ -4009,7 +3918,7 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
       const sources = [...(cfg.sources || []), newSource]
       const updater = isSystem ? panelsApi : myPanelsApi
       await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('')
+      setIntId(''); setGoogleTokenId(''); setChecklistPanelId('')
       onAdded()
     } finally { setAdding(false) }
   }
@@ -4018,11 +3927,10 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     <div style={{ marginTop: 8 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setCity(''); setSearchResults([]); setChecklistPanelId('') }}
+          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setChecklistPanelId('') }}
           style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
           <option value="integration">Stoa integration</option>
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-          <option value="weather">Weather</option>
           {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
         </select>
 
@@ -4031,7 +3939,7 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
             <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
               style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
               <option value="">— Select integration —</option>
-              {integrations.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+              {integrations.filter((i: any) => ['sonarr','radarr','readarr','lidarr','weather'].includes(i.type)).map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
             </select>
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
               onClick={() => add()} disabled={adding || !intId}>
@@ -4074,36 +3982,10 @@ function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, 
           </>
         )}
 
-        {sourceKind === 'weather' && (
-          <>
-            <input className="input" value={city} onChange={e => setCity(e.target.value)}
-              placeholder="City name..." style={{ flex: 1, fontSize: 12 }}
-              onKeyDown={e => e.key === 'Enter' && search()} />
-            <select className="input" value={unit} onChange={e => setUnit(e.target.value as 'f'|'c')}
-              style={{ width: 65, fontSize: 12, cursor: 'pointer' }}>
-              <option value="f">°F</option>
-              <option value="c">°C</option>
-            </select>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={search} disabled={searching || !city.trim()}>
-              {searching ? <span className="spinner" /> : 'Search'}
-            </button>
-          </>
-        )}
+
       </div>
 
-      {sourceKind === 'weather' && searchResults.length > 0 && (
-        <div style={{ marginTop: 6, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-          {searchResults.map((r: any, i: number) => (
-            <button key={i} onClick={() => add(r)} disabled={adding}
-              style={{ width: '100%', padding: '8px 12px', background: 'var(--surface2)',
-                border: 'none', borderBottom: i < searchResults.length-1 ? '1px solid var(--border)' : 'none',
-                textAlign: 'left', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
-              {r.name}, {r.admin1 || ''} <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{r.country}</span>
-            </button>
-          ))}
-        </div>
-      )}
+
     </div>
   )
 }

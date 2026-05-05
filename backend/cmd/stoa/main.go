@@ -148,7 +148,6 @@ func main() {
 	protected.HandleFunc("/customapi/preview", handlers.PreviewCustomAPI(database)).Methods("POST")
 
 	// RSS panel — proxy fetch with 5m cache, no integration needed
-	protected.HandleFunc("/rss-panel", handlers.GetRSSPanelData).Methods("GET")
 	protected.HandleFunc("/steam/resolve-vanity", handlers.SteamResolveVanity(database)).Methods("GET")
 	protected.HandleFunc("/weather/geocode", handlers.GeocodeLookup(database)).Methods("GET")
 
