@@ -22,6 +22,9 @@ import ChecklistPanel from '../components/panels/ChecklistPanel'
 import NotesPanel from '../components/panels/NotesPanel'
 import CustomAPIPanel from '../components/panels/CustomAPIPanel'
 import RSSPanel from '../components/panels/RSSPanel'
+import WeatherPanel from '../components/panels/WeatherPanel'
+import SteamPanel from '../components/panels/SteamPanel'
+import ReadarrPanel from '../components/panels/ReadarrPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -923,6 +926,9 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
           {panel.type === 'notes' && <NotesPanel panel={panel} />}
           {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'rss' && <RSSPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'weather' && <WeatherPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'steam' && <SteamPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'readarr' && <ReadarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

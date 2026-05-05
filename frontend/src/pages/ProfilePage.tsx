@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
-import { cssApi } from '../api'
+import { cssApi, weatherApi, steamApi } from '../api'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import { useUserMode } from '../context/UserModeContext'
@@ -2619,10 +2619,13 @@ const INTEGRATION_TYPES = [
   { id: 'plex',         label: 'Plex',         desc: 'Media server' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
+  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
   { id: 'transmission', label: 'Transmission', desc: 'Torrent client' },
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (no API key required)' },
+  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store' },
 ]
 
 function PersonalIntegrationsTab() {
@@ -2637,6 +2640,34 @@ function PersonalIntegrationsTab() {
   const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newType, setNewType] = useState('sonarr')
+  const [pgeoQuery, setPgeoQuery] = useState('')
+  const [pgeoResults, setPgeoResults] = useState<any[]>([])
+  const [pgeoSearching, setPgeoSearching] = useState(false)
+  const [psteamVanity, setPsteamVanity] = useState('')
+  const [psteamResolving, setPsteamResolving] = useState(false)
+
+  const psearchGeo = async () => {
+    if (!pgeoQuery.trim()) return
+    setPgeoSearching(true)
+    try { const r = await weatherApi.geocode(pgeoQuery); setPgeoResults(r.data || []) }
+    finally { setPgeoSearching(false) }
+  }
+  const pselectGeo = (r: any) => {
+    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
+    setNewApiUrl(`${r.latitude},${r.longitude},${city},f`)
+    setPgeoResults([]); setPgeoQuery('')
+  }
+  const presolveVanity = async () => {
+    if (!psteamVanity.trim() || !newSecretId) return
+    setPsteamResolving(true)
+    try {
+      const sec = secrets.find((s: any) => s.id === newSecretId)
+      if (!sec) { alert('Select API key first'); return }
+      const r = await steamApi.resolveVanity(psteamVanity, sec.value || newSecretId)
+      setNewApiUrl(r.data.steamId); setPsteamVanity('')
+    } catch { alert('Could not resolve vanity URL') }
+    finally { setPsteamResolving(false) }
+  }
   const [newApiUrl, setNewApiUrl] = useState('')
   const [newSkipTls, setNewSkipTls] = useState(false)
   const [newRefreshSecs, setNewRefreshSecs] = useState(60)
@@ -2823,18 +2854,62 @@ function PersonalIntegrationsTab() {
                 </div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
-                <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
-                  placeholder="http://sonarr.local:8989" />
+            {newType === 'weather' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="label">Location</label>
+                {newApiUrl && <div style={{ fontSize: 12, color: 'var(--accent2)' }}>📍 {newApiUrl.split(',').slice(2).join(',') || newApiUrl}</div>}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="input" value={pgeoQuery} onChange={e => setPgeoQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && psearchGeo()}
+                    placeholder="Search city or region..." style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={psearchGeo} disabled={pgeoSearching}>
+                    {pgeoSearching ? '...' : 'Search'}
+                  </button>
+                </div>
+                {pgeoResults.length > 0 && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                    {pgeoResults.map((r, i) => (
+                      <button key={i} onClick={() => pselectGeo(r)}
+                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px',
+                          fontSize: 12, background: 'none', border: 'none',
+                          borderBottom: i < pgeoResults.length-1 ? '1px solid var(--border)' : 'none',
+                          cursor: 'pointer', color: 'var(--text)' }}>
+                        {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>No API key required.</div>
               </div>
-              <div style={{ flex: 1 }}>
-                <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-                <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
-                  placeholder="https://sonarr.yourdomain.com" />
+            ) : newType === 'steam' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="label">Steam ID</label>
+                <input className="input" value={newApiUrl} onChange={e => setNewApiUrl(e.target.value)}
+                  placeholder="76561198000000000" />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="input" value={psteamVanity} onChange={e => setPsteamVanity(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && presolveVanity()}
+                    placeholder="Or enter profile vanity name..." style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={presolveVanity} disabled={psteamResolving || !newSecretId}>
+                    {psteamResolving ? '...' : 'Resolve'}
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
+                  <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
+                    placeholder="http://sonarr.local:8989" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
+                  <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
+                    placeholder="https://sonarr.yourdomain.com" />
+                </div>
+              </div>
+            )}
             {testResult && (
               <div style={{
                 padding: '7px 12px', borderRadius: 7, fontSize: 12,
@@ -3284,12 +3359,15 @@ const PANEL_TYPES = [
   { id: 'plex',         label: 'Plex',         desc: 'Media server',                  needsIntegration: true  },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                    needsIntegration: true  },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                needsIntegration: true  },
+  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook tracking',     needsIntegration: true  },
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking',              needsIntegration: true  },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                needsIntegration: true  },
   { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',   needsIntegration: false },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',             needsIntegration: true  },
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                needsIntegration: true  },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',             needsIntegration: true  },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',  needsIntegration: false },
+  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store', needsIntegration: false },
 ]
 
 const HEIGHT_OPTIONS = [
@@ -3628,7 +3706,7 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(p.type) && (
+                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam'].includes(p.type) && (
                     <div>
                       <label className="label">Integration</label>
                       <select className="input" style={{ cursor: 'pointer' }}
@@ -3646,6 +3724,8 @@ function MyPanelsTab() {
                       )}
                     </div>
                   )}
+
+
                   {['radarr','sonarr','plex'].includes(p.type) && (() => {
                     const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
                     return (
@@ -3825,7 +3905,9 @@ function MyPanelsTab() {
                           const newCfg = { ...cfg, height: editHeight }
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
-                          if (['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(p.type)) newCfg.integrationId = editIntegrationId
+                          if (['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam'].includes(p.type)) newCfg.integrationId = editIntegrationId
+
+
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
                           setExpandedPanelId(null)
                           await load()

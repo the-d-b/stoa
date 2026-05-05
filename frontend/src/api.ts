@@ -523,6 +523,21 @@ export const sessionsApi = {
     api.put('/sessions/toggle-user', { userId, enabled }),
 }
 
+export const steamApi = {
+  panel: (panelId: string) => api.get<any>(`/steam/panel?panelId=${panelId}`),
+  resolveVanity: (vanity: string, key: string) =>
+    api.get<{ steamId: string }>(`/steam/resolve-vanity?vanity=${encodeURIComponent(vanity)}&key=${encodeURIComponent(key)}`),
+}
+
+export const weatherApi = {
+  fetch: (config: { lat: string; lon: string; city: string; unit: string }) =>
+    api.post<any>('/weather', config),
+  geocode: (q: string) =>
+    api.get<{ name: string; latitude: number; longitude: number; country: string; admin1: string }[]>(
+      `/weather/geocode?q=${encodeURIComponent(q)}`
+    ),
+}
+
 export const rssPanelApi = {
   fetch: (url: string) => api.get<{items: {title:string;link:string}[]}>(`/rss-panel?url=${encodeURIComponent(url)}`),
 }

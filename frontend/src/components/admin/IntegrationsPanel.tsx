@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { integrationsApi, secretsApi, groupsApi, Integration } from '../../api'
+import { integrationsApi, secretsApi, groupsApi, weatherApi, steamApi, Integration } from '../../api'
 import SectionHelp from './SectionHelp'
 
 const INTEGRATION_TYPES = [
@@ -12,10 +12,13 @@ const INTEGRATION_TYPES = [
   { id: 'plex',         label: 'Plex',         desc: 'Media server' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
+  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)' },
+  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store' },
 ]
 
 export default function IntegrationsPanel() {
@@ -47,12 +50,47 @@ export default function IntegrationsPanel() {
     try {
       const res = await secretsApi.create({ name: newSecretNameField.trim(), value: newSecretValueField.trim(), scope: 'shared' })
       const newSec = { id: res.data.id, name: newSecretNameField.trim() }
-      secrets.push(newSec)
+      setSecrets(prev => [...prev, newSec])
       setNewSecretId(newSec.id)
       setNewSecretNameField(''); setNewSecretValueField(''); setShowNewSecret(false)
     } finally { setSavingNewSecret(false) }
   }
   const [creating, setCreating] = useState(false)
+  // Weather geocoder state
+  const [geoQuery, setGeoQuery] = useState('')
+  const [geoResults, setGeoResults] = useState<any[]>([])
+  const [geoSearching, setGeoSearching] = useState(false)
+  // Steam vanity resolver state
+  const [steamVanity, setSteamVanity] = useState('')
+  const [steamResolving, setSteamResolving] = useState(false)
+  const searchGeo = async () => {
+    if (!geoQuery.trim()) return
+    setGeoSearching(true)
+    try {
+      const r = await weatherApi.geocode(geoQuery)
+      setGeoResults(r.data || [])
+    } finally { setGeoSearching(false) }
+  }
+
+  const selectGeoResult = (r: any) => {
+    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
+    setNewApiUrl(`${r.latitude},${r.longitude},${city},f`)
+    setGeoResults([]); setGeoQuery('')
+  }
+
+  const resolveVanity = async () => {
+    if (!steamVanity.trim() || !newSecretId) return
+    setSteamResolving(true)
+    try {
+      const sec = secrets.find((s: any) => s.id === newSecretId)
+      if (!sec) { alert('Select API key first'); return }
+      const r = await steamApi.resolveVanity(steamVanity, sec.value || newSecretId)
+      setNewApiUrl(r.data.steamId)
+      setSteamVanity('')
+    } catch { alert('Could not resolve vanity URL — check API key and username') }
+    finally { setSteamResolving(false) }
+  }
+
   const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
   const [testing, setTesting] = useState(false)
 
@@ -186,18 +224,93 @@ export default function IntegrationsPanel() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
-                <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
-                  placeholder="http://truenas.local:8989" />
+            {/* Weather — geocoder UI instead of raw API URL */}
+            {newType === 'weather' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="label">Location</label>
+                {newApiUrl && (
+                  <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
+                    📍 {newApiUrl.split(',').slice(2).join(',') || newApiUrl}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="input" value={geoQuery}
+                    onChange={e => setGeoQuery(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchGeo()}
+                    placeholder="Search city or region..." style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={searchGeo} disabled={geoSearching}>
+                    {geoSearching ? '...' : 'Search'}
+                  </button>
+                </div>
+                {geoResults.length > 0 && (
+                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                    {geoResults.map((r, i) => (
+                      <button key={i} onClick={() => selectGeoResult(r)}
+                        style={{ display: 'block', width: '100%', textAlign: 'left',
+                          padding: '7px 12px', fontSize: 12, background: 'none',
+                          border: 'none', borderBottom: i < geoResults.length-1 ? '1px solid var(--border)' : 'none',
+                          cursor: 'pointer', color: 'var(--text)' }}>
+                        {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
+                        <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 8 }}>
+                          {r.latitude.toFixed(3)}, {r.longitude.toFixed(3)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <label className="label" style={{ marginBottom: 0 }}>Unit:</label>
+                  <select className="input" style={{ maxWidth: 160, cursor: 'pointer' }}
+                    value={newApiUrl.split(',')[3] || 'f'}
+                    onChange={e => {
+                      const parts = newApiUrl.split(',')
+                      while (parts.length < 4) parts.push('')
+                      parts[3] = e.target.value
+                      setNewApiUrl(parts.join(','))
+                    }}>
+                    <option value="f">Fahrenheit (°F)</option>
+                    <option value="c">Celsius (°C)</option>
+                  </select>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  No API key required. Data from Open-Meteo (open source, free).
+                </div>
               </div>
-              <div style={{ flex: 1 }}>
-                <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-                <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
-                  placeholder="https://sonarr.yourdomain.com" />
+            ) : newType === 'steam' ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="label">Steam ID <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(17-digit number)</span></label>
+                <input className="input" value={newApiUrl}
+                  onChange={e => setNewApiUrl(e.target.value)}
+                  placeholder="76561198000000000" />
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input className="input" value={steamVanity}
+                    onChange={e => setSteamVanity(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && resolveVanity()}
+                    placeholder="Or enter profile vanity name to resolve..." style={{ flex: 1 }} />
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={resolveVanity} disabled={steamResolving || !newSecretId}>
+                    {steamResolving ? '...' : 'Resolve'}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  API key required above. Find your Steam ID at steamid.io
+                </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
+                  <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
+                    placeholder="http://truenas.local:8989" />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
+                  <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
+                    placeholder="https://sonarr.yourdomain.com" />
+                </div>
+              </div>
+            )}
 
             {/* Test result */}
             {testResult && (
@@ -313,8 +426,8 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
     try {
       const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'shared' })
       const newSec = { id: res.data.id, name: newSecretName.trim() }
-      secrets.push(newSec)
       setSecretId(newSec.id)
+      onUpdate({}) // trigger parent reload to refresh secrets list
       setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
     } finally { setSavingSecret(false) }
   }

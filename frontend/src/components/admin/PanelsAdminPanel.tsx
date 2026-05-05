@@ -54,8 +54,8 @@ const PANEL_NEEDS_INTEGRATION: Record<string, string> = {
   opnsense: 'opnsense', photoprism: 'photoprism', plex: 'plex',
   proxmox: 'proxmox', radarr: 'radarr', sonarr: 'sonarr',
   tautulli: 'tautulli', transmission: 'transmission', truenas: 'truenas',
-  kuma: 'kuma',
-  // bookmarks, calendar: no integration needed
+  kuma: 'kuma', readarr: 'readarr', weather: 'weather', steam: 'steam',
+  // bookmarks, calendar, notes, checklist: no integration needed
 }
 
 function RSSFeedURLEditor({ panelId, panelTitle, initialUrl, initialUiUrl, onSave }: {
@@ -87,6 +87,7 @@ function RSSFeedURLEditor({ panelId, panelTitle, initialUrl, initialUiUrl, onSav
   )
 }
 
+
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -96,6 +97,7 @@ export default function PanelsAdminPanel() {
   const [newTitle, setNewTitle] = useState('')
   const [newRootId, setNewRootId] = useState('')
   const [newAllowedRatings, setNewAllowedRatings] = useState('')
+
   const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [editingRatings, setEditingRatings] = useState<{ id: string; value: string } | null>(null)
@@ -149,8 +151,9 @@ export default function PanelsAdminPanel() {
     setCreating(true)
     const config = newType === 'customapi'
       ? JSON.stringify({ url: '', apiKey: '', mappings: [], refreshSecs: 600, height: newHeight })
-      : ['sonarr','radarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik'].includes(newType)
+      : ['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}), ...(['sonarr','radarr','plex'].includes(newType) && newAllowedRatings ? { allowedRatings: newAllowedRatings } : {}) })
+
       : newType === 'calendar'
       ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
       : JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
@@ -208,13 +211,14 @@ export default function PanelsAdminPanel() {
               <label className="label">Panel type</label>
               {(() => {
                 const PANEL_LABELS: Record<string,string> = {
-                  authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar', checklist:'Checklist',
-                  customapi:'Custom API', gluetun:'Gluetun', iframe:'Web Embed',
-                  notes:'Notes', rss:'RSS Feed',
-                  kuma:'Uptime Kuma', lidarr:'Lidarr', opnsense:'OPNsense',
+                  authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar',
+                  checklist:'Checklist', customapi:'Custom API', custom:'Text/HTML',
+                  gluetun:'Gluetun', iframe:'Web Embed', kuma:'Uptime Kuma',
+                  lidarr:'Lidarr', notes:'Notes', opnsense:'OPNsense',
                   photoprism:'PhotoPrism', plex:'Plex', proxmox:'Proxmox',
-                  radarr:'Radarr', sonarr:'Sonarr', tautulli:'Tautulli',
-                  custom:'Text/HTML', transmission:'Transmission', truenas:'TrueNAS',
+                  radarr:'Radarr', readarr:'Readarr', rss:'RSS Feed', sonarr:'Sonarr',
+                  tautulli:'Tautulli', transmission:'Transmission', truenas:'TrueNAS',
+                  weather:'Weather', steam:'Steam',
                 }
                 return (
                   <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
@@ -272,6 +276,8 @@ export default function PanelsAdminPanel() {
                   placeholder="e.g. G, PG, PG-13 — blank = all" />
               </div>
             )}
+
+
             <div style={{ flex: 0.4 }}>
               <label className="label">Height</label>
               <select className="input" value={newHeight}
