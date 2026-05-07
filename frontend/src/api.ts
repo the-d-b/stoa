@@ -1,5 +1,10 @@
 import axios from 'axios'
 
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('stoa_token')
+  return token ? { 'Authorization': `Bearer ${token}` } : {}
+}
+
 const api = axios.create({
   baseURL: '/api',
 })
@@ -521,6 +526,18 @@ export const sessionsApi = {
     api.get<SessionRow[]>(`/sessions${days ? `?days=${days}` : ''}`),
   toggleUser: (userId: string, enabled: boolean) =>
     api.put('/sessions/toggle-user', { userId, enabled }),
+}
+
+export const aiApi = {
+  history: (provider: string) =>
+    api.get<{ id: string; role: string; content: string; createdAt: string }[]>(`/ai/history?provider=${provider}`),
+  clear: (provider: string) => api.delete(`/ai/clear?provider=${provider}`),
+  // Streaming chat — returns a Response for manual SSE handling
+  chat: (message: string, provider: string) => fetch('/api/ai/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ message, provider }),
+  }),
 }
 
 export const searchApi = {

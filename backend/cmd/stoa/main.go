@@ -151,6 +151,9 @@ func main() {
 	protected.HandleFunc("/steam/resolve-vanity", handlers.SteamResolveVanity(database)).Methods("GET")
 	protected.HandleFunc("/weather/geocode", handlers.GeocodeLookup(database)).Methods("GET")
 	protected.HandleFunc("/search", handlers.Search(database)).Methods("GET")
+	protected.HandleFunc("/ai/history", handlers.GetAIHistory(database)).Methods("GET")
+	protected.HandleFunc("/ai/chat", handlers.SendAIMessage(database)).Methods("POST")
+	protected.HandleFunc("/ai/clear", handlers.ClearAIHistory(database)).Methods("DELETE")
 
 	// Notes panel CRUD — specific /note/* routes BEFORE wildcard /{panelId}
 	protected.HandleFunc("/notes/note/{id}/lock", handlers.AcquireNoteLock(database)).Methods("POST")

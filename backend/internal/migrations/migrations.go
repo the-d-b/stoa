@@ -515,6 +515,20 @@ var migrations = []migration{
 		},
 	},
 	{
+		version: 34,
+		up: `ALTER TABLE ai_messages ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'`,
+	},
+	{
+		version: 33,
+		up: `CREATE TABLE IF NOT EXISTS ai_messages (
+			id         TEXT PRIMARY KEY,
+			user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			role       TEXT NOT NULL CHECK(role IN ('user','assistant')),
+			content    TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
+	{
 		version: 32,
 		name:    "chat_last_read",
 		up:      `ALTER TABLE user_preferences ADD COLUMN last_chat_read_message_id TEXT DEFAULT NULL`,
