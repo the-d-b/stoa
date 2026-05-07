@@ -2,6 +2,7 @@ import React from 'react'
 import { Glyph } from '../../api'
 import ClockGlyph from './ClockGlyph'
 import WeatherGlyph from './WeatherGlyph'
+import SearchGlyph from './SearchGlyph'
 import KumaGlyph from './KumaGlyph'
 import TrueNASGlyph from './TrueNASGlyph'
 import OPNsenseGlyph from './OPNsenseGlyph'
@@ -45,6 +46,7 @@ function GlyphRenderer({ glyph }: { glyph: Glyph }) {
     case 'proxmox':  return <ProxmoxGlyph glyph={glyph} />
     case 'ping':     return <PingGlyph glyph={glyph} />
     case 'text':     return <TextGlyph glyph={glyph} />
+    case 'search':   return <SearchGlyph glyph={glyph} />
     default:
       console.warn(`[GlyphZone] unknown glyph type: ${glyph.type}`)
       return null

@@ -280,6 +280,18 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
   const [sort, setSort] = useState<'asc'|'desc'>(config.notesSort || 'desc')
   const [search, setSearch] = useState('')
   const [openNote, setOpenNote] = useState<Note | null>(null)
+
+  // Listen for external open-note requests (e.g. from search modal)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { noteId, panelId } = (e as CustomEvent).detail || {}
+      if (panelId && panelId !== panel.id) return // not our panel
+      const found = notes.find(n => n.id === noteId)
+      if (found) setOpenNote(found)
+    }
+    window.addEventListener('stoa-open-note', handler)
+    return () => window.removeEventListener('stoa-open-note', handler)
+  }, [notes, panel.id])
   const [openingId, setOpeningId] = useState<string | null>(null)
   const [initialLockedBy, setInitialLockedBy] = useState<string | null>(null)
 

@@ -523,6 +523,14 @@ export const sessionsApi = {
     api.put('/sessions/toggle-user', { userId, enabled }),
 }
 
+export const searchApi = {
+  query: (q: string) => api.get<{
+    type: string; id: string; title: string
+    excerpt?: string; url?: string; iconUrl?: string
+    panelId?: string; path?: string
+  }[]>(`/search?q=${encodeURIComponent(q)}`),
+}
+
 export const steamApi = {
   panel: (panelId: string) => api.get<any>(`/steam/panel?panelId=${panelId}`),
   resolveVanity: (vanity: string, key: string) =>

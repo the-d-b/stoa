@@ -91,6 +91,60 @@ function RSSIntegrationEditor({ panel, integrations, onSave }: {
   )
 }
 
+function SearchPanelEditor({ panel, onSave }: { panel: Panel; onSave: () => void }) {
+  const cfg = safeParseConfig(panel.config)
+  const [engines, setEngines] = useState<string[]>(cfg.engines?.length ? cfg.engines : ['ddg','google'])
+  const [searxngUrl, setSearxngUrl] = useState(cfg.searxngUrl || '')
+  const [defaultEngine, setDefaultEngine] = useState(cfg.defaultEngine || 'ddg')
+  const [editing, setEditing] = useState(false)
+  const ALL = [
+    { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
+    { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
+    { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
+  ]
+  if (!editing) return (
+    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>
+      Edit engines ({engines.join(', ')})
+    </button>
+  )
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {ALL.map(e => {
+          const on = engines.includes(e.id)
+          return (
+            <button key={e.id} type="button"
+              onClick={() => setEngines(prev => on ? prev.filter(x => x !== e.id) : [...prev, e.id])}
+              style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
+              {on ? '✓ ' : ''}{e.label}
+            </button>
+          )
+        })}
+      </div>
+      {engines.includes('searxng') && (
+        <input className="input" style={{ fontSize: 12 }} value={searxngUrl}
+          onChange={e => setSearxngUrl(e.target.value)} placeholder="https://search.rose.home" />
+      )}
+      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <label className="label" style={{ marginBottom: 0 }}>Default:</label>
+        <select className="input" style={{ fontSize: 12, maxWidth: 150 }} value={defaultEngine}
+          onChange={e => setDefaultEngine(e.target.value)}>
+          {ALL.filter(e => engines.includes(e.id)).map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
+        </select>
+        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+          await panelsApi.update(panel.id, { title: panel.title,
+            config: JSON.stringify({ ...cfg, engines, defaultEngine, searxngUrl }) })
+          setEditing(false); onSave()
+        }}>Save</button>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
 function IntegrationAssignEditor({ panel, integrations, onSave }: {
   panel: Panel; integrations: any[]; onSave: () => void
 }) {
@@ -129,6 +183,8 @@ export default function PanelsAdminPanel() {
   const [showForm, setShowForm] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newRootId, setNewRootId] = useState('')
+  const [newSearchEngines, setNewSearchEngines] = useState<string[]>(['ddg','google'])
+  const [newSearxngUrl, setNewSearxngUrl] = useState('')
   const [newAllowedRatings, setNewAllowedRatings] = useState('')
 
   const [newHeight, setNewHeight] = useState(2)
@@ -185,6 +241,8 @@ export default function PanelsAdminPanel() {
     setCreating(true)
     const config = newType === 'customapi'
       ? JSON.stringify({ url: '', apiKey: '', mappings: [], refreshSecs: 600, height: newHeight })
+      : newType === 'search'
+      ? JSON.stringify({ engines: newSearchEngines, defaultEngine: newSearchEngines[0] || 'ddg', searxngUrl: newSearxngUrl, height: newHeight })
       : ['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(newType)
       ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}), ...(['sonarr','radarr','plex'].includes(newType) && newAllowedRatings ? { allowedRatings: newAllowedRatings } : {}) })
 
@@ -234,7 +292,7 @@ export default function PanelsAdminPanel() {
 
 
       {showForm && (
-        <div className="card" style={{ marginBottom: 20, padding: 20 }}>
+        <div className="card" style={{ marginBottom: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
             <div style={{ flex: 1 }}>
               <label className="label">Panel title</label>
@@ -252,7 +310,7 @@ export default function PanelsAdminPanel() {
                   photoprism:'PhotoPrism', plex:'Plex', proxmox:'Proxmox',
                   radarr:'Radarr', readarr:'Readarr', rss:'RSS Feed', sonarr:'Sonarr',
                   tautulli:'Tautulli', transmission:'Transmission', truenas:'TrueNAS',
-                  weather:'Weather', steam:'Steam',
+                  weather:'Weather', steam:'Steam', search:'Search',
                 }
                 return (
                   <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
@@ -288,6 +346,36 @@ export default function PanelsAdminPanel() {
                     <option key={node.id} value={node.id}>{label}</option>
                   ))}
                 </select>
+              </div>
+            )}
+            {newType === 'search' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <label className="label">Search engines</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {[
+                    { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
+                    { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
+                    { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
+                  ].map(e => {
+                    const on = newSearchEngines.includes(e.id)
+                    return (
+                      <button key={e.id} onClick={() => setNewSearchEngines(prev => on ? prev.filter(x => x !== e.id) : [...prev, e.id])}
+                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                          background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                          border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                          color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
+                        {on ? '✓ ' : ''}{e.label}
+                      </button>
+                    )
+                  })}
+                </div>
+                {newSearchEngines.includes('searxng') && (
+                  <div>
+                    <label className="label">SearXNG URL</label>
+                    <input className="input" value={newSearxngUrl} onChange={e => setNewSearxngUrl(e.target.value)}
+                      placeholder="https://search.rose.home" />
+                  </div>
+                )}
               </div>
             )}
             {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(newType) && (
@@ -388,6 +476,9 @@ export default function PanelsAdminPanel() {
                       }}>
                       Resize
                     </button>
+                  )}
+                  {p.type === 'search' && (
+                    <SearchPanelEditor panel={p} onSave={load} />
                   )}
                   {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && (
                     <IntegrationAssignEditor

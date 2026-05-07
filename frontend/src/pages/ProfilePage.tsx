@@ -1359,6 +1359,7 @@ const GLYPH_TYPES = [
   { id: 'proxmox',  label: 'Proxmox',     desc: 'Cluster CPU and memory',               needsIntegration: true  },
   { id: 'ping',     label: 'Ping',        desc: 'HTTP response time to a host',         needsIntegration: false },
   { id: 'text',     label: 'Static text', desc: 'Fixed label or status indicator',      needsIntegration: false },
+  { id: 'search',   label: 'Search',      desc: 'Search bar for external search engines', needsIntegration: false },
 ]
 
 const ZONES = [
@@ -1368,6 +1369,117 @@ const ZONES = [
   { id: 'footer-center',  label: 'Footer center' },
   { id: 'footer-right',   label: 'Footer right' },
 ]
+
+function SearchPanelConfig({ cfg, onCfgChange }: { cfg: any; onCfgChange: (c: any) => void }) {
+  const enabled: string[] = cfg.engines || ['ddg', 'google']
+  const toggle = (id: string) => {
+    const next = enabled.includes(id) ? enabled.filter((e: string) => e !== id) : [...enabled, id]
+    onCfgChange({ ...cfg, engines: next })
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div>
+        <label className="label">Search engines</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+          {[
+            { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
+            { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
+            { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
+          ].map(e => {
+            const on = enabled.includes(e.id)
+            return (
+              <button key={e.id} onClick={() => toggle(e.id)}
+                style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                  background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                  border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                  color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
+                {on ? '✓ ' : ''}{e.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      {enabled.includes('searxng') && (
+        <div>
+          <label className="label">SearXNG URL</label>
+          <input className="input" defaultValue={cfg.searxngUrl || ''}
+            onChange={e => onCfgChange({ ...cfg, searxngUrl: e.target.value })}
+            placeholder="https://search.rose.home" />
+        </div>
+      )}
+      <div>
+        <label className="label">Default engine</label>
+        <select className="input" defaultValue={cfg.defaultEngine || enabled[0] || 'ddg'}
+          onChange={e => onCfgChange({ ...cfg, defaultEngine: e.target.value })}
+          style={{ cursor: 'pointer', maxWidth: 200 }}>
+          {[
+            { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
+            { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
+            { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
+          ].filter(e => enabled.includes(e.id)).map(e => (
+            <option key={e.id} value={e.id}>{e.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
+}
+
+const SEARCH_ENGINES = [
+  { id: 'ddg',     label: 'DuckDuckGo' },
+  { id: 'google',  label: 'Google' },
+  { id: 'bing',    label: 'Bing' },
+  { id: 'brave',   label: 'Brave' },
+  { id: 'yahoo',   label: 'Yahoo' },
+  { id: 'searxng', label: 'SearXNG (self-hosted)' },
+]
+
+function SearchGlyphConfig({ localConfig, setLocalConfig }: { localConfig: any; setLocalConfig: any }) {
+  const enabled: string[] = localConfig.engines || ['ddg', 'google']
+  const toggle = (id: string) => {
+    const next = enabled.includes(id) ? enabled.filter(e => e !== id) : [...enabled, id]
+    setLocalConfig((c: any) => ({ ...c, engines: next }))
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div>
+        <label className="label">Search engines</label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
+          {SEARCH_ENGINES.map(e => {
+            const on = enabled.includes(e.id)
+            return (
+              <button key={e.id} onClick={() => toggle(e.id)}
+                style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+                  background: on ? 'var(--accent-bg)' : 'var(--surface2)',
+                  border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
+                  color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
+                {on ? '✓ ' : ''}{e.label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      {enabled.includes('searxng') && (
+        <div>
+          <label className="label">SearXNG URL</label>
+          <input className="input" value={localConfig.searxngUrl || ''}
+            onChange={e => setLocalConfig((c: any) => ({ ...c, searxngUrl: e.target.value }))}
+            placeholder="https://search.rose.home" />
+        </div>
+      )}
+      <div>
+        <label className="label">Default engine</label>
+        <select className="input" value={localConfig.defaultEngine || enabled[0] || 'ddg'}
+          onChange={e => setLocalConfig((c: any) => ({ ...c, defaultEngine: e.target.value }))}
+          style={{ cursor: 'pointer', maxWidth: 200 }}>
+          {SEARCH_ENGINES.filter(e => enabled.includes(e.id)).map(e => (
+            <option key={e.id} value={e.id}>{e.label}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+  )
+}
 
 function WeatherGlyphConfig({ localConfig, setLocalConfig, integrations }: {
   localConfig: any; setLocalConfig: any; integrations: any[]
@@ -1668,6 +1780,9 @@ function GlyphRow({ glyph, integrations, porticos, editing, onEdit, onToggle, on
 
             {/* Weather config */}
 
+            {glyph.type === 'search' && (
+              <SearchGlyphConfig localConfig={localConfig} setLocalConfig={setLocalConfig} />
+            )}
             {glyph.type === 'weather' && (
               <WeatherGlyphConfig localConfig={localConfig} setLocalConfig={setLocalConfig} integrations={integrations} />
             )}
@@ -3288,6 +3403,7 @@ const PANEL_TYPES = [
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',       needsIntegration: false },
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',      needsIntegration: true  },
+  { id: 'search',       label: 'Search',       desc: 'External search engine panel',    needsIntegration: false },
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                 needsIntegration: true  },
@@ -3645,7 +3761,7 @@ function MyPanelsTab() {
                     </div>
                   )}
                   {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && (
+                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && p.type !== 'search' && (
                     <div>
                       <label className="label">Integration</label>
                       <select className="input" style={{ cursor: 'pointer' }}
@@ -3664,6 +3780,12 @@ function MyPanelsTab() {
                     </div>
                   )}
 
+                  {p.type === 'search' && (() => {
+                    const sCfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+                    return <SearchPanelConfig cfg={sCfg} onCfgChange={newCfg => {
+                      Object.assign(sCfg, newCfg)
+                    }} />
+                  })()}
 
                   {['radarr','sonarr','plex'].includes(p.type) && (() => {
                     const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()

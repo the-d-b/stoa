@@ -25,6 +25,7 @@ import RSSPanel from '../components/panels/RSSPanel'
 import WeatherPanel from '../components/panels/WeatherPanel'
 import SteamPanel from '../components/panels/SteamPanel'
 import ReadarrPanel from '../components/panels/ReadarrPanel'
+import SearchPanel from '../components/panels/SearchPanel'
 import SearchModal from '../components/SearchModal'
 
 export default function DashboardPage() {
@@ -36,6 +37,24 @@ export default function DashboardPage() {
   const [porticos, setPorticos] = useState<Portico[]>([])
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [subtrees, setSubtrees] = useState<Record<string, BookmarkNode>>({})
+
+  // Handle search navigation — scroll to and briefly highlight the target panel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const panelId = (e as CustomEvent).detail?.panelId
+      if (!panelId) return
+      setTimeout(() => {
+        const el = document.getElementById(`panel-${panelId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.style.outline = '2px solid var(--accent)'
+          setTimeout(() => { el.style.outline = '' }, 2000)
+        }
+      }, 100)
+    }
+    window.addEventListener('stoa-navigate-panel', handler)
+    return () => window.removeEventListener('stoa-navigate-panel', handler)
+  }, [])
   const [activePorticoId, setActivePorticoId] = useState<string>('home')
   const [allExpanded, setAllExpanded] = useState<boolean | null>(null) // null = default
   const [customColumns, setCustomColumns] = useState<Record<string,number>>({})
@@ -437,7 +456,7 @@ export default function DashboardPage() {
 
         </div>
       )}
-    <SearchModal allNodes={searchNodes} />
+    <SearchModal panels={panels} subtrees={subtrees} />
     </div>
     </div>
   )
@@ -768,7 +787,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
   })()
 
   return (
-    <div style={{
+    <div id={`panel-${panel.id}`} style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
       display: 'flex', flexDirection: 'column',
@@ -929,6 +948,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
           {panel.type === 'weather' && <WeatherPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'steam' && <SteamPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'readarr' && <ReadarrPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'search' && <SearchPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url
