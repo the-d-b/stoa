@@ -311,6 +311,7 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ open, onClose, currentUserId, singleUser }: ChatPanelProps) {
   const [tab, setTab] = useState<'stoa' | 'claude' | 'gemini'>('stoa')
+  const [maximized, setMaximized] = useState(false)
   const [typingUsers, setTypingUsers] = useState<{userId: string; username: string}[]>([])
   const [mobile, setMobile] = useState(isMobile())
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -354,23 +355,35 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
   }, [messages, open, tab])
 
   useEffect(() => {
+    if (typingUsers.length > 0) typingBottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [typingUsers])
+
+  useEffect(() => {
     const onResize = () => setMobile(isMobile())
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  const typingClearTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  const typingBottomRef = useRef<HTMLDivElement>(null)
+
   useTypingSSE((data: any) => {
     if (data.typing) {
       setTypingUsers(prev => prev.find(u => u.userId === data.userId)
         ? prev : [...prev, { userId: data.userId, username: data.username }])
+      // Cancel previous auto-clear, set a fresh one
+      if (typingClearTimers.current[data.userId]) clearTimeout(typingClearTimers.current[data.userId])
+      typingClearTimers.current[data.userId] = setTimeout(() => {
+        setTypingUsers(prev => prev.filter(u => u.userId !== data.userId))
+        delete typingClearTimers.current[data.userId]
+      }, 12000)
     } else {
       setTypingUsers(prev => prev.filter(u => u.userId !== data.userId))
-    }
-    // Auto-clear after 4s in case stop event is missed
-    if (data.typing) {
-      setTimeout(() => {
-        setTypingUsers(prev => prev.filter(u => u.userId !== data.userId))
-      }, 4000)
+      if (typingClearTimers.current[data.userId]) {
+        clearTimeout(typingClearTimers.current[data.userId])
+        delete typingClearTimers.current[data.userId]
+      }
     }
   })
 
@@ -383,14 +396,29 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
   })
 
   const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const typingHeartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const isTypingRef = useRef(false)
+
+  const stopTyping = () => {
+    isTypingRef.current = false
+    chatApi.typing(false).catch(() => {})
+    if (typingTimerRef.current) { clearTimeout(typingTimerRef.current); typingTimerRef.current = null }
+    if (typingHeartbeatRef.current) { clearInterval(typingHeartbeatRef.current); typingHeartbeatRef.current = null }
+  }
 
   const handleInputChange = (val: string) => {
     setInput(val)
-    chatApi.typing(true).catch(() => {})
+    if (!isTypingRef.current) {
+      // Start typing session — send ping and start heartbeat
+      isTypingRef.current = true
+      chatApi.typing(true).catch(() => {})
+      typingHeartbeatRef.current = setInterval(() => {
+        chatApi.typing(true).catch(() => {})
+      }, 6000) // re-ping every 6s so receiver's 12s timer keeps resetting
+    }
+    // Reset idle stop timer on every keystroke
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-    typingTimerRef.current = setTimeout(() => {
-      chatApi.typing(false).catch(() => {})
-    }, 2000)
+    typingTimerRef.current = setTimeout(stopTyping, 8000)
   }
 
   const send = async () => {
@@ -398,8 +426,7 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
     if (!text) return
     setSending(true)
     setInput('')
-    chatApi.typing(false).catch(() => {})
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    stopTyping()
     try { await chatApi.send(text) } finally { setSending(false) }
   }
 
@@ -428,9 +455,12 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
 
       <div style={{ position: 'fixed', inset: 0, zIndex: 490 }} onClick={onClose} />
 
-      <div style={mobile ? {
-        position: 'fixed', inset: 0, zIndex: 500,
+      <div style={mobile || maximized ? {
+        position: 'fixed', inset: maximized ? '5vh 5vw' : 0, zIndex: 500,
         background: 'var(--surface)', display: 'flex', flexDirection: 'column',
+        borderRadius: maximized ? 14 : 0,
+        border: maximized ? '1px solid var(--border2)' : 'none',
+        boxShadow: maximized ? '0 24px 64px rgba(0,0,0,0.5)' : 'none',
         animation: 'chat-slide-up 0.2s ease',
       } : {
         position: 'fixed', bottom: 52, right: 64, zIndex: 500,
@@ -464,9 +494,18 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
                 }}>{p.icon} {p.label}</button>
               ))}
             </div>
-            <button onClick={onClose} style={{ background: 'none', border: 'none',
-              cursor: 'pointer', color: 'var(--text-dim)', fontSize: 18,
-              lineHeight: 1, padding: '2px 4px' }}>×</button>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {!mobile && (
+                <button onClick={() => setMaximized(m => !m)} style={{ background: 'none', border: 'none',
+                  cursor: 'pointer', color: 'var(--text-dim)', fontSize: 13,
+                  lineHeight: 1, padding: '2px 6px' }} title={maximized ? 'Restore' : 'Maximize'}>
+                  {maximized ? '⊡' : '⊞'}
+                </button>
+              )}
+              <button onClick={onClose} style={{ background: 'none', border: 'none',
+                cursor: 'pointer', color: 'var(--text-dim)', fontSize: 18,
+                lineHeight: 1, padding: '2px 4px' }}>×</button>
+            </div>
           </div>
 
           {/* Presence — only on Stoa tab */}
@@ -551,7 +590,7 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
                   )
                 })}
                 {typingUsers.length > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+                  <div ref={typingBottomRef} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
                     <div style={{ width: 24, flexShrink: 0 }} />
                     <div style={{ padding: '7px 12px', borderRadius: '14px 14px 14px 4px',
                       background: 'var(--surface2)', border: '1px solid var(--border)',
