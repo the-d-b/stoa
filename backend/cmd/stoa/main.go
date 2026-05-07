@@ -141,6 +141,7 @@ func main() {
 	// Chat
 	protected.HandleFunc("/chat/unread", handlers.GetUnreadCount(database)).Methods("GET")
 	protected.HandleFunc("/chat/read", handlers.MarkChatRead(database)).Methods("PUT")
+	protected.HandleFunc("/chat/typing", handlers.SendTyping(database)).Methods("POST")
 	protected.HandleFunc("/chat/messages", handlers.GetChatMessages(database)).Methods("GET")
 	protected.HandleFunc("/chat/messages", handlers.SendChatMessage(database)).Methods("POST")
 	protected.HandleFunc("/chat/presence", handlers.GetChatPresence(database)).Methods("GET")

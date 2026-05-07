@@ -9,6 +9,7 @@ export type SSEStatus = 'connected' | 'reconnecting' | 'offline'
 interface SSEManager {
   subscribe: (integrationId: string, cb: SSEListener) => () => void
   subscribeChat: (cb: (data: unknown) => void) => () => void
+  subscribeTyping: (cb: (data: unknown) => void) => () => void
   subscribeStatus: (cb: (status: SSEStatus) => void) => () => void
   getStatus: () => SSEStatus
 }
@@ -20,6 +21,7 @@ function getSSEManager(): SSEManager {
 
   const listeners     = new Map<string, Set<SSEListener>>()
   const chatListeners = new Set<(data: unknown) => void>()
+const typingListeners = new Set<(data: unknown) => void>()
   const statusListeners = new Set<(s: SSEStatus) => void>()
 
   let status: SSEStatus = 'offline'
@@ -87,6 +89,13 @@ function getSSEManager(): SSEManager {
       }
     })
 
+    es.addEventListener('typing', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data)
+        typingListeners.forEach(cb => cb(data))
+      } catch {}
+    })
+
     es.onerror = (e) => {
       console.warn('[SSE] onerror fired, readyState=', es?.readyState, e)
       setStatus('reconnecting')
@@ -119,6 +128,10 @@ function getSSEManager(): SSEManager {
     subscribeChat(cb) {
       chatListeners.add(cb)
       return () => { chatListeners.delete(cb) }
+    },
+    subscribeTyping(cb) {
+      typingListeners.add(cb)
+      return () => { typingListeners.delete(cb) }
     },
     subscribeStatus(cb) {
       statusListeners.add(cb)
@@ -162,6 +175,15 @@ export function useSSEConnected(): boolean {
 }
 
 // ── useChatSSE ────────────────────────────────────────────────────────────────
+export function useTypingSSE(cb: (ev: unknown) => void) {
+  const cbRef = useRef(cb)
+  cbRef.current = cb
+  useEffect(() => {
+    const mgr = getSSEManager()
+    return mgr.subscribeTyping((data) => cbRef.current(data))
+  }, [])
+}
+
 export function useChatSSE(cb: (msg: unknown) => void) {
   const cbRef = useRef(cb)
   cbRef.current = cb

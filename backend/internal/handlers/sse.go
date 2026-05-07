@@ -111,6 +111,16 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 			}
 		})
 
+		unregisterTyping := RegisterTypingListener(func(ev TypingEvent) {
+			// Don't send typing events back to the user who is typing
+			if ev.UserID == claims.UserID { return }
+			b, _ := json.Marshal(ev)
+			select {
+			case client.ch <- sseEvent{Event: "typing", RawData: string(b)}:
+			default:
+			}
+		})
+
 		// Notify worker manager — spins up workers if this is the first client
 		if GlobalWorkerManager != nil {
 			GlobalWorkerManager.ClientConnected()
@@ -118,6 +128,7 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 
 		defer func() {
 			unregisterChat()
+			unregisterTyping()
 			sseMu.Lock()
 			delete(sseClients, clientID)
 			remainingClients := len(sseClients)

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { chatApi, aiApi, ChatMessage, PresenceUser } from '../../api'
-import { useChatSSE } from '../../hooks/useSSE'
+
+const isMobile = () => window.innerWidth < 640
+import { useChatSSE, useTypingSSE } from '../../hooks/useSSE'
 
 function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000
@@ -281,6 +283,23 @@ function AITab({ config }: { config: AITabConfig }) {
   )
 }
 
+// ── Linkify — turns http(s):// text into clickable links ─────────────────────
+function Linkify({ text }: { text: string }) {
+  const parts = text.split(/(https?:\/\/[^\s<>'"]+)/g)
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^https?:\/\//.test(part)
+          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'underline', wordBreak: 'break-all' }}>
+              {part}
+            </a>
+          : <span key={i}>{part}</span>
+      )}
+    </>
+  )
+}
+
 // ── Main ChatPanel with tabs ──────────────────────────────────────────────────
 
 interface ChatPanelProps {
@@ -292,6 +311,8 @@ interface ChatPanelProps {
 
 export default function ChatPanel({ open, onClose, currentUserId, singleUser }: ChatPanelProps) {
   const [tab, setTab] = useState<'stoa' | 'claude' | 'gemini'>('stoa')
+  const [typingUsers, setTypingUsers] = useState<{userId: string; username: string}[]>([])
+  const [mobile, setMobile] = useState(isMobile())
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [presence, setPresence] = useState<PresenceUser[]>([])
   const [input, setInput] = useState('')
@@ -332,18 +353,53 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
     if (open && tab === 'stoa') bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, open, tab])
 
+  useEffect(() => {
+    const onResize = () => setMobile(isMobile())
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useTypingSSE((data: any) => {
+    if (data.typing) {
+      setTypingUsers(prev => prev.find(u => u.userId === data.userId)
+        ? prev : [...prev, { userId: data.userId, username: data.username }])
+    } else {
+      setTypingUsers(prev => prev.filter(u => u.userId !== data.userId))
+    }
+    // Auto-clear after 4s in case stop event is missed
+    if (data.typing) {
+      setTimeout(() => {
+        setTypingUsers(prev => prev.filter(u => u.userId !== data.userId))
+      }, 4000)
+    }
+  })
+
   useChatSSE((data) => {
     const msg = data as ChatMessage
     msg.own = msg.userId === currentUserId
     setMessages(prev => [...prev, msg])
+    setTypingUsers(prev => prev.filter(u => u.userId !== msg.userId))
     chatApi.presence().then(r => setPresence(r.data || []))
   })
+
+  const typingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleInputChange = (val: string) => {
+    setInput(val)
+    chatApi.typing(true).catch(() => {})
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      chatApi.typing(false).catch(() => {})
+    }, 2000)
+  }
 
   const send = async () => {
     const text = input.trim()
     if (!text) return
     setSending(true)
     setInput('')
+    chatApi.typing(false).catch(() => {})
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
     try { await chatApi.send(text) } finally { setSending(false) }
   }
 
@@ -372,7 +428,11 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
 
       <div style={{ position: 'fixed', inset: 0, zIndex: 490 }} onClick={onClose} />
 
-      <div style={{
+      <div style={mobile ? {
+        position: 'fixed', inset: 0, zIndex: 500,
+        background: 'var(--surface)', display: 'flex', flexDirection: 'column',
+        animation: 'chat-slide-up 0.2s ease',
+      } : {
         position: 'fixed', bottom: 52, right: 64, zIndex: 500,
         width: 360, height: 480,
         background: 'var(--surface)', border: '1px solid var(--border)',
@@ -480,7 +540,7 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
                           fontSize: 13, lineHeight: 1.45, wordBreak: 'break-word',
                           border: msg.own ? 'none' : '1px solid var(--border)',
                         }}>
-                          {msg.text}
+                          <Linkify text={msg.text} />
                         </div>
                         {(i === messages.length - 1 || messages[i+1]?.userId !== msg.userId) && (
                           <span style={{ fontSize: 9, color: 'var(--text-dim)', marginLeft: 4,
@@ -490,13 +550,24 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
                     </div>
                   )
                 })}
+                {typingUsers.length > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '2px 0' }}>
+                    <div style={{ width: 24, flexShrink: 0 }} />
+                    <div style={{ padding: '7px 12px', borderRadius: '14px 14px 14px 4px',
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      fontSize: 12, color: 'var(--text-dim)' }}>
+                      <span>{typingUsers.map(u => u.username).join(', ')} {typingUsers.length === 1 ? 'is' : 'are'} typing</span>
+                      <span style={{ letterSpacing: 2, marginLeft: 4 }}>···</span>
+                    </div>
+                  </div>
+                )}
                 <div ref={bottomRef} />
               </div>
             )}
             {!singleUser && (
               <div style={{ padding: '8px 12px 12px', borderTop: '1px solid var(--border)',
                 flexShrink: 0, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-                <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)}
+                <textarea ref={inputRef} value={input} onChange={e => handleInputChange(e.target.value)}
                   onKeyDown={handleKey} placeholder="Message... (Enter to send)"
                   rows={1} style={{
                     flex: 1, resize: 'none', fontSize: 13, padding: '8px 10px',

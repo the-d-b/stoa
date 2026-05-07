@@ -26,10 +26,17 @@ type ChatMessage struct {
 	Own       bool   `json:"own,omitempty"` // set per-request, not stored
 }
 
+type TypingEvent struct {
+	UserID   string `json:"userId"`
+	Username string `json:"username"`
+	Typing   bool   `json:"typing"`
+}
+
 var (
-	chatBroadcastMu  sync.Mutex
-	chatListenerSeq  uint64
-	chatBroadcast    = map[uint64]func(ChatMessage){} // map avoids slice-index panic on concurrent remove
+	chatBroadcastMu   sync.Mutex
+	chatListenerSeq   uint64
+	chatBroadcast     = map[uint64]func(ChatMessage){}
+	typingBroadcast   = map[uint64]func(TypingEvent){}
 )
 
 func RegisterChatListener(fn func(ChatMessage)) func() {
@@ -42,6 +49,31 @@ func RegisterChatListener(fn func(ChatMessage)) func() {
 		chatBroadcastMu.Lock()
 		delete(chatBroadcast, id)
 		chatBroadcastMu.Unlock()
+	}
+}
+
+func RegisterTypingListener(fn func(TypingEvent)) func() {
+	chatBroadcastMu.Lock()
+	chatListenerSeq++
+	id := chatListenerSeq
+	typingBroadcast[id] = fn
+	chatBroadcastMu.Unlock()
+	return func() {
+		chatBroadcastMu.Lock()
+		delete(typingBroadcast, id)
+		chatBroadcastMu.Unlock()
+	}
+}
+
+func broadcastTyping(ev TypingEvent) {
+	chatBroadcastMu.Lock()
+	fns := make([]func(TypingEvent), 0, len(typingBroadcast))
+	for _, fn := range typingBroadcast {
+		fns = append(fns, fn)
+	}
+	chatBroadcastMu.Unlock()
+	for _, fn := range fns {
+		fn(ev)
 	}
 }
 
@@ -68,6 +100,23 @@ func chatID() string {
 
 // MarkChatRead saves the current timestamp as the user's last-read point.
 // Simple and reliable — no subquery needed, no message ID dependency.
+func SendTyping(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		var req struct{ Typing bool `json:"typing"` }
+		json.NewDecoder(r.Body).Decode(&req)
+		var username, avatarURL string
+		db.QueryRow(`SELECT username FROM users WHERE id=?`, claims.UserID).Scan(&username)
+		go broadcastTyping(TypingEvent{
+			UserID:   claims.UserID,
+			Username: username,
+			Typing:   req.Typing,
+		})
+		w.WriteHeader(http.StatusNoContent)
+		_ = avatarURL
+	}
+}
+
 func MarkChatRead(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
