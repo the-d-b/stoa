@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"bufio"
-	"log"
 	"bytes"
 	"database/sql"
 	"encoding/json"
@@ -108,7 +107,6 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		apiKey = strings.TrimSpace(decryptSecret(apiKey))
-		log.Printf("[AI] provider=%s secretName=%s keyLen=%d", req.Provider, secretName, len(apiKey))
 
 		// Save user message
 		userMsgID := generateID()

@@ -515,10 +515,6 @@ var migrations = []migration{
 		},
 	},
 	{
-		version: 34,
-		up: `ALTER TABLE ai_messages ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'`,
-	},
-	{
 		version: 33,
 		up: `CREATE TABLE IF NOT EXISTS ai_messages (
 			id         TEXT PRIMARY KEY,
@@ -527,6 +523,10 @@ var migrations = []migration{
 			content    TEXT NOT NULL,
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
+	},
+	{
+		version: 34,
+		up: `ALTER TABLE ai_messages ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'`,
 	},
 	{
 		version: 32,

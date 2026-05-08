@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { panelsApi, myPanelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode, googleApi } from '../../api'
+import NewPanelForm from './NewPanelForm'
 import SectionHelp from './SectionHelp'
 
 function IfaceCapEditorWithSave({ initialCaps, onSave }: {
@@ -48,16 +49,6 @@ function IfaceCapEditorWithSave({ initialCaps, onSave }: {
   )
 }
 
-// Panel types that require a matching integration to be configured
-const PANEL_NEEDS_INTEGRATION: Record<string, string> = {
-  authentik: 'authentik', gluetun: 'gluetun', lidarr: 'lidarr',
-  opnsense: 'opnsense', photoprism: 'photoprism', plex: 'plex',
-  proxmox: 'proxmox', radarr: 'radarr', sonarr: 'sonarr',
-  tautulli: 'tautulli', transmission: 'transmission', truenas: 'truenas',
-  kuma: 'kuma', readarr: 'readarr', rss: 'rss', weather: 'weather', steam: 'steam',
-  // bookmarks, calendar, notes, checklist: no integration needed
-}
-
 
 
 function RSSIntegrationEditor({ panel, integrations, onSave }: {
@@ -87,6 +78,69 @@ function RSSIntegrationEditor({ panel, integrations, onSave }: {
           No RSS integrations found. Add one in System Integrations first.
         </div>
       )}
+    </div>
+  )
+}
+
+function IframeEditor({ panel, onSave }: { panel: Panel; onSave: () => void }) {
+  const cfg = safeParseConfig(panel.config)
+  const [url, setUrl] = useState(cfg.url || '')
+  const [editing, setEditing] = useState(false)
+  if (!editing) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+        {cfg.url || '— no URL configured —'}
+      </span>
+      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>Edit</button>
+    </div>
+  )
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label className="label">Embed URL</label>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input className="input" style={{ fontSize: 12, flex: 1 }}
+          value={url} onChange={e => setUrl(e.target.value)}
+          placeholder="https://example.com" autoFocus />
+        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+          await panelsApi.update(panel.id, { title: panel.title,
+            config: JSON.stringify({ ...cfg, url }) })
+          setEditing(false); onSave()
+        }}>Save</button>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+function CustomHtmlEditor({ panel, onSave }: { panel: Panel; onSave: () => void }) {
+  const cfg = safeParseConfig(panel.config)
+  const [html, setHtml] = useState(cfg.html || '')
+  const [editing, setEditing] = useState(false)
+  if (!editing) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontSize: 12, color: 'var(--text-dim)',
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
+        {cfg.html ? `${cfg.html.slice(0, 80)}${cfg.html.length > 80 ? '…' : ''}` : '— no content configured —'}
+      </span>
+      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>Edit</button>
+    </div>
+  )
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label className="label">HTML / Text content</label>
+      <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace',
+        minHeight: 80, resize: 'vertical' }}
+        value={html} onChange={e => setHtml(e.target.value)}
+        placeholder="<div>Your custom HTML here</div>" autoFocus />
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
+          await panelsApi.update(panel.id, { title: panel.title,
+            config: JSON.stringify({ ...cfg, html }) })
+          setEditing(false); onSave()
+        }}>Save</button>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
+      </div>
     </div>
   )
 }
@@ -181,13 +235,7 @@ export default function PanelsAdminPanel() {
   const [bookmarkRoots, setBookmarkRoots] = useState<BookmarkNode[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
-  const [newRootId, setNewRootId] = useState('')
-  const [newSearchEngines, setNewSearchEngines] = useState<string[]>(['ddg','google'])
-  const [newSearxngUrl, setNewSearxngUrl] = useState('')
-  const [newAllowedRatings, setNewAllowedRatings] = useState('')
 
-  const [newHeight, setNewHeight] = useState(2)
   const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
   const [editingRatings, setEditingRatings] = useState<{ id: string; value: string } | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -196,15 +244,13 @@ export default function PanelsAdminPanel() {
   const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; uiUrl: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
   const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
-  const [loadingTree, setLoadingTree] = useState(false)
 
   const refreshBookmarkTree = async () => {
-    setLoadingTree(true)
+    setLoading(true)
     const b = await bookmarksApi.tree()
     setBookmarkRoots(b.data || [])
-    setLoadingTree(false)
+    setLoading(false)
   }
-  const [creating, setCreating] = useState(false)
 
   const load = async () => {
     // Admin panel only shows shared panels - personal panels managed in profile
@@ -234,25 +280,7 @@ export default function PanelsAdminPanel() {
     return () => window.removeEventListener('focus', onFocus)
   }, [])
 
-  const [newType, setNewType] = useState('bookmarks')
 
-  const create = async () => {
-    if (!newTitle.trim()) return
-    setCreating(true)
-    const config = newType === 'customapi'
-      ? JSON.stringify({ url: '', apiKey: '', mappings: [], refreshSecs: 600, height: newHeight })
-      : newType === 'search'
-      ? JSON.stringify({ engines: newSearchEngines, defaultEngine: newSearchEngines[0] || 'ddg', searxngUrl: newSearxngUrl, height: newHeight })
-      : ['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(newType)
-      ? JSON.stringify({ integrationId: newRootId, height: newHeight, refreshSecs: 300, ...(newType === 'opnsense' ? { maxMbps: 1000 } : {}), ...(['sonarr','radarr','plex'].includes(newType) && newAllowedRatings ? { allowedRatings: newAllowedRatings } : {}) })
-
-      : newType === 'calendar'
-      ? JSON.stringify({ firstDay: 0, height: newHeight, sources: [] })
-      : JSON.stringify({ rootNodeId: newRootId || undefined, height: newHeight })
-    await panelsApi.create({ type: newType, title: newTitle.trim(), config })
-    setNewTitle(''); setNewRootId(''); setShowForm(false)
-    await load(); setCreating(false)
-  }
 
   const remove = async (id: string, title: string) => {
     if (!confirm(`Delete panel "${title}"?`)) return
@@ -292,135 +320,13 @@ export default function PanelsAdminPanel() {
 
 
       {showForm && (
-        <div className="card" style={{ marginBottom: 20, padding: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label className="label">Panel title</label>
-              <input className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                placeholder="e.g. Media Links" autoFocus />
-            </div>
-            <div style={{ flex: 0.5 }}>
-              <label className="label">Panel type</label>
-              {(() => {
-                const PANEL_LABELS: Record<string,string> = {
-                  authentik:'Authentik', bookmarks:'Bookmarks', calendar:'Calendar',
-                  checklist:'Checklist', customapi:'Custom API', custom:'Text/HTML',
-                  gluetun:'Gluetun', iframe:'Web Embed', kuma:'Uptime Kuma',
-                  lidarr:'Lidarr', notes:'Notes', opnsense:'OPNsense',
-                  photoprism:'PhotoPrism', plex:'Plex', proxmox:'Proxmox',
-                  radarr:'Radarr', readarr:'Readarr', rss:'RSS Feed', sonarr:'Sonarr',
-                  tautulli:'Tautulli', transmission:'Transmission', truenas:'TrueNAS',
-                  weather:'Weather', steam:'Steam', search:'Search',
-                }
-                return (
-                  <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
-                    {Object.entries(PANEL_LABELS).map(([type, label]) => {
-                      const needed = PANEL_NEEDS_INTEGRATION[type]
-                      const hasInt = !needed || integrations.some(i => i.type === type)
-                      return <option key={type} value={type}>{label}{!hasInt ? ' ⚠' : ''}</option>
-                    })}
-                  </select>
-                )
-              })()}
-            </div>
-            {(() => {
-              const needed = PANEL_NEEDS_INTEGRATION[newType]
-              if (!needed) return null
-              const hasInt = integrations.some(i => i.type === newType)
-              if (hasInt) return null
-              return (
-                <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
-                  ⚠ No {newType} integration configured.{' '}
-                  <a href="/admin/integrations" style={{ color: 'var(--accent2)' }}>Add one →</a>
-                </div>
-              )
-            })()}
-            {newType === 'bookmarks' && (
-              <div style={{ flex: 1 }}>
-                <label className="label">Bookmark root (optional)</label>
-                <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
-                  style={{ cursor: 'pointer' }}>
-                  <option value="">— All bookmarks —</option>
-                  {loadingTree && <option disabled>Loading...</option>}
-                  {!loadingTree && flatNodes.map(({ node, label }) => (
-                    <option key={node.id} value={node.id}>{label}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {newType === 'search' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label className="label">Search engines</label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {[
-                    { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
-                    { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
-                    { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
-                  ].map(e => {
-                    const on = newSearchEngines.includes(e.id)
-                    return (
-                      <button key={e.id} onClick={() => setNewSearchEngines(prev => on ? prev.filter(x => x !== e.id) : [...prev, e.id])}
-                        style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                          background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                          border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                          color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
-                        {on ? '✓ ' : ''}{e.label}
-                      </button>
-                    )
-                  })}
-                </div>
-                {newSearchEngines.includes('searxng') && (
-                  <div>
-                    <label className="label">SearXNG URL</label>
-                    <input className="input" value={newSearxngUrl} onChange={e => setNewSearxngUrl(e.target.value)}
-                      placeholder="https://search.rose.home" />
-                  </div>
-                )}
-              </div>
-            )}
-            {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(newType) && (
-              <div style={{ flex: 1 }}>
-                <label className="label">Integration</label>
-                <select className="input" value={newRootId} onChange={e => setNewRootId(e.target.value)}
-                  style={{ cursor: 'pointer' }}>
-                  <option value="">— Select integration —</option>
-                  {integrations.filter(i => i.type === newType).map(i => (
-                    <option key={i.id} value={i.id}>{i.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            {['radarr','sonarr','plex'].includes(newType) && (
-              <div style={{ flex: 1 }}>
-                <label className="label">Allowed ratings <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
-                <input className="input" value={newAllowedRatings}
-                  onChange={e => setNewAllowedRatings(e.target.value)}
-                  placeholder="e.g. G, PG, PG-13 — blank = all" />
-              </div>
-            )}
-
-
-            <div style={{ flex: 0.4 }}>
-              <label className="label">Height</label>
-              <select className="input" value={newHeight}
-                onChange={e => setNewHeight(Number(e.target.value))}
-                style={{ cursor: 'pointer' }}>
-                <option value={1}>1x</option>
-                <option value={2}>2x</option>
-                <option value={3}>3x</option>
-                <option value={4}>4x</option>
-                <option value={5}>5x</option>
-                <option value={6}>6x</option>
-                <option value={7}>7x</option>
-                <option value={8}>8x</option>
-              </select>
-            </div>
-            <button className="btn btn-primary" onClick={create} disabled={creating}>
-              {creating ? <span className="spinner" /> : 'Create'}
-            </button>
-            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-          </div>
-        </div>
+        <NewPanelForm
+          scope="system"
+          integrations={integrations}
+          bookmarkRoots={flatNodes.map(({node, label}) => ({ id: node.id, label }))}
+          onCreated={async () => { setShowForm(false); await load() }}
+          onCancel={() => setShowForm(false)}
+        />
       )}
 
       <div style={{ marginBottom: 12 }}>
@@ -524,6 +430,14 @@ export default function PanelsAdminPanel() {
                 </div>
               </div>
 
+              {/* iframe / custom html editors — full width below the header row */}
+              {p.type === 'iframe' && (
+                <IframeEditor panel={p} onSave={load} />
+              )}
+              {p.type === 'custom' && (
+                <CustomHtmlEditor panel={p} onSave={load} />
+              )}
+
               {/* Custom API config editor */}
               {p.type === 'customapi' && (
                 editingCustomAPI?.id === p.id ? (
@@ -552,7 +466,7 @@ export default function PanelsAdminPanel() {
                     <div>
                       <label className="label">Field mappings</label>
                       <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                        One per line: <code>path | Label</code> or <code>path | Label | format</code> — formats: <code>integer</code>, <code>currency</code>, <code>text</code>
+                        One per line: <code>path | Label</code> &nbsp;— optionally add <code>| format</code>: integer, currency, text
                       </div>
                       <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
                         value={editingCustomAPI.mappings}

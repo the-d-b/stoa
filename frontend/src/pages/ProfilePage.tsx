@@ -5,9 +5,11 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
-import { cssApi, weatherApi, steamApi } from '../api'
+import { cssApi } from '../api'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
+import NewPanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/NewPanelForm'
+import NewIntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/NewIntegrationForm'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
@@ -859,6 +861,7 @@ function PorticoPreview({ portico, panels, columnAssignments = {} }: {
 
 function PorticosTab() {
   const [porticos, setPorticos] = useState<Portico[]>([])
+  const [creating, setCreating] = useState(false)
   const [allTags, setAllTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -867,7 +870,6 @@ function PorticosTab() {
   const [dragOver, setDragOver] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [newName, setNewName] = useState('')
-  const [creating, setCreating] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -1184,13 +1186,13 @@ function PorticosTab() {
 function SecretsTab() {
   const userMode = useUserMode()
   const [shared, setShared] = useState<Secret[]>([])
+  const [creating, setCreating] = useState(false)
   const [personal, setPersonal] = useState<Secret[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newValue, setNewValue] = useState('')
-  const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<{ id: string; name: string; value: string } | null>(null)
 
   const load = async () => {
@@ -1371,24 +1373,29 @@ const ZONES = [
 ]
 
 function SearchPanelConfig({ cfg, onCfgChange }: { cfg: any; onCfgChange: (c: any) => void }) {
-  const enabled: string[] = cfg.engines || ['ddg', 'google']
+  const [engines, setEngines] = useState<string[]>(cfg.engines?.length ? cfg.engines : ['ddg','google'])
+  const [searxngUrl, setSearxngUrl] = useState(cfg.searxngUrl || '')
+  const [defaultEngine, setDefaultEngine] = useState(cfg.defaultEngine || 'ddg')
+  const ALL = [
+    { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
+    { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
+    { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
+  ]
+  const notify = (e: string[], d: string, s: string) =>
+    onCfgChange({ ...cfg, engines: e, defaultEngine: d, searxngUrl: s })
   const toggle = (id: string) => {
-    const next = enabled.includes(id) ? enabled.filter((e: string) => e !== id) : [...enabled, id]
-    onCfgChange({ ...cfg, engines: next })
+    const next = engines.includes(id) ? engines.filter(x => x !== id) : [...engines, id]
+    setEngines(next); notify(next, defaultEngine, searxngUrl)
   }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div>
         <label className="label">Search engines</label>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-          {[
-            { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
-            { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
-            { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
-          ].map(e => {
-            const on = enabled.includes(e.id)
+          {ALL.map(e => {
+            const on = engines.includes(e.id)
             return (
-              <button key={e.id} onClick={() => toggle(e.id)}
+              <button key={e.id} type="button" onClick={() => toggle(e.id)}
                 style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
                   background: on ? 'var(--accent-bg)' : 'var(--surface2)',
                   border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
@@ -1399,24 +1406,20 @@ function SearchPanelConfig({ cfg, onCfgChange }: { cfg: any; onCfgChange: (c: an
           })}
         </div>
       </div>
-      {enabled.includes('searxng') && (
+      {engines.includes('searxng') && (
         <div>
           <label className="label">SearXNG URL</label>
-          <input className="input" defaultValue={cfg.searxngUrl || ''}
-            onChange={e => onCfgChange({ ...cfg, searxngUrl: e.target.value })}
+          <input className="input" value={searxngUrl}
+            onChange={e => { setSearxngUrl(e.target.value); notify(engines, defaultEngine, e.target.value) }}
             placeholder="https://search.rose.home" />
         </div>
       )}
       <div>
         <label className="label">Default engine</label>
-        <select className="input" defaultValue={cfg.defaultEngine || enabled[0] || 'ddg'}
-          onChange={e => onCfgChange({ ...cfg, defaultEngine: e.target.value })}
+        <select className="input" value={defaultEngine}
+          onChange={e => { setDefaultEngine(e.target.value); notify(engines, e.target.value, searxngUrl) }}
           style={{ cursor: 'pointer', maxWidth: 200 }}>
-          {[
-            { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
-            { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
-            { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
-          ].filter(e => enabled.includes(e.id)).map(e => (
+          {ALL.filter(e => engines.includes(e.id)).map(e => (
             <option key={e.id} value={e.id}>{e.label}</option>
           ))}
         </select>
@@ -1513,12 +1516,12 @@ function WeatherGlyphConfig({ localConfig, setLocalConfig, integrations }: {
 
 function GlyphsTab() {
   const [glyphs, setGlyphs] = useState<Glyph[]>([])
+  const [creating, setCreating] = useState(false)
   const [porticos, setPorticos] = useState<Portico[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [newType, setNewType] = useState('clock')
   const [newZone, setNewZone] = useState('header-right')
-  const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -2234,12 +2237,12 @@ const TICKER_MODES = [
 
 function TickersTab() {
   const [tickers, setTickers] = useState<Ticker[]>([])
+  const [creating, setCreating] = useState(false)
   const [secrets, setSecrets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [newType, setNewType] = useState('stocks')
   const [newZone, setNewZone] = useState('footer')
-  const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
 
   const [porticos, setPorticos] = useState<Portico[]>([])
@@ -2658,25 +2661,7 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
 
 // ── Personal Integrations ─────────────────────────────────────────────────────
 
-const INTEGRATION_TYPES = [
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Uptime monitoring' },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall / router' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
-  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader' },
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
-  { id: 'transmission', label: 'Transmission', desc: 'Torrent client' },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (no API key required)' },
-  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store' },
-]
+const INTEGRATION_TYPES = SHARED_INTEGRATION_TYPES
 
 function PersonalIntegrationsTab() {
   const userMode = useUserMode()
@@ -2688,60 +2673,8 @@ function PersonalIntegrationsTab() {
   const [systemCollapsed, setSystemCollapsed] = useState(true)
   const [myCollapsed, setMyCollapsed] = useState(false)
   const [search, setSearch] = useState('')
-  const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState('sonarr')
-  const [pgeoQuery, setPgeoQuery] = useState('')
-  const [pgeoResults, setPgeoResults] = useState<any[]>([])
-  const [pgeoSearching, setPgeoSearching] = useState(false)
-  const [psteamVanity, setPsteamVanity] = useState('')
-  const [psteamResolving, setPsteamResolving] = useState(false)
 
-  const psearchGeo = async () => {
-    if (!pgeoQuery.trim()) return
-    setPgeoSearching(true)
-    try { const r = await weatherApi.geocode(pgeoQuery); setPgeoResults(r.data || []) }
-    finally { setPgeoSearching(false) }
-  }
-  const pselectGeo = (r: any) => {
-    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setNewApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
-    setPgeoResults([]); setPgeoQuery('')
-  }
-  const presolveVanity = async () => {
-    if (!psteamVanity.trim() || !newSecretId) return
-    setPsteamResolving(true)
-    try {
-      const sec = secrets.find((s: any) => s.id === newSecretId)
-      if (!sec) { alert('Select API key first'); return }
-      const r = await steamApi.resolveVanity(psteamVanity, sec.value || newSecretId)
-      setNewApiUrl(r.data.steamId); setPsteamVanity('')
-    } catch { alert('Could not resolve vanity URL') }
-    finally { setPsteamResolving(false) }
-  }
-  const [newApiUrl, setNewApiUrl] = useState('')
-  const [newSkipTls, setNewSkipTls] = useState(false)
-  const [newRefreshSecs, setNewRefreshSecs] = useState(60)
   const [editId, setEditId] = useState<string | null>(null)
-  const [newUiUrl, setNewUiUrl] = useState('')
-  const [newSecretId, setNewSecretId] = useState('')
-  const [newSecretName, setNewSecretName] = useState('')
-  const [newSecretValue, setNewSecretValue] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [testResult, setTestResult] = useState<{ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean} | null>(null)
-  const [testing, setTesting] = useState(false)
-  const [showAddSecret, setShowAddSecret] = useState(false)
-  const [savingSecret, setSavingSecret] = useState(false)
-
-  const createSecret = async () => {
-    if (!newSecretName.trim() || !newSecretValue.trim()) return
-    setSavingSecret(true)
-    try {
-      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'personal' })
-      setNewSecretId(res.data.id)
-      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
-      await load() // re-fetch authoritative list — avoids duplicate from optimistic + fetch
-    } finally { setSavingSecret(false) }
-  }
 
   const load = async () => {
     const [shared, personal, sysS] = await Promise.all([
@@ -2755,27 +2688,6 @@ function PersonalIntegrationsTab() {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
-
-  const test = async () => {
-    if (!newApiUrl) return
-    setTesting(true); setTestResult(null)
-    try {
-      const res = await integrationsApi.test({ type: newType, apiUrl: newApiUrl, secretId: newSecretId || undefined, skipTls: newSkipTls })
-      setTestResult(res.data)
-    } catch { setTestResult({ ok: false, error: 'Request failed' }) }
-    finally { setTesting(false) }
-  }
-
-  const create = async () => {
-    if (!newName || !newApiUrl) return
-    setCreating(true)
-    try {
-      await integrationsApi.create({ name: newName, type: newType, apiUrl: newApiUrl, uiUrl: newUiUrl, secretId: newSecretId || undefined, skipTls: newSkipTls, refreshSecs: newRefreshSecs, scope: 'personal' })
-      setNewName(''); setNewApiUrl(''); setNewUiUrl(''); setNewSecretId(''); setTestResult(null)
-      await load()
-      setShowForm(false)
-    } finally { setCreating(false) }
-  }
 
   const remove = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"?`)) return
@@ -2850,155 +2762,13 @@ function PersonalIntegrationsTab() {
       </div>
       {showForm && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1.5 }}>
-                <label className="label">Name</label>
-                <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. My Sonarr" autoFocus />
-              </div>
-              <div style={{ flex: 0.7 }}>
-                <label className="label">Type</label>
-                <select className="input" value={newType} onChange={e => setNewType(e.target.value)} style={{ cursor: 'pointer' }}>
-                  {INTEGRATION_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="label">API key secret</label>
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <select className="input" value={newSecretId}
-                    onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
-                    style={{ cursor: 'pointer', flex: 1 }}>
-                    <option value="">— None —</option>
-                    {secrets.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                  <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
-                    onClick={() => setShowAddSecret(v => !v)}>
-                    {showAddSecret ? 'Cancel' : '+ New'}
-                  </button>
-                </div>
-              </div>
-              {showAddSecret && (
-                <div style={{ marginTop: 8, padding: '10px 12px', borderRadius: 8,
-                  background: 'var(--surface2)', border: '1px solid var(--border)',
-                  display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <label className="label">Name</label>
-                      <input className="input" value={newSecretName}
-                        onChange={e => setNewSecretName(e.target.value)}
-                        placeholder="e.g. Sonarr API Key" autoFocus />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label className="label">Value</label>
-                      <input className="input" type="password" value={newSecretValue}
-                        onChange={e => setNewSecretValue(e.target.value)}
-                        placeholder="Paste key here" />
-                    </div>
-                  </div>
-                  <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
-                    disabled={savingSecret || !newSecretName || !newSecretValue}
-                    onClick={createSecret}>
-                    {savingSecret ? <span className="spinner" /> : 'Save & select'}
-                  </button>
-                </div>
-              )}
-            </div>
-            {newType === 'weather' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label className="label">Location</label>
-                {newApiUrl && <div style={{ fontSize: 12, color: 'var(--accent2)' }}>📍 {newApiUrl.includes('|') ? newApiUrl.split('|').slice(2).join('|') : newApiUrl.split(',').slice(2).join(',')}</div>}
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input className="input" value={pgeoQuery} onChange={e => setPgeoQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && psearchGeo()}
-                    placeholder="Search city or region..." style={{ flex: 1 }} />
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={psearchGeo} disabled={pgeoSearching}>
-                    {pgeoSearching ? '...' : 'Search'}
-                  </button>
-                </div>
-                {pgeoResults.length > 0 && (
-                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                    {pgeoResults.map((r, i) => (
-                      <button key={i} onClick={() => pselectGeo(r)}
-                        style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 12px',
-                          fontSize: 12, background: 'none', border: 'none',
-                          borderBottom: i < pgeoResults.length-1 ? '1px solid var(--border)' : 'none',
-                          cursor: 'pointer', color: 'var(--text)' }}>
-                        {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>No API key required.</div>
-              </div>
-            ) : newType === 'steam' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label className="label">Steam ID</label>
-                <input className="input" value={newApiUrl} onChange={e => setNewApiUrl(e.target.value)}
-                  placeholder="76561198000000000" />
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input className="input" value={psteamVanity} onChange={e => setPsteamVanity(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && presolveVanity()}
-                    placeholder="Or enter profile vanity name..." style={{ flex: 1 }} />
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                    onClick={presolveVanity} disabled={psteamResolving || !newSecretId}>
-                    {psteamResolving ? '...' : 'Resolve'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
-                  <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
-                    placeholder="http://sonarr.local:8989" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-                  <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
-                    placeholder="https://sonarr.yourdomain.com" />
-                </div>
-              </div>
-            )}
-            {testResult && (
-              <div style={{
-                padding: '7px 12px', borderRadius: 7, fontSize: 12,
-                background: testResult.ok ? '#4ade8018' : '#f8717118',
-                border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
-                color: testResult.ok ? 'var(--green)' : 'var(--red)',
-              }}>
-                {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
-                {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
-                  <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
-                    ⚠ Connection works without certificate verification — enable "Skip TLS" below.
-                  </div>
-                )}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
-                Skip TLS <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(self-signed certs)</span>
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
-                <input className="input" type="number" min={15} value={newRefreshSecs}
-                  onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
-                  style={{ width: 100 }} />
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
-              </div>
-              <div style={{ flex: 1 }} />
-              {!['weather','steam','rss'].includes(newType) && (
-                <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
-                  {testing ? <span className="spinner" /> : 'Test'}
-                </button>
-              )}
-              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || (!['weather','steam','rss'].includes(newType) && !newApiUrl)}>
-                {creating ? <span className="spinner" /> : 'Create'}
-              </button>
-              <button className="btn btn-ghost" onClick={() => { setShowForm(false); setTestResult(null) }}>Cancel</button>
-            </div>
-          </div>
+          <NewIntegrationForm
+            scope="personal"
+            secrets={secrets}
+            onCreated={async () => { setShowForm(false); await load() }}
+            onCancel={() => setShowForm(false)}
+            onSecretsChanged={setSecrets}
+          />
         </div>
       )}
       {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -3208,6 +2978,7 @@ const TAG_COLORS = [
 function PersonalTagsTab() {
   const userMode = useUserMode()
   const [sharedTags, setSharedTags] = useState<Tag[]>([])
+  const [creating, setCreating] = useState(false)
   const [personalTags, setPersonalTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -3216,7 +2987,6 @@ function PersonalTagsTab() {
   const [search, setSearch] = useState('')
   const [newName, setNewName] = useState('')
   const [newColor, setNewColor] = useState(TAG_COLORS[0])
-  const [creating, setCreating] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
@@ -3397,44 +3167,8 @@ function PersonalTagsTab() {
 
 // ── My Panels ────────────────────────────────────────────────────────────────
 
-const PANEL_TYPES = [
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',              needsIntegration: true  },
-  { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',       needsIntegration: false },
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
-  { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',       needsIntegration: false },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',      needsIntegration: true  },
-  { id: 'search',       label: 'Search',       desc: 'External search engine panel',    needsIntegration: false },
-  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',            needsIntegration: false },
-  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',          needsIntegration: false },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                 needsIntegration: true  },
-  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',              needsIntegration: false },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking',                needsIntegration: true  },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',               needsIntegration: true  },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',              needsIntegration: true  },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server',                  needsIntegration: true  },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                    needsIntegration: true  },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                needsIntegration: true  },
-  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook tracking',     needsIntegration: true  },
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking',              needsIntegration: true  },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                needsIntegration: true  },
-  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',   needsIntegration: false },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',             needsIntegration: true  },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                needsIntegration: true  },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',             needsIntegration: true  },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',  needsIntegration: false },
-  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store', needsIntegration: false },
-]
+const PANEL_TYPES = SHARED_PANEL_TYPES
 
-const HEIGHT_OPTIONS = [
-  { value: 1, label: '1x' },
-  { value: 2, label: '2x' },
-  { value: 3, label: '3x' },
-  { value: 4, label: '4x' },
-  { value: 5, label: '5x' },
-  { value: 6, label: '6x' },
-  { value: 7, label: '7x' },
-  { value: 8, label: '8x' },
-]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
   initialCaps: Record<string,number>
@@ -3492,11 +3226,11 @@ function MyPanelsTab() {
   const [editUrl, setEditUrl] = useState('')
   const [editHtml, setEditHtml] = useState('')
   const [editIntegrationId, setEditIntegrationId] = useState('')
-  const [newTitle, setNewTitle] = useState('')
-  const [newType, setNewType] = useState('bookmarks')
-  const [newHeight, setNewHeight] = useState(2)
-  const [newIntegrationId, setNewIntegrationId] = useState('')
-  const [creating, setCreating] = useState(false)
+  const [editApiUrl, setEditApiUrl] = useState('')
+  const [editUiUrl, setEditUiUrl] = useState('')
+  const [editApiKey, setEditApiKey] = useState('')
+  const [editMappings, setEditMappings] = useState('')
+  const [editRefreshSecs, setEditRefreshSecs] = useState(600)
 
   const load = async () => {
     const [system, mine, allI, t] = await Promise.all([
@@ -3513,38 +3247,12 @@ function MyPanelsTab() {
   }
   useEffect(() => { load() }, [])
 
-  const configForType = (integrationId: string, height: number) => {
-    const base: any = { height }
-    if (integrationId) base.integrationId = integrationId
-    return JSON.stringify(base)
-  }
-
-  const create = async () => {
-    if (!newTitle.trim()) return
-    setCreating(true)
-    try {
-      await myPanelsApi.create({
-        title: newTitle.trim(),
-        type: newType,
-        config: configForType(newIntegrationId, newHeight),
-      })
-      setNewTitle(''); setNewType('bookmarks'); setNewHeight(2); setNewIntegrationId('')
-      await load()
-      setShowForm(false)
-    } finally { setCreating(false) }
-  }
-
   const remove = async (id: string, title: string) => {
     if (!confirm(`Delete panel "${title}"?`)) return
     await myPanelsApi.delete(id); await load()
   }
 
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
-
-  const needsIntegration = ['sonarr', 'radarr', 'lidarr', 'plex', 'tautulli', 'truenas', 'proxmox', 'kuma', 'gluetun', 'opnsense', 'transmission', 'photoprism', 'authentik'].includes(newType)
-  const compatibleIntegrations = integrations.filter(i =>
-    newType === 'calendar' ? true : i.type === newType
-  )
 
   return (
     <div>
@@ -3555,6 +3263,14 @@ function MyPanelsTab() {
         private calendar, or anything else you don't want to share. System panels (shared
         by your admin) are shown here for reference but can't be edited from this screen.
       </SectionHelp>
+      {showForm && (
+        <NewPanelForm
+          scope="personal"
+          integrations={integrations}
+          onCreated={async () => { setShowForm(false); await load() }}
+          onCancel={() => setShowForm(false)}
+        />
+      )}
       <div style={{ marginBottom: 16 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter panels..." style={{ fontSize: 13 }} />
@@ -3609,72 +3325,7 @@ function MyPanelsTab() {
       </div>
 
       {/* New panel form */}
-      {showForm && (
-        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label className="label">Title</label>
-                <input className="input" value={newTitle} onChange={e => setNewTitle(e.target.value)}
-                  placeholder="My Sonarr" autoFocus />
-              </div>
-              <div style={{ flex: 0.5 }}>
-                <label className="label">Type</label>
-                <select className="input" value={newType}
-                  onChange={e => { setNewType(e.target.value); setNewIntegrationId('') }}
-                  style={{ cursor: 'pointer' }}>
-                  {PANEL_TYPES.map(t => {
-                    const hasInt = !t.needsIntegration || integrations.some((i: any) => i.type === t.id)
-                    return <option key={t.id} value={t.id}>{t.label}{!hasInt ? ' ⚠' : ''}</option>
-                  })}
-                </select>
-                {(() => {
-                  const t = PANEL_TYPES.find(p => p.id === newType)
-                  if (!t?.needsIntegration) return null
-                  const hasInt = integrations.some((i: any) => i.type === newType)
-                  if (hasInt) return <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 4 }}>✓ integration available</div>
-                  return <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
-                    ⚠ No {newType} integration. <a href="/profile?tab=integrations" style={{ color: 'var(--accent2)' }}>Add one →</a>
-                  </div>
-                })()}
-              </div>
-              <div style={{ flex: 0.4 }}>
-                <label className="label">Height</label>
-                <select className="input" value={newHeight}
-                  onChange={e => setNewHeight(Number(e.target.value))}
-                  style={{ cursor: 'pointer' }}>
-                  {HEIGHT_OPTIONS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
-                </select>
-              </div>
-            </div>
-            {needsIntegration && (
-              <div>
-                <label className="label">Integration</label>
-                <select className="input" value={newIntegrationId}
-                  onChange={e => setNewIntegrationId(e.target.value)}
-                  style={{ cursor: 'pointer' }}>
-                  <option value="">— Select integration —</option>
-                  {compatibleIntegrations.map(i => (
-                    <option key={i.id} value={i.id}>{i.name}</option>
-                  ))}
-                </select>
-                {compatibleIntegrations.length === 0 && (
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                    No {newType} integrations found. Add one in My Integrations first.
-                  </div>
-                )}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button className="btn btn-primary" onClick={create}
-                disabled={creating || !newTitle}>
-                {creating ? <span className="spinner" /> : 'Create'}
-              </button>
-              <button className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {!myCollapsed && <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {myPanels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
@@ -3697,6 +3348,12 @@ function MyPanelsTab() {
                     setEditUrl(cfg.url || '')
                     setEditHtml(cfg.html || '')
                     setEditIntegrationId(cfg.integrationId || '')
+                    setEditApiUrl(cfg.url || '')
+                    setEditUiUrl(cfg.uiUrl || '')
+                    setEditApiKey(cfg.apiKey || '')
+                    setEditMappings((cfg.mappings || []).map((m: any) =>
+                      m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n'))
+                    setEditRefreshSecs(cfg.refreshSecs || 600)
                   }
                   setExpandedPanelId(expanded ? null : p.id)
                 }}>
@@ -3802,48 +3459,43 @@ function MyPanelsTab() {
                       </div>
                     )
                   })()}
-                  {/* OPNsense max link speed */}
-                  {p.type === 'customapi' && (() => {
-                    const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-                    return (
+                  {/* Custom API config */}
+                  {p.type === 'customapi' && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
                         <label className="label">API URL</label>
                         <input className="input" type="url" style={{ fontSize: 12 }}
-                          defaultValue={cfg.url || ''}
-                          onChange={e => { cfg.url = e.target.value }}
+                          value={editApiUrl}
+                          onChange={e => setEditApiUrl(e.target.value)}
                           placeholder="http://host:port/api/stats" />
                         <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
                         <input className="input" type="url" style={{ fontSize: 12 }}
-                          defaultValue={cfg.uiUrl || ''}
-                          onChange={e => { cfg.uiUrl = e.target.value }}
+                          value={editUiUrl}
+                          onChange={e => setEditUiUrl(e.target.value)}
                           placeholder="http://host:port/dashboard" />
                         <label className="label">Bearer token (optional)</label>
                         <input className="input" style={{ fontSize: 12 }}
-                          defaultValue={cfg.apiKey || ''}
-                          onChange={e => { cfg.apiKey = e.target.value }}
+                          value={editApiKey}
+                          onChange={e => setEditApiKey(e.target.value)}
                           placeholder="Leave blank if no auth required" />
                         <label className="label">Field mappings</label>
                         <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>
-                          One per line: <code>path | Label</code> or <code>path | Label | format</code>
+                          One per line: <code>path | Label</code> &nbsp;— optionally add <code>| format</code> (integer, currency, text)
                         </div>
                         <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 60, resize: 'vertical' }}
-                          defaultValue={(cfg.mappings || []).map((m: any) =>
-                            m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n')}
-                          onChange={e => { cfg.mappings = e.target.value.split('\n')
-                            .map((l: string) => l.trim()).filter((l: string) => l.includes('|'))
-                            .map((l: string) => { const p = l.split('|').map((s: string) => s.trim()); return { path: p[0], label: p[1]||'', format: p[2]||'' } }) }} />
+                          value={editMappings}
+                          onChange={e => setEditMappings(e.target.value)} />
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                           <button className="btn btn-secondary" style={{ fontSize: 11 }}
                             disabled={customAPIPreview?.loading}
                             onClick={async () => {
-                              if (!cfg.url) return
+                              if (!editApiUrl) return
                               setCustomAPIPreview({ loading: true, json: '', error: '' })
                               try {
                                 const res = await fetch('/api/customapi/preview', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json',
                                     'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
-                                  body: JSON.stringify({ url: cfg.url, apiKey: cfg.apiKey })
+                                  body: JSON.stringify({ url: editApiUrl, apiKey: editApiKey })
                                 })
                                 if (!res.ok) throw new Error(`HTTP ${res.status}`)
                                 setCustomAPIPreview({ loading: false, json: JSON.stringify(await res.json(), null, 2), error: '' })
@@ -3864,8 +3516,7 @@ function MyPanelsTab() {
                                   color: 'var(--text-muted)', resize: 'vertical', boxSizing: 'border-box' }} />
                         )}
                       </div>
-                    )
-                  })()}
+                  )}
 
 
                   {p.type === 'opnsense' && (
@@ -3954,6 +3605,15 @@ function MyPanelsTab() {
                           if (p.type === 'iframe') newCfg.url = editUrl
                           if (p.type === 'custom') newCfg.html = editHtml
                           if (['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type)) newCfg.integrationId = editIntegrationId
+                          if (p.type === 'customapi') {
+                            newCfg.url = editApiUrl
+                            newCfg.uiUrl = editUiUrl
+                            newCfg.apiKey = editApiKey
+                            newCfg.refreshSecs = editRefreshSecs
+                            newCfg.mappings = editMappings.split('\n')
+                              .map(l => l.trim()).filter(l => l.includes('|'))
+                              .map(l => { const parts = l.split('|').map(s => s.trim()); return { path: parts[0], label: parts[1]||'', format: parts[2]||'' } })
+                          }
 
 
                           await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })

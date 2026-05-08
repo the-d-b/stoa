@@ -1,26 +1,8 @@
 import { useEffect, useState } from 'react'
 import { integrationsApi, secretsApi, groupsApi, weatherApi, steamApi, Integration } from '../../api'
+import NewIntegrationForm, { INTEGRATION_TYPES } from './NewIntegrationForm'
 import SectionHelp from './SectionHelp'
 
-const INTEGRATION_TYPES = [
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader' },
-  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)' },
-  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store' },
-]
 
 export default function IntegrationsPanel() {
   const [integrations, setIntegrations] = useState<Integration[]>([])
@@ -32,68 +14,7 @@ export default function IntegrationsPanel() {
   const [integrationGroups, setIntegrationGroups] = useState<Record<string, string[]>>({})
   const [search, setSearch] = useState('')
 
-  // New form state
-  const [newName, setNewName] = useState('')
-  const [newType, setNewType] = useState('sonarr')
-  const [newApiUrl, setNewApiUrl] = useState('')
-  const [newUiUrl, setNewUiUrl] = useState('')
-  const [newSecretId, setNewSecretId] = useState('')
-  const [newSkipTls, setNewSkipTls] = useState(false)
-  const [newRefreshSecs, setNewRefreshSecs] = useState(60)
-  const [showNewSecret, setShowNewSecret] = useState(false)
-  const [newSecretNameField, setNewSecretNameField] = useState('')
-  const [newSecretValueField, setNewSecretValueField] = useState('')
-  const [savingNewSecret, setSavingNewSecret] = useState(false)
 
-  const createNewSecret = async () => {
-    if (!newSecretNameField.trim() || !newSecretValueField.trim()) return
-    setSavingNewSecret(true)
-    try {
-      const res = await secretsApi.create({ name: newSecretNameField.trim(), value: newSecretValueField.trim(), scope: 'shared' })
-      const newSec = { id: res.data.id, name: newSecretNameField.trim() }
-      setSecrets(prev => [...prev, newSec])
-      setNewSecretId(newSec.id)
-      setNewSecretNameField(''); setNewSecretValueField(''); setShowNewSecret(false)
-    } finally { setSavingNewSecret(false) }
-  }
-  const [creating, setCreating] = useState(false)
-  // Weather geocoder state
-  const [geoQuery, setGeoQuery] = useState('')
-  const [geoResults, setGeoResults] = useState<any[]>([])
-  const [geoSearching, setGeoSearching] = useState(false)
-  // Steam vanity resolver state
-  const [steamVanity, setSteamVanity] = useState('')
-  const [steamResolving, setSteamResolving] = useState(false)
-  const searchGeo = async () => {
-    if (!geoQuery.trim()) return
-    setGeoSearching(true)
-    try {
-      const r = await weatherApi.geocode(geoQuery)
-      setGeoResults(r.data || [])
-    } finally { setGeoSearching(false) }
-  }
-
-  const selectGeoResult = (r: any) => {
-    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setNewApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
-    setGeoResults([]); setGeoQuery('')
-  }
-
-  const resolveVanity = async () => {
-    if (!steamVanity.trim() || !newSecretId) return
-    setSteamResolving(true)
-    try {
-      const sec = secrets.find((s: any) => s.id === newSecretId)
-      if (!sec) { alert('Select API key first'); return }
-      const r = await steamApi.resolveVanity(steamVanity, sec.value || newSecretId)
-      setNewApiUrl(r.data.steamId)
-      setSteamVanity('')
-    } catch { alert('Could not resolve vanity URL — check API key and username') }
-    finally { setSteamResolving(false) }
-  }
-
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
-  const [testing, setTesting] = useState(false)
 
   const load = async () => {
     const [i, s, g] = await Promise.all([integrationsApi.list(), secretsApi.list(), groupsApi.list()])
@@ -117,37 +38,6 @@ export default function IntegrationsPanel() {
   }
   useEffect(() => { load() }, [])
 
-  const test = async () => {
-    if (!newApiUrl) return
-    setTesting(true); setTestResult(null)
-    try {
-      const res = await integrationsApi.test({
-        type: newType,
-        apiUrl: newApiUrl,
-        secretId: newSecretId || undefined,
-        skipTls: newSkipTls,
-      })
-      setTestResult(res.data)
-    } catch {
-      setTestResult({ ok: false, error: 'Request failed' })
-    } finally { setTesting(false) }
-  }
-
-  const create = async () => {
-    if (!newName || !newApiUrl) return
-    setCreating(true)
-    try {
-      await integrationsApi.create({
-        name: newName, type: newType,
-        apiUrl: newApiUrl, uiUrl: newUiUrl,
-        secretId: newSecretId || undefined, skipTls: newSkipTls, refreshSecs: newRefreshSecs,
-      })
-      setNewName(''); setNewApiUrl(''); setNewUiUrl('')
-      setNewSecretId(''); setNewSkipTls(false); setTestResult(null); setShowForm(false)
-      await load()
-    } finally { setCreating(false) }
-  }
-
   const remove = async (id: string, name: string) => {
     if (!confirm(`Delete integration "${name}"?`)) return
     await integrationsApi.delete(id); await load()
@@ -167,195 +57,18 @@ export default function IntegrationsPanel() {
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
           placeholder="Filter integrations..." style={{ fontSize: 13, flex: 1 }} />
         <button className="btn btn-primary" style={{ flexShrink: 0 }}
-          onClick={() => { setShowForm(f => !f); setTestResult(null) }}>+ New integration</button>
+          onClick={() => setShowForm(f => !f)}>+ New integration</button>
       </div>
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20, padding: 20 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1.5 }}>
-                <label className="label">Name</label>
-                <input className="input" value={newName} onChange={e => setNewName(e.target.value)}
-                  placeholder="e.g. My Sonarr" autoFocus />
-              </div>
-              <div style={{ flex: 0.7 }}>
-                <label className="label">Type</label>
-                <select className="input" value={newType} onChange={e => setNewType(e.target.value)}
-                  style={{ cursor: 'pointer' }}>
-                  {INTEGRATION_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="label">API key secret</label>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <select className="input" value={newSecretId} onChange={e => { setNewSecretId(e.target.value); setTestResult(null) }}
-                    style={{ cursor: 'pointer', flex: 1 }}>
-                    <option value="">— None —</option>
-                    {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                  <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
-                    onClick={() => setShowNewSecret(v => !v)}>
-                    {showNewSecret ? 'Cancel' : '+ New'}
-                  </button>
-                </div>
-                {showNewSecret && (
-                  <div style={{ marginTop: 6, padding: '10px 12px', borderRadius: 8,
-                    background: 'var(--surface2)', border: '1px solid var(--border)',
-                    display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <label className="label">Name</label>
-                        <input className="input" value={newSecretNameField}
-                          onChange={e => setNewSecretNameField(e.target.value)}
-                          placeholder="e.g. Sonarr API Key" autoFocus />
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <label className="label">Value</label>
-                        <input className="input" type="password" value={newSecretValueField}
-                          onChange={e => setNewSecretValueField(e.target.value)}
-                          placeholder="Paste key here" />
-                      </div>
-                    </div>
-                    <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
-                      disabled={savingNewSecret || !newSecretNameField || !newSecretValueField}
-                      onClick={createNewSecret}>
-                      {savingNewSecret ? <span className="spinner" /> : 'Save & select'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Weather — geocoder UI instead of raw API URL */}
-            {newType === 'weather' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label className="label">Location</label>
-                {newApiUrl && (
-                  <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
-                    📍 {newApiUrl.includes('|') ? newApiUrl.split('|').slice(2).join('|') : newApiUrl.split(',').slice(2).join(',')}
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input className="input" value={geoQuery}
-                    onChange={e => setGeoQuery(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && searchGeo()}
-                    placeholder="Search city or region..." style={{ flex: 1 }} />
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                    onClick={searchGeo} disabled={geoSearching}>
-                    {geoSearching ? '...' : 'Search'}
-                  </button>
-                </div>
-                {geoResults.length > 0 && (
-                  <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                    {geoResults.map((r, i) => (
-                      <button key={i} onClick={() => selectGeoResult(r)}
-                        style={{ display: 'block', width: '100%', textAlign: 'left',
-                          padding: '7px 12px', fontSize: 12, background: 'none',
-                          border: 'none', borderBottom: i < geoResults.length-1 ? '1px solid var(--border)' : 'none',
-                          cursor: 'pointer', color: 'var(--text)' }}>
-                        {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
-                        <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 8 }}>
-                          {r.latitude.toFixed(3)}, {r.longitude.toFixed(3)}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <label className="label" style={{ marginBottom: 0 }}>Unit:</label>
-                  <select className="input" style={{ maxWidth: 160, cursor: 'pointer' }}
-                    value={(newApiUrl.includes('|') ? newApiUrl.split('|')[3] : newApiUrl.split(',')[3]) || 'f'}
-                    onChange={e => {
-                      const parts = newApiUrl.split(',')
-                      while (parts.length < 4) parts.push('')
-                      parts[3] = e.target.value
-                      setNewApiUrl(parts.join(','))
-                    }}>
-                    <option value="f">Fahrenheit (°F)</option>
-                    <option value="c">Celsius (°C)</option>
-                  </select>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  No API key required. Data from Open-Meteo (open source, free).
-                </div>
-              </div>
-            ) : newType === 'steam' ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <label className="label">Steam ID <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(17-digit number)</span></label>
-                <input className="input" value={newApiUrl}
-                  onChange={e => setNewApiUrl(e.target.value)}
-                  placeholder="76561198000000000" />
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input className="input" value={steamVanity}
-                    onChange={e => setSteamVanity(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && resolveVanity()}
-                    placeholder="Or enter profile vanity name to resolve..." style={{ flex: 1 }} />
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                    onClick={resolveVanity} disabled={steamResolving || !newSecretId}>
-                    {steamResolving ? '...' : 'Resolve'}
-                  </button>
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-                  API key required above. Find your Steam ID at steamid.io
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1 }}>
-                  <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
-                  <input className="input" value={newApiUrl} onChange={e => { setNewApiUrl(e.target.value); setTestResult(null) }}
-                    placeholder="http://truenas.local:8989" />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-                  <input className="input" value={newUiUrl} onChange={e => setNewUiUrl(e.target.value)}
-                    placeholder="https://sonarr.yourdomain.com" />
-                </div>
-              </div>
-            )}
-
-            {/* Test result */}
-            {testResult && (
-              <div style={{
-                padding: '8px 12px', borderRadius: 7, fontSize: 12,
-                background: testResult.ok ? '#4ade8018' : '#f8717118',
-                border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
-                color: testResult.ok ? 'var(--green)' : 'var(--red)',
-              }}>
-                {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
-                {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
-                  <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
-                    ⚠ Connection works without certificate verification — enable "Skip TLS" below, or add the service's root CA to your system's trusted certificate store.
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
-                <input type="checkbox" checked={newSkipTls} onChange={e => setNewSkipTls(e.target.checked)} />
-                Skip TLS <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(self-signed certs)</span>
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
-                <input className="input" type="number" min={15} value={newRefreshSecs}
-                  onChange={e => setNewRefreshSecs(Math.max(15, Number(e.target.value)))}
-                  style={{ width: 100 }} />
-                <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
-              </div>
-              <div style={{ flex: 1 }} />
-              {!['weather','steam','rss'].includes(newType) && (
-                <button className="btn btn-secondary" onClick={test} disabled={testing || !newApiUrl}>
-                  {testing ? <span className="spinner" /> : 'Test'}
-                </button>
-              )}
-              <button className="btn btn-primary" onClick={create} disabled={creating || !newName || (['weather','steam','rss'].includes(newType) ? false : !newApiUrl)}>
-                {creating ? <span className="spinner" /> : 'Create'}
-              </button>
-              <button className="btn btn-ghost" onClick={() => { setShowForm(false); setTestResult(null) }}>Cancel</button>
-            </div>
-          </div>
+          <NewIntegrationForm
+            scope="system"
+            secrets={secrets}
+            onCreated={async () => { setShowForm(false); await load() }}
+            onCancel={() => setShowForm(false)}
+            onSecretsChanged={setSecrets}
+          />
         </div>
       )}
 
