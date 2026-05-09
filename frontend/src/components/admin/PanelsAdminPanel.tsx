@@ -1,233 +1,36 @@
 import { useEffect, useState } from 'react'
-import { panelsApi, myPanelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode, googleApi } from '../../api'
-import NewPanelForm from './NewPanelForm'
+import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
+import PanelForm, { PANEL_TYPES } from './PanelForm'
 import SectionHelp from './SectionHelp'
 
-function IfaceCapEditorWithSave({ initialCaps, onSave }: {
-  initialCaps: Record<string,number>
-  onSave: (caps: Record<string,number>) => void
-}) {
-  const [pairs, setPairs] = useState<{dev:string;cap:number}[]>(() =>
-    Object.entries(initialCaps).map(([dev, cap]) => ({ dev, cap })))
-  const [saving, setSaving] = useState(false)
-  const sync = (next: {dev:string;cap:number}[]) => setPairs(next)
-  const save = async () => {
-    setSaving(true)
-    const obj: Record<string,number> = {}
-    for (const { dev, cap } of pairs) { if (dev) obj[dev] = cap }
-    await onSave(obj)
-    setSaving(false)
+
+
+
+
+
+
+interface FlatNode {
+  node: BookmarkNode
+  depth: number
+  label: string
+}
+
+function safeParseConfig(config?: string): any {
+  try { return JSON.parse(config || '{}') } catch { return {} }
+}
+
+function flattenTree(nodes: BookmarkNode[], depth = 0, prefix = ''): FlatNode[] {
+  const result: FlatNode[] = []
+  for (const node of nodes) {
+    const label = prefix ? `${prefix} / ${node.name}` : node.name
+    result.push({ node, depth, label })
+    if (node.children?.length) {
+      result.push(...flattenTree(node.children, depth + 1, label))
+    }
   }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
-      <label className="label">Bandwidth cap per interface</label>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-        Device name (e.g. <code>wan</code>, <code>lan</code>) and cap in Mbps. Scales the arc gauges.
-      </div>
-      {pairs.map((row, idx) => (
-        <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input className="input" value={row.dev} style={{ fontSize: 12, width: 80 }}
-            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,dev:e.target.value} : r))} />
-          <input type="number" className="input" value={row.cap} style={{ fontSize: 12, width: 80 }}
-            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,cap:Number(e.target.value)} : r))} />
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Mbps</span>
-          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-            onClick={() => sync(pairs.filter((_,i) => i !== idx))}>✕</button>
-        </div>
-      ))}
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }}
-          onClick={() => sync([...pairs, { dev: '', cap: 1000 }])}>
-          + Add interface
-        </button>
-        <button className="btn btn-primary" style={{ fontSize: 12 }}
-          onClick={save} disabled={saving}>
-          {saving ? <span className="spinner" /> : 'Save caps'}
-        </button>
-      </div>
-    </div>
-  )
+  return result
 }
 
-
-
-function RSSIntegrationEditor({ panel, integrations, onSave }: {
-  panel: Panel; integrations: any[]; onSave: () => void
-}) {
-  const cfg = safeParseConfig(panel.config)
-  const [rssIntId, setRssIntId] = useState(cfg.integrationId || '')
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <label className="label">RSS Integration</label>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <select className="input" value={rssIntId}
-          onChange={e => setRssIntId(e.target.value)} style={{ flex: 1, cursor: 'pointer' }}>
-          <option value="">— Select integration —</option>
-          {integrations.map(i => (
-            <option key={i.id} value={i.id}>{i.name}</option>
-          ))}
-        </select>
-        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-          await panelsApi.update(panel.id, { title: panel.title,
-            config: JSON.stringify({ ...cfg, integrationId: rssIntId }) })
-          onSave()
-        }}>Save</button>
-      </div>
-      {integrations.length === 0 && (
-        <div style={{ fontSize: 11, color: 'var(--amber)' }}>
-          No RSS integrations found. Add one in System Integrations first.
-        </div>
-      )}
-    </div>
-  )
-}
-
-function IframeEditor({ panel, onSave }: { panel: Panel; onSave: () => void }) {
-  const cfg = safeParseConfig(panel.config)
-  const [url, setUrl] = useState(cfg.url || '')
-  const [editing, setEditing] = useState(false)
-  if (!editing) return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
-        {cfg.url || '— no URL configured —'}
-      </span>
-      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>Edit</button>
-    </div>
-  )
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label className="label">Embed URL</label>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input className="input" style={{ fontSize: 12, flex: 1 }}
-          value={url} onChange={e => setUrl(e.target.value)}
-          placeholder="https://example.com" autoFocus />
-        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-          await panelsApi.update(panel.id, { title: panel.title,
-            config: JSON.stringify({ ...cfg, url }) })
-          setEditing(false); onSave()
-        }}>Save</button>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
-      </div>
-    </div>
-  )
-}
-
-function CustomHtmlEditor({ panel, onSave }: { panel: Panel; onSave: () => void }) {
-  const cfg = safeParseConfig(panel.config)
-  const [html, setHtml] = useState(cfg.html || '')
-  const [editing, setEditing] = useState(false)
-  if (!editing) return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <span style={{ fontSize: 12, color: 'var(--text-dim)',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 300 }}>
-        {cfg.html ? `${cfg.html.slice(0, 80)}${cfg.html.length > 80 ? '…' : ''}` : '— no content configured —'}
-      </span>
-      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>Edit</button>
-    </div>
-  )
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label className="label">HTML / Text content</label>
-      <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace',
-        minHeight: 80, resize: 'vertical' }}
-        value={html} onChange={e => setHtml(e.target.value)}
-        placeholder="<div>Your custom HTML here</div>" autoFocus />
-      <div style={{ display: 'flex', gap: 6 }}>
-        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-          await panelsApi.update(panel.id, { title: panel.title,
-            config: JSON.stringify({ ...cfg, html }) })
-          setEditing(false); onSave()
-        }}>Save</button>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
-      </div>
-    </div>
-  )
-}
-
-function SearchPanelEditor({ panel, onSave }: { panel: Panel; onSave: () => void }) {
-  const cfg = safeParseConfig(panel.config)
-  const [engines, setEngines] = useState<string[]>(cfg.engines?.length ? cfg.engines : ['ddg','google'])
-  const [searxngUrl, setSearxngUrl] = useState(cfg.searxngUrl || '')
-  const [defaultEngine, setDefaultEngine] = useState(cfg.defaultEngine || 'ddg')
-  const [editing, setEditing] = useState(false)
-  const ALL = [
-    { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
-    { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
-    { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
-  ]
-  if (!editing) return (
-    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>
-      Edit engines ({engines.join(', ')})
-    </button>
-  )
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-        {ALL.map(e => {
-          const on = engines.includes(e.id)
-          return (
-            <button key={e.id} type="button"
-              onClick={() => setEngines(prev => on ? prev.filter(x => x !== e.id) : [...prev, e.id])}
-              style={{ padding: '3px 8px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
-                background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
-              {on ? '✓ ' : ''}{e.label}
-            </button>
-          )
-        })}
-      </div>
-      {engines.includes('searxng') && (
-        <input className="input" style={{ fontSize: 12 }} value={searxngUrl}
-          onChange={e => setSearxngUrl(e.target.value)} placeholder="https://search.rose.home" />
-      )}
-      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-        <label className="label" style={{ marginBottom: 0 }}>Default:</label>
-        <select className="input" style={{ fontSize: 12, maxWidth: 150 }} value={defaultEngine}
-          onChange={e => setDefaultEngine(e.target.value)}>
-          {ALL.filter(e => engines.includes(e.id)).map(e => <option key={e.id} value={e.id}>{e.label}</option>)}
-        </select>
-        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-          await panelsApi.update(panel.id, { title: panel.title,
-            config: JSON.stringify({ ...cfg, engines, defaultEngine, searxngUrl }) })
-          setEditing(false); onSave()
-        }}>Save</button>
-        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(false)}>Cancel</button>
-      </div>
-    </div>
-  )
-}
-
-function IntegrationAssignEditor({ panel, integrations, onSave }: {
-  panel: Panel; integrations: any[]; onSave: () => void
-}) {
-  const cfg = safeParseConfig(panel.config)
-  const [editingIntId, setEditingIntId] = useState(cfg.integrationId || '')
-  const [editing, setEditing] = useState(false)
-  const currentName = integrations.find((i: any) => i.id === cfg.integrationId)?.name
-  if (!editing) return (
-    <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditing(true)}>
-      {cfg.integrationId ? (currentName || 'Integration') : '⚠ Set integration'}
-    </button>
-  )
-  return (
-    <>
-      <select className="input" style={{ fontSize: 12, width: 180 }}
-        value={editingIntId} onChange={e => setEditingIntId(e.target.value)}>
-        <option value="">— Select integration —</option>
-        {integrations.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
-      </select>
-      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-        await panelsApi.update(panel.id, { title: panel.title,
-          config: JSON.stringify({ ...cfg, integrationId: editingIntId }) })
-        setEditing(false); onSave()
-      }}>Save</button>
-      <button className="btn btn-ghost" style={{ fontSize: 12 }}
-        onClick={() => setEditing(false)}>Cancel</button>
-    </>
-  )
-}
 
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
@@ -236,13 +39,10 @@ export default function PanelsAdminPanel() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
 
-  const [editingHeight, setEditingHeight] = useState<{id: string; height: number} | null>(null)
-  const [editingRatings, setEditingRatings] = useState<{ id: string; value: string } | null>(null)
+  const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [groups, setGroups] = useState<any[]>([])
   const [search, setSearch] = useState('')
-  const [editingCustomAPI, setEditingCustomAPI] = useState<{id: string; url: string; uiUrl: string; apiKey: string; mappings: string; refreshSecs: number} | null>(null)
-  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [panelGroups, setPanelGroups] = useState<Record<string,string[]>>({})
 
   const refreshBookmarkTree = async () => {
@@ -282,18 +82,7 @@ export default function PanelsAdminPanel() {
 
 
 
-  const remove = async (id: string, title: string) => {
-    if (!confirm(`Delete panel "${title}"?`)) return
-    await panelsApi.delete(id); load()
-  }
-
-  const toggleTag = async (panelId: string, tagId: string, hasTag: boolean) => {
-    if (hasTag) await panelsApi.removeTag(panelId, tagId)
-    else await panelsApi.addTag(panelId, tagId)
-    load()
-  }
-
-  if (loading) return <Loading />
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
   const flatNodes = flattenTree(bookmarkRoots)  // FlatNode[]
 
@@ -320,13 +109,16 @@ export default function PanelsAdminPanel() {
 
 
       {showForm && (
-        <NewPanelForm
-          scope="system"
-          integrations={integrations}
-          bookmarkRoots={flatNodes.map(({node, label}) => ({ id: node.id, label }))}
-          onCreated={async () => { setShowForm(false); await load() }}
-          onCancel={() => setShowForm(false)}
-        />
+        <div className="card" style={{ marginBottom: 20, padding: 20 }}>
+          <PanelForm
+            scope="system"
+            integrations={integrations}
+            tags={tags}
+            bookmarkRoots={flatNodes.map(({node, label}) => ({ id: node.id, label }))}
+            onSaved={async () => { setShowForm(false); await load() }}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
       )}
 
       <div style={{ marginBottom: 12 }}>
@@ -335,330 +127,58 @@ export default function PanelsAdminPanel() {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {panels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
-          const config = safeParseConfig(p.config)
-          const rootNode = config.rootNodeId
+          const config: any = safeParseConfig(p.config)
             ? flatNodes.find(({ node }) => node.id === config.rootNodeId)?.node
             : null
 
+          const expanded = expandedPanelId === p.id
+
           return (
-            <div key={p.id} className="card-sm" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: 14 }}>{p.title}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', marginTop: 2 }}>
-                    {rootNode ? rootNode.name : '/ (all shared)'}
-                    {' · '}
-                    {(() => { try { const h = JSON.parse(p.config||'{}').height||2; return `${h}x` } catch { return '2x' } })()}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {editingHeight?.id === p.id ? (
-                    <>
-                      <select className="input" style={{ fontSize: 12, padding: '3px 8px', cursor: 'pointer' }}
-                        value={editingHeight.height}
-                        onChange={e => setEditingHeight(eh => eh ? { ...eh, height: Number(e.target.value) } : null)}>
-                        <option value={1}>1x</option>
-                        <option value={2}>2x</option>
-                        <option value={3}>3x</option>
-                        <option value={4}>4x</option>
-                        <option value={5}>5x</option>
-                        <option value={6}>6x</option>
-                        <option value={7}>7x</option>
-                        <option value={8}>8x</option>
-                      </select>
-                      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                        const config = safeParseConfig(p.config)
-                        config.height = editingHeight.height
-                        await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(config) })
-                        setEditingHeight(null); load()
-                      }}>Save</button>
-                      <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingHeight(null)}>Cancel</button>
-                    </>
-                  ) : (
-                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                      onClick={() => {
-                        const h = (() => { try { return JSON.parse(p.config||'{}').height||2 } catch { return 2 } })()
-                        setEditingHeight({ id: p.id, height: h })
-                      }}>
-                      Resize
-                    </button>
-                  )}
-                  {p.type === 'search' && (
-                    <SearchPanelEditor panel={p} onSave={load} />
-                  )}
-                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && (
-                    <IntegrationAssignEditor
-                      panel={p}
-                      integrations={integrations.filter((i: any) => i.type === p.type)}
-                      onSave={load}
-                    />
-                  )}
-                  {['radarr','sonarr','plex'].includes(p.type) && (
-                    editingRatings?.id === p.id ? (
-                      <>
-                        <input className="input" style={{ fontSize: 12, width: 200 }}
-                          value={editingRatings.value}
-                          onChange={e => setEditingRatings(r => r ? { ...r, value: e.target.value } : null)}
-                          placeholder="e.g. G, PG, PG-13 — blank = all" />
-                        <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                          const config = safeParseConfig(p.config)
-                          if (editingRatings.value.trim()) {
-                            config.allowedRatings = editingRatings.value.trim()
-                          } else {
-                            delete config.allowedRatings
-                          }
-                          await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(config) })
-                          setEditingRatings(null); load()
-                        }}>Save</button>
-                        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditingRatings(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                        onClick={() => {
-                          const r = (() => { try { return JSON.parse(p.config||'{}').allowedRatings||'' } catch { return '' } })()
-                          setEditingRatings({ id: p.id, value: r })
-                        }}>
-                        {(() => { try { return JSON.parse(p.config||'{}').allowedRatings } catch { return null } })()
-                          ? 'Edit ratings' : 'Ratings'}
-                      </button>
-                    )
-                  )}
-
-                </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <button className="btn btn-danger" onClick={() => remove(p.id, p.title)}>Delete</button>
-                </div>
+            <div key={p.id} className="card-sm" style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {/* Collapsed header */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+                cursor: 'pointer' }}
+                onClick={() => setExpandedPanelId(expanded ? null : p.id)}>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{expanded ? '▼' : '▶'}</span>
+                <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
+                  background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                  {PANEL_TYPES.find(t => t.id === p.type)?.label ?? p.type}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{p.title}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                  {(() => { try { return `${JSON.parse(p.config||'{}').height||2}x` } catch { return '2x' } })()}
+                </span>
               </div>
 
-              {/* iframe / custom html editors — full width below the header row */}
-              {p.type === 'iframe' && (
-                <IframeEditor panel={p} onSave={load} />
-              )}
-              {p.type === 'custom' && (
-                <CustomHtmlEditor panel={p} onSave={load} />
-              )}
-
-              {/* Custom API config editor */}
-              {p.type === 'customapi' && (
-                editingCustomAPI?.id === p.id ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '8px 0', width: '100%' }}>
-                    <div>
-                      <label className="label">API URL</label>
-                      <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                        value={editingCustomAPI.url}
-                        onChange={e => setEditingCustomAPI(c => c ? { ...c, url: e.target.value } : null)}
-                        placeholder="http://host:port/api/stats" />
-                    </div>
-                    <div>
-                      <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — makes panel title a link)</span></label>
-                      <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                        value={editingCustomAPI.uiUrl}
-                        onChange={e => setEditingCustomAPI(c => c ? { ...c, uiUrl: e.target.value } : null)}
-                        placeholder="http://host:port/dashboard" />
-                    </div>
-                    <div>
-                      <label className="label">Bearer token (optional)</label>
-                      <input className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace' }}
-                        value={editingCustomAPI.apiKey}
-                        onChange={e => setEditingCustomAPI(c => c ? { ...c, apiKey: e.target.value } : null)}
-                        placeholder="Leave blank if no auth required" />
-                    </div>
-                    <div>
-                      <label className="label">Field mappings</label>
-                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                        One per line: <code>path | Label</code> &nbsp;— optionally add <code>| format</code>: integer, currency, text
-                      </div>
-                      <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
-                        value={editingCustomAPI.mappings}
-                        onChange={e => setEditingCustomAPI(c => c ? { ...c, mappings: e.target.value } : null)} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <label className="label" style={{ margin: 0 }}>Refresh (sec)</label>
-                      <input type="number" className="input" style={{ fontSize: 12, width: 80 }}
-                        value={editingCustomAPI.refreshSecs}
-                        onChange={e => setEditingCustomAPI(c => c ? { ...c, refreshSecs: Number(e.target.value) } : null)} />
-                      <button className="btn btn-secondary" style={{ fontSize: 12 }}
-                        disabled={customAPIPreview?.loading}
-                        onClick={async () => {
-                          if (!editingCustomAPI.url) return
-                          setCustomAPIPreview({ loading: true, json: '', error: '' })
-                          try {
-                            const res = await fetch('/api/customapi/preview', {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
-                              body: JSON.stringify({ url: editingCustomAPI.url, apiKey: editingCustomAPI.apiKey })
-                            })
-                            if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                            const raw = await res.json()
-                            setCustomAPIPreview({ loading: false, json: JSON.stringify(raw, null, 2), error: '' })
-                          } catch (e: any) {
-                            setCustomAPIPreview({ loading: false, json: '', error: e.message || 'Fetch failed' })
-                          }
-                        }}>
-                        {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
-                      </button>
-                      <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={async () => {
-                        const cfg = safeParseConfig(p.config)
-                        cfg.url = editingCustomAPI.url
-                        cfg.uiUrl = editingCustomAPI.uiUrl
-                        cfg.apiKey = editingCustomAPI.apiKey
-                        cfg.refreshSecs = editingCustomAPI.refreshSecs
-                        cfg.mappings = editingCustomAPI.mappings.split('\n')
-                          .map((line: string) => line.trim())
-                          .filter((line: string) => line.includes('|'))
-                          .map((line: string) => {
-                            const parts = line.split('|').map((s: string) => s.trim())
-                            return { path: parts[0], label: parts[1] || '', format: parts[2] || '' }
-                          })
-                        await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
-                        setEditingCustomAPI(null); setCustomAPIPreview(null); load()
-                      }}>Save</button>
-                      <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                        onClick={() => { setEditingCustomAPI(null); setCustomAPIPreview(null) }}>Cancel</button>
-                    </div>
-                    {customAPIPreview && !customAPIPreview.loading && (
-                      <div style={{ marginTop: 4 }}>
-                        {customAPIPreview.error
-                          ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
-                          : <>
-                              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 4 }}>
-                                Raw response — copy field paths for mappings (e.g. <code>data.temperature | Temp</code>)
-                              </div>
-                              <textarea readOnly value={customAPIPreview.json}
-                                style={{ width: '100%', minHeight: 160, fontSize: 11,
-                                  fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
-                                  border: '1px solid var(--border)', borderRadius: 6,
-                                  padding: 8, color: 'var(--text-muted)', resize: 'vertical',
-                                  boxSizing: 'border-box' }} />
-                            </>
-                        }
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => {
-                    const cfg = safeParseConfig(p.config)
-                    const mappings = (cfg.mappings || []).map((m: any) =>
-                      m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n')
-                    setCustomAPIPreview(null)
-                    setEditingCustomAPI({ id: p.id, url: cfg.url || '', uiUrl: cfg.uiUrl || '',
-                      apiKey: cfg.apiKey || '', mappings, refreshSecs: cfg.refreshSecs || 600 })
-                  }}>Configure</button>
-                )
+              {/* Expanded edit form */}
+              {expanded && (
+                <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>
+                  <PanelForm
+                    scope="system"
+                    panel={p}
+                    integrations={integrations}
+                    tags={tags}
+                    bookmarkRoots={flatNodes.map(({node, label}) => ({ id: node.id, label }))}
+                    onSaved={async () => { setExpandedPanelId(null); await load() }}
+                    onCancel={() => setExpandedPanelId(null)}
+                    onDeleted={async () => { setExpandedPanelId(null); await load() }}
+                  />
+                </div>
               )}
 
-              {/* Calendar sources - inline */}
-              {p.type === 'calendar' && (() => {
-                const calIntegrations = integrations // pass all integrations; component filters internally
-                const existingSources: any[] = (() => { try { return JSON.parse(p.config||'{}').sources || [] } catch { return [] } })()
-                return (
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Calendar sources</div>
-                    {existingSources.map((src: any, si: number) => {
-                      const ig = integrations.find((i: any) => i.id === src.integrationId)
-                      return (
-                        <div key={si} style={{
-                          display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                          background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13,
-                        }}>
-                          <span style={{ flex: 1 }}>
-                            {src.type === 'weather'
-                              ? <>🌤 {src.label || ig?.name || src.integrationId}</>
-                              : src.type === 'google'
-                                ? <>📅 {src.label || src.integrationId}</>
-                                : src.type === 'checklist'
-                                  ? <>☑ {src.label || 'Checklist'}</>
-                                  : <>{ig?.name ?? src.integrationId}
-                                      {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
-                                    </>
-                            }
-                          </span>
-                          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-                            onClick={async () => {
-                              const cfg = (() => { try { return JSON.parse(p.config||'{}') } catch { return {} } })()
-                              const newSources = existingSources.filter((_: any, idx: number) => idx !== si)
-                              await panelsApi.update(p.id, { title: p.title, config: JSON.stringify({ ...cfg, sources: newSources }) })
-                              await load()
-                            }}>Remove</button>
-                        </div>
-                      )
-                    })}
-                    <UnifiedCalendarSourceAdder
-                        panelId={p.id} panelTitle={p.title} panelConfig={p.config}
-                        integrations={calIntegrations} onAdded={load} // full list passed
-                        isSystem={true}
-                      />
-                  </div>
-                )
-              })()}
-
-              {p.type === 'rss' && (
-                <RSSIntegrationEditor
-                  panel={p}
-                  integrations={integrations.filter((i: any) => i.type === 'rss')}
-                  onSave={load}
-                />
-              )}
-
-              {p.type === 'opnsense' && (() => {
-                const cfg = safeParseConfig(p.config)
-                return (
-                  <IfaceCapEditorWithSave initialCaps={cfg.ifaceCaps || {}} onSave={async caps => {
-                    cfg.ifaceCaps = caps
-                    delete cfg.maxMbps
-                    await panelsApi.update(p.id, { title: p.title, config: JSON.stringify(cfg) })
-                    load()
-                  }} />
-                )
-              })()}
-
-              {/* Tag assignment */}
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>Tags:</span>
-                {tags.length === 0 && (
-                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No tags yet</span>
-                )}
-                {tags.map(t => {
-                  const hasTag = p.tags?.some(pt => pt.id === t.id)
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => toggleTag(p.id, t.id, !!hasTag)}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 4,
-                        padding: '2px 8px', borderRadius: 6, cursor: 'pointer',
-                        border: `1px solid ${hasTag ? t.color + '60' : 'var(--border)'}`,
-                        background: hasTag ? t.color + '18' : 'transparent',
-                        color: hasTag ? t.color : 'var(--text-dim)',
-                        fontSize: 12, fontWeight: hasTag ? 500 : 400,
-                        transition: 'all 0.15s',
-                      }}
-                    >
-                      <span style={{ width: 5, height: 5, borderRadius: '50%',
-                        background: hasTag ? t.color : 'var(--text-dim)' }} />
-                      {t.name}
-                    </button>
-                  )
-                })}
-                {p.tags?.length === 0 && (
-                  <span style={{ fontSize: 11, color: 'var(--amber)', marginLeft: 4 }}>
-                    ⚠ untagged — visible to everyone
-                  </span>
-                )}
-              </div>
-
-              {/* Inline group access */}
+              {/* Group assignment — always visible below header */}
               {groups.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>Groups:</span>
-                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 4 }}>
-                    {(panelGroups[p.id] || []).length === 0 ? '(all users)' : ''}
-                  </span>
-                  {groups.map(g => {
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+                  padding: '6px 14px', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)', marginRight: 2 }}>Groups:</span>
+                  {(panelGroups[p.id] || []).length === 0 && (
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(all users)</span>
+                  )}
+                  {groups.map((g: any) => {
                     const assigned = (panelGroups[p.id] || []).includes(g.id)
                     return (
-                      <button key={g.id} onClick={async () => {
+                      <button key={g.id} onClick={async (e) => {
+                        e.stopPropagation()
                         const current = panelGroups[p.id] || []
                         const next = assigned ? current.filter((id: string) => id !== g.id) : [...current, g.id]
                         await panelsApi.setGroups(p.id, next)
@@ -668,7 +188,6 @@ export default function PanelsAdminPanel() {
                         background: assigned ? 'var(--accent-bg)' : 'transparent',
                         color: assigned ? 'var(--accent2)' : 'var(--text-dim)',
                         border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
-                        transition: 'all 0.15s',
                       }}>{g.name}</button>
                     )
                   })}
@@ -676,166 +195,9 @@ export default function PanelsAdminPanel() {
               )}
             </div>
           )
+
         })}
-        {panels.length === 0 && <Empty message="No panels yet. Create one pointing at a bookmark node." />}
       </div>
     </div>
   )
 }
-
-interface FlatNode {
-  node: BookmarkNode
-  depth: number
-  label: string
-}
-
-function flattenTree(nodes: BookmarkNode[], result: FlatNode[] = [], depth = 0): FlatNode[] {
-  for (const n of nodes) {
-    const indent = '    '.repeat(depth)  // non-breaking spaces for indent
-    const icon = n.type === 'section' ? '▤ ' : '↗ '  // ▤ or ↗
-    result.push({ node: n, depth, label: indent + icon + n.name })
-    if (n.children && n.children.length > 0) flattenTree(n.children, result, depth + 1)
-  }
-  return result
-}
-
-function safeParseConfig(config: string): any {
-  try { return JSON.parse(config) } catch { return {} }
-}
-
-function Loading() { return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div> }
-function Empty({ message }: { message: string }) {
-  return <div style={{ color: 'var(--text-dim)', fontSize: 13, padding: '24px 0' }}>{message}</div>
-}
-
-// ── Weather source adder ─────────────────────────────────────────────────────
-function UnifiedCalendarSourceAdder({ panelId, panelTitle, panelConfig, integrations, onAdded, isSystem }: {
-  panelId: string; panelTitle: string; panelConfig: string
-  integrations: Integration[]; onAdded: () => void; isSystem?: boolean
-}) {
-  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'checklist'>('integration')
-  const [intId, setIntId] = useState('')
-  const [googleTokenId, setGoogleTokenId] = useState('')
-  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
-  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
-  const [googleTokens, setGoogleTokens] = useState<any[]>([])
-  const [adding, setAdding] = useState(false)
-  const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
-  const [checklistPanelId, setChecklistPanelId] = useState('')
-
-  useEffect(() => {
-    googleApi.getConfig().then(res => {
-      if (res.data.configured) {
-        const scope = isSystem ? 'system' : 'personal'
-        googleApi.listTokens(scope).then(r => setGoogleTokens(r.data || []))
-      }
-    })
-    // Load checklist panels — system scope only
-    panelsApi.list(undefined, 'system').then(r =>
-      setChecklistPanels((r.data || []).filter((p: any) => p.type === 'checklist'))
-    ).catch(() => {})
-  }, [isSystem])
-
-  useEffect(() => {
-    if (googleTokenId) {
-      googleApi.listCalendars(googleTokenId).then(r => {
-        setGoogleCalendars(r.data || [])
-        setGoogleCalendarId('primary')
-      })
-    }
-  }, [googleTokenId])
-
-  const add = async () => {
-    setAdding(true)
-    try {
-      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
-      let newSource: any
-      if (sourceKind === 'google') {
-        if (!googleTokenId) return
-        const tok = googleTokens.find((t: any) => t.id === googleTokenId)
-        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
-      } else if (sourceKind === 'checklist') {
-        if (!checklistPanelId) return
-        const cl = checklistPanels.find((p: any) => p.id === checklistPanelId)
-        newSource = { type: 'checklist', panelId: checklistPanelId, label: cl?.title || 'Checklist' }
-      } else {
-        if (!intId) return
-        const ig = integrations.find((i: any) => i.id === intId)
-        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14, label: ig?.name || ig?.type }
-      }
-      const sources = [...(cfg.sources || []), newSource]
-      const updater = isSystem ? panelsApi : myPanelsApi
-      await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setIntId(''); setGoogleTokenId(''); setChecklistPanelId('')
-      onAdded()
-    } finally { setAdding(false) }
-  }
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setChecklistPanelId('') }}
-          style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
-          <option value="integration">Stoa integration</option>
-          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-          {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
-        </select>
-
-        {sourceKind === 'integration' && (
-          <>
-            <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-              <option value="">— Select integration —</option>
-              {integrations.filter((i: any) => ['sonarr','radarr','readarr','lidarr','weather'].includes(i.type)).map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => add()} disabled={adding || !intId}>
-              {adding ? <span className="spinner" /> : 'Add'}
-            </button>
-          </>
-        )}
-
-        {sourceKind === 'checklist' && (
-          <>
-            <select className="input" value={checklistPanelId} onChange={e => setChecklistPanelId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-              <option value="">— Select checklist panel —</option>
-              {checklistPanels.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => add()} disabled={adding || !checklistPanelId}>
-              {adding ? <span className="spinner" /> : 'Add'}
-            </button>
-          </>
-        )}
-
-        {sourceKind === 'google' && (
-          <>
-            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-              <option value="">— Select account —</option>
-              {googleTokens.map(t => <option key={t.id} value={t.id}>{t.email}</option>)}
-            </select>
-            {googleCalendars.length > 0 && (
-              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)}
-                style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-                {googleCalendars.map((c: any) => <option key={c.id} value={c.id}>{c.summary}</option>)}
-              </select>
-            )}
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => add()} disabled={adding || !googleTokenId}>
-              {adding ? <span className="spinner" /> : 'Add'}
-            </button>
-          </>
-        )}
-
-
-      </div>
-
-
-    </div>
-  )
-}
-
-

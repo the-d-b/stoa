@@ -213,6 +213,7 @@ func googleRefreshToken(db *sql.DB, tokenID string) (string, error) {
 	body, _ := io.ReadAll(resp.Body)
 	var token googleTokenResponse
 	if err := json.Unmarshal(body, &token); err != nil || token.AccessToken == "" {
+		log.Printf("[GOOGLE] refresh token response (status %d): %s", resp.StatusCode, string(body))
 		return "", fmt.Errorf("refresh failed: %s", string(body))
 	}
 

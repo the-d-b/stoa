@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { integrationsApi, secretsApi, groupsApi, weatherApi, steamApi, Integration } from '../../api'
-import NewIntegrationForm, { INTEGRATION_TYPES } from './NewIntegrationForm'
+import { integrationsApi, secretsApi, groupsApi, Integration } from '../../api'
+import IntegrationForm, { INTEGRATION_TYPES } from './IntegrationForm'
 import SectionHelp from './SectionHelp'
 
 
@@ -62,10 +62,10 @@ export default function IntegrationsPanel() {
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20, padding: 20 }}>
-          <NewIntegrationForm
+          <IntegrationForm
             scope="system"
             secrets={secrets}
-            onCreated={async () => { setShowForm(false); await load() }}
+            onSaved={async () => { setShowForm(false); await load() }}
             onCancel={() => setShowForm(false)}
             onSecretsChanged={setSecrets}
           />
@@ -82,32 +82,9 @@ export default function IntegrationsPanel() {
               setIntegrationGroups(prev => ({ ...prev, [ig.id]: groupIds }))
             }}
             expanded={expandedId === ig.id}
-            onExpand={async () => {
-              const next = expandedId === ig.id ? null : ig.id
-              setExpandedId(next)
-              if (next && integrationGroups[next] === undefined) {
-                try {
-                  const res = await integrationsApi.getGroups(next)
-                  setIntegrationGroups(prev => ({ ...prev, [next]: res.data || [] }))
-                } catch {
-                  setIntegrationGroups(prev => ({ ...prev, [next]: [] }))
-                }
-              }
-            }}
-            onExpandAndEdit={async () => {
-              setExpandedId(ig.id)
-              if (integrationGroups[ig.id] === undefined) {
-                try {
-                  const res = await integrationsApi.getGroups(ig.id)
-                  setIntegrationGroups(prev => ({ ...prev, [ig.id]: res.data || [] }))
-                } catch {
-                  setIntegrationGroups(prev => ({ ...prev, [ig.id]: [] }))
-                }
-              }
-            }}
-
+            onExpand={() => setExpandedId(expandedId === ig.id ? null : ig.id)}
             onDelete={() => remove(ig.id, ig.name)}
-            onUpdate={async (data) => { await integrationsApi.update(ig.id, data); await load() }}
+            onUpdate={load}
           />
         ))}
         {integrations.length === 0 && !showForm && (
@@ -120,104 +97,34 @@ export default function IntegrationsPanel() {
   )
 }
 
-function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGroupsChange, expanded, onExpand, onExpandAndEdit, onDelete, onUpdate }: {
+function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGroupsChange,
+  expanded, onExpand, onDelete, onUpdate }: {
   integration: Integration; secrets: any[]
   groups: any[]; assignedGroups: string[]
   onGroupsChange: (groupIds: string[]) => void
   expanded: boolean; onExpand: () => void
-  onExpandAndEdit: () => void
-  onDelete: () => void; onUpdate: (data: any) => void
+  onDelete: () => void; onUpdate: () => void
 }) {
   const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(ig.name)
-  const [apiUrl, setApiUrl] = useState(ig.apiUrl)
-  // Geo/vanity state for weather and steam edit forms
-  const [rowGeoQuery, setRowGeoQuery] = useState('')
-  const [rowGeoResults, setRowGeoResults] = useState<any[]>([])
-  const [rowGeoSearching, setRowGeoSearching] = useState(false)
-  const [rowSteamVanity, setRowSteamVanity] = useState('')
-  const [rowSteamResolving, setRowSteamResolving] = useState(false)
-
-  const rowSearchGeo = async () => {
-    if (!rowGeoQuery.trim()) return
-    setRowGeoSearching(true)
-    try { const r = await weatherApi.geocode(rowGeoQuery); setRowGeoResults(r.data || []) }
-    finally { setRowGeoSearching(false) }
-  }
-  const rowSelectGeo = (r: any) => {
-    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
-    setRowGeoResults([]); setRowGeoQuery('')
-  }
-  const rowResolveVanity = async () => {
-    if (!rowSteamVanity.trim() || !secretId) return
-    setRowSteamResolving(true)
-    try {
-      const sec = secrets.find(s => s.id === secretId)
-      if (!sec) return
-      const r = await steamApi.resolveVanity(rowSteamVanity, sec.value || secretId)
-      setApiUrl(r.data.steamId); setRowSteamVanity('')
-    } catch { alert('Could not resolve vanity URL') }
-    finally { setRowSteamResolving(false) }
-  }
-  const [uiUrl, setUiUrl] = useState(ig.uiUrl)
-  const [secretId, setSecretId] = useState(ig.secretId || '')
-  const [showAddSecret, setShowAddSecret] = useState(false)
-  const [newSecretName, setNewSecretName] = useState('')
-  const [newSecretValue, setNewSecretValue] = useState('')
-  const [savingSecret, setSavingSecret] = useState(false)
-
-  const createSecret = async () => {
-    if (!newSecretName.trim() || !newSecretValue.trim()) return
-    setSavingSecret(true)
-    try {
-      const res = await secretsApi.create({ name: newSecretName.trim(), value: newSecretValue.trim(), scope: 'shared' })
-      const newSec = { id: res.data.id, name: newSecretName.trim() }
-      setSecretId(newSec.id)
-      onUpdate({}) // trigger parent reload to refresh secrets list
-      setNewSecretName(''); setNewSecretValue(''); setShowAddSecret(false)
-    } finally { setSavingSecret(false) }
-  }
-  const [skipTls, setSkipTls] = useState(ig.skipTls || false)
-  const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
-  const [testResult, setTestResult] = useState<{ ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean } | null>(null)
-  const [testing, setTesting] = useState(false)
-
-  useEffect(() => {
-    setName(ig.name); setApiUrl(ig.apiUrl)
-    setUiUrl(ig.uiUrl); setSecretId(ig.secretId || '')
-    setSkipTls(ig.skipTls || false)
-    setRefreshSecs(ig.refreshSecs || 60)
-    setTestResult(null)
-  }, [ig])
-
   const typeDef = INTEGRATION_TYPES.find(t => t.id === ig.type)
-
-  const test = async () => {
-    setTesting(true); setTestResult(null)
-    try {
-      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined, skipTls })
-      setTestResult(res.data)
-    } catch { setTestResult({ ok: false, error: 'Request failed' }) }
-    finally { setTesting(false) }
-  }
 
   return (
     <div style={{
       background: 'var(--surface)', border: `1px solid ${expanded ? 'var(--border2)' : 'var(--border)'}`,
       borderRadius: 10, overflow: 'hidden',
     }}>
+      {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer' }}
-        onClick={onExpand}>
+        onClick={() => { onExpand(); if (!expanded) setEditing(false) }}>
         <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'DM Mono, monospace' }}>
           {expanded ? '▼' : '▶'}
         </span>
         <div style={{ flex: 1 }}>
           <span style={{ fontSize: 13, fontWeight: 500 }}>{ig.name}</span>
-          <span style={{
-            marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 4,
-            background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)',
-          }}>{typeDef?.label ?? ig.type}</span>
+          <span style={{ marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 4,
+            background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+            {typeDef?.label ?? ig.type}
+          </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
           <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{ig.apiUrl}</span>
@@ -228,192 +135,57 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
         </div>
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
           <button className="btn btn-ghost" style={{ fontSize: 12 }}
-            onClick={() => {
-                      if (!expanded) { onExpandAndEdit(); setEditing(true) }
-                      else setEditing(e => !e)
-                    }}>Edit</button>
+            onClick={() => { if (!expanded) onExpand(); setEditing(e => !e) }}>
+            {editing ? 'View' : 'Edit'}
+          </button>
           <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
             onClick={onDelete}>Delete</button>
         </div>
       </div>
 
+      {/* Expanded content */}
       {expanded && (
         <div style={{ borderTop: '1px solid var(--border)', padding: 16 }}>
           {editing ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <div style={{ flex: 1.5 }}>
-                  <label className="label">Name</label>
-                  <input className="input" value={name} onChange={e => setName(e.target.value)} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <label className="label">API key secret</label>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <select className="input" value={secretId}
-                      onChange={e => { setSecretId(e.target.value); setTestResult(null) }}
-                      style={{ cursor: 'pointer', flex: 1 }}>
-                      <option value="">— None —</option>
-                      {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                    <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }}
-                      onClick={() => setShowAddSecret(v => !v)}>
-                      {showAddSecret ? 'Cancel' : '+ New'}
-                    </button>
+            <IntegrationForm
+              scope="system"
+              integration={ig}
+              secrets={secrets}
+              onSaved={() => { setEditing(false); onUpdate() }}
+              onCancel={() => setEditing(false)}
+              onSecretsChanged={() => {}}
+            >
+              {/* Group access slot */}
+              {groups.length > 0 && (
+                <div style={{ paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                  <div className="section-title" style={{ marginBottom: 8 }}>
+                    Group access
+                    <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>
+                      (no groups = visible to all users)
+                    </span>
                   </div>
-                  {showAddSecret && (
-                    <div style={{ marginTop: 6, padding: '10px 12px', borderRadius: 8,
-                      background: 'var(--surface2)', border: '1px solid var(--border)',
-                      display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                          <label className="label">Name</label>
-                          <input className="input" value={newSecretName}
-                            onChange={e => setNewSecretName(e.target.value)}
-                            placeholder="e.g. Sonarr API Key" autoFocus />
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <label className="label">Value</label>
-                          <input className="input" type="password" value={newSecretValue}
-                            onChange={e => setNewSecretValue(e.target.value)}
-                            placeholder="Paste key here" />
-                        </div>
-                      </div>
-                      <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
-                        disabled={savingSecret || !newSecretName || !newSecretValue}
-                        onClick={createSecret}>
-                        {savingSecret ? <span className="spinner" /> : 'Save & select'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {ig.type === 'weather' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label className="label">Location</label>
-                  {apiUrl && (
-                    <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
-                      📍 {apiUrl.includes('|') ? apiUrl.split('|').slice(2).join('|') : apiUrl.split(',').slice(2).join(',')}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input className="input" value={rowGeoQuery}
-                      onChange={e => setRowGeoQuery(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && rowSearchGeo()}
-                      placeholder="Search city to change location..." style={{ flex: 1 }} />
-                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                      onClick={rowSearchGeo} disabled={rowGeoSearching}>
-                      {rowGeoSearching ? '...' : 'Search'}
-                    </button>
-                  </div>
-                  {rowGeoResults.length > 0 && (
-                    <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
-                      {rowGeoResults.map((r, i) => (
-                        <button key={i} onClick={() => rowSelectGeo(r)}
-                          style={{ display: 'block', width: '100%', textAlign: 'left',
-                            padding: '7px 12px', fontSize: 12, background: 'none',
-                            border: 'none', borderBottom: i < rowGeoResults.length-1 ? '1px solid var(--border)' : 'none',
-                            cursor: 'pointer', color: 'var(--text)' }}>
-                          {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
-                          <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 8 }}>
-                            {r.latitude.toFixed(3)}, {r.longitude.toFixed(3)}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <label className="label" style={{ marginBottom: 0 }}>Unit:</label>
-                    <select className="input" style={{ maxWidth: 160, cursor: 'pointer' }}
-                      value={(apiUrl.includes('|') ? apiUrl.split('|')[3] : apiUrl.split(',')[3]) || 'f'}
-                      onChange={e => {
-                        const parts = apiUrl.split('|')
-                        while (parts.length < 4) parts.push('')
-                        parts[3] = e.target.value
-                        setApiUrl(parts.join('|'))
-                      }}>
-                      <option value="f">Fahrenheit (°F)</option>
-                      <option value="c">Celsius (°C)</option>
-                    </select>
-                  </div>
-                </div>
-              ) : ig.type === 'steam' ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <label className="label">Steam ID</label>
-                  <input className="input" value={apiUrl}
-                    onChange={e => setApiUrl(e.target.value)}
-                    placeholder="76561198000000000" />
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <input className="input" value={rowSteamVanity}
-                      onChange={e => setRowSteamVanity(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && rowResolveVanity()}
-                      placeholder="Or enter profile vanity name to resolve..." style={{ flex: 1 }} />
-                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                      onClick={rowResolveVanity} disabled={rowSteamResolving}>
-                      {rowSteamResolving ? '...' : 'Resolve'}
-                    </button>
-                  </div>
-                </div>
-              ) : ig.type === 'rss' ? (
-                <div>
-                  <label className="label">Feed URL</label>
-                  <input className="input" value={apiUrl}
-                    onChange={e => setApiUrl(e.target.value)}
-                    placeholder="https://example.com/feed.xml" />
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <div style={{ flex: 1 }}>
-                    <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
-                    <input className="input" value={apiUrl}
-                      onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-                    <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {groups.map(g => {
+                      const assigned = assignedGroups.includes(g.id)
+                      return (
+                        <button key={g.id} onClick={() => {
+                          const next = assigned
+                            ? assignedGroups.filter(id => id !== g.id)
+                            : [...assignedGroups, g.id]
+                          onGroupsChange(next)
+                        }} style={{
+                          padding: '3px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
+                          background: assigned ? 'var(--accent-bg)' : 'var(--surface)',
+                          color: assigned ? 'var(--accent2)' : 'var(--text-muted)',
+                          border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
+                          transition: 'all 0.15s',
+                        }}>{g.name}</button>
+                      )
+                    })}
                   </div>
                 </div>
               )}
-              {testResult && (
-                <div style={{
-                  padding: '8px 12px', borderRadius: 7, fontSize: 12,
-                  background: testResult.ok ? '#4ade8018' : '#f8717118',
-                  border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
-                  color: testResult.ok ? 'var(--green)' : 'var(--red)',
-                }}>
-                  {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
-                {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
-                  <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
-                    ⚠ Connection works without certificate verification — enable "Skip TLS" below, or add the service's root CA to your system's trusted certificate store.
-                  </div>
-                )}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
-                  <input type="checkbox" checked={skipTls} onChange={e => setSkipTls(e.target.checked)} />
-                  Skip TLS <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(self-signed certs)</span>
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
-                  <input className="input" type="number" min={15} value={refreshSecs}
-                    onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
-                    style={{ width: 100 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
-                </div>
-                <div style={{ flex: 1 }} />
-                {!['weather','steam','rss'].includes(ig.type) && (
-                  <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
-                    {testing ? <span className="spinner" /> : 'Test'}
-                  </button>
-                )}
-                <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => {
-                  onUpdate({ name, apiUrl, uiUrl, secretId: secretId || '', skipTls, refreshSecs })
-                  setEditing(false)
-                }}>Save</button>
-                <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                  onClick={() => { setEditing(false); setTestResult(null) }}>Cancel</button>
-              </div>
-            </div>
+            </IntegrationForm>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
@@ -426,44 +198,11 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>API Key</div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  {ig.secretId ? '••••••••' : 'None'}
-                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ig.secretId ? '••••••••' : 'None'}</div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>Type</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{typeDef?.desc ?? ig.type}</div>
-              </div>
-            </div>
-          )}
-
-          {/* Group access */}
-          {groups.length > 0 && (
-            <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-              <div className="section-title" style={{ marginBottom: 8 }}>
-                Group access
-                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>
-                  (no groups = visible to all users)
-                </span>
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {groups.map(g => {
-                  const assigned = assignedGroups.includes(g.id)
-                  return (
-                    <button key={g.id} onClick={() => {
-                      const next = assigned
-                        ? assignedGroups.filter(id => id !== g.id)
-                        : [...assignedGroups, g.id]
-                      onGroupsChange(next)
-                    }} style={{
-                      padding: '3px 10px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-                      background: assigned ? 'var(--accent-bg)' : 'var(--surface)',
-                      color: assigned ? 'var(--accent2)' : 'var(--text-muted)',
-                      border: `1px solid ${assigned ? '#7c6fff30' : 'var(--border)'}`,
-                      transition: 'all 0.15s',
-                    }}>{g.name}</button>
-                  )
-                })}
               </div>
             </div>
           )}

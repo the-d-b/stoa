@@ -8,8 +8,8 @@ import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
-import NewPanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/NewPanelForm'
-import NewIntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/NewIntegrationForm'
+import PanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/PanelForm'
+import IntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/IntegrationForm'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
 
@@ -1372,61 +1372,6 @@ const ZONES = [
   { id: 'footer-right',   label: 'Footer right' },
 ]
 
-function SearchPanelConfig({ cfg, onCfgChange }: { cfg: any; onCfgChange: (c: any) => void }) {
-  const [engines, setEngines] = useState<string[]>(cfg.engines?.length ? cfg.engines : ['ddg','google'])
-  const [searxngUrl, setSearxngUrl] = useState(cfg.searxngUrl || '')
-  const [defaultEngine, setDefaultEngine] = useState(cfg.defaultEngine || 'ddg')
-  const ALL = [
-    { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
-    { id: 'bing', label: 'Bing' }, { id: 'brave', label: 'Brave' },
-    { id: 'yahoo', label: 'Yahoo' }, { id: 'searxng', label: 'SearXNG' },
-  ]
-  const notify = (e: string[], d: string, s: string) =>
-    onCfgChange({ ...cfg, engines: e, defaultEngine: d, searxngUrl: s })
-  const toggle = (id: string) => {
-    const next = engines.includes(id) ? engines.filter(x => x !== id) : [...engines, id]
-    setEngines(next); notify(next, defaultEngine, searxngUrl)
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      <div>
-        <label className="label">Search engines</label>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-          {ALL.map(e => {
-            const on = engines.includes(e.id)
-            return (
-              <button key={e.id} type="button" onClick={() => toggle(e.id)}
-                style={{ padding: '4px 10px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
-                  background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                  border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                  color: on ? 'var(--accent2)' : 'var(--text)', fontWeight: on ? 600 : 400 }}>
-                {on ? '✓ ' : ''}{e.label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      {engines.includes('searxng') && (
-        <div>
-          <label className="label">SearXNG URL</label>
-          <input className="input" value={searxngUrl}
-            onChange={e => { setSearxngUrl(e.target.value); notify(engines, defaultEngine, e.target.value) }}
-            placeholder="https://search.rose.home" />
-        </div>
-      )}
-      <div>
-        <label className="label">Default engine</label>
-        <select className="input" value={defaultEngine}
-          onChange={e => { setDefaultEngine(e.target.value); notify(engines, e.target.value, searxngUrl) }}
-          style={{ cursor: 'pointer', maxWidth: 200 }}>
-          {ALL.filter(e => engines.includes(e.id)).map(e => (
-            <option key={e.id} value={e.id}>{e.label}</option>
-          ))}
-        </select>
-      </div>
-    </div>
-  )
-}
 
 const SEARCH_ENGINES = [
   { id: 'ddg',     label: 'DuckDuckGo' },
@@ -2762,10 +2707,10 @@ function PersonalIntegrationsTab() {
       </div>
       {showForm && (
         <div className="card" style={{ marginBottom: 16, padding: 16 }}>
-          <NewIntegrationForm
+          <IntegrationForm
             scope="personal"
             secrets={secrets}
-            onCreated={async () => { setShowForm(false); await load() }}
+            onSaved={async () => { setShowForm(false); await load() }}
             onCancel={() => setShowForm(false)}
             onSecretsChanged={setSecrets}
           />
@@ -2790,19 +2735,17 @@ function PersonalIntegrationsTab() {
               <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={() => remove(ig.id, ig.name)}>Delete</button>
             </div>
             {editId === ig.id && (
-              <PersonalIntegrationEdit ig={ig} secrets={secrets}
-                onSave={async (data) => {
-                  // Personal integrations (createdBy !== 'SYSTEM') use the /my/ route
-                  // so non-admin users can save without hitting the admin-only route
-                  if (ig.createdBy && ig.createdBy !== 'SYSTEM') {
-                    await myIntegrationsApi.update(ig.id, data)
-                  } else {
-                    await integrationsApi.update(ig.id, data)
-                  }
-                  setEditId(null); await load()
-                }}
-                onCancel={() => setEditId(null)}
-              />
+              <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
+                <IntegrationForm
+                  scope="personal"
+                  integration={ig}
+                  secrets={secrets}
+                  onSaved={async () => { setEditId(null); await load() }}
+                  onCancel={() => setEditId(null)}
+                  onDeleted={async () => { setEditId(null); await load() }}
+                  onSecretsChanged={setSecrets}
+                />
+              </div>
             )}
           </div>
         ))}
@@ -2816,94 +2759,6 @@ function PersonalIntegrationsTab() {
   )
 }
 
-function PersonalIntegrationEdit({ ig, secrets, onSave, onCancel }: {
-  ig: Integration; secrets: any[]
-  onSave: (data: any) => void; onCancel: () => void
-}) {
-  const [name, setName] = useState(ig.name)
-  const [apiUrl, setApiUrl] = useState(ig.apiUrl)
-  const [uiUrl, setUiUrl] = useState(ig.uiUrl)
-  const [secretId, setSecretId] = useState(ig.secretId || '')
-  const [skipTls, setSkipTls] = useState(ig.skipTls || false)
-  const [refreshSecs, setRefreshSecs] = useState(ig.refreshSecs || 60)
-  const [testResult, setTestResult] = useState<{ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean} | null>(null)
-  const [testing, setTesting] = useState(false)
-
-  const test = async () => {
-    setTesting(true); setTestResult(null)
-    try {
-      const res = await integrationsApi.test({ type: ig.type, apiUrl, secretId: secretId || undefined, skipTls })
-      setTestResult(res.data)
-    } catch { setTestResult({ ok: false, error: 'Request failed' }) }
-    finally { setTesting(false) }
-  }
-
-  return (
-    <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ flex: 1.5 }}>
-            <label className="label">Name</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label className="label">API key secret</label>
-            <select className="input" value={secretId} onChange={e => { setSecretId(e.target.value); setTestResult(null) }} style={{ cursor: 'pointer' }}>
-              <option value="">— None —</option>
-              {secrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          <div style={{ flex: 1 }}>
-            <label className="label">API URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(backend)</span></label>
-            <input className="input" value={apiUrl} onChange={e => { setApiUrl(e.target.value); setTestResult(null) }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label className="label">UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(browser, optional)</span></label>
-            <input className="input" value={uiUrl} onChange={e => setUiUrl(e.target.value)} />
-          </div>
-        </div>
-        {testResult && (
-          <div style={{
-            padding: '7px 12px', borderRadius: 7, fontSize: 12,
-            background: testResult.ok ? '#4ade8018' : '#f8717118',
-            border: `1px solid ${testResult.ok ? '#4ade8040' : '#f8717140'}`,
-            color: testResult.ok ? 'var(--green)' : 'var(--red)',
-          }}>
-            {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
-            {!testResult.ok && testResult.tlsError && testResult.skipTlsWorks && (
-              <div style={{ marginTop: 4, color: 'var(--amber)', fontSize: 11 }}>
-                ⚠ Connection works without certificate verification — enable "Skip TLS" below.
-              </div>
-            )}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
-            <input type="checkbox" checked={skipTls} onChange={e => { setSkipTls(e.target.checked); setTestResult(null) }} />
-            Skip TLS <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>(self-signed certs)</span>
-          </label>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>Refresh every</label>
-            <input className="input" type="number" min={15} value={refreshSecs}
-              onChange={e => setRefreshSecs(Math.max(15, Number(e.target.value)))}
-              style={{ width: 100 }} />
-            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
-          </div>
-          <div style={{ flex: 1 }} />
-          {!['weather','steam','rss'].includes(ig.type) && (
-            <button className="btn btn-secondary" style={{ fontSize: 12 }} onClick={test} disabled={testing}>
-              {testing ? <span className="spinner" /> : 'Test'}
-            </button>
-          )}
-          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => onSave({ name, apiUrl, uiUrl, secretId, skipTls, refreshSecs })}>Save</button>
-          <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={onCancel}>Cancel</button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ── Personal Tags ─────────────────────────────────────────────────────────────
 
@@ -3170,48 +3025,11 @@ function PersonalTagsTab() {
 const PANEL_TYPES = SHARED_PANEL_TYPES
 
 
-function IfaceCapEditor({ initialCaps, onChange }: {
-  initialCaps: Record<string,number>
-  onChange: (caps: Record<string,number>) => void
-}) {
-  const [pairs, setPairs] = useState<{dev:string;cap:number}[]>(() =>
-    Object.entries(initialCaps).map(([dev, cap]) => ({ dev, cap })))
-  const sync = (next: {dev:string;cap:number}[]) => {
-    setPairs(next)
-    const obj: Record<string,number> = {}
-    for (const { dev, cap } of next) { if (dev) obj[dev] = cap }
-    onChange(obj)
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label className="label">Bandwidth cap per interface</label>
-      <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-        Device name (e.g. <code>wan</code>, <code>lan</code>) and cap in Mbps. Scales the arc gauges.
-      </div>
-      {pairs.map((row, idx) => (
-        <div key={idx} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input className="input" value={row.dev} style={{ fontSize: 12, width: 80 }}
-            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,dev:e.target.value} : r))} />
-          <input type="number" className="input" value={row.cap} style={{ fontSize: 12, width: 80 }}
-            onChange={e => sync(pairs.map((r,i) => i===idx ? {...r,cap:Number(e.target.value)} : r))} />
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Mbps</span>
-          <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-            onClick={() => sync(pairs.filter((_,i) => i !== idx))}>✕</button>
-        </div>
-      ))}
-      <button className="btn btn-ghost" style={{ fontSize: 12 }}
-        onClick={() => sync([...pairs, { dev: '', cap: 1000 }])}>
-        + Add interface
-      </button>
-    </div>
-  )
-}
 
 function MyPanelsTab() {
   const userMode = useUserMode()
   const [systemPanels, setSystemPanels] = useState<Panel[]>([])
   const [myPanels, setMyPanels] = useState<Panel[]>([])
-  const [customAPIPreview, setCustomAPIPreview] = useState<{loading: boolean; json: string; error: string} | null>(null)
   const [integrations, setIntegrations] = useState<Integration[]>([])
   const [loading, setLoading] = useState(true)
   const [systemCollapsed, setSystemCollapsed] = useState(true)
@@ -3220,17 +3038,6 @@ function MyPanelsTab() {
   const [showForm, setShowForm] = useState(false)
   const [expandedPanelId, setExpandedPanelId] = useState<string | null>(null)
   const [myTags, setMyTags] = useState<Tag[]>([])
-  const [editTitle, setEditTitle] = useState('')
-  const [editHeight, setEditHeight] = useState(2)
-  const [savingPanel, setSavingPanel] = useState(false)
-  const [editUrl, setEditUrl] = useState('')
-  const [editHtml, setEditHtml] = useState('')
-  const [editIntegrationId, setEditIntegrationId] = useState('')
-  const [editApiUrl, setEditApiUrl] = useState('')
-  const [editUiUrl, setEditUiUrl] = useState('')
-  const [editApiKey, setEditApiKey] = useState('')
-  const [editMappings, setEditMappings] = useState('')
-  const [editRefreshSecs, setEditRefreshSecs] = useState(600)
 
   const load = async () => {
     const [system, mine, allI, t] = await Promise.all([
@@ -3247,11 +3054,6 @@ function MyPanelsTab() {
   }
   useEffect(() => { load() }, [])
 
-  const remove = async (id: string, title: string) => {
-    if (!confirm(`Delete panel "${title}"?`)) return
-    await myPanelsApi.delete(id); await load()
-  }
-
   if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
 
   return (
@@ -3264,12 +3066,15 @@ function MyPanelsTab() {
         by your admin) are shown here for reference but can't be edited from this screen.
       </SectionHelp>
       {showForm && (
-        <NewPanelForm
-          scope="personal"
-          integrations={integrations}
-          onCreated={async () => { setShowForm(false); await load() }}
-          onCancel={() => setShowForm(false)}
-        />
+        <div className="card" style={{ marginBottom: 16, padding: 16 }}>
+          <PanelForm
+            scope="personal"
+            integrations={integrations}
+            tags={myTags}
+            onSaved={async () => { setShowForm(false); await load() }}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
       )}
       <div style={{ marginBottom: 16 }}>
         <input className="input" value={search} onChange={e => setSearch(e.target.value)}
@@ -3341,22 +3146,7 @@ function MyPanelsTab() {
             }}>
               {/* Row header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', cursor: 'pointer' }}
-                onClick={() => {
-                  if (!expanded) {
-                    setEditTitle(p.title)
-                    setEditHeight(cfg.height ?? 2)
-                    setEditUrl(cfg.url || '')
-                    setEditHtml(cfg.html || '')
-                    setEditIntegrationId(cfg.integrationId || '')
-                    setEditApiUrl(cfg.url || '')
-                    setEditUiUrl(cfg.uiUrl || '')
-                    setEditApiKey(cfg.apiKey || '')
-                    setEditMappings((cfg.mappings || []).map((m: any) =>
-                      m.format ? `${m.path} | ${m.label} | ${m.format}` : `${m.path} | ${m.label}`).join('\n'))
-                    setEditRefreshSecs(cfg.refreshSecs || 600)
-                  }
-                  setExpandedPanelId(expanded ? null : p.id)
-                }}>
+                onClick={() => setExpandedPanelId(expanded ? null : p.id)}>
                 <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{expanded ? '▼' : '▶'}</span>
                 <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4,
                   background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
@@ -3366,266 +3156,59 @@ function MyPanelsTab() {
                 <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
                   {cfg.height ?? 2}x
                 </span>
-                <div onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: 6 }}>
 
-                  <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
-                    onClick={() => remove(p.id, p.title)}>Delete</button>
-                </div>
               </div>
 
-              {/* Expanded edit area */}
               {expanded && (
-                <div style={{ borderTop: '1px solid var(--border)', padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {/* Rename + resize */}
-                  <div style={{ display: 'flex', gap: 10 }}>
-                    <div style={{ flex: 1 }}>
-                      <label className="label">Title</label>
-                      <input className="input" value={editTitle} onChange={e => setEditTitle(e.target.value)}
-                        style={{ fontSize: 13 }} />
-                    </div>
-                    <div style={{ flex: 0.4 }}>
-                      <label className="label">Height</label>
-                      <select className="input" value={editHeight}
-                        onChange={e => setEditHeight(Number(e.target.value))}
-                        style={{ cursor: 'pointer' }}>
-                        <option value={1}>1x</option>
-                        <option value={2}>2x</option>
-                        <option value={3}>3x</option>
-                        <option value={4}>4x</option>
-                        <option value={5}>5x</option>
-                        <option value={6}>6x</option>
-                        <option value={7}>7x</option>
-                        <option value={8}>8x</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Configure for iframe/custom */}
-                  {p.type === 'iframe' && (
-                    <div>
-                      <label className="label">Embed URL</label>
-                      <input className="input" style={{ fontSize: 13 }}
-                        value={editUrl} onChange={e => setEditUrl(e.target.value)}
-                        placeholder="https://example.com" />
-                    </div>
-                  )}
-                  {p.type === 'custom' && (
-                    <div>
-                      <label className="label">HTML content</label>
-                      <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 80, resize: 'vertical' }}
-                        value={editHtml} onChange={e => setEditHtml(e.target.value)}
-                        placeholder="<div>Your custom HTML here</div>" />
-                    </div>
-                  )}
-                  {/* Integration picker for sonarr/radarr/etc */}
-                  {['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type) && p.type !== 'search' && (
-                    <div>
-                      <label className="label">Integration</label>
-                      <select className="input" style={{ cursor: 'pointer' }}
-                        value={editIntegrationId}
-                        onChange={e => setEditIntegrationId(e.target.value)}>
-                        <option value="">— Select integration —</option>
-                        {integrations.filter(i => i.type === p.type).map(i => (
-                          <option key={i.id} value={i.id}>{i.name}</option>
-                        ))}
-                      </select>
-                      {integrations.filter(i => i.type === p.type).length === 0 && (
-                        <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
-                          No {p.type} integrations found. Add one in My Integrations first.
+                <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>
+                  <PanelForm
+                    scope="personal"
+                    panel={p}
+                    integrations={integrations}
+                    tags={myTags}
+                    onSaved={async () => { setExpandedPanelId(null); await load() }}
+                    onCancel={() => setExpandedPanelId(null)}
+                    onDeleted={async () => { setExpandedPanelId(null); await load() }}
+                  >
+                    {p.type === 'calendar' && (() => {
+                      const existingSources: any[] = (() => { try { return JSON.parse(p.config || '{}').sources || [] } catch { return [] } })()
+                      return (
+                        <div>
+                          <label className="label">Calendar sources</label>
+                          {existingSources.map((src: any, si: number) => {
+                            const ig = integrations.find((i: any) => i.id === src.integrationId)
+                            return (
+                              <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                                padding: '6px 10px', background: 'var(--surface2)', borderRadius: 7,
+                                marginBottom: 6, fontSize: 13 }}>
+                                <span style={{ flex: 1 }}>
+                                  {src.type === 'weather' ? <span>🌤 {src.label || ig?.name || 'Weather'}</span>
+                                    : src.type === 'google' ? (src.label || src.integrationId)
+                                    : src.type === 'checklist' ? <>☑ {src.label || 'Checklist'}</>
+                                    : (ig?.name ?? src.integrationId)}
+                                </span>
+                                <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
+                                  onClick={async () => {
+                                    const newSources = existingSources.filter((_: any, idx: number) => idx !== si)
+                                    const c = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
+                                    const isSystem = !p.createdBy || p.createdBy === 'SYSTEM'
+                                    if (isSystem) await panelsApi.update(p.id, { title: p.title, config: JSON.stringify({ ...c, sources: newSources }) })
+                                    else await myPanelsApi.update(p.id, { title: p.title, config: JSON.stringify({ ...c, sources: newSources }) })
+                                    await load()
+                                  }}>Remove</button>
+                              </div>
+                            )
+                          })}
+                          <UnifiedPersonalCalendarSourceAdder
+                            panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                            isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
+                            integrations={integrations}
+                            onAdded={load}
+                          />
                         </div>
-                      )}
-                    </div>
-                  )}
-
-                  {p.type === 'search' && (() => {
-                    const sCfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-                    return <SearchPanelConfig cfg={sCfg} onCfgChange={newCfg => {
-                      Object.assign(sCfg, newCfg)
-                    }} />
-                  })()}
-
-                  {['radarr','sonarr','plex'].includes(p.type) && (() => {
-                    const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-                    return (
-                      <div>
-                        <label className="label">Allowed ratings <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional, comma separated)</span></label>
-                        <input className="input" style={{ fontSize: 12 }}
-                          defaultValue={cfg.allowedRatings || ''}
-                          onChange={e => { cfg.allowedRatings = e.target.value }}
-                          placeholder="e.g. G, PG, PG-13 — blank = show all" />
-                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                          Unrated / NR content is excluded when a filter is active.
-                        </div>
-                      </div>
-                    )
-                  })()}
-                  {/* Custom API config */}
-                  {p.type === 'customapi' && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
-                        <label className="label">API URL</label>
-                        <input className="input" type="url" style={{ fontSize: 12 }}
-                          value={editApiUrl}
-                          onChange={e => setEditApiUrl(e.target.value)}
-                          placeholder="http://host:port/api/stats" />
-                        <label className="label">Panel link URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
-                        <input className="input" type="url" style={{ fontSize: 12 }}
-                          value={editUiUrl}
-                          onChange={e => setEditUiUrl(e.target.value)}
-                          placeholder="http://host:port/dashboard" />
-                        <label className="label">Bearer token (optional)</label>
-                        <input className="input" style={{ fontSize: 12 }}
-                          value={editApiKey}
-                          onChange={e => setEditApiKey(e.target.value)}
-                          placeholder="Leave blank if no auth required" />
-                        <label className="label">Field mappings</label>
-                        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>
-                          One per line: <code>path | Label</code> &nbsp;— optionally add <code>| format</code> (integer, currency, text)
-                        </div>
-                        <textarea className="input" style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', minHeight: 60, resize: 'vertical' }}
-                          value={editMappings}
-                          onChange={e => setEditMappings(e.target.value)} />
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <button className="btn btn-secondary" style={{ fontSize: 11 }}
-                            disabled={customAPIPreview?.loading}
-                            onClick={async () => {
-                              if (!editApiUrl) return
-                              setCustomAPIPreview({ loading: true, json: '', error: '' })
-                              try {
-                                const res = await fetch('/api/customapi/preview', {
-                                  method: 'POST',
-                                  headers: { 'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${localStorage.getItem('stoa_token')}` },
-                                  body: JSON.stringify({ url: editApiUrl, apiKey: editApiKey })
-                                })
-                                if (!res.ok) throw new Error(`HTTP ${res.status}`)
-                                setCustomAPIPreview({ loading: false, json: JSON.stringify(await res.json(), null, 2), error: '' })
-                              } catch (e: any) {
-                                setCustomAPIPreview({ loading: false, json: '', error: e.message })
-                              }
-                            }}>
-                            {customAPIPreview?.loading ? <span className="spinner" /> : 'Test & Preview'}
-                          </button>
-                        </div>
-                        {customAPIPreview && !customAPIPreview.loading && (
-                          customAPIPreview.error
-                            ? <div style={{ fontSize: 12, color: 'var(--red)' }}>{customAPIPreview.error}</div>
-                            : <textarea readOnly value={customAPIPreview.json}
-                                style={{ width: '100%', minHeight: 120, fontSize: 11,
-                                  fontFamily: 'DM Mono, monospace', background: 'var(--surface)',
-                                  border: '1px solid var(--border)', borderRadius: 6, padding: 8,
-                                  color: 'var(--text-muted)', resize: 'vertical', boxSizing: 'border-box' }} />
-                        )}
-                      </div>
-                  )}
-
-
-                  {p.type === 'opnsense' && (
-                    <IfaceCapEditor initialCaps={cfg.ifaceCaps || {}} onChange={caps => {
-                      cfg.ifaceCaps = caps
-                      delete cfg.maxMbps
-                    }} />
-                  )}
-
-                  {/* Calendar sources */}
-                  {p.type === 'calendar' && (() => {
-                    const existingSources: any[] = (() => { try { return JSON.parse(p.config || '{}').sources || [] } catch { return [] } })()
-                    const allIntegrationsForCal = integrations
-                    return (
-                      <div>
-                        <label className="label">Calendar sources</label>
-                        {existingSources.map((src: any, si: number) => {
-                          const ig = integrations.find((i: any) => i.id === src.integrationId)
-                          return (
-                            <div key={si} style={{
-                              display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-                              background: 'var(--surface2)', borderRadius: 7, marginBottom: 6, fontSize: 13,
-                            }}>
-                              <span style={{ flex: 1 }}>
-                                {src.type === 'weather'
-                                  ? <span>🌤 {src.label || ig?.name || 'Weather'}</span>
-                                  : src.type === 'google' ? (src.label || src.integrationId) : src.type === 'checklist' ? <>☑ {src.label || 'Checklist'}</> : (ig?.name ?? src.integrationId)
-                                }
-                                {src.daysAhead && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>{src.daysAhead}d ahead</span>}
-                              </span>
-                              <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-                                onClick={async () => {
-                                  const newSources = existingSources.filter((_: any, idx: number) => idx !== si)
-                                  const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-                                  const newConfig = JSON.stringify({ ...cfg, sources: newSources })
-                                  const isSystem = !p.createdBy || p.createdBy === 'SYSTEM'
-                                  if (isSystem) await panelsApi.update(p.id, { title: p.title, config: newConfig })
-                                  else await myPanelsApi.update(p.id, { title: p.title, config: newConfig })
-                                  await load()
-                                }}>Remove</button>
-                            </div>
-                          )
-                        })}
-                        <UnifiedPersonalCalendarSourceAdder
-                          panelId={p.id} panelTitle={p.title} panelConfig={p.config}
-                          isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
-                          integrations={allIntegrationsForCal}
-                          onAdded={load}
-                        />
-                      </div>
-                    )
-                  })()}
-
-                  {/* Tag assignment */}
-                  {myTags.length > 0 && (
-                    <div>
-                      <label className="label">Tags</label>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 4 }}>
-                        {myTags.map(t => {
-                          const hasTag = p.tags?.some((pt: any) => pt.id === t.id)
-                          return (
-                            <button key={t.id} onClick={async () => {
-                              if (hasTag) await panelsApi.removeTag(p.id, t.id)
-                              else await panelsApi.addTag(p.id, t.id)
-                              await load()
-                            }} style={{
-                              padding: '2px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
-                              background: hasTag ? t.color + '20' : 'transparent',
-                              border: `1px solid ${hasTag ? t.color + '60' : 'var(--border)'}`,
-                              color: hasTag ? t.color : 'var(--text-dim)',
-                            }}>{t.name}</button>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Save */}
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    <button className="btn btn-primary" style={{ fontSize: 12 }}
-                      disabled={savingPanel}
-                      onClick={async () => {
-                        setSavingPanel(true)
-                        try {
-                          const newCfg = { ...cfg, height: editHeight }
-                          if (p.type === 'iframe') newCfg.url = editUrl
-                          if (p.type === 'custom') newCfg.html = editHtml
-                          if (['sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox','kuma','gluetun','opnsense','transmission','photoprism','authentik','weather','steam','rss'].includes(p.type)) newCfg.integrationId = editIntegrationId
-                          if (p.type === 'customapi') {
-                            newCfg.url = editApiUrl
-                            newCfg.uiUrl = editUiUrl
-                            newCfg.apiKey = editApiKey
-                            newCfg.refreshSecs = editRefreshSecs
-                            newCfg.mappings = editMappings.split('\n')
-                              .map(l => l.trim()).filter(l => l.includes('|'))
-                              .map(l => { const parts = l.split('|').map(s => s.trim()); return { path: parts[0], label: parts[1]||'', format: parts[2]||'' } })
-                          }
-
-
-                          await myPanelsApi.update(p.id, { title: editTitle, config: JSON.stringify(newCfg) })
-                          setExpandedPanelId(null)
-                          await load()
-                        } finally { setSavingPanel(false) }
-                      }}>
-                      {savingPanel ? <span className="spinner" /> : 'Save'}
-                    </button>
-                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                      onClick={() => setExpandedPanelId(null)}>Cancel</button>
-                  </div>
+                      )
+                    })()}
+                  </PanelForm>
                 </div>
               )}
             </div>
