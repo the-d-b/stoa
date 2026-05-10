@@ -15,9 +15,6 @@ interface FlatNode {
   label: string
 }
 
-function safeParseConfig(config?: string): any {
-  try { return JSON.parse(config || '{}') } catch { return {} }
-}
 
 function flattenTree(nodes: BookmarkNode[], depth = 0, prefix = ''): FlatNode[] {
   const result: FlatNode[] = []
@@ -127,10 +124,6 @@ export default function PanelsAdminPanel() {
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         {panels.filter(p => !search || p.title.toLowerCase().includes(search.toLowerCase())).map(p => {
-          const config: any = safeParseConfig(p.config)
-            ? flatNodes.find(({ node }) => node.id === config.rootNodeId)?.node
-            : null
-
           const expanded = expandedPanelId === p.id
 
           return (

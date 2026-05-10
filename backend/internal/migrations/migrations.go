@@ -515,6 +515,11 @@ var migrations = []migration{
 		},
 	},
 	{
+		version: 32,
+		name:    "chat_last_read",
+		up:      `ALTER TABLE user_preferences ADD COLUMN last_chat_read_message_id TEXT DEFAULT NULL`,
+	},
+	{
 		version: 33,
 		up: `CREATE TABLE IF NOT EXISTS ai_messages (
 			id         TEXT PRIMARY KEY,
@@ -527,11 +532,6 @@ var migrations = []migration{
 	{
 		version: 34,
 		up: `ALTER TABLE ai_messages ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'`,
-	},
-	{
-		version: 32,
-		name:    "chat_last_read",
-		up:      `ALTER TABLE user_preferences ADD COLUMN last_chat_read_message_id TEXT DEFAULT NULL`,
 	},
 }
 

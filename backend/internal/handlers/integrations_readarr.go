@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"log"
 )
 
@@ -51,39 +52,72 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 
 	// ── Recent history ────────────────────────────────────────────────────────
 	hist, err := arrGet(apiURL, apiKey,
-		"/api/v1/history?pageSize=10&sortKey=date&sortDirection=descending&eventType=3", skipTLS)
+		"/api/v1/history?pageSize=20&sortKey=date&sortDirection=descending", skipTLS)
 	if err == nil {
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
 		if records, ok := histResp["records"].([]interface{}); ok {
-			log.Printf("[READARR] history records: %d", len(records))
+			seenBookId := map[int]bool{}
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
 				if rec == nil { continue }
-				book, _ := rec["book"].(map[string]interface{})
-				if book == nil { continue }
-				b := readarrBookFromMap(book)
-				b.Date = stringVal(rec, "date")
+				// History records have bookId + sourceTitle but no nested book object
+				bookId := 0
+				if bid, ok := rec["bookId"].(float64); ok { bookId = int(bid) }
+				if bookId == 0 { continue }
+				if seenBookId[bookId] { continue } // deduplicate same book
+				seenBookId[bookId] = true
+				b := ReadarrBook{
+					ID:    bookId,
+					Title: stringVal(rec, "sourceTitle"),
+					Date:  stringVal(rec, "date"),
+				}
+				// Look up full book details for author name and cover
+				if bookRaw, berr := arrGet(apiURL, apiKey,
+					fmt.Sprintf("/api/v1/book/%d", bookId), skipTLS); berr == nil {
+					var bookMap map[string]interface{}
+					if json.Unmarshal(bookRaw, &bookMap) == nil {
+						full := readarrBookFromMap(bookMap)
+						b.AuthorName = full.AuthorName
+						b.CoverURL = full.CoverURL
+						b.TitleSlug = full.TitleSlug
+						if full.Title != "" { b.Title = full.Title }
+					}
+				}
 				data.History = append(data.History, b)
+				if len(data.History) >= 10 { break }
 			}
-		}
+		} else {
+			}
 	} else {
 		log.Printf("[READARR] history fetch error: %v", err)
-		if hist != nil { log.Printf("[READARR] history response body: %.200s", string(hist)) }
 	}
 
-	// ── Book library ──────────────────────────────────────────────────────────
+	// ── Book library — all books, monitored and unmonitored ─────────────────
 	bookRaw, err := arrGet(apiURL, apiKey, "/api/v1/book", skipTLS)
 	if err != nil {
 		log.Printf("[READARR] book fetch error: %v", err)
 	} else {
 		var bookList []map[string]interface{}
 		json.Unmarshal(bookRaw, &bookList)
-		log.Printf("[READARR] book list: %d books", len(bookList))
 		data.BookCount = len(bookList)
 		for _, b := range bookList {
 			bk := readarrBookFromMap(b)
-			if b["grabbed"] == true || bk.HasFile {
+			// Use statistics.bookFileCount to determine if file exists
+			hasFile := false
+			if stats, ok := b["statistics"].(map[string]interface{}); ok {
+				if bfc, ok := stats["bookFileCount"].(float64); ok {
+					hasFile = bfc > 0
+				}
+			}
+			// Also check top-level grabbed as fallback
+			if !hasFile {
+				if grabbed, ok := b["grabbed"].(bool); ok && grabbed {
+					hasFile = true
+				}
+			}
+			bk.HasFile = hasFile
+			if hasFile {
 				data.OnDiskCount++
 			} else {
 				data.Missing = append(data.Missing, bk)
@@ -97,7 +131,6 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 	if err == nil {
 		var authorList []interface{}
 		json.Unmarshal(authorRaw, &authorList)
-		log.Printf("[READARR] author list: %d authors", len(authorList))
 		data.AuthorCount = len(authorList)
 	}
 
@@ -108,11 +141,32 @@ func readarrBookFromMap(m map[string]interface{}) ReadarrBook {
 	bk := ReadarrBook{}
 	bk.Title, _ = m["title"].(string)
 	bk.TitleSlug, _ = m["titleSlug"].(string)
-	bk.HasFile = m["grabbed"] == true
 	if y, ok := m["releaseDate"].(string); ok && len(y) >= 4 {
 		fmt.Sscanf(y[:4], "%d", &bk.Year)
 	}
 	if i, ok := m["id"].(float64); ok { bk.ID = int(i) }
+	// Cover image — Readarr uses images array with coverType="cover"
+	if images, ok := m["images"].([]interface{}); ok {
+		for _, img := range images {
+			if imgMap, ok := img.(map[string]interface{}); ok {
+				ct, _ := imgMap["coverType"].(string)
+				if ct == "cover" || ct == "Cover" {
+					// remoteUrl is the full URL, url is the proxy
+					if u, ok := imgMap["remoteUrl"].(string); ok && u != "" {
+						bk.CoverURL = u
+					} else if u, ok := imgMap["url"].(string); ok && u != "" {
+						// relative URL — prefix with apiURL later if needed
+						if !strings.HasPrefix(u, "http") {
+							bk.CoverURL = "" // skip relative URLs
+						} else {
+							bk.CoverURL = u
+						}
+					}
+					break
+				}
+			}
+		}
+	}
 	// Author info
 	if author, ok := m["author"].(map[string]interface{}); ok {
 		bk.AuthorName, _ = author["authorName"].(string)
