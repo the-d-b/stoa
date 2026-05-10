@@ -43,7 +43,11 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 	if err != nil {
 		return nil, err
 	}
-	data := &ReadarrPanelData{UIURL: uiURL}
+	data := &ReadarrPanelData{
+		UIURL:   uiURL,
+		History: []ReadarrBook{},
+		Missing: []ReadarrBook{},
+	}
 
 	// ── Recent history ────────────────────────────────────────────────────────
 	hist, err := arrGet(apiURL, apiKey,
@@ -52,6 +56,7 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
 		if records, ok := histResp["records"].([]interface{}); ok {
+			log.Printf("[READARR] history records: %d", len(records))
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
 				if rec == nil { continue }
@@ -64,6 +69,7 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 		}
 	} else {
 		log.Printf("[READARR] history fetch error: %v", err)
+		if hist != nil { log.Printf("[READARR] history response body: %.200s", string(hist)) }
 	}
 
 	// ── Book library ──────────────────────────────────────────────────────────
@@ -73,6 +79,7 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 	} else {
 		var bookList []map[string]interface{}
 		json.Unmarshal(bookRaw, &bookList)
+		log.Printf("[READARR] book list: %d books", len(bookList))
 		data.BookCount = len(bookList)
 		for _, b := range bookList {
 			bk := readarrBookFromMap(b)
@@ -90,6 +97,7 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 	if err == nil {
 		var authorList []interface{}
 		json.Unmarshal(authorRaw, &authorList)
+		log.Printf("[READARR] author list: %d authors", len(authorList))
 		data.AuthorCount = len(authorList)
 	}
 

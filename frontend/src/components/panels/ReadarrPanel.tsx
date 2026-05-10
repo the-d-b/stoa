@@ -9,7 +9,7 @@ interface ReadarrBook {
 }
 interface ReadarrData {
   uiUrl: string
-  history: ReadarrBook[]; missing: ReadarrBook[]
+  history: ReadarrBook[] | null; missing: ReadarrBook[] | null
   missingCount: number; bookCount: number
   onDiskCount: number; authorCount: number
 }
@@ -120,9 +120,9 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
         )}
       </div>
       {/* Cover strip */}
-      <CoverStrip items={[...data.history, ...data.missing]} uiUrl={uiUrl} />
+      <CoverStrip items={[...(data.history ?? []), ...(data.missing ?? [])]} uiUrl={uiUrl} />
       {/* Recent downloads */}
-      {data.history.slice(0, 2).map((b, i) => (
+      {(data.history ?? []).slice(0, 2).map((b, i) => (
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
           padding: '2px 0', fontSize: 12 }}>
           <span style={{ fontSize: 9, color: 'var(--green)' }}>✓</span>
@@ -158,14 +158,14 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
           </span>
         )}
       </div>
-      <CoverStrip items={data.history} uiUrl={uiUrl} />
+      <CoverStrip items={data.history ?? []} uiUrl={uiUrl} />
       {/* Recently downloaded */}
-      {data.history.length > 0 && (
+      {(data.history?.length ?? 0) > 0 && (
         <>
           <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
             letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Recently downloaded</div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
-            {data.history.map((b, i) => (
+            {(data.history ?? []).map((b, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
                 padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
                 <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -203,7 +203,7 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
       </div>
 
       {/* Cover strip */}
-      {data.history.length > 0 && <CoverStrip items={data.history} uiUrl={uiUrl} />}
+      {(data.history?.length ?? 0) > 0 && <CoverStrip items={data.history ?? []} uiUrl={uiUrl} />}
 
       {/* Two-column layout: recent + missing */}
       <div style={{ display: 'flex', gap: 12, flex: 1, overflow: 'hidden', minHeight: 0 }}>
@@ -211,10 +211,10 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
         <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
             letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Recently downloaded</div>
-          {data.history.length === 0
+          {(data.history?.length ?? 0) === 0
             ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
             : <div style={{ overflowY: 'auto', flex: 1 }}>
-                {data.history.map((b, i) => (
+                {(data.history ?? []).map((b, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
                     padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
                     <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -236,7 +236,7 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
               Missing ({data.missingCount})
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {data.missing.map((b, i) => (
+              {(data.missing ?? []).map((b, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
                   padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
