@@ -7,6 +7,7 @@
  */
 import { useState, useEffect } from 'react'
 import { integrationsApi, myIntegrationsApi, secretsApi, weatherApi, steamApi, Integration } from '../../api'
+import SportsConfigUI from './SportsConfigUI'
 
 export const INTEGRATION_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
@@ -26,10 +27,11 @@ export const INTEGRATION_TYPES = [
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)' },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN, no key required)' },
 ]
 
-const NO_TEST_TYPES = ['weather', 'steam', 'rss']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss']
+const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -345,6 +347,8 @@ export default function IntegrationForm({
             onChange={e => { setApiUrl(e.target.value); setTestResult(null) }}
             placeholder="https://example.com/feed.xml" />
         </div>
+      ) : activeType === 'sports' ? (
+        <SportsConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
       ) : (
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }}>

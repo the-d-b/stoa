@@ -268,6 +268,12 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 		return
 	}
 
+	// Sports uses a dynamic interval based on live game state
+	if ig.igType == "sports" {
+		StartSportsWorker(db, ig, stop)
+		return
+	}
+
 	go func() {
 		// Fetch immediately on start so cache is warm right away
 		refreshCache(db, ig)

@@ -167,11 +167,13 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 		case "weather":
 			// Read from integration cache — same data as weather panel
-			wd, werr := getWeatherData(db, integrationID, source)
+			log.Printf("[CAL] fetching weather for integration %s", integrationID)
+			wd, werr := getWeatherData(db, integrationID, map[string]interface{}{"integrationId": integrationID})
 			if werr != nil {
-				log.Printf("[CAL] weather error: %v", werr)
+				log.Printf("[CAL] weather error for %s: %v", integrationID, werr)
 				continue
 			}
+			log.Printf("[CAL] weather ok for %s, city=%s, days=%d", integrationID, wd.City, len(wd.Daily))
 			// Build one event per day from the 7-day forecast
 			for _, day := range wd.Daily {
 				if day.Date == "" { continue }
@@ -248,6 +250,76 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 					"startDT": startDT,
 					"endDT":   endDT,
 					"color":   "#34d399",
+				})
+			}
+
+		case "sports":
+			// Read from sports integration cache — convert schedule to calendar events
+			// Look up integration name for use as pill label
+			var intName string
+			db.QueryRow(`SELECT COALESCE(name,'Sports') FROM integrations WHERE id=?`, integrationID).Scan(&intName)
+			if intName == "" { intName = "Sports" }
+			cached, ok := cacheGet(integrationID)
+			if !ok {
+				// Cache miss — fetch live
+				sportsData, serr := FetchSportsData(db, integrationID)
+				if serr != nil {
+					log.Printf("[CAL] sports: fetch error: %v", serr)
+					continue
+				}
+				cacheSet(integrationID, sportsData)
+				cached = sportsData
+			}
+			// Type-assert to SportsPanelData
+			sportsData, ok := cached.(*SportsPanelData)
+			if !ok {
+				// Try JSON round-trip if cached as interface{}
+				if b, jerr := json.Marshal(cached); jerr == nil {
+					var sd SportsPanelData
+					if jerr2 := json.Unmarshal(b, &sd); jerr2 == nil {
+						sportsData = &sd
+						ok = true
+					}
+				}
+			}
+			if !ok || sportsData == nil {
+				log.Printf("[CAL] sports: could not read cached data for %s", integrationID)
+				continue
+			}
+			// Convert upcoming schedule games to calendar events
+			log.Printf("[CAL] sports: %d schedule items, %d games", len(sportsData.Schedule), len(sportsData.Games))
+			todayDate := timeNow().Local().Format("2006-01-02")
+			for _, g := range sportsData.Schedule {
+				if g.StartTime == "" { continue }
+				var t time.Time
+				var terr error
+				for _, fmt2 := range []string{time.RFC3339, "2006-01-02T15:04Z", "2006-01-02T15:04:05Z"} {
+					t, terr = time.Parse(fmt2, g.StartTime)
+					if terr == nil { break }
+				}
+				if terr != nil {
+					log.Printf("[CAL] sports: bad startTime %q: %v", g.StartTime, terr)
+					continue
+				}
+				// Skip TBD/if-necessary games -- no confirmed time yet
+				if g.IsTBD {
+					continue
+				}
+				// Use local time for date so games tonight don't appear as tomorrow
+				date := t.Local().Format("2006-01-02")
+				// Include today and future games
+				if date < todayDate { continue }
+				title := fmt.Sprintf("%s %s @ %s", g.League, g.AwayAbbr, g.HomeAbbr)
+				if g.IsFavorite {
+					title = "⭐ " + title
+				}
+				events = append(events, map[string]interface{}{
+					"source":  intName,
+					"date":    date,
+					"startDT": g.StartTime,
+					"title":   title,
+					"color":   "#f97316",
+					"league":  g.League,
 				})
 			}
 

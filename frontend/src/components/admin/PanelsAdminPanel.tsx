@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
+import CalendarSourceAdder from './CalendarSourceAdder'
 import PanelForm, { PANEL_TYPES } from './PanelForm'
 import SectionHelp from './SectionHelp'
 
@@ -29,6 +30,7 @@ function flattenTree(nodes: BookmarkNode[], depth = 0, prefix = ''): FlatNode[] 
 }
 
 
+
 export default function PanelsAdminPanel() {
   const [panels, setPanels] = useState<Panel[]>([])
   const [tags, setTags] = useState<Tag[]>([])
@@ -54,7 +56,7 @@ export default function PanelsAdminPanel() {
     // Always reload bookmark tree to pick up renames
     const [p, t, b, ig, g] = await Promise.all([panelsApi.list(undefined, 'system'), tagsApi.list(), bookmarksApi.tree(), integrationsApi.list(), groupsApi.list()])
     // System panels only use SYSTEM-owned integrations
-    setIntegrations((ig.data || []).filter((i: any) => i.createdBy === 'SYSTEM'))
+    setIntegrations(ig.data || [])  // all integrations — system panels can use any shared integration
     setGroups(g.data || [])
     setPanels((p.data || []).filter((panel: any) => panel.scope !== 'personal'))
     setTags(t.data || [])
@@ -155,7 +157,16 @@ export default function PanelsAdminPanel() {
                     onSaved={async () => { setExpandedPanelId(null); await load() }}
                     onCancel={() => setExpandedPanelId(null)}
                     onDeleted={async () => { setExpandedPanelId(null); await load() }}
-                  />
+                  >
+                    {p.type === 'calendar' && (
+                      <CalendarSourceAdder
+                        panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                        isSystem={true}
+                        integrations={integrations}
+                        onAdded={load}
+                      />
+                    )}
+                  </PanelForm>
                 </div>
               )}
 

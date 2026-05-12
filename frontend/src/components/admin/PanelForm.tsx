@@ -37,6 +37,7 @@ export const PANEL_TYPES: {
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                    needsIntegration: true  },
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                       needsIntegration: true  },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',        needsIntegration: true  },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule', needsIntegration: true  },
 ]
 
 const SEARCH_ENGINE_LIST = [
@@ -50,7 +51,7 @@ const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox',
   'kuma','gluetun','opnsense','transmission','photoprism','authentik',
-  'weather','steam','rss',
+  'weather','steam','rss','sports',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {

@@ -9,6 +9,7 @@ import { cssApi } from '../api'
 import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import PanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/PanelForm'
+import CalendarSourceAdder from '../components/admin/CalendarSourceAdder'
 import IntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/IntegrationForm'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
@@ -2166,7 +2167,7 @@ const TICKER_TYPES = [
   { id: 'stocks',  label: 'Stocks',        desc: 'Finnhub API — real-time US equity quotes',   needsSecret: true  },
   { id: 'crypto',  label: 'Crypto',        desc: 'CoinMarketCap API — cryptocurrency prices',  needsSecret: true  },
   { id: 'weather', label: 'Weather',       desc: 'Current conditions — Open-Meteo, no API key', needsSecret: false },
-  { id: 'sports',  label: 'Sports scores', desc: 'Live scores — NFL, NBA, NHL, MLB via ESPN',  needsSecret: false },
+  { id: 'sports',  label: 'Sports scores', desc: 'Live scores — NHL, NFL, NBA, MLB via ESPN (no API key required)', needsSecret: false },
   { id: 'rss',     label: 'RSS headlines', desc: 'Scrolling headlines from any RSS/Atom feed', needsSecret: false },
 ]
 
@@ -2207,7 +2208,7 @@ function TickersTab() {
     try {
       const defaultConfig =
         newType === 'weather' ? JSON.stringify({ city: '', lat: '', lon: '', unit: 'f', refreshSecs: 1800 }) :
-        newType === 'sports'  ? JSON.stringify({ league: 'nba', refreshSecs: 300 }) :
+        newType === 'sports'  ? JSON.stringify({ integrationId: '', refreshSecs: 60 }) :
         newType === 'rss'     ? JSON.stringify({ url: '', refreshSecs: 900 }) :
         JSON.stringify({ mode: 'static', refreshSecs: 300, secretId: '' })
       await tickersApi.create({ type: newType, zone: newZone, symbols: '[]', config: defaultConfig })
@@ -2323,6 +2324,7 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
     try { return JSON.parse(ticker.config).porticos || [] } catch { return [] }
   })
   const [localConfig, setLocalConfig] = useState<any>(config)
+  const [localSportsIntegrationId, setLocalSportsIntegrationId] = useState(config.integrationId || '')
 
   useEffect(() => {
     const c = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
@@ -2332,7 +2334,9 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
     setLocalSymbols((() => { try { return JSON.parse(ticker.symbols).join(', ') } catch { return '' } })())
     setLocalZone(ticker.zone)
     try { setLocalPorticos(JSON.parse(ticker.config).porticos || []) } catch { setLocalPorticos([]) }
-    setLocalConfig((() => { try { return JSON.parse(ticker.config) } catch { return {} } })())
+    const c2 = (() => { try { return JSON.parse(ticker.config) } catch { return {} } })()
+    setLocalConfig(c2)
+    setLocalSportsIntegrationId(c2.integrationId || '')
   }, [ticker.config, ticker.symbols, ticker.zone])
 
   const typeDef = TICKER_TYPES.find(t => t.id === ticker.type)
@@ -2350,7 +2354,7 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
       // Weather fields — locations array or single
       ...(ticker.type === 'weather' ? { integrationIds: localConfig.integrationIds || [], integrationId: (localConfig.integrationIds || [])[0] || '' } : {}),
       // Sports fields
-      ...(ticker.type === 'sports' ? { leagues: localConfig.leagues || [localConfig.league || 'nba'] } : {}),
+      ...(ticker.type === 'sports' ? { integrationId: localSportsIntegrationId } : {}),
       // RSS fields
       ...(ticker.type === 'rss' ? { integrationId: localConfig.integrationId || '' } : {}),
     })
@@ -2421,7 +2425,7 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
               </div>
             </div>
 
-            {!['rss','weather'].includes(ticker.type) && (
+            {!['rss','weather','sports'].includes(ticker.type) && (
             <div>
               <label className="label">API key secret</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2511,33 +2515,26 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
               )
             })()}
 
-            {/* Sports ticker config — multiple leagues */}
-            {ticker.type === 'sports' && (
-              <div>
-                <label className="label">Leagues</label>
-                <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                  {['NFL', 'NBA', 'NHL', 'MLB'].map(league => {
-                    const leagues: string[] = localConfig.leagues || [localConfig.league || 'nba']
-                    const on = leagues.includes(league.toLowerCase())
-                    return (
-                      <button key={league} onClick={() => {
-                        const cur: string[] = localConfig.leagues || [localConfig.league || 'nba']
-                        const next = on ? cur.filter(l => l !== league.toLowerCase()) : [...cur, league.toLowerCase()]
-                        setLocalConfig((c: any) => ({ ...c, leagues: next.length ? next : [league.toLowerCase()] }))
-                      }} style={{
-                        padding: '4px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12,
-                        background: on ? 'var(--accent-bg)' : 'var(--surface2)',
-                        border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                        color: on ? 'var(--accent2)' : 'var(--text-muted)',
-                      }}>{league}</button>
-                    )
-                  })}
+            {/* Sports ticker config — select integration */}
+            {ticker.type === 'sports' && (() => {
+              const sportsInts = integrations.filter((i: any) => i.type === 'sports')
+              return (
+                <div>
+                  <label className="label">Sports Integration</label>
+                  <select className="input" value={localSportsIntegrationId}
+                    onChange={e => { setLocalSportsIntegrationId(e.target.value); setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value })) }}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="">— Select integration —</option>
+                    {sportsInts.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  {sportsInts.length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                      No sports integrations found. Add one in My Integrations first.
+                    </div>
+                  )}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-                  Select one or more leagues to show on this ticker
-                </div>
-              </div>
-            )}
+              )
+            })()}
 
             {/* RSS ticker config */}
             {ticker.type === 'rss' && (() => {
@@ -3170,44 +3167,14 @@ function MyPanelsTab() {
                     onCancel={() => setExpandedPanelId(null)}
                     onDeleted={async () => { setExpandedPanelId(null); await load() }}
                   >
-                    {p.type === 'calendar' && (() => {
-                      const existingSources: any[] = (() => { try { return JSON.parse(p.config || '{}').sources || [] } catch { return [] } })()
-                      return (
-                        <div>
-                          <label className="label">Calendar sources</label>
-                          {existingSources.map((src: any, si: number) => {
-                            const ig = integrations.find((i: any) => i.id === src.integrationId)
-                            return (
-                              <div key={si} style={{ display: 'flex', alignItems: 'center', gap: 8,
-                                padding: '6px 10px', background: 'var(--surface2)', borderRadius: 7,
-                                marginBottom: 6, fontSize: 13 }}>
-                                <span style={{ flex: 1 }}>
-                                  {src.type === 'weather' ? <span>🌤 {src.label || ig?.name || 'Weather'}</span>
-                                    : src.type === 'google' ? (src.label || src.integrationId)
-                                    : src.type === 'checklist' ? <>☑ {src.label || 'Checklist'}</>
-                                    : (ig?.name ?? src.integrationId)}
-                                </span>
-                                <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
-                                  onClick={async () => {
-                                    const newSources = existingSources.filter((_: any, idx: number) => idx !== si)
-                                    const c = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-                                    const isSystem = !p.createdBy || p.createdBy === 'SYSTEM'
-                                    if (isSystem) await panelsApi.update(p.id, { title: p.title, config: JSON.stringify({ ...c, sources: newSources }) })
-                                    else await myPanelsApi.update(p.id, { title: p.title, config: JSON.stringify({ ...c, sources: newSources }) })
-                                    await load()
-                                  }}>Remove</button>
-                              </div>
-                            )
-                          })}
-                          <UnifiedPersonalCalendarSourceAdder
-                            panelId={p.id} panelTitle={p.title} panelConfig={p.config}
-                            isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
-                            integrations={integrations}
-                            onAdded={load}
-                          />
-                        </div>
-                      )
-                    })()}
+                    {p.type === 'calendar' && (
+                      <CalendarSourceAdder
+                        panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                        isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
+                        integrations={integrations}
+                        onAdded={load}
+                      />
+                    )}
                   </PanelForm>
                 </div>
               )}
@@ -3226,131 +3193,3 @@ function MyPanelsTab() {
   )
 }
 
-function UnifiedPersonalCalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
-  panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
-  integrations: any[]; onAdded: () => void
-}) {
-  const [sourceKind, setSourceKind] = useState<'integration'|'google'|'checklist'>('integration')
-  const [intId, setIntId] = useState('')
-  const [googleTokenId, setGoogleTokenId] = useState('')
-  const [googleCalendarId, setGoogleCalendarId] = useState('primary')
-  const [googleCalendars, setGoogleCalendars] = useState<any[]>([])
-  const [googleTokens, setGoogleTokens] = useState<any[]>([])
-
-  const [adding, setAdding] = useState(false)
-  const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
-  const [checklistPanelId, setChecklistPanelId] = useState('')
-
-  useEffect(() => {
-    googleApi.getConfig().then((res: any) => {
-      if (res.data.configured) {
-        googleApi.listTokens(isSystem ? 'system' : 'personal').then((r: any) => setGoogleTokens(r.data || []))
-      }
-    }).catch(() => {})
-    // Load checklist panels — personal only for personal calendar
-    myPanelsApi.list().then((r: any) =>
-      setChecklistPanels((r.data || []).filter((p: any) => p.type === 'checklist'))
-    ).catch(() => {})
-  }, [isSystem])
-
-  useEffect(() => {
-    if (googleTokenId) {
-      googleApi.listCalendars(googleTokenId).then((r: any) => {
-        setGoogleCalendars(r.data || [])
-        setGoogleCalendarId('primary')
-      })
-    }
-  }, [googleTokenId])
-
-  const add = async () => {
-    setAdding(true)
-    try {
-      const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
-      let newSource: any
-      if (sourceKind === 'google') {
-        if (!googleTokenId) return
-        const tok = googleTokens.find((t: any) => t.id === googleTokenId)
-        newSource = { type: 'google', integrationId: googleTokenId, calendarId: googleCalendarId, daysAhead: 14, label: tok?.email || googleTokenId }
-      } else if (sourceKind === 'checklist') {
-        if (!checklistPanelId) return
-        const cl = checklistPanels.find((p: any) => p.id === checklistPanelId)
-        newSource = { type: 'checklist', panelId: checklistPanelId, label: cl?.title || 'Checklist' }
-      } else {
-        if (!intId) return
-        const ig = integrations.find((i: any) => i.id === intId)
-        newSource = { type: ig?.type, integrationId: intId, daysAhead: 14, label: ig?.name || ig?.type }
-      }
-      const sources = [...(cfg.sources || []), newSource]
-      const updater = isSystem ? panelsApi : myPanelsApi
-      await updater.update(panelId, { title: panelTitle, config: JSON.stringify({ ...cfg, sources }) })
-      setIntId(''); setGoogleTokenId(''); setChecklistPanelId('')
-      onAdded()
-    } finally { setAdding(false) }
-  }
-
-  return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value as any); setIntId(''); setGoogleTokenId(''); setChecklistPanelId('') }}
-          style={{ cursor: 'pointer', width: 160, fontSize: 12 }}>
-          <option value="integration">Stoa integration</option>
-          {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-          {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
-        </select>
-
-        {sourceKind === 'integration' && (
-          <>
-            <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-              <option value="">— Select integration —</option>
-              {integrations.filter((i: any) => ['sonarr','radarr','readarr','lidarr','weather'].includes(i.type)).map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
-            </select>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => add()} disabled={adding || !intId}>
-              {adding ? <span className="spinner" /> : 'Add'}
-            </button>
-          </>
-        )}
-
-        {sourceKind === 'checklist' && (
-          <>
-            <select className="input" value={checklistPanelId} onChange={e => setChecklistPanelId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-              <option value="">— Select checklist panel —</option>
-              {checklistPanels.map((p: Panel) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => add()} disabled={adding || !checklistPanelId}>
-              {adding ? <span className="spinner" /> : 'Add'}
-            </button>
-          </>
-        )}
-
-        {sourceKind === 'google' && (
-          <>
-            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-              <option value="">— Select account —</option>
-              {googleTokens.map((t: any) => <option key={t.id} value={t.id}>{t.email}</option>)}
-            </select>
-            {googleCalendars.length > 0 && (
-              <select className="input" value={googleCalendarId} onChange={e => setGoogleCalendarId(e.target.value)}
-                style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
-                {googleCalendars.map((c: any) => <option key={c.id} value={c.id}>{c.summary}</option>)}
-              </select>
-            )}
-            <button className="btn btn-secondary" style={{ fontSize: 12 }}
-              onClick={() => add()} disabled={adding || !googleTokenId}>
-              {adding ? <span className="spinner" /> : 'Add'}
-            </button>
-          </>
-        )}
-
-
-      </div>
-
-
-    </div>
-  )
-}

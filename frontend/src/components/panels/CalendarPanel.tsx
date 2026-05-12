@@ -143,7 +143,16 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   const eventsForDate = (year: number, month: number, day: number): CalendarEvent[] => {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
     // Exclude weather events — they render as forecast tiles, not list items
-    return events.filter(e => e.date?.startsWith(dateStr) && !hiddenSources.has(e.source) && e.source !== 'weather')
+    return events.filter(e => {
+      if (hiddenSources.has(e.source) || e.source === 'weather') return false
+      // If event has a full datetime, use browser local date for placement
+      // This prevents UTC midnight crossings shifting games to the wrong day
+      if (e.startDT) {
+        const localDate = new Date(e.startDT).toLocaleDateString('en-CA') // YYYY-MM-DD local
+        return localDate === dateStr
+      }
+      return e.date?.startsWith(dateStr)
+    })
   }
 
   const eventsForSelected = eventsForDate(viewDate.getFullYear(), viewDate.getMonth(), selectedDay)

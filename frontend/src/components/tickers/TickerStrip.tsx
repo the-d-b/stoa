@@ -111,55 +111,76 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
     )
   }
 
-  // Sports ticker — grouped by league
+  // Sports ticker — uses new SportsPanelData format with logos
   if (ticker.type === 'sports') {
     if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
-    const games: any[] = rawData.games || []
-    const leagues: string[] = rawData.leagues || (rawData.league ? [rawData.league] : ['NBA'])
 
-    // Group games by league
+    // Only show games that started within the past 6 hours (live or just ended)
+    const games: any[] = rawData.games || []
+    const now = Date.now()
+    const SIX_HOURS = 6 * 3600 * 1000
+    const shown = games.filter((g: any) => {
+      if (!g.startTime) return false
+      const diff = now - new Date(g.startTime).getTime()
+      return diff >= 0 && diff <= SIX_HOURS
+    })
+
+    if (shown.length === 0) return null // nothing to show — hide ticker
+
+    // Group by league
     const byLeague: Record<string, any[]> = {}
-    for (const league of leagues) {
-      byLeague[league.toUpperCase()] = games.filter((g: any) => g.league === league.toUpperCase())
+    for (const g of shown) {
+      const lg = g.league || 'SPORTS'
+      if (!byLeague[lg]) byLeague[lg] = []
+      byLeague[lg].push(g)
     }
 
-    if (games.length === 0) return (
-      <div style={{ padding: '4px 16px', fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-        {leagues.join(' · ')} — no games today
-      </div>
-    )
+    const leagueEmoji: Record<string, string> = { NHL: '🏒', NFL: '🏈', NBA: '🏀', MLB: '⚾' }
 
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '0 8px',
         overflowX: 'auto', scrollbarWidth: 'none', flex: 1 }}>
-        {Object.entries(byLeague).map(([league, lgGames], li) => {
-          if (lgGames.length === 0) return null
-          const live = lgGames.filter((g: any) => g.status === 'In Progress')
-          const shown = live.length > 0 ? live : lgGames
-          return (
-            <div key={league} style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
-              {li > 0 && <span style={{ color: 'var(--border2)', margin: '0 8px' }}>│</span>}
-              <span style={{ fontSize: 10, color: 'var(--text-dim)', marginRight: 8,
-                fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{league}</span>
-              {shown.slice(0, 4).map((g: any, i: number) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 12,
-                  fontFamily: 'DM Mono, monospace', fontSize: 12, flexShrink: 0 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{g.away}</span>
-                  {g.awayScore && <span style={{ fontWeight: 600 }}>{g.awayScore}</span>}
-                  <span style={{ color: 'var(--text-dim)', fontSize: 10 }}>@</span>
-                  {g.homeScore && <span style={{ fontWeight: 600 }}>{g.homeScore}</span>}
-                  <span style={{ color: 'var(--text-muted)' }}>{g.home}</span>
-                  {g.status === 'In Progress' && (
-                    <span style={{ fontSize: 10, color: 'var(--accent)' }}>{g.clock}</span>
-                  )}
-                  {g.status === 'Final' && (
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>F</span>
-                  )}
+        {Object.entries(byLeague).map(([league, lgGames], li) => (
+          <div key={league} style={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+            {li > 0 && <span style={{ color: 'var(--border2)', margin: '0 8px' }}>│</span>}
+            <span style={{ fontSize: 11, marginRight: 6 }}>{leagueEmoji[league] || league}</span>
+            {lgGames.slice(0, 6).map((g: any, i: number) => {
+              const isLive = g.status === 'in'
+              const isPre = g.status === 'pre'
+              const hasLogos = g.awayLogo && g.homeLogo
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, marginRight: 14,
+                  fontFamily: 'DM Mono, monospace', fontSize: 12, flexShrink: 0,
+                  fontWeight: g.isFavorite ? 600 : 400 }}>
+                  {hasLogos
+                    ? <img src={g.awayLogo} alt={g.awayAbbr} width={14} height={14}
+                        style={{ objectFit: 'contain' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                    : null}
+                  <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{g.awayAbbr || g.away}</span>
+                  {!isPre && <span style={{ fontWeight: 700 }}>{g.awayScore}</span>}
+                  <span style={{ color: 'var(--text-dim)', fontSize: 9 }}>@</span>
+                  {!isPre && <span style={{ fontWeight: 700 }}>{g.homeScore}</span>}
+                  <span style={{ color: 'var(--text-muted)', fontSize: 11 }}>{g.homeAbbr || g.home}</span>
+                  {hasLogos
+                    ? <img src={g.homeLogo} alt={g.homeAbbr} width={14} height={14}
+                        style={{ objectFit: 'contain' }}
+                        onError={e => { (e.target as HTMLImageElement).style.display='none' }} />
+                    : null}
+                  {isLive && <>
+                    <span style={{ fontSize: 9, color: 'var(--red)' }}>{g.clock}</span>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%',
+                      background: 'var(--red)', flexShrink: 0 }} />
+                  </>}
+                  {g.status === 'post' && <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>F</span>}
+                  {isPre && <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
+                    {g.startTime ? new Date(g.startTime).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}) : ''}
+                  </span>}
                 </div>
-              ))}
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        ))}
       </div>
     )
   }

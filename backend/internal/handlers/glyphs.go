@@ -449,12 +449,31 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 			}
 			writeJSON(w, http.StatusOK, data)
 		case "sports":
-			data, err := fetchSportsTicker(config)
+			// Sports ticker reads from integration cache
+			integrationID := stringVal(config, "integrationId")
+			if integrationID == "" {
+				// Legacy: fall back to direct fetch
+				data, err := fetchSportsTicker(config)
+				if err != nil {
+					log.Printf("[TICKERS] sports fetch error: %v", err)
+					writeError(w, http.StatusInternalServerError, err.Error())
+					return
+				}
+				writeJSON(w, http.StatusOK, data)
+				return
+			}
+			if cached, ok := cacheGet(integrationID); ok {
+				writeJSON(w, http.StatusOK, cached)
+				return
+			}
+			// Cache miss — fetch live and cache
+			data, err := FetchSportsData(db, integrationID)
 			if err != nil {
 				log.Printf("[TICKERS] sports fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
+			cacheSet(integrationID, data)
 			writeJSON(w, http.StatusOK, data)
 		case "rss":
 			data, err := fetchRSSTicker(db, config)
