@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import ScrollableCoverStrip from './CoverStrip'
 import { integrationsApi, Panel } from '../../api'
 
 interface RadarrMovie {
@@ -33,24 +34,6 @@ function MovieLink({ uiUrl, titleSlug, title, year }: { uiUrl: string; titleSlug
   )
 }
 
-function MoviePosterStrip({ items, uiUrl }: { items: RadarrMovie[]; uiUrl: string }) {
-  const posters = items.filter(m => m.posterUrl)
-  if (posters.length === 0) return null
-  return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
-      scrollbarWidth: 'none', maxWidth: '100%', minWidth: 0 }}>
-      {posters.map((m, i) => (
-        <a key={i} href={uiUrl && m.titleSlug ? `${uiUrl}/movie/${m.titleSlug}` : uiUrl}
-          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-          <img src={m.posterUrl} alt={m.title}
-            style={{ height: 80, width: 54, objectFit: 'cover', borderRadius: 5,
-              display: 'block', opacity: 0.85 }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        </a>
-      ))}
-    </div>
-  )
-}
 
 export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<RadarrData | null>(null)
@@ -185,7 +168,7 @@ export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heig
 
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <MoviePosterStrip items={allMoviePosters} uiUrl={uiUrl} />
+      <ScrollableCoverStrip items={allMoviePosters.map(m => ({ coverUrl: m.posterUrl, title: m.title, linkUrl: uiUrl && m.titleSlug ? `${uiUrl}/movie/${m.titleSlug}` : uiUrl }))} height={80} />
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
       {sectionTitle('Recently downloaded')}
       {(data.history || []).length === 0

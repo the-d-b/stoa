@@ -116,13 +116,17 @@ func lidarrAlbumFromMap(a map[string]interface{}) LidarrAlbum {
 	al.ForeignAlbumId, _ = a["foreignAlbumId"].(string)
 	if i, ok := a["id"].(float64); ok { al.ID = int(i) }
 	al.HasFile = a["statistics"] != nil
-	// Extract album cover from images
+	// Extract album cover from images — use remoteUrl first, fall back to url
 	if images, ok := a["images"].([]interface{}); ok {
 		for _, img := range images {
 			if m, ok := img.(map[string]interface{}); ok {
 				if ct, _ := m["coverType"].(string); ct == "cover" || ct == "disc" {
 					if ru, _ := m["remoteUrl"].(string); ru != "" {
 						al.CoverURL = ru
+						break
+					}
+					if u, _ := m["url"].(string); u != "" {
+						al.CoverURL = u
 						break
 					}
 				}

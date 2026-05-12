@@ -26,6 +26,7 @@ import WeatherPanel from '../components/panels/WeatherPanel'
 import SteamPanel from '../components/panels/SteamPanel'
 import ReadarrPanel from '../components/panels/ReadarrPanel'
 import SportsPanel from '../components/panels/SportsPanel'
+import MarketPanel from '../components/panels/MarketPanel'
 import SearchPanel from '../components/panels/SearchPanel'
 import SearchModal from '../components/SearchModal'
 
@@ -950,6 +951,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
           {panel.type === 'steam' && <SteamPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'readarr' && <ReadarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'sports' && <SportsPanel panel={panel} heightUnits={heightUnits} />}
+          {(panel.type === 'stocks' || panel.type === 'crypto') && <MarketPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'search' && <SearchPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()

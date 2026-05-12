@@ -422,23 +422,31 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 		_ = apiKey // used by stocks/crypto below
 
 		switch tickerType {
-		case "stocks":
-			if apiKey == "" { writeError(w, http.StatusBadRequest, "API key secret required for stocks"); return }
-			data, err := fetchStockQuotes(symbols, apiKey)
-			if err != nil {
-				log.Printf("[TICKERS] stock fetch error: %v", err)
-				writeError(w, http.StatusInternalServerError, err.Error())
+		case "stocks", "crypto":
+			// Read from market integration cache
+			integrationID := stringVal(config, "integrationId")
+			if integrationID == "" {
+				writeError(w, http.StatusBadRequest, "stocks/crypto ticker requires a market integration")
 				return
 			}
-			writeJSON(w, http.StatusOK, data)
-		case "crypto":
-			if apiKey == "" { writeError(w, http.StatusBadRequest, "API key secret required for crypto"); return }
-			data, err := fetchCryptoQuotes(symbols, apiKey)
-			if err != nil {
-				log.Printf("[TICKERS] crypto fetch error: %v", err)
-				writeError(w, http.StatusInternalServerError, err.Error())
+			if cached, ok := cacheGet(integrationID); ok {
+				writeJSON(w, http.StatusOK, cached)
 				return
 			}
+			// Cache miss — fetch live
+			var data *MarketData
+			var ferr error
+			if tickerType == "crypto" {
+				data, ferr = FetchCryptoData(db, integrationID)
+			} else {
+				data, ferr = FetchStocksData(db, integrationID)
+			}
+			if ferr != nil {
+				log.Printf("[TICKERS] market fetch error: %v", ferr)
+				writeError(w, http.StatusInternalServerError, ferr.Error())
+				return
+			}
+			cacheSet(integrationID, data)
 			writeJSON(w, http.StatusOK, data)
 		case "weather":
 			data, err := fetchWeatherTicker(db, config)

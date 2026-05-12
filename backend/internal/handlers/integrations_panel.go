@@ -34,6 +34,8 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"authentik":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchAuthentikPanelData(db, cfg) },
 	"rss":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRSSPanelData(db, cfg) },
 	"sports":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSportsPanelData(db, cfg) },
+	"stocks":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchStocksPanelData(db, cfg) },
+	"crypto":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCryptoPanelData(db, cfg) },
 	"readarr":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchReadarrPanelData(db, cfg) },
 	"weather":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchWeatherForIntegration(db, cfg) },
 	"steam":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchSteamForIntegration(db, cfg) },

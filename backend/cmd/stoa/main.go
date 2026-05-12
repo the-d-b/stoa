@@ -105,6 +105,7 @@ func main() {
 	protected.HandleFunc("/tickers", handlers.ListTickers(database)).Methods("GET")
 	protected.HandleFunc("/tickers", handlers.CreateTicker(database)).Methods("POST")
 	protected.HandleFunc("/tickers/{id}", handlers.UpdateTicker(database)).Methods("PUT")
+	protected.HandleFunc("/market/spark", handlers.GetStockSpark(database)).Methods("GET")
 	protected.HandleFunc("/tickers/{id}", handlers.DeleteTicker(database)).Methods("DELETE")
 	protected.HandleFunc("/tickers/{id}/data", handlers.GetTickerData(database)).Methods("GET")
 

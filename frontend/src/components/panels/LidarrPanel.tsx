@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import ScrollableCoverStrip from './CoverStrip'
 import { integrationsApi, Panel } from '../../api'
 
 interface LidarrAlbum {
@@ -80,25 +81,6 @@ function HistoryGroups({ groups, uiUrl }: { groups: ReturnType<typeof groupByArt
   )
 }
 
-function AlbumCoverStrip({ items, uiUrl }: { items: LidarrAlbum[]; uiUrl: string }) {
-  const covers = items.filter(a => a.coverUrl)
-  if (covers.length === 0) return null
-  return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10, maxWidth: '100%', minWidth: 0,
-      scrollbarWidth: 'none' }}>
-      {covers.map((a, i) => (
-        <a key={i}
-          href={uiUrl && a.foreignArtistId ? `${uiUrl}/artist/${a.foreignArtistId}` : uiUrl}
-          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-          <img src={a.coverUrl} alt={a.title}
-            style={{ height: 64, width: 64, objectFit: 'cover', borderRadius: 5,
-              display: 'block', opacity: 0.85 }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        </a>
-      ))}
-    </div>
-  )
-}
 
 export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<LidarrData | null>(null)
@@ -169,7 +151,11 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
 
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <AlbumCoverStrip items={allCovers} uiUrl={uiUrl} />
+      <ScrollableCoverStrip items={allCovers.map(a => ({
+        coverUrl: a.coverUrl,
+        title: a.title,
+        linkUrl: uiUrl && a.foreignAlbumId ? `${uiUrl}/album/${a.foreignAlbumId}` : uiUrl
+      }))} height={72} />
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
       {sectionTitle('Recently downloaded')}
       {historyGroups.length === 0

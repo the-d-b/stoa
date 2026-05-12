@@ -38,6 +38,7 @@ export const PANEL_TYPES: {
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                       needsIntegration: true  },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',        needsIntegration: true  },
   { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule', needsIntegration: true  },
+  { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparkline charts', needsIntegration: true  },
 ]
 
 const SEARCH_ENGINE_LIST = [
@@ -51,7 +52,7 @@ const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox',
   'kuma','gluetun','opnsense','transmission','photoprism','authentik',
-  'weather','steam','rss','sports',
+  'weather','steam','rss','sports','stocks','crypto',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
@@ -252,7 +253,8 @@ export default function PanelForm({
 
   const typeDef = PANEL_TYPES.find(t => t.id === type)
   const needsIntegration = INTEGRATION_TYPES.includes(type)
-  const compatibleIntegrations = integrations.filter(i => i.type === type)
+  const compatibleIntegrations = integrations.filter(i =>
+    i.type === type || (type === 'stocks' && i.type === 'crypto'))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

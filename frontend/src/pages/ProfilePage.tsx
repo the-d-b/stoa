@@ -2164,8 +2164,9 @@ function ThemeDensityBlock() {
 // ── Tickers ───────────────────────────────────────────────────────────────────
 
 const TICKER_TYPES = [
-  { id: 'stocks',  label: 'Stocks',        desc: 'Finnhub API — real-time US equity quotes',   needsSecret: true  },
-  { id: 'crypto',  label: 'Crypto',        desc: 'CoinMarketCap API — cryptocurrency prices',  needsSecret: true  },
+  { id: 'stocks',  label: 'Stocks',  desc: 'US stock quotes (Yahoo Finance, no API key required)', needsSecret: false },
+  { id: 'crypto',  label: 'Crypto',  desc: 'Crypto prices (CoinGecko, no API key required)',      needsSecret: false },
+
   { id: 'weather', label: 'Weather',       desc: 'Current conditions — Open-Meteo, no API key', needsSecret: false },
   { id: 'sports',  label: 'Sports scores', desc: 'Live scores — NHL, NFL, NBA, MLB via ESPN (no API key required)', needsSecret: false },
   { id: 'rss',     label: 'RSS headlines', desc: 'Scrolling headlines from any RSS/Atom feed', needsSecret: false },
@@ -2208,6 +2209,8 @@ function TickersTab() {
     try {
       const defaultConfig =
         newType === 'weather' ? JSON.stringify({ city: '', lat: '', lon: '', unit: 'f', refreshSecs: 1800 }) :
+        newType === 'stocks'  ? JSON.stringify({ integrationId: '', refreshSecs: 300 }) :
+        newType === 'crypto'  ? JSON.stringify({ integrationId: '', refreshSecs: 900 }) :
         newType === 'sports'  ? JSON.stringify({ integrationId: '', refreshSecs: 60 }) :
         newType === 'rss'     ? JSON.stringify({ url: '', refreshSecs: 900 }) :
         JSON.stringify({ mode: 'static', refreshSecs: 300, secretId: '' })
@@ -2354,6 +2357,8 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
       // Weather fields — locations array or single
       ...(ticker.type === 'weather' ? { integrationIds: localConfig.integrationIds || [], integrationId: (localConfig.integrationIds || [])[0] || '' } : {}),
       // Sports fields
+      ...(ticker.type === 'stocks' ? { integrationId: localSportsIntegrationId } : {}),
+      ...(ticker.type === 'crypto' ? { integrationId: localSportsIntegrationId } : {}),
       ...(ticker.type === 'sports' ? { integrationId: localSportsIntegrationId } : {}),
       // RSS fields
       ...(ticker.type === 'rss' ? { integrationId: localConfig.integrationId || '' } : {}),
@@ -2425,7 +2430,7 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
               </div>
             </div>
 
-            {!['rss','weather','sports'].includes(ticker.type) && (
+            {!['rss','weather','sports','stocks','crypto'].includes(ticker.type) && (
             <div>
               <label className="label">API key secret</label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -2468,18 +2473,7 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
             </div>
             )}
 
-            {/* Stocks/Crypto symbols */}
-            {(ticker.type === 'stocks' || ticker.type === 'crypto') && (
-              <div>
-                <label className="label">Symbols (comma separated)</label>
-                <input className="input" value={localSymbols}
-                  onChange={e => setLocalSymbols(e.target.value)}
-                  placeholder={ticker.type === 'stocks' ? 'AAPL, MSFT, NVDA, TSLA' : 'BTC, ETH, SOL'} />
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>
-                  {ticker.type === 'stocks' ? 'Use standard NYSE/NASDAQ ticker symbols' : 'Use CoinMarketCap symbol codes'}
-                </div>
-              </div>
-            )}
+
 
             {/* Weather ticker config — multiple integrations */}
             {ticker.type === 'weather' && (() => {
@@ -2511,6 +2505,48 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
                       </div>
                     )}
                   </div>
+                </div>
+              )
+            })()}
+
+            {/* Stocks/crypto ticker config — select integration */}
+            {ticker.type === 'stocks' && (() => {
+              const marketInts = integrations.filter((i: any) => i.type === 'stocks' || i.type === 'crypto')
+              return (
+                <div>
+                  <label className="label">Market Integration</label>
+                  <select className="input" value={localSportsIntegrationId}
+                    onChange={e => { setLocalSportsIntegrationId(e.target.value); setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value })) }}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="">— Select integration —</option>
+                    {marketInts.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  {marketInts.length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                      No market integrations found. Add a Stocks & Crypto integration first.
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Crypto ticker config — select integration */}
+            {ticker.type === 'crypto' && (() => {
+              const cryptoInts = integrations.filter((i: any) => i.type === 'crypto')
+              return (
+                <div>
+                  <label className="label">Crypto Integration</label>
+                  <select className="input" value={localSportsIntegrationId}
+                    onChange={e => { setLocalSportsIntegrationId(e.target.value); setLocalConfig((c: any) => ({ ...c, integrationId: e.target.value })) }}
+                    style={{ cursor: 'pointer' }}>
+                    <option value="">— Select integration —</option>
+                    {cryptoInts.map((i: any) => <option key={i.id} value={i.id}>{i.name}</option>)}
+                  </select>
+                  {cryptoInts.length === 0 && (
+                    <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                      No crypto integrations found. Add a Crypto integration first.
+                    </div>
+                  )}
                 </div>
               )
             })()}

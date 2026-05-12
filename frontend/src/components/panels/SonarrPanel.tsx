@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import ScrollableCoverStrip from './CoverStrip'
 import { integrationsApi, Panel } from '../../api'
 
 interface SonarrEpisode {
@@ -97,24 +98,6 @@ function HistoryGroups({ groups, uiUrl }: {
   )
 }
 
-function PosterStrip({ items, uiUrl }: { items: { posterUrl?: string; titleSlug?: string; seriesTitle?: string }[]; uiUrl: string }) {
-  const posters = items.filter(i => i.posterUrl)
-  if (posters.length === 0) return null
-  return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto', marginBottom: 10,
-      scrollbarWidth: 'none', maxWidth: '100%', minWidth: 0 }}>
-      {posters.map((item, i) => (
-        <a key={i} href={uiUrl && item.titleSlug ? `${uiUrl}/series/${item.titleSlug}` : uiUrl}
-          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-          <img src={item.posterUrl} alt={item.seriesTitle || ''}
-            style={{ height: 80, width: 54, objectFit: 'cover', borderRadius: 5,
-              display: 'block', opacity: 0.85 }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        </a>
-      ))}
-    </div>
-  )
-}
 
 export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<SonarrData | null>(null)
@@ -217,7 +200,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   if (heightUnits < 3) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
-        <PosterStrip items={allPosters} uiUrl={uiUrl} />
+        <ScrollableCoverStrip items={allPosters.map(p => ({ coverUrl: p.posterUrl, title: p.seriesTitle || '', linkUrl: uiUrl && p.titleSlug ? `${uiUrl}/series/${p.titleSlug}` : uiUrl }))} height={80} />
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0
@@ -260,7 +243,7 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   // ── 4x — stats + recently downloaded + missing on disk ─────────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
-      <PosterStrip items={allPosters} uiUrl={uiUrl} />
+      <ScrollableCoverStrip items={allPosters.map(p => ({ coverUrl: p.posterUrl, title: p.seriesTitle || '', linkUrl: uiUrl && p.titleSlug ? `${uiUrl}/series/${p.titleSlug}` : uiUrl }))} height={80} />
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
 
       {sectionTitle('Recently downloaded')}

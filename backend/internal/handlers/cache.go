@@ -274,6 +274,12 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 		return
 	}
 
+	// Market data uses smart refresh based on market hours
+	if ig.igType == "stocks" || ig.igType == "crypto" {
+		StartMarketWorker(db, ig, stop)
+		return
+	}
+
 	go func() {
 		// Fetch immediately on start so cache is warm right away
 		refreshCache(db, ig)

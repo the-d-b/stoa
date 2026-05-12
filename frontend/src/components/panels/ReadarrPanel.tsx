@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
+import ScrollableCoverStrip from './CoverStrip'
 import { integrationsApi, Panel } from '../../api'
 
 interface ReadarrBook {
@@ -19,23 +20,6 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' })
 }
 
-function CoverStrip({ items, uiUrl }: { items: ReadarrBook[]; uiUrl: string }) {
-  const withCovers = items.filter(b => b.coverUrl)
-  if (withCovers.length === 0) return null
-  return (
-    <div style={{ display: 'flex', gap: 6, overflowX: 'auto',
-      scrollbarWidth: 'none', flexShrink: 0 }}>
-      {withCovers.map((b, i) => (
-        <a key={i} href={uiUrl && b.titleSlug ? `${uiUrl}/book/${b.titleSlug}` : uiUrl || '#'}
-          target="_blank" rel="noopener noreferrer" style={{ flexShrink: 0 }}>
-          <img src={b.coverUrl} alt={b.title}
-            style={{ height: 80, width: 54, objectFit: 'cover', borderRadius: 5, display: 'block' }}
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
-        </a>
-      ))}
-    </div>
-  )
-}
 
 function BookRow({ b, uiUrl, icon, iconColor }: {
   b: ReadarrBook; uiUrl: string; icon: string; iconColor: string
@@ -115,7 +99,7 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      <CoverStrip items={allBooks} uiUrl={uiUrl} />
+      <ScrollableCoverStrip items={allBooks.map(b => ({ coverUrl: b.coverUrl, title: b.title, linkUrl: uiUrl && b.titleSlug ? `${uiUrl}/book/${b.titleSlug}` : uiUrl }))} height={80} />
     </div>
   )
 
@@ -124,7 +108,7 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      <CoverStrip items={allBooks} uiUrl={uiUrl} />
+      <ScrollableCoverStrip items={allBooks.map(b => ({ coverUrl: b.coverUrl, title: b.title, linkUrl: uiUrl && b.titleSlug ? `${uiUrl}/book/${b.titleSlug}` : uiUrl }))} height={80} />
 
       {/* Recent downloads — fixed, doesn't grow */}
       {history.length > 0 && (

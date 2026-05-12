@@ -8,6 +8,8 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi, myIntegrationsApi, secretsApi, weatherApi, steamApi, Integration } from '../../api'
 import SportsConfigUI from './SportsConfigUI'
+import StocksConfigUI from './StocksConfigUI'
+import CryptoConfigUI from './CryptoConfigUI'
 
 export const INTEGRATION_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
@@ -28,10 +30,12 @@ export const INTEGRATION_TYPES = [
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN, no key required)' },
+  { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)' },
+  { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko — add Demo API key secret for higher rate limits)' },
 ]
 
-const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports']
+const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -347,6 +351,10 @@ export default function IntegrationForm({
             onChange={e => { setApiUrl(e.target.value); setTestResult(null) }}
             placeholder="https://example.com/feed.xml" />
         </div>
+      ) : activeType === 'stocks' ? (
+        <StocksConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
+      ) : activeType === 'crypto' ? (
+        <CryptoConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
       ) : activeType === 'sports' ? (
         <SportsConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
       ) : (

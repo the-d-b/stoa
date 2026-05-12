@@ -48,7 +48,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   const [rawData, setRawData] = useState<any>(null)
   const [error, setError] = useState('')
   const [swoosh, setSwoosh] = useState(false)
-  const isNonQuote = ['weather', 'sports', 'rss'].includes(ticker.type)
+  const isNonQuote = ['weather', 'sports', 'rss', 'stocks'].includes(ticker.type)
 
   const fetchData = useCallback(async () => {
     try {
@@ -104,6 +104,35 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
               <span style={{ color: 'var(--text-muted)' }}>{shortCity}</span>
               <span style={{ fontWeight: 600 }}>{d.temp}</span>
               {d.label && <span style={{ color: 'var(--text-dim)' }}>{d.label}</span>}
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // Stocks/crypto ticker — reads from MarketData.quotes
+  if (ticker.type === 'stocks') {
+    if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
+    const mquotes: any[] = rawData.quotes || []
+    if (mquotes.length === 0) return <div style={{ padding: '6px 16px', fontSize: 11, color: 'var(--text-dim)' }}>No market data</div>
+    const fmtPrice = (n: number) => n >= 1000 ? `$${n.toFixed(2)}` : n >= 1 ? `$${n.toFixed(2)}` : `$${n.toFixed(4)}`
+    const fmtPct = (n: number) => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 0, padding: '0 8px',
+        overflowX: 'auto', scrollbarWidth: 'none', flex: 1 }}>
+        {mquotes.map((q: any, i: number) => {
+          const up = q.deltaP >= 0
+          return (
+            <div key={q.symbol} style={{ display: 'flex', alignItems: 'center', gap: 5,
+              padding: '0 10px', borderRight: i < mquotes.length-1 ? '1px solid var(--border)' : 'none',
+              flexShrink: 0 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, fontFamily: 'DM Mono, monospace',
+                color: 'var(--text-muted)' }}>{q.symbol}</span>
+              <span style={{ fontSize: 12, fontFamily: 'DM Mono, monospace',
+                fontWeight: 600 }}>{fmtPrice(q.price)}</span>
+              <span style={{ fontSize: 11, color: up ? 'var(--green)' : 'var(--red)',
+                fontFamily: 'DM Mono, monospace' }}>{fmtPct(q.deltaP)}</span>
             </div>
           )
         })}
