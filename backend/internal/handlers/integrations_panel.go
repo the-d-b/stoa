@@ -37,6 +37,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"stocks":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchStocksPanelData(db, cfg) },
 	"crypto":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCryptoPanelData(db, cfg) },
 	"readarr":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchReadarrPanelData(db, cfg) },
+	"jellyfin":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchJellyfinPanelData(db, cfg) },
 	"weather":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchWeatherForIntegration(db, cfg) },
 	"steam":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchSteamForIntegration(db, cfg) },
 }

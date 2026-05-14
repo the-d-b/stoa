@@ -9,6 +9,7 @@ import SonarrPanel from '../components/panels/SonarrPanel'
 import RadarrPanel from '../components/panels/RadarrPanel'
 import LidarrPanel from '../components/panels/LidarrPanel'
 import PlexPanel from '../components/panels/PlexPanel'
+import JellyfinPanel from '../components/panels/JellyfinPanel'
 import TautulliPanel from '../components/panels/TautulliPanel'
 import TrueNASPanel from '../components/panels/TrueNASPanel'
 import ProxmoxPanel from '../components/panels/ProxmoxPanel'
@@ -986,6 +987,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
           {panel.type === 'radarr' && <RadarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'lidarr' && <LidarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'plex' && <PlexPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'jellyfin' && <JellyfinPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'tautulli' && <TautulliPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'proxmox' && <ProxmoxPanel panel={panel} heightUnits={heightUnits} />}

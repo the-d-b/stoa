@@ -25,6 +25,7 @@ export const PANEL_TYPES: {
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',             needsIntegration: false },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                needsIntegration: true  },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                     needsIntegration: true  },
+  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                         needsIntegration: true  },
   { id: 'plex',         label: 'Plex',         desc: 'Media server',                         needsIntegration: true  },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                           needsIntegration: true  },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                       needsIntegration: true  },
@@ -50,7 +51,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','tautulli','truenas','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','tautulli','truenas','proxmox',
   'kuma','gluetun','opnsense','transmission','photoprism','authentik',
   'weather','steam','rss','sports','stocks','crypto',
 ]

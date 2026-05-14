@@ -131,7 +131,7 @@
 /* ── Mobile layout ───────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   /* Tighter main padding */
-  .main-content { padding: 12px 14px !important; }
+  .main-content { padding: 12px 6px !important; }
 
   /* Header: tighter */
   .header-inner { padding: 0 12px !important; }
