@@ -30,6 +30,7 @@ import ReadarrPanel from '../components/panels/ReadarrPanel'
 import SportsPanel from '../components/panels/SportsPanel'
 import MarketPanel from '../components/panels/MarketPanel'
 import SearchPanel from '../components/panels/SearchPanel'
+import OverseerrPanel from '../components/panels/OverseerrPanel'
 import SearchModal from '../components/SearchModal'
 import { Note } from '../api'
 import { NoteOverlay } from '../components/panels/NotesPanel'
@@ -1009,6 +1010,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
           {panel.type === 'sports' && <SportsPanel panel={panel} heightUnits={heightUnits} />}
           {(panel.type === 'stocks' || panel.type === 'crypto') && <MarketPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'search' && <SearchPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'overseerr' && <OverseerrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'iframe' && (() => {
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url

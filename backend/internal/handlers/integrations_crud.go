@@ -202,6 +202,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testJellyfinConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "homeassistant":
 			err = testHAConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "overseerr":
+			err = testOverseerrConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tautulli":
 			err = testTautulliConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "truenas":
@@ -242,6 +244,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testJellyfinConnection(req.APIURL, apiKey, true)
 						case "homeassistant":
 							retryErr = testHAConnection(req.APIURL, apiKey, true)
+						case "overseerr":
+							retryErr = testOverseerrConnection(req.APIURL, apiKey, true)
 						case "tautulli":
 							retryErr = testTautulliConnection(req.APIURL, apiKey, true)
 						case "truenas":
@@ -458,6 +462,8 @@ func defaultRefreshSecs(igType string) int {
 		return 60
 	case "authentik", "customapi":
 		return 300
+	case "overseerr":
+		return 120
 	case "sonarr", "radarr", "lidarr", "photoprism":
 		return 1800
 	case "calendar":

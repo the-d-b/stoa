@@ -17,6 +17,7 @@ export const INTEGRATION_TYPES = [
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
   { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
+  { id: 'overseerr',    label: 'Overseerr',    desc: 'Media request management' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
   { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform' },
   { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server' },

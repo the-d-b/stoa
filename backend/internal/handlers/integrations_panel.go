@@ -41,6 +41,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"homeassistant":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchHAPanelData(db, cfg) },
 	"weather":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchWeatherForIntegration(db, cfg) },
 	"steam":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchSteamForIntegration(db, cfg) },
+	"overseerr":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOverseerrPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
