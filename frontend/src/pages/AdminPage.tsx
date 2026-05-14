@@ -1,4 +1,4 @@
-import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
+import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom'
 import ErrorBoundary from '../components/ErrorBoundary'
 import OAuthConfigPanel from '../components/admin/OAuthConfigPanel'
 import GoogleCalendarConfigPanel from '../components/admin/GoogleCalendarConfigPanel'
@@ -11,6 +11,7 @@ import SecretsPanel from '../components/admin/SecretsPanel'
 import IntegrationsPanel from '../components/admin/IntegrationsPanel'
 import MailConfigPanel from '../components/admin/MailConfigPanel'
 import SessionsPanel from '../components/admin/SessionsPanel'
+import BackupPanel from '../components/admin/BackupPanel'
 
 const tabs = [
   { path: '/admin/bookmarks', label: 'Bookmarks',        icon: '↗' },
@@ -20,6 +21,7 @@ const tabs = [
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
   { path: '/admin/mail',      label: 'Mail',            icon: '✉' },
   { path: '/admin/google',    label: 'Google Cal', icon: '📅' },
+  { path: '/admin/backup',    label: 'Backup',          icon: '⊞' },
   { path: '/admin/sessions',  label: 'Sessions',  icon: '◎' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
   { path: '/admin/groups',    label: 'Groups',    icon: '◈' },
@@ -28,6 +30,7 @@ const tabs = [
 
 export default function AdminPage() {
   const location = useLocation()
+  const navigate = useNavigate()
 
   const navGroups = [
     {
@@ -44,7 +47,7 @@ export default function AdminPage() {
     },
     {
       label: 'Config',
-      items: tabs.filter(t => ['/admin/oauth', '/admin/google', '/admin/mail'].includes(t.path)),
+      items: tabs.filter(t => ['/admin/oauth', '/admin/google', '/admin/mail', '/admin/backup'].includes(t.path)),
     },
   ]
 
@@ -82,6 +85,21 @@ export default function AdminPage() {
             </div>
           ))}
         </nav>
+
+        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <button
+            onClick={() => navigate('/express-setup')}
+            style={{
+              width: '100%', padding: '8px 10px', fontSize: 13,
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 7, cursor: 'pointer', color: 'var(--text-muted)',
+              textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8,
+            }}
+          >
+            <span style={{ fontSize: 11, width: 14, textAlign: 'center', flexShrink: 0 }}>⚡</span>
+            Express Setup
+          </button>
+        </div>
       </div>
 
       {/* Main content */}
@@ -97,6 +115,7 @@ export default function AdminPage() {
           <Route path="oauth"     element={<OAuthConfigPanel />} />
           <Route path="mail"      element={<MailConfigPanel />} />
           <Route path="google"    element={<div style={{padding:16}}><GoogleCalendarConfigPanel /></div>} />
+          <Route path="backup"    element={<BackupPanel />} />
           <Route path="sessions"  element={<SessionsPanel />} />
           <Route path="users"     element={<UsersPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />

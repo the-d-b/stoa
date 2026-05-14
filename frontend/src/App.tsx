@@ -12,6 +12,7 @@ import DashboardPage from './pages/DashboardPage'
 import AdminPage from './pages/AdminPage'
 import HelpPage from './pages/HelpPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
+import ExpressSetupPage from './pages/ExpressSetupPage'
 import Layout from './components/layout/Layout'
 import ThemeSwitcher from './components/layout/ThemeSwitcher'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -65,6 +66,9 @@ function AppRoutes() {
         <Route path="/profile" element={<ProfilePage />} />
         {user.role === 'admin' && userMode !== 'single' && (
           <Route path="/admin/*" element={<AdminPage />} />
+        )}
+        {user.role === 'admin' && (
+          <Route path="/express-setup" element={<ExpressSetupPage />} />
         )}
         <Route path="/help" element={<HelpPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />

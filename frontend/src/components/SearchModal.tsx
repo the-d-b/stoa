@@ -1,5 +1,5 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
-import { searchApi, Panel, BookmarkNode } from '../api'
+import {useEffect, useState, useRef, useCallback } from 'react'
+import { searchApi, notesApi, Panel, BookmarkNode } from '../api'
 
 interface SearchResult {
   type: string
@@ -9,6 +9,7 @@ interface SearchResult {
   url?: string
   iconUrl?: string
   panelId?: string
+  porticoId?: string
   path?: string
 }
 
@@ -157,8 +158,10 @@ export default function SearchModal({ panels, subtrees }: Props) {
     if (r.type === 'bookmark' && r.url) {
       window.open(r.url, '_blank')
     } else if (r.type === 'note') {
-      // Open the note overlay directly
-      window.dispatchEvent(new CustomEvent('stoa-open-note', { detail: { noteId: r.id, panelId: r.panelId } }))
+      // Fetch full note then open overlay directly -- no portico switching needed
+      notesApi.get(r.id).then((res: any) => {
+        window.dispatchEvent(new CustomEvent('stoa-open-note', { detail: { note: res.data } }))
+      }).catch(() => {})
     } else if (r.type === 'checklist') {
       // Scroll to the checklist panel
       if (r.panelId) {

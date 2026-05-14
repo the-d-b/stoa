@@ -35,17 +35,11 @@ export default function WeatherGlyph({ glyph }: { glyph: Glyph }) {
   const icon = data.icon || '🌡️'
   const temp = data.temp != null ? `${Math.round(data.temp)}°` : '—'
   const unitLabel = data.unit === 'c' ? 'C' : 'F'
-  const label = config.label || data.city || ''
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 1, cursor: 'default' }} title={`${data.city || ''} — ${data.label || ''}`}>
-      <span style={{ fontSize: 20, lineHeight: 1 }}>{icon}</span>
-      <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1 }}>{temp}{unitLabel}</span>
-      {label && <span style={{ fontSize: 9, color: 'var(--text-dim)', lineHeight: 1,
-        maxWidth: 60, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>}
+      gap: 1, cursor: 'default' }}>
+      <span style={{ fontSize: 16, lineHeight: 1 }}>{icon}</span>
+      <span style={{ fontSize: 10, fontWeight: 700, lineHeight: 1 }}>{temp}{unitLabel}</span>
     </div>
   )
 }

@@ -37,14 +37,13 @@ export default function ClockGlyph({ glyph }: { glyph: Glyph }) {
   })
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.2 }}
-      title={config.timezone || 'Local time'}>
-
-      <span style={{ fontSize: 14, fontWeight: 600, fontFamily: 'DM Mono, monospace', letterSpacing: '0.05em', color: 'var(--text)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1, gap: 1 }}
+>
+      <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'DM Mono, monospace', letterSpacing: '0.04em', color: 'var(--text)' }}>
         {timeStr}
       </span>
       {config.showDate && (
-        <span style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>{dateStr}</span>
+        <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>{dateStr}</span>
       )}
     </div>
   )

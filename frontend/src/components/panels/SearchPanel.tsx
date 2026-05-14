@@ -36,8 +36,6 @@ export default function SearchPanel({ panel, heightUnits = 1 }: { panel: Panel; 
     // Don't clear query — user may want to try other engines
   }
 
-  const openAll = () => available.forEach(e => openEngine(e))
-
   const openDefault = () => {
     const def = available.find(e => e.id === defaultId) || available[0]
     if (def) openEngine(def)
@@ -76,12 +74,6 @@ export default function SearchPanel({ panel, heightUnits = 1 }: { panel: Panel; 
           style={btnStyle(!!query.trim(), true)}>
           {available.find(e => e.id === defaultId)?.icon || '🔍'} Search
         </button>
-        {available.length > 1 && (
-          <button onClick={openAll} disabled={!query.trim()}
-            style={btnStyle(!!query.trim(), false)}>
-            All
-          </button>
-        )}
       </div>
     </div>
   )
@@ -111,17 +103,6 @@ export default function SearchPanel({ panel, heightUnits = 1 }: { panel: Panel; 
             <span>{e.label}</span>
           </button>
         ))}
-        {available.length > 1 && (
-          <button onClick={openAll} disabled={!query.trim()}
-            title="Open all engines"
-            style={{ ...pillStyle(!!query.trim()), marginLeft: 'auto',
-              background: query.trim() ? 'var(--accent-bg)' : 'var(--surface2)',
-              borderColor: query.trim() ? 'var(--accent)' : 'var(--border)',
-              color: query.trim() ? 'var(--accent2)' : 'var(--text-dim)',
-              fontWeight: 600 }}>
-            All
-          </button>
-        )}
       </div>
     </div>
   )

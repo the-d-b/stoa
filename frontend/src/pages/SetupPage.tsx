@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { authApi, preferencesApi, oauthTestApi } from '../api'
 import { useAuth } from '../context/AuthContext'
 import { StoaLogo } from '../App'
@@ -22,9 +23,11 @@ interface TagEntry { name: string; color: string }
 interface GroupEntry { name: string; tagNames: string[]; isDefault: boolean }
 
 export default function SetupPage({ onComplete }: Props) {
+  const navigate = useNavigate()
   const [step, setStep] = useState<Step>('welcome')
   const [userMode, setUserMode] = useState<'single' | 'multi'>('multi')
   const [autoLogin, setAutoLogin] = useState(false)
+  const [autoRedirecting, setAutoRedirecting] = useState(false)
   const [adminUsername, setAdminUsername] = useState('')
   const [adminEmail, setAdminEmail] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
@@ -100,6 +103,7 @@ export default function SetupPage({ onComplete }: Props) {
         login(r.data.token, r.data.user)
       } else if (userMode === 'single' && !autoLogin) {
         // Require login — don't auto-log in, redirect to login page
+        setAutoRedirecting(true)
         setStep('done')
         setTimeout(() => { window.location.href = '/login' }, 1500)
         return
@@ -113,7 +117,7 @@ export default function SetupPage({ onComplete }: Props) {
         try { await preferencesApi.save({ theme: currentTheme }) } catch {}
       }
       setStep('done')
-      setTimeout(onComplete, 1200)
+      // User now chooses: Go to Dashboard or Run Express Setup
     } catch (e: any) {
       setError(e.response?.data?.error || 'Setup failed')
     } finally { setLoading(false) }
@@ -479,9 +483,33 @@ export default function SetupPage({ onComplete }: Props) {
             <div style={{ textAlign: 'center', padding: '16px 0' }}>
               <div style={{ fontSize: 36, marginBottom: 12 }}>✓</div>
               <h2 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 8px' }}>Setup complete</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
-                {autoLogin ? 'Signing you in automatically...' : 'Signing you in...'}
-              </p>
+              {autoRedirecting ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
+                  Redirecting to login...
+                </p>
+              ) : (
+                <>
+                  <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: '0 0 20px' }}>
+                    Your Stoa instance is ready.
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <button
+                      className="btn btn-primary"
+                      style={{ width: '100%' }}
+                      onClick={() => { navigate('/express-setup'); onComplete() }}
+                    >
+                      Express Setup →
+                    </button>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ width: '100%' }}
+                      onClick={onComplete}
+                    >
+                      Go to Dashboard
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

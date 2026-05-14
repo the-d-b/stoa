@@ -81,21 +81,13 @@ export default function GlyphZone({ glyphs, zone, activePorticoId = 'home', styl
         const label = cfg.label || cfg.name || ''
         return (
           <GlyphErrorBoundary key={g.id} glyphId={g.id} glyphType={g.type}>
-            <div style={{
+            <div title={label || undefined} style={{
               display: 'flex', flexDirection: 'column', alignItems: 'center',
               padding: '4px 8px', borderRadius: 8,
               border: '1px solid var(--border)',
               background: 'var(--surface)',
+              cursor: label ? 'default' : undefined,
             }}>
-              {label && (
-                <span style={{
-                  fontSize: 9, color: 'var(--text-dim)', fontWeight: 500,
-                  textTransform: 'uppercase', letterSpacing: '0.06em',
-                  marginBottom: 2, whiteSpace: 'nowrap',
-                }}>
-                  {label}
-                </span>
-              )}
               <GlyphRenderer glyph={g} />
             </div>
           </GlyphErrorBoundary>

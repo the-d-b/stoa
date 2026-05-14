@@ -89,7 +89,7 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
   )
 }
 
-function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
+export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
   note: Note; onClose: (updated: Note) => void; onDelete: (id: string) => void
   initialLockedBy?: string | null
 }) {
@@ -282,11 +282,28 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
   const [openNote, setOpenNote] = useState<Note | null>(null)
 
   // Listen for external open-note requests (e.g. from search modal)
+  // Check for pending note open (from cross-portico search navigation)
+  const checkPendingNote = useCallback((notesList: Note[]) => {
+    const pending = sessionStorage.getItem('stoa-pending-note')
+    if (!pending) return
+    try {
+      const { noteId, panelId } = JSON.parse(pending)
+      if (panelId !== panel.id) return
+      const found = notesList.find(n => n.id === noteId)
+      if (found) {
+        sessionStorage.removeItem('stoa-pending-note')
+        setOpenNote(found)
+      }
+    } catch {}
+  }, [panel.id])
+
   useEffect(() => {
     const handler = (e: Event) => {
-      const { noteId, panelId } = (e as CustomEvent).detail || {}
-      if (panelId && panelId !== panel.id) return // not our panel
-      const found = notes.find(n => n.id === noteId)
+      const detail = (e as CustomEvent).detail || {}
+      if (detail.note) return // GlobalNoteOverlay handles search-originated opens
+      const { noteId, panelId } = detail
+      if (panelId && panelId !== panel.id) return
+      const found = notes.find((n: any) => n.id === noteId)
       if (found) setOpenNote(found)
     }
     window.addEventListener('stoa-open-note', handler)
@@ -303,6 +320,11 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
   }
 
   useEffect(() => { load() }, [panel.id])
+
+  // After notes load, check if there's a pending cross-portico note to open
+  useEffect(() => {
+    if (notes.length > 0) checkPendingNote(notes)
+  }, [notes, checkPendingNote])
 
   const handleCreate = async () => {
     const res = await notesApi.create(panel.id)

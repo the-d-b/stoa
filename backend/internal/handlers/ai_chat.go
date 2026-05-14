@@ -160,7 +160,7 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 				"systemInstruction": map[string]interface{}{
 					"parts": []geminiPart{{Text: aiSystemPrompt}},
 				},
-				"generationConfig": map[string]interface{}{"maxOutputTokens": 1024},
+				"generationConfig": map[string]interface{}{"maxOutputTokens": 8192},
 			})
 			apiURL := "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse"
 			apiReq, _ := http.NewRequestWithContext(r.Context(), "POST", apiURL, bytes.NewReader(body))
@@ -178,6 +178,7 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			scanner := bufio.NewScanner(resp.Body)
+			scanner.Buffer(make([]byte, 512*1024), 512*1024)
 			for scanner.Scan() {
 				line := scanner.Text()
 				if !strings.HasPrefix(line, "data: ") { continue }
@@ -205,7 +206,7 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 			// ── Anthropic API ────────────────────────────────────────────────────
 			body, _ := json.Marshal(map[string]interface{}{
 				"model":      "claude-sonnet-4-20250514",
-				"max_tokens": 1024,
+				"max_tokens": 8192,
 				"system":     aiSystemPrompt,
 				"messages":   history,
 				"stream":     true,
@@ -227,6 +228,7 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			scanner := bufio.NewScanner(resp.Body)
+			scanner.Buffer(make([]byte, 512*1024), 512*1024)
 			for scanner.Scan() {
 				line := scanner.Text()
 				if !strings.HasPrefix(line, "data: ") { continue }

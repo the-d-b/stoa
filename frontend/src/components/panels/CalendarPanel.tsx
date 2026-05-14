@@ -139,7 +139,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
     events.map(e => [e.source, { source: e.source, color: e.color }])
   ).values())
 
-  // Get events for a given date string, filtered by hidden sources
+  // Get events for a given date string, filtered by hidden sources, sorted by time
   const eventsForDate = (year: number, month: number, day: number): CalendarEvent[] => {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
     // Exclude weather events — they render as forecast tiles, not list items
@@ -152,6 +152,12 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         return localDate === dateStr
       }
       return e.date?.startsWith(dateStr)
+    }).sort((a, b) => {
+      // All-day events (no startDT) float to the top
+      if (!a.startDT && !b.startDT) return 0
+      if (!a.startDT) return -1
+      if (!b.startDT) return 1
+      return new Date(a.startDT).getTime() - new Date(b.startDT).getTime()
     })
   }
 

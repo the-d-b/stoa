@@ -2,9 +2,10 @@ package main
 
 import (
 	"log"
-	"time"
 	"net/http"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -259,6 +260,14 @@ func main() {
 	admin.HandleFunc("/users/{id}/email", handlers.UpdateUserEmail(database)).Methods("PUT")
 	admin.HandleFunc("/users/{id}/send-reset", handlers.AdminSendResetLink(database)).Methods("POST")
 	admin.HandleFunc("/users/{id}", handlers.DeleteUser(database)).Methods("DELETE")
+
+	// Backup (download only — restore is CLI: stoa-cli backup restore <file>)
+	backupDataDir := filepath.Dir(filepath.Dir(cfg.DBPath))
+	admin.HandleFunc("/backup", handlers.CreateBackup(database, cfg.DBPath, cfg.IconsDir, filepath.Join(backupDataDir, "uploads"), cfg.CSSDir)).Methods("GET")
+
+	// Express Setup wizard
+	admin.HandleFunc("/express-setup/status", handlers.ExpressSetupStatus(database)).Methods("GET")
+	admin.HandleFunc("/express-setup", handlers.ExpressSetupRun(database)).Methods("POST")
 
 	// Groups
 	admin.HandleFunc("/groups", handlers.ListGroups(database)).Methods("GET")

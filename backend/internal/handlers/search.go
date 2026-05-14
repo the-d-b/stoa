@@ -16,8 +16,9 @@ type SearchResult struct {
 	Excerpt string `json:"excerpt,omitempty"`
 	URL     string `json:"url,omitempty"`     // for bookmarks
 	IconURL string `json:"iconUrl,omitempty"` // for bookmarks
-	PanelID string `json:"panelId,omitempty"` // for notes/checklists — which panel they live in
-	Path    string `json:"path,omitempty"`    // breadcrumb for bookmarks
+	PanelID   string `json:"panelId,omitempty"`
+	PorticoID string `json:"porticoId,omitempty"`
+	Path      string `json:"path,omitempty"`
 }
 
 func Search(db *sql.DB) http.HandlerFunc {
@@ -34,7 +35,8 @@ func Search(db *sql.DB) http.HandlerFunc {
 
 				// ── Notes (user's own panels only) ────────────────────────────────────
 		noteRows, err := db.Query(`
-			SELECT n.id, n.title, SUBSTR(n.body, 1, 120), p.id
+			SELECT n.id, n.title, SUBSTR(n.body, 1, 120), p.id,
+				COALESCE((SELECT ppp.portico_id FROM personal_panel_porticos ppp WHERE ppp.panel_id = p.id LIMIT 1), 'home')
 			FROM notes n
 			JOIN panels p ON p.id = n.panel_id
 			WHERE (n.title LIKE ? OR n.body LIKE ?)
@@ -44,14 +46,15 @@ func Search(db *sql.DB) http.HandlerFunc {
 		if err == nil {
 			defer noteRows.Close()
 			for noteRows.Next() {
-				var id, title, excerpt, panelID string
-				noteRows.Scan(&id, &title, &excerpt, &panelID)
+				var id, title, excerpt, panelID, porticoID string
+				noteRows.Scan(&id, &title, &excerpt, &panelID, &porticoID)
 				results = append(results, SearchResult{
-					Type:    "note",
-					ID:      id,
-					Title:   title,
-					Excerpt: strings.TrimSpace(excerpt),
-					PanelID: panelID,
+					Type:      "note",
+					ID:        id,
+					Title:     title,
+					Excerpt:   strings.TrimSpace(excerpt),
+					PanelID:   panelID,
+					PorticoID: porticoID,
 				})
 			}
 		}

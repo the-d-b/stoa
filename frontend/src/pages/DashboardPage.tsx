@@ -29,6 +29,33 @@ import SportsPanel from '../components/panels/SportsPanel'
 import MarketPanel from '../components/panels/MarketPanel'
 import SearchPanel from '../components/panels/SearchPanel'
 import SearchModal from '../components/SearchModal'
+import { Note } from '../api'
+import { NoteOverlay } from '../components/panels/NotesPanel'
+
+// GlobalNoteOverlay — listens for stoa-open-note at app level, works across porticos
+function GlobalNoteOverlay() {
+  const [note, setNote] = useState<Note | null>(null)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { note: n } = (e as CustomEvent).detail || {}
+      if (n) setNote(n)
+    }
+    window.addEventListener('stoa-open-note', handler)
+    return () => window.removeEventListener('stoa-open-note', handler)
+  }, [])
+
+  if (!note) return null
+
+  return (
+    <NoteOverlay
+      note={note}
+      onClose={() => setNote(null)}
+      onDelete={() => setNote(null)}
+      initialLockedBy={null}
+    />
+  )
+}
 
 export default function DashboardPage() {
   // Open SSE connection unconditionally so cache workers start even without
@@ -57,6 +84,7 @@ export default function DashboardPage() {
     window.addEventListener('stoa-navigate-panel', handler)
     return () => window.removeEventListener('stoa-navigate-panel', handler)
   }, [])
+
   const [activePorticoId, setActivePorticoId] = useState<string>('home')
   const [allExpanded, setAllExpanded] = useState<boolean | null>(null) // null = default
   const [customColumns, setCustomColumns] = useState<Record<string,number>>({})
@@ -459,6 +487,7 @@ export default function DashboardPage() {
         </div>
       )}
     <SearchModal panels={panels} subtrees={subtrees} />
+      <GlobalNoteOverlay />
     </div>
     </div>
   )

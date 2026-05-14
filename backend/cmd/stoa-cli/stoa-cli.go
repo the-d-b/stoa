@@ -1,7 +1,9 @@
 package main
 
 import (
+	"archive/tar"
 	"bufio"
+	"compress/gzip"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -74,6 +76,8 @@ func main() {
 		runDB(dbPath, sub, rest)
 	case "bookmarks":
 		runBookmarks(dbPath, sub, rest)
+	case "backup":
+		runBackup(dbPath, sub, rest)
 	default:
 		fatalf("unknown command group: %s\n", group)
 	}
@@ -918,6 +922,333 @@ func insertNodes(tx *sql.Tx, nodes []BookmarkNode, parentID interface{}, count *
 	}
 }
 
+// ── backup ────────────────────────────────────────────────────────────────────
+
+func runBackup(dbPath, sub string, args []string) {
+	switch sub {
+	case "create":
+		backupCreate(dbPath, args)
+	case "restore":
+		backupRestore(dbPath, args)
+	default:
+		fatalf("unknown backup command: %s\nAvailable: create, restore\n", sub)
+	}
+}
+
+// deriveDataDir returns the root data directory from the db path.
+// Standard layout: /data/db/stoa.db -> /data
+func deriveDataDir(dbPath string) string {
+	return filepath.Dir(filepath.Dir(dbPath))
+}
+
+func backupCreate(dbPath string, args []string) {
+	outPath := ""
+	dataDir := deriveDataDir(dbPath)
+
+	for i := 0; i < len(args); i++ {
+		switch {
+		case (args[i] == "--output" || args[i] == "-o") && i+1 < len(args):
+			i++
+			outPath = args[i]
+		case strings.HasPrefix(args[i], "--output="):
+			outPath = strings.TrimPrefix(args[i], "--output=")
+		case args[i] == "--data-dir" && i+1 < len(args):
+			i++
+			dataDir = args[i]
+		case strings.HasPrefix(args[i], "--data-dir="):
+			dataDir = strings.TrimPrefix(args[i], "--data-dir=")
+		}
+	}
+
+	if outPath == "" {
+		outPath = fmt.Sprintf("stoa-backup-%s.tar.gz", time.Now().Format("2006-01-02-150405"))
+	}
+
+	// Use VACUUM INTO for a clean, consistent DB snapshot safe to run while server is live.
+	// Write to a temp file next to the output so it stays on the same filesystem.
+	tmpDB := outPath + ".tmpdb"
+	defer os.Remove(tmpDB)
+
+	fmt.Print("Backing up database... ")
+	db := openDB(dbPath)
+	escapedTmp := strings.ReplaceAll(tmpDB, "'", "''")
+	_, err := db.Exec(fmt.Sprintf("VACUUM INTO '%s'", escapedTmp))
+	db.Close()
+	if err != nil {
+		fatalf("database vacuum failed: %v\n", err)
+	}
+	dbInfo, _ := os.Stat(tmpDB)
+	fmt.Printf("done (%.2f MB)\n", float64(dbInfo.Size())/1048576)
+
+	// Create the output tar.gz archive
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		fatalf("failed to create output file: %v\n", err)
+	}
+	defer outFile.Close()
+
+	gz := gzip.NewWriter(outFile)
+	tw := tar.NewWriter(gz)
+
+	// Write manifest so we can identify and validate this as a Stoa backup
+	manifest := map[string]interface{}{
+		"version":   1,
+		"createdAt": time.Now().UTC().Format(time.RFC3339),
+	}
+	manifestJSON, _ := json.MarshalIndent(manifest, "", "  ")
+	tw.WriteHeader(&tar.Header{
+		Name:    "manifest.json",
+		Size:    int64(len(manifestJSON)),
+		Mode:    0644,
+		ModTime: time.Now(),
+	})
+	tw.Write(manifestJSON)
+
+	// Add database file
+	fmt.Print("Packaging assets")
+	if err := addFileToTar(tw, tmpDB, "db/stoa.db"); err != nil {
+		fatalf("failed to add database to archive: %v\n", err)
+	}
+
+	// Add asset directories (missing dirs are silently skipped)
+	totalFiles := 0
+	for _, entry := range []struct{ src, prefix string }{
+		{filepath.Join(dataDir, "icons"), "icons"},
+		{filepath.Join(dataDir, "uploads"), "uploads"},
+		{filepath.Join(dataDir, "css"), "css"},
+	} {
+		n, err := addDirToTar(tw, entry.src, entry.prefix)
+		if err != nil {
+			tw.Close()
+			gz.Close()
+			os.Remove(outPath)
+			fatalf("failed to add %s: %v\n", entry.prefix, err)
+		}
+		totalFiles += n
+		fmt.Print(".")
+	}
+
+	tw.Close()
+	gz.Close()
+
+	outInfo, _ := os.Stat(outPath)
+	fmt.Printf("\n✓ Backup complete: %s (%.2f MB, %d asset file(s))\n",
+		outPath, float64(outInfo.Size())/1048576, totalFiles)
+}
+
+func backupRestore(dbPath string, args []string) {
+	srcPath := ""
+	dataDir := deriveDataDir(dbPath)
+	yes := false
+
+	for i := 0; i < len(args); i++ {
+		switch {
+		case args[i] == "--yes" || args[i] == "-y":
+			yes = true
+		case args[i] == "--data-dir" && i+1 < len(args):
+			i++
+			dataDir = args[i]
+		case strings.HasPrefix(args[i], "--data-dir="):
+			dataDir = strings.TrimPrefix(args[i], "--data-dir=")
+		default:
+			if srcPath == "" && !strings.HasPrefix(args[i], "--") {
+				srcPath = args[i]
+			}
+		}
+	}
+
+	if srcPath == "" {
+		fatalf("usage: stoa-cli backup restore <backup.tar.gz> [--yes] [--data-dir <dir>]\n")
+	}
+
+	// First pass: open, validate manifest, and inventory contents
+	f, err := os.Open(srcPath)
+	if err != nil {
+		fatalf("failed to open archive: %v\n", err)
+	}
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		fatalf("not a valid gzip archive: %v\n", err)
+	}
+	defer gz.Close()
+
+	tr := tar.NewReader(gz)
+	hasManifest := false
+	var dbFiles, assetFiles int
+	var totalSize int64
+	var createdAt string
+
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fatalf("failed to read archive: %v\n", err)
+		}
+		if hdr.Name == "manifest.json" {
+			data, _ := io.ReadAll(tr)
+			var m map[string]interface{}
+			if json.Unmarshal(data, &m) != nil || m["version"] == nil {
+				fatalf("invalid or corrupt backup manifest\n")
+			}
+			createdAt, _ = m["createdAt"].(string)
+			hasManifest = true
+			continue
+		}
+		if strings.HasPrefix(hdr.Name, "db/") {
+			dbFiles++
+		} else {
+			assetFiles++
+		}
+		totalSize += hdr.Size
+	}
+
+	if !hasManifest {
+		fatalf("not a valid Stoa backup archive (missing manifest.json)\n")
+	}
+
+	fmt.Printf("Archive  : %s\n", srcPath)
+	if createdAt != "" {
+		fmt.Printf("Created  : %s\n", createdAt)
+	}
+	fmt.Printf("Contents : %d database file(s), %d asset file(s) (%.2f MB uncompressed)\n",
+		dbFiles, assetFiles, float64(totalSize)/1048576)
+	fmt.Printf("\nRestore targets:\n")
+	fmt.Printf("  Database : %s\n", dbPath)
+	fmt.Printf("  Assets   : %s/{icons,uploads,css}\n", dataDir)
+	fmt.Println()
+	fmt.Println("WARNING: This will overwrite the existing database and asset files.")
+	fmt.Println("         Stop the Stoa server before restoring to prevent corruption.")
+
+	if !yes && !confirm("\nProceed with restore?") {
+		fmt.Println("Aborted.")
+		return
+	}
+
+	// Second pass: extract
+	f.Seek(0, 0)
+	gz2, err := gzip.NewReader(f)
+	if err != nil {
+		fatalf("failed to reopen archive: %v\n", err)
+	}
+	defer gz2.Close()
+	tr2 := tar.NewReader(gz2)
+
+	// Map archive path prefixes to target directories
+	dirMap := map[string]string{
+		"db":      filepath.Dir(dbPath),
+		"icons":   filepath.Join(dataDir, "icons"),
+		"uploads": filepath.Join(dataDir, "uploads"),
+		"css":     filepath.Join(dataDir, "css"),
+	}
+
+	restored := 0
+	for {
+		hdr, err := tr2.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			fatalf("read error during restore: %v\n", err)
+		}
+		if hdr.Name == "manifest.json" {
+			continue
+		}
+
+		// Split into prefix and relative path: "icons/foo.png" -> ["icons", "foo.png"]
+		slashed := filepath.ToSlash(hdr.Name)
+		idx := strings.Index(slashed, "/")
+		if idx < 0 {
+			continue
+		}
+		prefix := slashed[:idx]
+		rel := slashed[idx+1:]
+		if rel == "" {
+			continue
+		}
+
+		targetBase, ok := dirMap[prefix]
+		if !ok {
+			continue
+		}
+
+		destPath := filepath.Join(targetBase, filepath.FromSlash(rel))
+
+		// Security: ensure destination stays within the target directory
+		relCheck, err := filepath.Rel(targetBase, destPath)
+		if err != nil || strings.HasPrefix(relCheck, "..") {
+			fmt.Printf("  skipping unsafe path: %s\n", hdr.Name)
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			fatalf("failed to create directory for %s: %v\n", destPath, err)
+		}
+
+		out, err := os.Create(destPath)
+		if err != nil {
+			fatalf("failed to create %s: %v\n", destPath, err)
+		}
+		io.Copy(out, tr2)
+		out.Close()
+		restored++
+	}
+
+	fmt.Printf("✓ Restore complete: %d file(s) restored\n", restored)
+}
+
+func addFileToTar(tw *tar.Writer, srcPath, archivePath string) error {
+	f, err := os.Open(srcPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+
+	if err := tw.WriteHeader(&tar.Header{
+		Name:    archivePath,
+		Size:    info.Size(),
+		Mode:    int64(info.Mode()),
+		ModTime: info.ModTime(),
+	}); err != nil {
+		return err
+	}
+	_, err = io.Copy(tw, f)
+	return err
+}
+
+func addDirToTar(tw *tar.Writer, srcDir, prefix string) (int, error) {
+	if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+		return 0, nil // directory absent -- skip silently
+	}
+	count := 0
+	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		rel, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return err
+		}
+		if addErr := addFileToTar(tw, path, prefix+"/"+filepath.ToSlash(rel)); addErr != nil {
+			return fmt.Errorf("adding %s: %w", path, addErr)
+		}
+		count++
+		return nil
+	})
+	return count, err
+}
+
 // ── usage ─────────────────────────────────────────────────────────────────────
 
 func printUsage() {
@@ -946,7 +1277,15 @@ Storage commands:
 
 Database commands:
   db check                         Run integrity and foreign key checks
-  db backup <output.db>            Copy database to backup file
+  db backup <output.db>            Copy database file only (quick snapshot)
+
+Backup commands:
+  backup create                    Full backup: database + icons + uploads + css
+    [--output <file>]              Output path (default: stoa-backup-YYYY-MM-DD-HHMMSS.tar.gz)
+    [--data-dir <dir>]             Data root if non-standard layout (default: derived from --db)
+  backup restore <backup.tar.gz>   Restore a full backup archive
+    [--yes]                        Skip confirmation prompt
+    [--data-dir <dir>]             Data root if non-standard layout
 
 Bookmark commands:
   bookmarks export <output.json>   Export system bookmarks to JSON
@@ -960,6 +1299,10 @@ Examples:
   stoa-cli config set-mode single --user admin --no-auth
   stoa-cli config set-mode multi
   stoa-cli geo prune --older-than 90d
+  stoa-cli backup create
+  stoa-cli backup create --output /data/backups/stoa-2026-05-13.tar.gz
+  stoa-cli backup restore /data/backups/stoa-2026-05-13.tar.gz
+  stoa-cli backup restore /data/backups/stoa-2026-05-13.tar.gz --yes
   stoa-cli db backup /data/backup-2026.db
   stoa-cli bookmarks export /data/bookmarks.json
   stoa-cli bookmarks import /data/bookmarks.json --replace
