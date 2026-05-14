@@ -1013,7 +1013,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
             const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
             return cfg.url
               ? <iframe src={cfg.url} style={{ width: '100%', height: '100%', border: 'none', borderRadius: 4 }}
-                  title={panel.title} sandbox="allow-scripts allow-same-origin allow-forms" />
+                  title={panel.title} sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-downloads" />
               : <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: 8 }}>No URL configured — edit this panel in My Panels to set one.</div>
           })()}
           {panel.type === 'custom' && (() => {
