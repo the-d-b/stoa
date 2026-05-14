@@ -58,10 +58,18 @@ function StatsRow({ data }: { data: ReadarrData }) {
   )
 }
 
+const SAMPLE_SIZE = 8
+
 export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<ReadarrData | null>(null)
+  const [missingSample, setMissingSample] = useState<ReadarrBook[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const resample = (missing: ReadarrBook[]) => {
+    const shuffled = [...missing].sort(() => Math.random() - 0.5)
+    setMissingSample(shuffled.slice(0, SAMPLE_SIZE))
+  }
 
   const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const uiUrl = (cfg.uiUrl || '').replace(/\/$/, '')
@@ -69,7 +77,9 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.getPanelData(panel.id)
-      setData(r.data); setError('')
+      setData(r.data)
+      resample(r.data.missing || [])
+      setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
@@ -121,19 +131,19 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
         </div>
       )}
 
-      {/* Missing — takes all remaining space */}
-      {missing.length > 0 && (
+      {/* Missing — random sample of SAMPLE_SIZE, matching Sonarr/Radarr/Lidarr pattern */}
+      {missingSample.length > 0 && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
             letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Missing ({data.missingCount})</div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
-            {missing.map((b, i) => <BookRow key={i} b={b} uiUrl={uiUrl} icon="○" iconColor="var(--amber)" />)}
+            {missingSample.map((b, i) => <BookRow key={i} b={b} uiUrl={uiUrl} icon="○" iconColor="var(--amber)" />)}
           </div>
         </div>
       )}
 
       {/* If no history and no missing, nothing extra to show */}
-      {history.length === 0 && missing.length === 0 && (
+      {history.length === 0 && missingSample.length === 0 && (
         <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent activity</div>
       )}
     </div>
