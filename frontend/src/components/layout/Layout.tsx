@@ -8,9 +8,38 @@ import { useAuth } from '../../context/AuthContext'
 import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
 import { useSSEStatus, useChatSSE } from '../../hooks/useSSE'
-import { chatApi } from '../../api'
+import { chatApi, pushApi } from '../../api'
 import ChatPanel from './ChatPanel'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = window.atob(base64)
+  const output = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i++) output[i] = rawData.charCodeAt(i)
+  return output
+}
+
+async function subscribeToPush(reg: ServiceWorkerRegistration) {
+  try {
+    const existing = await reg.pushManager.getSubscription()
+    if (existing) return // already subscribed on this device
+    const { data } = await pushApi.getVapidPublicKey()
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(data.publicKey),
+    })
+    const json = subscription.toJSON()
+    await pushApi.subscribe({
+      endpoint: json.endpoint!,
+      keys: { p256dh: json.keys!.p256dh, auth: json.keys!.auth },
+    })
+    console.log('[PUSH] subscribed')
+  } catch (err) {
+    console.warn('[PUSH]', err)
+  }
+}
 
 export default function Layout() {
   const { user, logout, isAdmin } = useAuth()
@@ -24,6 +53,15 @@ export default function Layout() {
   const sseStatus = useSSEStatus()
   const chatOpenRef = useRef(false)
   chatOpenRef.current = chatOpen
+
+  // Register service worker and auto-subscribe if permission already granted
+  useEffect(() => {
+    if (!('serviceWorker' in navigator) || !user) return
+    navigator.serviceWorker.register('/sw.js').catch(err => console.warn('[SW]', err))
+    if (Notification.permission === 'granted') {
+      navigator.serviceWorker.ready.then(subscribeToPush).catch(() => {})
+    }
+  }, [user?.id])
 
   // Load unread count from DB on mount
   useEffect(() => {
@@ -264,7 +302,11 @@ export default function Layout() {
               setChatOpen(v => !v)
               // Request notification permission on first chat open (requires user gesture)
               if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission()
+                Notification.requestPermission().then(permission => {
+                  if (permission === 'granted' && 'serviceWorker' in navigator) {
+                    navigator.serviceWorker.ready.then(subscribeToPush).catch(() => {})
+                  }
+                })
               }
             }}
               title={unreadCount > 0 ? `Chat (${unreadCount} unread)` : 'Chat'}

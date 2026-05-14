@@ -202,4 +202,10 @@
 
   /* Hide tag dots on mobile panel headers (save space) */
   .panel-tag-dots { display: none !important; }
+
+  /* Hide all glyphs on mobile — they overflow the header/footer width */
+  .glyph-zone { display: none !important; }
+
+  /* Panels: auto height so content drives size, not the desktop height setting */
+  .panel-card { height: auto !important; }
 }

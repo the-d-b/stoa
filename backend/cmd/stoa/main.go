@@ -148,6 +148,11 @@ func main() {
 	protected.HandleFunc("/chat/messages", handlers.SendChatMessage(database)).Methods("POST")
 	protected.HandleFunc("/chat/presence", handlers.GetChatPresence(database)).Methods("GET")
 
+	// Push notifications
+	protected.HandleFunc("/push/vapid-public-key", handlers.GetVapidPublicKey(database)).Methods("GET")
+	protected.HandleFunc("/push/subscribe", handlers.SubscribePush(database)).Methods("POST")
+	protected.HandleFunc("/push/subscribe", handlers.UnsubscribePush(database)).Methods("DELETE")
+
 	protected.HandleFunc("/customapi/preview", handlers.PreviewCustomAPI(database)).Methods("POST")
 
 	// RSS panel — proxy fetch with 5m cache, no integration needed

@@ -533,6 +533,19 @@ var migrations = []migration{
 		version: 34,
 		up: `ALTER TABLE ai_messages ADD COLUMN provider TEXT NOT NULL DEFAULT 'claude'`,
 	},
+	{
+		version: 35,
+		name:    "push_subscriptions",
+		up: `CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id         TEXT PRIMARY KEY,
+			user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			endpoint   TEXT NOT NULL,
+			p256dh     TEXT NOT NULL,
+			auth       TEXT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(user_id, endpoint)
+		)`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

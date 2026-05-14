@@ -643,7 +643,30 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
   const colHeight   = portico?.columnHeight ?? 8
   const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
 
+  // Mobile: detect via matchMedia, kept in sync on resize
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
   if (panels.length === 0) return null
+
+  // Mobile: ignore all layout styles — render panels full-width in position order only
+  if (isMobile) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
+        {panels.map(panel => (
+          <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]}
+            allExpanded={allExpanded} onResize={onPanelResize} />
+        ))}
+      </div>
+    )
+  }
 
   // ── Seira: left-to-right row flow with explicit column count ──────────────
   // Uses CSS grid row spans so panels of different heights coexist cleanly.
@@ -818,7 +841,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
   })()
 
   return (
-    <div id={`panel-${panel.id}`} style={{
+    <div id={`panel-${panel.id}`} className="panel-card" style={{
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
       display: 'flex', flexDirection: 'column',

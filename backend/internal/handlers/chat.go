@@ -242,6 +242,7 @@ func SendChatMessage(db *sql.DB) http.HandlerFunc {
 			AvatarURL: avatarURL, Text: req.Text, CreatedAt: now,
 		}
 		go broadcastChat(msg)
+		go SendPushToOfflineUsers(db, claims.UserID, "Stoa — "+username, req.Text)
 		writeJSON(w, http.StatusOK, msg)
 	}
 }

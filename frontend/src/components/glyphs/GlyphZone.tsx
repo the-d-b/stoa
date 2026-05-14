@@ -75,7 +75,7 @@ export default function GlyphZone({ glyphs, zone, activePorticoId = 'home', styl
   if (zoneGlyphs.length === 0) return null
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, ...style }}>
+    <div className="glyph-zone" style={{ display: 'flex', alignItems: 'center', gap: 8, ...style }}>
       {zoneGlyphs.map(g => {
         const cfg = (() => { try { return JSON.parse((g as any).config || '{}') } catch { return {} } })()
         const label = cfg.label || cfg.name || ''

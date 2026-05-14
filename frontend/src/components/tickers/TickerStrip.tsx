@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { tickersApi, Ticker } from '../../api'
 
 interface Quote {
@@ -44,6 +44,19 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   const mode: 'static' | 'scroll' = config.mode || 'static'
   const refreshSecs: number = config.refreshSecs || 300
 
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 640px)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 640px)')
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  // On mobile, always scroll — static/swoosh only works well on wider screens
+  const effectiveMode = useMemo(() => isMobile ? 'scroll' : mode, [isMobile, mode])
+
   const [quotes, setQuotes] = useState<Quote[]>([])
   const [rawData, setRawData] = useState<any>(null)
   const [error, setError] = useState('')
@@ -57,7 +70,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
         setRawData(res.data)
       } else {
         setQuotes(prev => {
-          if (prev.length > 0 && mode === 'static') {
+          if (prev.length > 0 && effectiveMode === 'static') {
             setSwoosh(true)
             setTimeout(() => { setQuotes(res.data || []); setSwoosh(false) }, 400)
             return prev
@@ -69,7 +82,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
     }
-  }, [ticker.id, mode, isNonQuote])
+  }, [ticker.id, effectiveMode, isNonQuote])
 
   useEffect(() => { fetchData() }, [ticker.id])
 
@@ -222,7 +235,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
     if (rssItems.length === 0) return (
       <div style={{ padding: '4px 16px', fontSize: 11, color: 'var(--text-dim)' }}>No headlines</div>
     )
-    if (mode === 'scroll') return <RSSMarquee items={rssItems} />
+    if (effectiveMode === 'scroll') return <RSSMarquee items={rssItems} />
     return <RSSRotator items={rssItems} />
   }
 
@@ -230,7 +243,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   if (quotes.length === 0) return (
     <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
   )
-  if (mode === 'scroll') return <ScrollingTicker quotes={quotes} />
+  if (effectiveMode === 'scroll') return <ScrollingTicker quotes={quotes} />
   return <StaticTicker quotes={quotes} swoosh={swoosh} />
 }
 

@@ -677,3 +677,11 @@ export const expressSetupApi = {
     '/express-setup', data
   ),
 }
+
+export const pushApi = {
+  getVapidPublicKey: () => api.get<{ publicKey: string }>('/push/vapid-public-key'),
+  subscribe: (sub: { endpoint: string; keys: { p256dh: string; auth: string } }) =>
+    api.post('/push/subscribe', sub),
+  unsubscribe: (endpoint?: string) =>
+    api.delete('/push/subscribe', { data: endpoint ? { endpoint } : {} }),
+}
