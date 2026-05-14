@@ -25,6 +25,7 @@ export const PANEL_TYPES: {
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',             needsIntegration: false },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                needsIntegration: true  },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                     needsIntegration: true  },
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',            needsIntegration: true  },
   { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                         needsIntegration: true  },
   { id: 'plex',         label: 'Plex',         desc: 'Media server',                         needsIntegration: true  },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                           needsIntegration: true  },
@@ -51,7 +52,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','jellyfin','tautulli','truenas','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','homeassistant','tautulli','truenas','proxmox',
   'kuma','gluetun','opnsense','transmission','photoprism','authentik',
   'weather','steam','rss','sports','stocks','crypto',
 ]
@@ -137,6 +138,10 @@ export default function PanelForm({
   const [integrationId, setIntegrationId] = useState(cfg.integrationId ?? '')
   const [allowedRatings, setAllowedRatings] = useState(cfg.allowedRatings ?? '')
 
+  // ── Home Assistant entity filter ───────────────────────────────────────────
+  const [haEntityIds, setHaEntityIds] = useState(cfg.entityIds ?? '')
+  const [haDomains, setHaDomains] = useState(cfg.domains ?? '')
+
   // ── Bookmarks ──────────────────────────────────────────────────────────────
   const [bookmarkRootId, setBookmarkRootId] = useState(cfg.rootNodeId ?? '')
 
@@ -175,6 +180,8 @@ export default function PanelForm({
     setHeight(c.height ?? 2)
     setIntegrationId(c.integrationId ?? '')
     setAllowedRatings(c.allowedRatings ?? '')
+    setHaEntityIds(c.entityIds ?? '')
+    setHaDomains(c.domains ?? '')
     setBookmarkRootId(c.rootNodeId ?? '')
     setIframeUrl(c.url ?? '')
     setCustomHtml(c.html ?? '')
@@ -192,6 +199,7 @@ export default function PanelForm({
 
   const handleTypeChange = (t: string) => {
     setType(t); setIntegrationId(''); setAllowedRatings('')
+    setHaEntityIds(''); setHaDomains('')
   }
 
   const buildConfig = (): string => {
@@ -216,10 +224,14 @@ export default function PanelForm({
       if (bookmarkRootId) base.rootNodeId = bookmarkRootId
     } else if (INTEGRATION_TYPES.includes(type)) {
       if (integrationId) base.integrationId = integrationId
-      base.refreshSecs = cfg.refreshSecs || 300
+      base.refreshSecs = cfg.refreshSecs || (type === 'homeassistant' ? 60 : 300)
       if (type === 'opnsense') {
         base.maxMbps = cfg.maxMbps || 1000
         if (Object.keys(ifaceCaps).length > 0) base.ifaceCaps = ifaceCaps
+      }
+      if (type === 'homeassistant') {
+        if (haEntityIds.trim()) base.entityIds = haEntityIds.trim()
+        if (haDomains.trim()) base.domains = haDomains.trim()
       }
       if (RATINGS_TYPES.includes(type) && allowedRatings.trim()) {
         base.allowedRatings = allowedRatings.trim()
@@ -476,6 +488,36 @@ export default function PanelForm({
                     border: '1px solid var(--border)', borderRadius: 6, padding: 8,
                     color: 'var(--text-muted)', resize: 'vertical' }} />
           )}
+        </div>
+      )}
+
+      {/* Home Assistant entity filter */}
+      {type === 'homeassistant' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <label className="label">
+              Entity IDs{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — comma-separated)</span>
+            </label>
+            <input className="input" value={haEntityIds}
+              onChange={e => setHaEntityIds(e.target.value)}
+              placeholder="sensor.living_room_temp, light.kitchen, lock.front_door" />
+          </div>
+          <div>
+            <label className="label">
+              Domains{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — comma-separated)</span>
+            </label>
+            <input className="input" value={haDomains}
+              onChange={e => setHaDomains(e.target.value)}
+              placeholder="light, switch, sensor, binary_sensor, climate, lock" />
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+            Specify entity IDs, domains, or both — matched entities are shown in the panel.
+            Leave both blank to show all entities. Domains: <code>light</code>, <code>switch</code>,{' '}
+            <code>sensor</code>, <code>binary_sensor</code>, <code>climate</code>, <code>lock</code>,{' '}
+            <code>cover</code>, <code>media_player</code>, <code>fan</code>, and more.
+          </div>
         </div>
       )}
 

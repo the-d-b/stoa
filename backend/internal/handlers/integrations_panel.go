@@ -37,8 +37,9 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"stocks":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchStocksPanelData(db, cfg) },
 	"crypto":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCryptoPanelData(db, cfg) },
 	"readarr":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchReadarrPanelData(db, cfg) },
-	"jellyfin":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchJellyfinPanelData(db, cfg) },
-	"weather":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchWeatherForIntegration(db, cfg) },
+	"jellyfin":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchJellyfinPanelData(db, cfg) },
+	"homeassistant":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchHAPanelData(db, cfg) },
+	"weather":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchWeatherForIntegration(db, cfg) },
 	"steam":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchSteamForIntegration(db, cfg) },
 }
 
@@ -103,9 +104,20 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		if allowedRatings != "" {
 			cacheKey = integrationID + "|" + allowedRatings
 		}
+		// Home Assistant: the cache stores the full entity list (fetched by the worker
+		// with no panel-level filter). Each panel request applies its own entity/domain
+		// filter at serve time so multiple HA panels can share a single cache entry.
+		haPanel := panelType == "homeassistant"
+
 		if cacheKey != "" && !hasOverride && !plexFiltered {
 			if cached, ok := cacheGet(cacheKey); ok {
 				log.Printf("[CACHE] panel hit %s (%s)", cacheKey, panelType)
+				if haPanel {
+					if haFull, ok := cached.(*HAFullData); ok {
+						writeJSON(w, http.StatusOK, filterHAData(haFull, config))
+						return
+					}
+				}
 				writeJSON(w, http.StatusOK, cached)
 				return
 			}
@@ -119,6 +131,13 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		}
 		if cacheKey != "" && !plexFiltered {
 			cacheSet(cacheKey, data)
+		}
+		// For HA: cache holds the full entity list; serve the filtered view to the client.
+		if haPanel {
+			if haFull, ok := data.(*HAFullData); ok {
+				writeJSON(w, http.StatusOK, filterHAData(haFull, config))
+				return
+			}
 		}
 		writeJSON(w, http.StatusOK, data)
 	}

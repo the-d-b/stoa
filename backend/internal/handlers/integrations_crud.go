@@ -200,6 +200,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testPlexConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "jellyfin":
 			err = testJellyfinConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "homeassistant":
+			err = testHAConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tautulli":
 			err = testTautulliConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "truenas":
@@ -238,6 +240,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testPlexConnection(req.APIURL, apiKey, true)
 						case "jellyfin":
 							retryErr = testJellyfinConnection(req.APIURL, apiKey, true)
+						case "homeassistant":
+							retryErr = testHAConnection(req.APIURL, apiKey, true)
 						case "tautulli":
 							retryErr = testTautulliConnection(req.APIURL, apiKey, true)
 						case "truenas":
@@ -450,7 +454,7 @@ func defaultRefreshSecs(igType string) int {
 	switch igType {
 	case "opnsense", "truenas", "proxmox", "transmission":
 		return 30
-	case "plex", "jellyfin", "tautulli", "kuma", "gluetun":
+	case "plex", "jellyfin", "homeassistant", "tautulli", "kuma", "gluetun":
 		return 60
 	case "authentik", "customapi":
 		return 300

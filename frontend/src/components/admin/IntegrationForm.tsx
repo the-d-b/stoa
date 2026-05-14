@@ -18,6 +18,7 @@ export const INTEGRATION_TYPES = [
   { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform' },
   { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server' },
   { id: 'plex',         label: 'Plex',         desc: 'Media server' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
