@@ -125,6 +125,7 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to create integration")
 			return
 		}
+		RecordAudit(db, claims.UserID, claims.Username, "integration.create", id, req.Name, map[string]string{"type": req.Type})
 		go StartWorkerForIntegration(db, id)
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id})
 	}
@@ -132,7 +133,10 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 
 func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
+		var intName string
+		db.QueryRow("SELECT name FROM integrations WHERE id=?", id).Scan(&intName)
 		var req struct {
 			Name        string  `json:"name"`
 			APIURL      string  `json:"apiUrl"`
@@ -158,6 +162,10 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "update failed")
 			return
 		}
+		if intName == "" {
+			intName = req.Name
+		}
+		RecordAudit(db, claims.UserID, claims.Username, "integration.update", id, intName, nil)
 		go StartWorkerForIntegration(db, id)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -165,9 +173,13 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 
 func DeleteIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
+		var intName string
+		db.QueryRow("SELECT name FROM integrations WHERE id=?", id).Scan(&intName)
 		StopWorkerForIntegration(id)
 		db.Exec("DELETE FROM integrations WHERE id=?", id)
+		RecordAudit(db, claims.UserID, claims.Username, "integration.delete", id, intName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -298,7 +310,10 @@ func GetIntegrationGroups(db *sql.DB) http.HandlerFunc {
 
 func SetIntegrationGroups(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
+		var intName string
+		db.QueryRow("SELECT name FROM integrations WHERE id=?", id).Scan(&intName)
 		var req struct {
 			GroupIDs []string `json:"groupIds"`
 		}
@@ -309,6 +324,7 @@ func SetIntegrationGroups(db *sql.DB) http.HandlerFunc {
 			tx.Exec("INSERT OR IGNORE INTO integration_groups (integration_id, group_id) VALUES (?,?)", id, gid)
 		}
 		tx.Commit()
+		RecordAudit(db, claims.UserID, claims.Username, "integration.groups_update", id, intName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

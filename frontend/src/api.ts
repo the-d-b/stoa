@@ -685,3 +685,39 @@ export const pushApi = {
   unsubscribe: (endpoint?: string) =>
     api.delete('/push/subscribe', { data: endpoint ? { endpoint } : {} }),
 }
+
+// ── Integration Health ────────────────────────────────────────────────────────
+
+export interface IntegrationHealthItem {
+  integrationId: string
+  integrationName: string
+  integrationType: string
+  status: 'healthy' | 'error' | 'pending'
+  consecutiveErrors: number
+  lastSuccessAt: string | null
+  lastErrorAt: string | null
+  lastError: string
+  errorCategory: string  // "auth" | "rate_limit" | "connection" | "tls" | "unknown" | ""
+}
+
+export const integrationHealthApi = {
+  list: () => api.get<IntegrationHealthItem[]>('/integration-health'),
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+export interface AuditEntry {
+  id: string
+  actorId: string | null
+  actorName: string
+  action: string
+  targetId: string | null
+  targetName: string
+  metadata: string | null  // raw JSON string, parsed client-side
+  createdAt: string
+}
+
+export const auditApi = {
+  list: (action?: string) =>
+    api.get<AuditEntry[]>(`/audit-log${action ? `?action=${encodeURIComponent(action)}` : ''}`),
+}

@@ -29,6 +29,10 @@ func main() {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
+	// Initialise secret encryption key and upgrade any legacy plaintext secrets.
+	handlers.InitSecretKey(database)
+	handlers.ReencryptLegacySecrets(database)
+
 	firstRun, err := db.IsFirstRun(database)
 	if err != nil {
 		log.Fatalf("failed to check first run status: %v", err)
@@ -48,6 +52,7 @@ func main() {
 	}
 
 	r := mux.NewRouter()
+	r.Use(handlers.SecurityHeaders)
 	api := r.PathPrefix("/api").Subrouter()
 
 	// ── Public ────────────────────────────────────────────
@@ -56,10 +61,10 @@ func main() {
 	api.HandleFunc("/css/{filename}", handlers.ServeCSSSheet(cfg.CSSDir)).Methods("GET")
 	api.HandleFunc("/auth/autologin", handlers.AutoLogin(database, authService)).Methods("POST")
 	api.HandleFunc("/setup/init", handlers.SetupInit(database, cfg)).Methods("POST")
-	api.HandleFunc("/auth/login", handlers.LocalLogin(authService)).Methods("POST")
-	api.HandleFunc("/auth/reset-request", handlers.ResetRequest(database)).Methods("POST")
-	api.HandleFunc("/auth/reset-confirm", handlers.ResetConfirm(database)).Methods("POST")
-	api.HandleFunc("/auth/logout", handlers.Logout(authService)).Methods("POST")
+	api.Handle("/auth/login", handlers.RateLimit(10, time.Minute)(handlers.LocalLogin(authService))).Methods("POST")
+	api.Handle("/auth/reset-request", handlers.RateLimit(5, time.Minute)(handlers.ResetRequest(database))).Methods("POST")
+	api.Handle("/auth/reset-confirm", handlers.RateLimit(10, time.Minute)(handlers.ResetConfirm(database))).Methods("POST")
+	api.HandleFunc("/auth/logout", handlers.Logout(authService, database)).Methods("POST")
 	api.HandleFunc("/auth/oauth/login", handlers.OAuthLogin(authService)).Methods("GET")
 	api.HandleFunc("/auth/oauth/callback", handlers.OAuthCallback(authService, database)).Methods("GET")
 	api.HandleFunc("/auth/oauth/test", handlers.TestOAuthConfig(database)).Methods("POST")
@@ -221,6 +226,7 @@ func main() {
 
 	// Sessions — audit trail and presence (admin only, enforced in handler)
 	admin.HandleFunc("/sessions", handlers.ListSessions(database)).Methods("GET")
+	admin.HandleFunc("/audit-log", handlers.GetAuditLog(database)).Methods("GET")
 	protected.HandleFunc("/sessions/toggle-user", handlers.ToggleUserEnabled(database)).Methods("PUT")
 	admin.Use(authService.AdminMiddleware)
 
@@ -252,6 +258,7 @@ func main() {
 	protected.HandleFunc("/integrations/test", handlers.TestIntegration(database)).Methods("POST")
 	admin.HandleFunc("/integrations/{id}/groups", handlers.GetIntegrationGroups(database)).Methods("GET")
 	admin.HandleFunc("/integrations/{id}/groups", handlers.SetIntegrationGroups(database)).Methods("PUT")
+	admin.HandleFunc("/integration-health", handlers.GetIntegrationHealth(database)).Methods("GET")
 	admin.HandleFunc("/panels/{id}/groups", handlers.SetPanelGroups(database)).Methods("PUT")
 	protected.HandleFunc("/panels/{id}/groups", handlers.GetPanelGroups(database)).Methods("GET")
 

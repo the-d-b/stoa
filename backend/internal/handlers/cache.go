@@ -281,14 +281,32 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	}
 
 	go func() {
-		// Fetch immediately on start so cache is warm right away
-		refreshCache(db, ig)
-		ticker := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)
-		defer ticker.Stop()
+		defer func() {
+			if r := recover(); r != nil {
+				log.Printf("[CACHE] worker panic %s: %v", ig.id, r)
+			}
+		}()
+		base := time.Duration(ig.refreshSecs) * time.Second
+		consecutiveErrors := 0
+		ok := refreshCache(db, ig)
+		if !ok {
+			consecutiveErrors++
+		}
+		timer := time.NewTimer(workerBackoff(base, consecutiveErrors))
+		defer timer.Stop()
 		for {
 			select {
-			case <-ticker.C:
-				refreshCache(db, ig)
+			case <-timer.C:
+				ok := refreshCache(db, ig)
+				if ok {
+					consecutiveErrors = 0
+					timer.Reset(base)
+				} else {
+					consecutiveErrors++
+					next := workerBackoff(base, consecutiveErrors)
+					log.Printf("[CACHE] backoff %s: %d consecutive errors, retry in %s", ig.id, consecutiveErrors, next)
+					timer.Reset(next)
+				}
 			case <-stop:
 				log.Printf("[CACHE] worker stopped: %s", ig.id)
 				return
@@ -297,7 +315,7 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	}()
 }
 
-func refreshCache(db *sql.DB, ig integrationMeta) {
+func refreshCache(db *sql.DB, ig integrationMeta) bool {
 	// Build a minimal config map with just the integrationId
 	// Panel-specific config (sources, height, etc.) is not relevant at this level —
 	// we cache per integration, not per panel
@@ -307,16 +325,40 @@ func refreshCache(db *sql.DB, ig integrationMeta) {
 
 	fetcher, ok := panelFetchers[ig.igType]
 	if !ok {
-		return // type not supported for caching (e.g. calendar has no single integration)
+		return true // type not supported for caching — not an error
 	}
 
 	data, err := fetcher(db, config)
 	if err != nil {
 		log.Printf("[CACHE] refresh error %s (%s): %v", ig.id, ig.igType, err)
 		RecordIntegrationError(ig.id, ig.name, err.Error())
-		return
+		return false
 	}
-	ClearIntegrationError(ig.id)
+	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
 	log.Printf("[CACHE] refreshed %s (%s)", ig.id, ig.igType)
+	return true
+}
+
+// workerBackoff computes the next retry interval using exponential backoff.
+// The first error does not increase the interval (consecutive=1 → base).
+// The exponent is capped at 4 (max 16× base), and the result is capped at 10m.
+// Integrations with a base interval already above 10m are never shortened.
+func workerBackoff(base time.Duration, consecutive int) time.Duration {
+	if consecutive <= 1 {
+		return base
+	}
+	maxBackoff := 10 * time.Minute
+	if base > maxBackoff {
+		return base
+	}
+	n := consecutive - 1
+	if n > 4 {
+		n = 4
+	}
+	candidate := base * (1 << n)
+	if candidate > maxBackoff {
+		return maxBackoff
+	}
+	return candidate
 }

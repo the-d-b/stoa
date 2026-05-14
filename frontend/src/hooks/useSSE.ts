@@ -12,6 +12,7 @@ interface SSEManager {
   subscribeTyping: (cb: (data: unknown) => void) => () => void
   subscribeStatus: (cb: (status: SSEStatus) => void) => () => void
   getStatus: () => SSEStatus
+  forceReconnect: () => void
 }
 
 let manager: SSEManager | null = null
@@ -21,7 +22,7 @@ function getSSEManager(): SSEManager {
 
   const listeners     = new Map<string, Set<SSEListener>>()
   const chatListeners = new Set<(data: unknown) => void>()
-const typingListeners = new Set<(data: unknown) => void>()
+  const typingListeners = new Set<(data: unknown) => void>()
   const statusListeners = new Set<(s: SSEStatus) => void>()
 
   let status: SSEStatus = 'offline'
@@ -48,6 +49,11 @@ const typingListeners = new Set<(data: unknown) => void>()
     }, delayMs)
   }
 
+  // Exponential backoff: 5s → 10s → 20s → 40s → 60s (cap)
+  function backoffDelay(): number {
+    return Math.min(5000 * Math.pow(2, reconnectCount), 60000)
+  }
+
   function connect() {
     const token = localStorage.getItem('stoa_token')
     if (!token) {
@@ -63,12 +69,12 @@ const typingListeners = new Set<(data: unknown) => void>()
     es.addEventListener('connected', (e: MessageEvent) => {
       console.log('[SSE] connected', e.data)
       lastPingAt = Date.now()
+      reconnectCount = 0 // reset backoff on successful connection
       setStatus('connected')
     })
 
     es.addEventListener('ping', (_e: MessageEvent) => {
       lastPingAt = Date.now()
-      // Uncomment for verbose logging: console.log('[SSE] ping', e.data)
     })
 
     es.addEventListener('cache-update', (e: MessageEvent) => {
@@ -98,10 +104,9 @@ const typingListeners = new Set<(data: unknown) => void>()
 
     es.onerror = (e) => {
       console.warn('[SSE] onerror fired, readyState=', es?.readyState, e)
-      setStatus('reconnecting')
       es?.close()
       es = null
-      scheduleReconnect(5000)
+      scheduleReconnect(backoffDelay())
     }
 
     // Dead connection detector — if no ping in 60s, force reconnect
@@ -112,6 +117,7 @@ const typingListeners = new Set<(data: unknown) => void>()
         console.warn(`[SSE] no ping in ${Math.round(silentMs/1000)}s — forcing reconnect`)
         es?.close()
         es = null
+        reconnectCount = 0 // dead-detector reconnects are not backoff-eligible
         scheduleReconnect(1000)
       }
     }, 15000) // check every 15s
@@ -138,9 +144,23 @@ const typingListeners = new Set<(data: unknown) => void>()
       return () => { statusListeners.delete(cb) }
     },
     getStatus: () => status,
+    forceReconnect() {
+      reconnectCount = 0
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+      es?.close()
+      es = null
+      connect()
+    },
   }
 
   return manager
+}
+
+// ── reconnectSSE ──────────────────────────────────────────────────────────────
+// Call after login (new token) or logout (token removed) to immediately update
+// the connection state without waiting for the dead-detector or backoff timer.
+export function reconnectSSE() {
+  getSSEManager().forceReconnect()
 }
 
 // ── useSSE ────────────────────────────────────────────────────────────────────
@@ -174,7 +194,7 @@ export function useSSEConnected(): boolean {
   return useSSEStatus() === 'connected'
 }
 
-// ── useChatSSE ────────────────────────────────────────────────────────────────
+// ── useTypingSSE ──────────────────────────────────────────────────────────────
 export function useTypingSSE(cb: (ev: unknown) => void) {
   const cbRef = useRef(cb)
   cbRef.current = cb
@@ -184,6 +204,7 @@ export function useTypingSSE(cb: (ev: unknown) => void) {
   }, [])
 }
 
+// ── useChatSSE ────────────────────────────────────────────────────────────────
 export function useChatSSE(cb: (msg: unknown) => void) {
   const cbRef = useRef(cb)
   cbRef.current = cb

@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -289,6 +293,7 @@ func CreateSecret(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to create secret")
 			return
 		}
+		RecordAudit(db, claims.UserID, claims.Username, "secret.create", id, req.Name, map[string]string{"scope": scope})
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "name": req.Name, "scope": scope})
 	}
 }
@@ -304,8 +309,8 @@ func UpdateSecret(db *sql.DB) http.HandlerFunc {
 		json.NewDecoder(r.Body).Decode(&req)
 
 		// Only owner or admin can update
-		var ownerID string
-		db.QueryRow("SELECT created_by FROM secrets WHERE id=?", id).Scan(&ownerID)
+		var ownerID, secretName string
+		db.QueryRow("SELECT created_by, name FROM secrets WHERE id=?", id).Scan(&ownerID, &secretName)
 		if ownerID != claims.UserID && claims.Role != models.RoleAdmin {
 			writeError(w, http.StatusForbidden, "not your secret")
 			return
@@ -321,6 +326,7 @@ func UpdateSecret(db *sql.DB) http.HandlerFunc {
 		} else {
 			db.Exec("UPDATE secrets SET name=? WHERE id=?", req.Name, id)
 		}
+		RecordAudit(db, claims.UserID, claims.Username, "secret.update", id, secretName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -329,20 +335,24 @@ func DeleteSecret(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
-		var ownerID string
-		db.QueryRow("SELECT created_by FROM secrets WHERE id=?", id).Scan(&ownerID)
+		var ownerID, secretName string
+		db.QueryRow("SELECT created_by, name FROM secrets WHERE id=?", id).Scan(&ownerID, &secretName)
 		if ownerID != claims.UserID && claims.Role != models.RoleAdmin {
 			writeError(w, http.StatusForbidden, "not your secret")
 			return
 		}
 		db.Exec("DELETE FROM secrets WHERE id=?", id)
+		RecordAudit(db, claims.UserID, claims.Username, "secret.delete", id, secretName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
 func SetSecretGroups(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
+		var secretName string
+		db.QueryRow("SELECT name FROM secrets WHERE id=?", id).Scan(&secretName)
 		var req struct {
 			GroupIDs []string `json:"groupIds"`
 		}
@@ -353,16 +363,38 @@ func SetSecretGroups(db *sql.DB) http.HandlerFunc {
 			tx.Exec("INSERT OR IGNORE INTO secret_groups (secret_id, group_id) VALUES (?,?)", id, gid)
 		}
 		tx.Commit()
+		RecordAudit(db, claims.UserID, claims.Username, "secret.groups_update", id, secretName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
-// encryptSecret — simple AES-GCM encryption using session secret as key
-// In production this should use a proper KMS; for now it's better than plaintext
+// encryptSecret encrypts plaintext using AES-256-GCM. The key is derived from
+// the session secret via InitSecretKey. Falls back to the legacy "enc:" prefix
+// when the key is not yet available (pre-setup first run).
 func encryptSecret(plaintext string) (string, error) {
-	// For now store as-is with a marker — proper encryption in next iteration
-	// when we have the session secret available to handlers
-	return "enc:" + plaintext, nil
+	secretEncKeyMu.RLock()
+	key := secretEncKey
+	secretEncKeyMu.RUnlock()
+
+	if len(key) == 0 {
+		// Key not yet initialised (setup hasn't run) — store with legacy prefix.
+		return "enc:" + plaintext, nil
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	sealed := gcm.Seal(nonce, nonce, []byte(plaintext), nil)
+	return "aes:" + base64.StdEncoding.EncodeToString(sealed), nil
 }
 
 func UpdatePortico(db *sql.DB) http.HandlerFunc {

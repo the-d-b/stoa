@@ -77,11 +77,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
     } finally { setLoading(false) }
   }, [panel.id])
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, 300 * 1000)
-    return () => clearInterval(interval)
-  }, [load])
+  useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>

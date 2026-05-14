@@ -24,7 +24,7 @@ export const PANEL_TYPES: {
   { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking',                       needsIntegration: true  },
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',             needsIntegration: false },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                needsIntegration: true  },
-  { id: 'overseerr',    label: 'Overseerr',    desc: 'Request queue & stats',                needsIntegration: true  },
+  { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats', needsIntegration: true  },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                     needsIntegration: true  },
   { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',            needsIntegration: true  },
   { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                         needsIntegration: true  },

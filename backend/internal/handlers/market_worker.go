@@ -49,7 +49,7 @@ func marketRefreshAndGetInterval(db *sql.DB, ig integrationMeta) time.Duration {
 		RecordIntegrationError(ig.id, ig.name, err.Error())
 		return 5 * time.Minute
 	}
-	ClearIntegrationError(ig.id)
+	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
 	log.Printf("[MARKET] refreshed %s (%s) -- %d quotes", ig.name, ig.igType, len(data.Quotes))
 

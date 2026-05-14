@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { authApi, preferencesApi, User } from '../api'
 import { THEMES, ThemeName } from './ThemeContext'
+import { reconnectSSE } from '../hooks/useSSE'
 
 interface AuthContextType {
   user: User | null
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('stoa_token', token)
     setUser(user)
     setLoading(false)
+    reconnectSSE()
     // Load this user's theme and avatar
     preferencesApi.get().then(r => {
       const t = r.data.theme as ThemeName
@@ -109,6 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await authApi.logout().catch(() => {})
     localStorage.removeItem('stoa_token')
     setUser(null)
+    reconnectSSE() // token is gone — connect() will see no token and go offline
   }
 
   return (

@@ -201,6 +201,13 @@ func ToggleUserEnabled(db *sql.DB) http.HandlerFunc {
 		}
 		db.Exec("UPDATE users SET enabled=? WHERE id=? AND id != 'SYSTEM'",
 			boolToInt(req.Enabled), req.UserID)
+		action := "user.enable"
+		if !req.Enabled {
+			action = "user.disable"
+		}
+		var targetName string
+		db.QueryRow("SELECT username FROM users WHERE id=?", req.UserID).Scan(&targetName)
+		RecordAudit(db, claims.UserID, claims.Username, action, req.UserID, targetName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

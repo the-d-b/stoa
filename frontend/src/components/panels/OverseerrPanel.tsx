@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface OverseerrStats {
   pending: number
@@ -113,7 +114,7 @@ export default function OverseerrPanel({ panel, heightUnits }: { panel: Panel; h
   const [loading, setLoading] = useState(true)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const refreshSecs = config.refreshSecs || 120
+  const integrationId = config.integrationId as string | undefined
 
   const load = useCallback(async () => {
     try {
@@ -124,11 +125,12 @@ export default function OverseerrPanel({ panel, heightUnits }: { panel: Panel; h
     } finally { setLoading(false) }
   }, [panel.id])
 
+  const sseData = useSSE<OverseerrData>(integrationId)
   useEffect(() => {
-    load()
-    const interval = setInterval(load, refreshSecs * 1000)
-    return () => clearInterval(interval)
-  }, [load, refreshSecs])
+    if (sseData !== null) setData(sseData)
+  }, [sseData])
+
+  useEffect(() => { load() }, [load])
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',

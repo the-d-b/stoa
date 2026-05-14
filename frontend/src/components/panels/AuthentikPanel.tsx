@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface AuthentikFailure { username: string; clientIp: string; createdAt: string }
 interface AuthentikData {
@@ -30,23 +31,26 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   const [loading, setLoading] = useState(true)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId = config.integrationId as string | undefined
   const [days, setDays] = useState<number>(config.days || 7)
-  const refreshSecs = config.refreshSecs || 120
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     setLoading(true)
-    const loadWithDays = async () => {
-      try {
-        const res = await integrationsApi.getPanelData(panel.id, { days })
-        setData(res.data); setError('')
-      } catch (e: any) {
-        setError(e.response?.data?.error || 'Failed to load')
-      } finally { setLoading(false) }
-    }
-    loadWithDays()
-    const interval = setInterval(loadWithDays, refreshSecs * 1000)
-    return () => clearInterval(interval)
-  }, [panel.id, days, refreshSecs])
+    try {
+      const res = await integrationsApi.getPanelData(panel.id, { days })
+      setData(res.data); setError('')
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Failed to load')
+    } finally { setLoading(false) }
+  }, [panel.id, days])
+
+  // SSE signal: re-fetch with current days filter when worker pushes new data
+  const sseSignal = useSSE<any>(integrationId)
+  useEffect(() => {
+    if (sseSignal !== null) load()
+  }, [sseSignal, load])
+
+  useEffect(() => { load() }, [load])
 
   if (error) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
   if (!data && loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>

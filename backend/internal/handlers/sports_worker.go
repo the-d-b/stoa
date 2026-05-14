@@ -34,7 +34,7 @@ func sportsRefreshAndGetInterval(db *sql.DB, ig integrationMeta) time.Duration {
 		RecordIntegrationError(ig.id, ig.name, err.Error())
 		return 5 * time.Minute // retry in 5 min on error
 	}
-	ClearIntegrationError(ig.id)
+	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
 	log.Printf("[SPORTS] refreshed %s — %d games, live=%v", ig.name, len(data.Games), data.HasLive)
 

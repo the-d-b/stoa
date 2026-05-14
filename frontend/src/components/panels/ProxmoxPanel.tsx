@@ -54,7 +54,6 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
-  const refreshSecs = config.refreshSecs || 30
   // SSE fires whenever Proxmox worker pushes a cache update (~3s)
   const sseUpdate = useSSE<any>(integrationId)
 
@@ -67,11 +66,7 @@ export default function ProxmoxPanel({ panel, heightUnits }: { panel: Panel; hei
     } finally { setLoading(false) }
   }, [panel.id])
 
-  useEffect(() => {
-    load()
-    const interval = setInterval(load, refreshSecs * 1000)
-    return () => clearInterval(interval)
-  }, [load, refreshSecs])
+  useEffect(() => { load() }, [load])
 
   // Re-fetch immediately when SSE signals a cache update
   useEffect(() => {

@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -80,6 +82,7 @@ func ResetRequest(db *sql.DB) http.HandlerFunc {
 			sendMail(db, req.Email, "Reset your Stoa password", html)
 		}()
 
+		RecordAudit(db, userID, username, "auth.password_reset_request", userID, username, map[string]string{"ip": r.RemoteAddr})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -145,6 +148,9 @@ func ResetConfirm(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		var resetUsername string
+		db.QueryRow("SELECT username FROM users WHERE id=?", userID).Scan(&resetUsername)
+		RecordAudit(db, userID, resetUsername, "auth.password_reset_confirm", userID, resetUsername, map[string]string{"ip": r.RemoteAddr})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -155,6 +161,7 @@ func ResetConfirm(db *sql.DB) http.HandlerFunc {
 
 func AdminSendResetLink(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims, _ := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		if id == "" {
 			writeError(w, http.StatusBadRequest, "user id required")
@@ -203,6 +210,9 @@ func AdminSendResetLink(db *sql.DB) http.HandlerFunc {
 			sendMail(db, email, "Reset your Stoa password", html)
 		}()
 
+		if claims != nil {
+			RecordAudit(db, claims.UserID, claims.Username, "user.password_reset", id, username, nil)
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "email": email})
 	}
 }

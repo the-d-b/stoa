@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, panelsApi, myPanelsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface TautulliMediaStat {
   title: string; grandparentTitle: string; mediaType: string
@@ -57,6 +58,7 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
   const [saving, setSaving] = useState(false)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId = config.integrationId as string | undefined
   const [timeRange, setTimeRange] = useState<number>(config.timeRange ?? 30)
   const isSystem = !panel.createdBy || panel.createdBy === 'SYSTEM'
 
@@ -81,11 +83,13 @@ export default function TautulliPanel({ panel, heightUnits }: { panel: Panel; he
     } finally { setSaving(false) }
   }
 
+  // SSE signal: re-fetch with current timeRange when worker pushes new data
+  const sseSignal = useSSE<any>(integrationId)
   useEffect(() => {
-    load()
-    const interval = setInterval(load, 300 * 1000)
-    return () => clearInterval(interval)
-  }, [load])
+    if (sseSignal !== null) load()
+  }, [sseSignal, load])
+
+  useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>

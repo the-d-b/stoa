@@ -514,6 +514,13 @@ var migrations = []migration{
 			`ALTER TABLE notes ADD COLUMN locked_at DATETIME DEFAULT NULL`,
 		},
 	},
+	// Versions 29-31 were partially-applied migrations that were manually
+	// cleaned up. These no-op placeholders prevent accidental reuse of those
+	// version numbers on databases that are already past migration 28.
+	{version: 29, name: "reserved"},
+	{version: 30, name: "reserved"},
+	{version: 31, name: "reserved"},
+
 	{
 		version: 32,
 		name:    "chat_last_read",
@@ -545,6 +552,46 @@ var migrations = []migration{
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			UNIQUE(user_id, endpoint)
 		)`,
+	},
+	{
+		// Promotes password_reset_tokens from legacy post-loop code to a proper migration.
+		version: 36,
+		name:    "password_reset_tokens",
+		up: `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+			token      TEXT PRIMARY KEY,
+			user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			expires_at DATETIME NOT NULL,
+			used       INTEGER NOT NULL DEFAULT 0,
+			created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
+	{
+		version: 37,
+		name:    "ai_messages_index",
+		up: `CREATE INDEX IF NOT EXISTS idx_ai_messages_user_provider ON ai_messages(user_id, provider)`,
+	},
+	{
+		version: 38,
+		name:    "chat_messages_index",
+		up: `CREATE INDEX IF NOT EXISTS idx_chat_messages_created ON chat_messages(created_at)`,
+	},
+	{
+		version: 39,
+		name:    "audit_log",
+		stmts: []string{
+			`CREATE TABLE IF NOT EXISTS audit_log (
+				id          TEXT PRIMARY KEY,
+				actor_id    TEXT,
+				actor_name  TEXT NOT NULL DEFAULT '',
+				action      TEXT NOT NULL,
+				target_id   TEXT,
+				target_name TEXT NOT NULL DEFAULT '',
+				metadata    TEXT,
+				created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at)`,
+			`CREATE INDEX IF NOT EXISTS idx_audit_log_action  ON audit_log(action)`,
+		},
 	},
 }
 
@@ -614,30 +661,6 @@ func Run(db *sql.DB) error {
 
 		log.Printf("Migration %d applied successfully", m.version)
 	}
-	// ── 0.5.0 — Auth & Security ──────────────────────────────────────────────
-
-	// Password reset tokens
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
-		token      TEXT PRIMARY KEY,
-		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		expires_at DATETIME NOT NULL,
-		used       INTEGER NOT NULL DEFAULT 0,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		return err
-	}
-
-	// Sessions table — tracks active SSE connections for poller lifecycle
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
-		id         TEXT PRIMARY KEY,
-		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		last_seen  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		expires_at DATETIME NOT NULL
-	)`); err != nil {
-		return err
-	}
-
 	// Mail config in app_config — seed rows so UPDATE always works
 	for _, kv := range [][]string{
 		{"mail_host", ""},
@@ -723,42 +746,6 @@ func runMigration10(db *sql.DB) error {
 		if _, err := db.Exec(stmt); err != nil {
 			return err
 		}
-	}
-	// ── 0.5.0 — Auth & Security ──────────────────────────────────────────────
-
-	// Password reset tokens
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS password_reset_tokens (
-		token      TEXT PRIMARY KEY,
-		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		expires_at DATETIME NOT NULL,
-		used       INTEGER NOT NULL DEFAULT 0,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-	)`); err != nil {
-		return err
-	}
-
-	// Sessions table — tracks active SSE connections for poller lifecycle
-	if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS sessions (
-		id         TEXT PRIMARY KEY,
-		user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		last_seen  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-		expires_at DATETIME NOT NULL
-	)`); err != nil {
-		return err
-	}
-
-	// Mail config in app_config — seed rows so UPDATE always works
-	for _, kv := range [][]string{
-		{"mail_host", ""},
-		{"mail_port", "587"},
-		{"mail_username", ""},
-		{"mail_password", ""},
-		{"mail_from", ""},
-		{"mail_tls_mode", "starttls"}, // plain | starttls | tls
-		{"session_duration_hours", "24"},
-	} {
-		db.Exec("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)", kv[0], kv[1])
 	}
 
 	return nil

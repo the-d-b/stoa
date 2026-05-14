@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/tls"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"crypto/tls"
 	"net/http"
 	"strings"
 	"time"
@@ -275,11 +278,46 @@ func boolToInt(b bool) int {
 }
 
 func decryptSecret(val string) string {
-	// Secrets are prefixed with "enc:" by encryptSecret — strip it
-	if strings.HasPrefix(val, "enc:") {
+	switch {
+	case strings.HasPrefix(val, "enc:"):
+		// Legacy plaintext — stored before AES was implemented.
 		return val[4:]
+
+	case strings.HasPrefix(val, "aes:"):
+		secretEncKeyMu.RLock()
+		key := secretEncKey
+		secretEncKeyMu.RUnlock()
+		if len(key) == 0 {
+			log.Printf("[SECRETS] cannot decrypt: key not initialised")
+			return ""
+		}
+		data, err := base64.StdEncoding.DecodeString(val[4:])
+		if err != nil {
+			log.Printf("[SECRETS] base64 decode error: %v", err)
+			return ""
+		}
+		block, err := aes.NewCipher(key)
+		if err != nil {
+			return ""
+		}
+		gcm, err := cipher.NewGCM(block)
+		if err != nil {
+			return ""
+		}
+		nonceSize := gcm.NonceSize()
+		if len(data) < nonceSize {
+			return ""
+		}
+		plaintext, err := gcm.Open(nil, data[:nonceSize], data[nonceSize:], nil)
+		if err != nil {
+			log.Printf("[SECRETS] AES-GCM decrypt error: %v", err)
+			return ""
+		}
+		return string(plaintext)
+
+	default:
+		return val
 	}
-	return val
 }
 
 // ── Ticker CRUD ───────────────────────────────────────────────────────────────

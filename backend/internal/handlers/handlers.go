@@ -200,6 +200,13 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		}
 
 		db := authSvc.DB()
+
+		// Compute IP early so it's available in all audit paths.
+		sessionIP := r.Header.Get("X-Forwarded-For")
+		if sessionIP == "" {
+			sessionIP = r.RemoteAddr
+		}
+
 		var user models.User
 		var hash string
 		var email sql.NullString
@@ -211,6 +218,7 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		if err != nil {
 			log.Printf("[AUTH] local login: user not found: %q err=%v", req.Username, err)
 			logger.LoginFailure(r, req.Username, "user_not_found")
+			RecordAudit(db, "", "", "auth.login_fail", "", req.Username, map[string]string{"ip": sessionIP, "reason": "user_not_found"})
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
@@ -222,6 +230,7 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		if !authSvc.CheckPassword(hash, req.Password) {
 			log.Printf("[AUTH] local login: password mismatch user=%q", req.Username)
 			logger.LoginFailure(r, req.Username, "invalid_password")
+			RecordAudit(db, "", "", "auth.login_fail", user.ID, user.Username, map[string]string{"ip": sessionIP, "reason": "invalid_password"})
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
 			return
 		}
@@ -236,21 +245,20 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		}
 
 		logger.LoginSuccess(r, user.Username, "local")
+		RecordAudit(db, user.ID, user.Username, "auth.login", "", "", map[string]string{"ip": sessionIP})
 
-		// Record session for audit trail
-		sessionIP := r.Header.Get("X-Forwarded-For")
-		if sessionIP == "" { sessionIP = r.RemoteAddr }
 		go RecordSession(db, user.ID, sessionIP, r.UserAgent(), time.Now().Add(authSvc.SessionDuration()))
 
 		writeJSON(w, http.StatusOK, map[string]interface{}{"token": token, "user": user})
 	}
 }
 
-func Logout(authSvc *auth.Service) http.HandlerFunc {
+func Logout(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims, _ := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		if claims != nil {
 			logger.Logout(r, claims.Username)
+			RecordAudit(db, claims.UserID, claims.Username, "auth.logout", "", "", nil)
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -310,6 +318,11 @@ func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 		}
 
 		logger.OAuthSuccess(r, user.Username, isNew)
+		isNewStr := "false"
+		if isNew {
+			isNewStr = "true"
+		}
+		RecordAudit(db, user.ID, user.Username, "auth.oauth_login", "", "", map[string]string{"new": isNewStr, "ip": r.RemoteAddr})
 		http.Redirect(w, r, "/?token="+token, http.StatusTemporaryRedirect)
 	}
 }
@@ -497,6 +510,7 @@ func GetUser(db *sql.DB) http.HandlerFunc {
 
 func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		var req struct {
 			Role models.Role `json:"role"`
@@ -509,14 +523,18 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid role")
 			return
 		}
+		var targetName string
+		db.QueryRow("SELECT username FROM users WHERE id=?", id).Scan(&targetName)
 		db.Exec("UPDATE users SET role = ? WHERE id = ?", req.Role, id)
 		log.Printf("[ADMIN] role_update user_id=%s new_role=%s", id, req.Role)
+		RecordAudit(db, claims.UserID, claims.Username, "user.role_change", id, targetName, map[string]string{"role": string(req.Role)})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
 func UpdateUserEmail(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		var req struct {
 			Email string `json:"email"`
@@ -532,12 +550,15 @@ func UpdateUserEmail(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusConflict, "email already in use by another user")
 			return
 		}
+		var targetName string
+		db.QueryRow("SELECT username FROM users WHERE id=?", id).Scan(&targetName)
 		_, err := db.Exec("UPDATE users SET email=? WHERE id=?", req.Email, id)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update email")
 			return
 		}
 		log.Printf("[ADMIN] email_update user_id=%s", id)
+		RecordAudit(db, claims.UserID, claims.Username, "user.email_change", id, targetName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -554,9 +575,12 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusForbidden, "cannot delete your own account")
 			return
 		}
+		var deletedUsername string
+		db.QueryRow("SELECT username FROM users WHERE id=?", id).Scan(&deletedUsername)
 		// Allow deleting both local and OAuth users (but not SYSTEM or self)
 		db.Exec("DELETE FROM users WHERE id = ?", id)
 		log.Printf("[ADMIN] user_deleted user_id=%s by=%s", id, claims.UserID)
+		RecordAudit(db, claims.UserID, claims.Username, "user.delete", id, deletedUsername, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -602,6 +626,7 @@ func ListGroups(db *sql.DB) http.HandlerFunc {
 
 func CreateGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		var req struct {
 			Name        string `json:"name"`
 			Description string `json:"description"`
@@ -616,6 +641,7 @@ func CreateGroup(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusConflict, "group already exists")
 			return
 		}
+		RecordAudit(db, claims.UserID, claims.Username, "group.create", id, req.Name, nil)
 		writeJSON(w, http.StatusCreated, models.Group{ID: id, Name: req.Name, Description: req.Description, CreatedAt: time.Now()})
 	}
 }
@@ -659,6 +685,7 @@ func GetGroup(db *sql.DB) http.HandlerFunc {
 
 func SetDefaultGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
 		// Get group name from id
 		var name string
@@ -669,34 +696,43 @@ func SetDefaultGroup(db *sql.DB) http.HandlerFunc {
 		db.Exec(`INSERT INTO app_config (key, value) VALUES ('default_group', ?)
 			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, name)
 		log.Printf("[ADMIN] default_group set to %q", name)
+		RecordAudit(db, claims.UserID, claims.Username, "group.default_set", id, name, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
 func DeleteGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		id := mux.Vars(r)["id"]
+		var name string
+		db.QueryRow("SELECT name FROM groups WHERE id=?", id).Scan(&name)
 		db.Exec("DELETE FROM groups WHERE id = ?", id)
+		RecordAudit(db, claims.UserID, claims.Username, "group.delete", id, name, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
 func AddUserToGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		groupID := mux.Vars(r)["id"]
 		var req struct {
 			UserID string `json:"userId"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
 		db.Exec("INSERT OR IGNORE INTO user_groups (user_id, group_id) VALUES (?, ?)", req.UserID, groupID)
+		RecordAudit(db, claims.UserID, claims.Username, "group.member_add", groupID, "", map[string]string{"userId": req.UserID})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 
 func RemoveUserFromGroup(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		vars := mux.Vars(r)
 		db.Exec("DELETE FROM user_groups WHERE group_id = ? AND user_id = ?", vars["id"], vars["userId"])
+		RecordAudit(db, claims.UserID, claims.Username, "group.member_remove", vars["id"], "", map[string]string{"userId": vars["userId"]})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -1061,6 +1097,7 @@ func SetUserMode(db *sql.DB) http.HandlerFunc {
 
 func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		var req struct {
 			Username string `json:"username"`
 			Email    string `json:"email"`
@@ -1103,6 +1140,7 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		log.Printf("[USERS] created local user id=%s username=%q", id, req.Username)
+		RecordAudit(db, claims.UserID, claims.Username, "user.create", id, req.Username, map[string]string{"role": req.Role})
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "username": req.Username, "role": req.Role})
 	}
 }
@@ -1137,6 +1175,7 @@ func ChangeOwnPassword(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		db.Exec("UPDATE users SET password_hash=? WHERE id=?", string(newHash), claims.UserID)
+		RecordAudit(db, claims.UserID, claims.Username, "auth.password_change", "", "", nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

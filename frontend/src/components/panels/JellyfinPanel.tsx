@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface JellyfinLibrary { title: string; type: string; count: number }
 interface JellyfinSession {
@@ -25,7 +26,7 @@ export default function JellyfinPanel({ panel, heightUnits }: { panel: Panel; he
   const [loading, setLoading] = useState(true)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const refreshSecs = config.refreshSecs || 30
+  const integrationId = config.integrationId as string | undefined
 
   const load = useCallback(async () => {
     try {
@@ -36,11 +37,12 @@ export default function JellyfinPanel({ panel, heightUnits }: { panel: Panel; he
     } finally { setLoading(false) }
   }, [panel.id])
 
+  const sseData = useSSE<JellyfinData>(integrationId)
   useEffect(() => {
-    load()
-    const interval = setInterval(load, refreshSecs * 1000)
-    return () => clearInterval(interval)
-  }, [load, refreshSecs])
+    if (sseData !== null) setData(sseData)
+  }, [sseData])
+
+  useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
