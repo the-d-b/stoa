@@ -12,12 +12,14 @@ import IntegrationsPanel from '../components/admin/IntegrationsPanel'
 import MailConfigPanel from '../components/admin/MailConfigPanel'
 import SessionsPanel from '../components/admin/SessionsPanel'
 import BackupPanel from '../components/admin/BackupPanel'
+import DockerAdminPanel from '../components/admin/DockerAdminPanel'
 
 const tabs = [
   { path: '/admin/bookmarks', label: 'Bookmarks',        icon: '↗' },
   { path: '/admin/panels',    label: 'System Panels',    icon: '▤' },
   { path: '/admin/secrets',   label: 'System Secrets',   icon: '🔑' },
   { path: '/admin/integrations', label: 'System Integrations', icon: '⇄' },
+  { path: '/admin/docker',    label: 'Docker',           icon: '▣' },
   { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
   { path: '/admin/mail',      label: 'Mail',            icon: '✉' },
   { path: '/admin/google',    label: 'Google Cal', icon: '📅' },
@@ -39,7 +41,7 @@ export default function AdminPage() {
     },
     {
       label: 'System',
-      items: tabs.filter(t => ['/admin/secrets', '/admin/integrations'].includes(t.path)),
+      items: tabs.filter(t => ['/admin/secrets', '/admin/integrations', '/admin/docker'].includes(t.path)),
     },
     {
       label: 'Access',
@@ -118,6 +120,7 @@ export default function AdminPage() {
           <Route path="backup"    element={<BackupPanel />} />
           <Route path="sessions"  element={<SessionsPanel />} />
           <Route path="users"     element={<UsersPanel />} />
+          <Route path="docker"    element={<DockerAdminPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />
           <Route path="tags"      element={<TagsPanel />} />
         </Routes>

@@ -281,6 +281,18 @@ func main() {
 	admin.HandleFunc("/express-setup/status", handlers.ExpressSetupStatus(database)).Methods("GET")
 	admin.HandleFunc("/express-setup", handlers.ExpressSetupRun(database)).Methods("POST")
 
+	// Docker
+	admin.HandleFunc("/docker/config", handlers.GetDockerConfig(database)).Methods("GET")
+	admin.HandleFunc("/docker/config", handlers.SaveDockerConfig(database)).Methods("PUT")
+	admin.HandleFunc("/docker/hosts", handlers.ListDockerHosts(database)).Methods("GET")
+	admin.HandleFunc("/docker/hosts", handlers.CreateDockerHost(database)).Methods("POST")
+	admin.HandleFunc("/docker/hosts/{id}", handlers.UpdateDockerHost(database)).Methods("PUT")
+	admin.HandleFunc("/docker/hosts/{id}", handlers.DeleteDockerHost(database)).Methods("DELETE")
+	admin.HandleFunc("/docker/test", handlers.TestDockerHost(database)).Methods("POST")
+	protected.HandleFunc("/docker/access", handlers.GetDockerAccess(database)).Methods("GET")
+	protected.HandleFunc("/docker/containers", handlers.GetDockerContainers(database)).Methods("GET")
+	protected.HandleFunc("/docker/{hostId}/containers/{containerId}/{action}", handlers.DockerContainerAction(database)).Methods("POST")
+
 	// Groups
 	admin.HandleFunc("/groups", handlers.ListGroups(database)).Methods("GET")
 	admin.HandleFunc("/groups", handlers.CreateGroup(database)).Methods("POST")

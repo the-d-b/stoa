@@ -554,6 +554,18 @@ var migrations = []migration{
 		)`,
 	},
 	{
+		version: 40,
+		name:    "docker_hosts",
+		up: `CREATE TABLE IF NOT EXISTS docker_hosts (
+			id         TEXT PRIMARY KEY,
+			name       TEXT NOT NULL,
+			type       TEXT NOT NULL DEFAULT 'local',
+			url        TEXT NOT NULL DEFAULT '',
+			enabled    INTEGER NOT NULL DEFAULT 1,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
+	{
 		// Promotes password_reset_tokens from legacy post-loop code to a proper migration.
 		version: 36,
 		name:    "password_reset_tokens",

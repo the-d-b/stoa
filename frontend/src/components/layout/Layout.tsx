@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { glyphsApi, tickersApi, Glyph } from '../../api'
+import { glyphsApi, tickersApi, Glyph, dockerApi } from '../../api'
 import GlyphZone from '../glyphs/GlyphZone'
 import TickerStrip from '../tickers/TickerStrip'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
@@ -10,6 +10,7 @@ import { APP_VERSION } from '../../version'
 import { useSSEStatus, useChatSSE } from '../../hooks/useSSE'
 import { chatApi, pushApi } from '../../api'
 import ChatPanel from './ChatPanel'
+import DockerOverlay from '../DockerOverlay'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
@@ -50,6 +51,8 @@ export default function Layout() {
   const [activePorticoId, setActivePorticoId] = useState(() => sessionStorage.getItem('active_portico') || 'home')
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [dockerOpen, setDockerOpen] = useState(false)
+  const [dockerAccess, setDockerAccess] = useState(false)
   const sseStatus = useSSEStatus()
   const chatOpenRef = useRef(false)
   chatOpenRef.current = chatOpen
@@ -61,6 +64,11 @@ export default function Layout() {
     if (Notification.permission === 'granted') {
       navigator.serviceWorker.ready.then(subscribeToPush).catch(() => {})
     }
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!user) return
+    dockerApi.getAccess().then(r => setDockerAccess(r.data.hasAccess)).catch(() => {})
   }, [user?.id])
 
   // Load unread count from DB on mount
@@ -195,6 +203,28 @@ export default function Layout() {
                 : (user?.username?.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2) || '?')
               }
             </button>
+
+            {dockerAccess && (
+              <button
+                onClick={() => setDockerOpen(true)}
+                title="Docker"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  width: 32, height: 32, borderRadius: 8, border: 'none',
+                  background: 'transparent', color: 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}
+                onMouseOver={e => { e.currentTarget.style.background = 'var(--surface2)'; e.currentTarget.style.color = 'var(--text)' }}
+                onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)' }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+                  <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/>
+                  <line x1="12" y1="12" x2="12" y2="16"/>
+                  <line x1="10" y1="14" x2="14" y2="14"/>
+                </svg>
+              </button>
+            )}
 
             {isAdmin && modeLoaded && userMode === 'multi' && (
               <Link
@@ -339,6 +369,7 @@ export default function Layout() {
     </div>
     <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)}
       currentUserId={user?.id || ''} singleUser={userMode === 'single'} />
+    <DockerOverlay open={dockerOpen} onClose={() => setDockerOpen(false)} />
     </>
   )
 }

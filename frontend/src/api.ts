@@ -721,3 +721,52 @@ export const auditApi = {
   list: (action?: string) =>
     api.get<AuditEntry[]>(`/audit-log${action ? `?action=${encodeURIComponent(action)}` : ''}`),
 }
+
+// ── Docker ────────────────────────────────────────────────────────────────────
+
+export interface DockerHostRow {
+  id: string
+  name: string
+  type: 'local' | 'remote'
+  url: string
+  enabled: boolean
+}
+
+export interface DockerContainer {
+  id: string
+  name: string
+  image: string
+  state: string
+  status: string
+  cpu: number
+  memUsed: number
+  memLimit: number
+  memPct: number
+}
+
+export interface DockerHostData extends DockerHostRow {
+  containers: DockerContainer[]
+  error?: string
+}
+
+export interface DockerConfig {
+  enabled: boolean
+  groupIds: string[]
+  groups: Group[]
+  hosts: DockerHostRow[]
+}
+
+export const dockerApi = {
+  getConfig: () => api.get<DockerConfig>('/docker/config'),
+  saveConfig: (data: { enabled: boolean; groupIds: string[] }) => api.put('/docker/config', data),
+  listHosts: () => api.get<DockerHostRow[]>('/docker/hosts'),
+  createHost: (data: { name: string; type: string; url: string }) => api.post<DockerHostRow>('/docker/hosts', data),
+  updateHost: (id: string, data: Partial<DockerHostRow>) => api.put(`/docker/hosts/${id}`, data),
+  deleteHost: (id: string) => api.delete(`/docker/hosts/${id}`),
+  testHost: (data: { id?: string; type?: string; url?: string }) =>
+    api.post<{ ok: boolean; error?: string; version?: string }>('/docker/test', data),
+  getAccess: () => api.get<{ hasAccess: boolean }>('/docker/access'),
+  getContainers: () => api.get<DockerHostData[]>('/docker/containers'),
+  containerAction: (hostId: string, containerId: string, action: 'start' | 'stop' | 'restart') =>
+    api.post(`/docker/${hostId}/containers/${containerId}/${action}`, {}),
+}
