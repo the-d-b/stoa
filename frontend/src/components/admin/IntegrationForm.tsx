@@ -13,28 +13,28 @@ import CryptoConfigUI from './CryptoConfigUI'
 
 export const INTEGRATION_TYPES = [
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
+  { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko — add Demo API key secret for higher rate limits)' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform' },
+  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
   { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
-  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform' },
-  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server' },
   { id: 'plex',         label: 'Plex',         desc: 'Media server' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
   { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader' },
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN, no key required)' },
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store' },
+  { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)' },
-  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN, no key required)' },
-  { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)' },
-  { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko — add Demo API key secret for higher rate limits)' },
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
