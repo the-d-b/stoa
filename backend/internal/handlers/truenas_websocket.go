@@ -61,6 +61,7 @@ func StartTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			err := runTrueNASWorker(db, ig, stop)
 			if err != nil {
 				log.Printf("[TRUENAS] worker error: %v — reconnecting in %s", err, backoff)
+				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
 			case <-stop:
@@ -195,6 +196,7 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 		log.Printf("[TRUENAS] slow data error: %v", err)
 	}
 	cacheSet(ig.id, data)
+	ClearIntegrationError(ig.id, ig.name)
 	log.Printf("[TRUENAS] initial data cached")
 
 	// ── Subscribe to realtime reporting ───────────────────────────────────
@@ -244,6 +246,7 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 					}
 					if allDone {
 						cacheSet(ig.id, entry.data)
+						ClearIntegrationError(ig.id, ig.name)
 						log.Printf("[TRUENAS] slow data refreshed")
 					}
 				}

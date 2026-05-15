@@ -16,6 +16,9 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 		// Warm the cache immediately with full data
 		if data, err := fetchProxmoxPanelData(db, map[string]interface{}{"integrationId": ig.id}); err == nil {
 			cacheSet(ig.id, data)
+			ClearIntegrationError(ig.id, ig.name)
+		} else {
+			RecordIntegrationError(ig.id, ig.name, err.Error())
 		}
 
 		fastTick := time.NewTicker(3 * time.Second)
@@ -72,6 +75,7 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 					fmt.Sprintf("/nodes/%s/status", cachedNode), cachedSkipTLS)
 				if err != nil {
 					log.Printf("[PROXMOX] fast poll error: %v", err)
+					RecordIntegrationError(ig.id, ig.name, err.Error())
 					cachedNode = "" // re-resolve next tick
 					continue
 				}
@@ -112,16 +116,19 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 					updated.NetIn = netInMbps
 					updated.NetOut = netOutMbps
 					cacheSet(ig.id, &updated)
+					ClearIntegrationError(ig.id, ig.name)
 				}
 
 			case <-slowTick.C:
 				// Full refresh — VMs, storage, temps, everything
 				if data, err := fetchProxmoxPanelData(db, map[string]interface{}{"integrationId": ig.id}); err == nil {
 					cacheSet(ig.id, data)
+					ClearIntegrationError(ig.id, ig.name)
 					// Re-resolve node in case it changed
 					resolveNode()
 				} else {
 					log.Printf("[PROXMOX] slow poll error: %v", err)
+					RecordIntegrationError(ig.id, ig.name, err.Error())
 				}
 			}
 		}

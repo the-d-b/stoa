@@ -605,6 +605,14 @@ var migrations = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_audit_log_action  ON audit_log(action)`,
 		},
 	},
+	{
+		// Fixes installations that upgraded from <0.10.0 and still have the old
+		// sessions table schema (created_at / last_seen columns instead of
+		// ip / user_agent / issued_at / last_seen_at).  Sessions are ephemeral
+		// login tokens so dropping them is safe — users just log in again.
+		version: 41,
+		name:    "sessions_schema_upgrade",
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }
@@ -636,6 +644,8 @@ func Run(db *sql.DB) error {
 		var applyErr error
 		if m.version == 10 {
 			applyErr = runMigration10(db)
+		} else if m.version == 41 {
+			applyErr = runMigration41(db)
 		} else {
 			tx, err := db.Begin()
 			if err != nil {
@@ -665,7 +675,7 @@ func Run(db *sql.DB) error {
 			return fmt.Errorf("failed to apply migration %d: %w", m.version, applyErr)
 		}
 
-		if m.version == 10 {
+		if m.version == 10 || m.version == 41 {
 			if _, err := db.Exec("INSERT INTO schema_migrations (version, name) VALUES (?, ?)", m.version, m.name); err != nil {
 				return fmt.Errorf("failed to record migration %d: %w", m.version, err)
 			}
@@ -686,6 +696,55 @@ func Run(db *sql.DB) error {
 		db.Exec("INSERT OR IGNORE INTO app_config (key, value) VALUES (?, ?)", kv[0], kv[1])
 	}
 
+	return nil
+}
+
+// runMigration41 fixes installations that upgraded from <0.10.0 and still have
+// the old sessions table schema (created_at/last_seen columns). It rebuilds the
+// table if the new ip column is missing; otherwise it is a no-op.
+func runMigration41(db *sql.DB) error {
+	rows, err := db.Query("PRAGMA table_info(sessions)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	hasIP := false
+	for rows.Next() {
+		var cid int
+		var name, typ string
+		var notNull, pk int
+		var dflt interface{}
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &dflt, &pk); err != nil {
+			continue
+		}
+		if name == "ip" {
+			hasIP = true
+			break
+		}
+	}
+	rows.Close()
+	if hasIP {
+		log.Printf("[migration41] sessions schema already correct, skipping")
+		return nil
+	}
+	log.Printf("[migration41] rebuilding sessions table (old schema detected)")
+	for _, stmt := range []string{
+		`DROP TABLE IF EXISTS sessions`,
+		`CREATE TABLE sessions (
+			id           TEXT PRIMARY KEY,
+			user_id      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			ip           TEXT,
+			user_agent   TEXT,
+			issued_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+			expires_at   DATETIME,
+			last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id)`,
+	} {
+		if _, err := db.Exec(stmt); err != nil {
+			return fmt.Errorf("migration41 stmt %q: %w", stmt[:min(40, len(stmt))], err)
+		}
+	}
 	return nil
 }
 

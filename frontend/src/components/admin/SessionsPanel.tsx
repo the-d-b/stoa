@@ -355,6 +355,7 @@ type MainTab = 'sessions' | 'audit'
 export default function SessionsPanel() {
   const [activeTab, setActiveTab] = useState<MainTab>('sessions')
   const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [sessionsError, setSessionsError] = useState('')
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<TimeFilter>('7')
   const [sessionHours, setSessionHours] = useState('24')
@@ -378,6 +379,9 @@ export default function SessionsPanel() {
     try {
       const res = await sessionsApi.list(f === 'all' ? undefined : f)
       setSessions(res.data || [])
+      setSessionsError('')
+    } catch (e: any) {
+      setSessionsError(e.response?.data?.error || 'Failed to load sessions')
     } finally { setLoading(false) }
   }
 
@@ -472,7 +476,9 @@ export default function SessionsPanel() {
         </div>
       </div>
 
-      {loading ? (
+      {sessionsError ? (
+        <div style={{ color: 'var(--red)', fontSize: 13, padding: '8px 0' }}>⚠ {sessionsError}</div>
+      ) : loading ? (
         <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
       ) : sessions.length === 0 ? (
         <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No sessions in this period.</div>

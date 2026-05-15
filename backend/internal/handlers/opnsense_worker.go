@@ -32,6 +32,7 @@ func StartOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			err := runOPNsenseWorker(db, ig, stop)
 			if err != nil {
 				log.Printf("[OPNSENSE] worker error: %v — reconnecting in %s", err, backoff)
+				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
 			case <-stop:
@@ -57,6 +58,7 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 	data := &OPNsensePanelData{UIURL: uiURL}
 	opnsenseFetchSlow(apiURL, apiKey, skipTLS, data)
 	cacheSet(ig.id, data)
+	ClearIntegrationError(ig.id, ig.name)
 	log.Printf("[OPNSENSE] initial data cached")
 
 	// ── Traffic stream goroutine ──────────────────────────────────────────
@@ -153,6 +155,7 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			}
 			opnsenseFetchSlow(apiURL, apiKey, skipTLS, &prev)
 			cacheSet(ig.id, &prev)
+			ClearIntegrationError(ig.id, ig.name)
 			log.Printf("[OPNSENSE] slow data refreshed")
 		}
 	}

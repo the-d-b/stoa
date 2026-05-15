@@ -60,95 +60,121 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   const hasFailures = (data.recentFailures || []).length > 0
   const alerting = data.failures > 10
 
-  const sectionTitle = (text: string) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
-      letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
-  )
-
-  const TimeRangePills = () => (
-    <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-      {DAY_OPTIONS.map(opt => (
-        <button key={opt.days} onClick={() => setDays(opt.days)}
-          style={{ padding: '2px 8px', borderRadius: 5, fontSize: 10, cursor: 'pointer',
-            fontWeight: days === opt.days ? 700 : 400,
-            background: days === opt.days ? 'var(--accent)' : 'var(--surface2)',
-            color: days === opt.days ? '#fff' : 'var(--text-dim)',
-            border: `1px solid ${days === opt.days ? 'var(--accent)' : 'var(--border)'}` }}>
-          {opt.label}
-        </button>
-      ))}
-      {loading && <span style={{ fontSize: 10, color: 'var(--text-dim)', alignSelf: 'center' }}>…</span>}
-    </div>
-  )
-
-  const Summary = () => (
-    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
-      <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login` : '#'}
-        target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
-          fontSize: 11, textDecoration: 'none', color: 'inherit' }}
-        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-        onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-        <span style={{ color: 'var(--green)' }}>✓</span>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{(data.logins ?? 0).toLocaleString()}</span>
-        <span style={{ color: 'var(--text-dim)' }}>logins</span>
-      </a>
-      <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login_failed` : '#'}
-        target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-          borderRadius: 6, background: 'var(--surface2)',
-          border: `1px solid ${alerting ? 'var(--red)' : 'var(--border)'}`,
-          fontSize: 11, textDecoration: 'none', color: 'inherit' }}
-        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-        onMouseOut={e => e.currentTarget.style.borderColor = alerting ? 'var(--red)' : 'var(--border)'}>
-        <span style={{ color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
-          color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'inherit' }}>{(data.failures ?? 0).toLocaleString()}</span>
-        <span style={{ color: 'var(--text-dim)' }}>failed</span>
-      </a>
-      {data.activeSessions > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ color: 'var(--text-dim)' }}>⚡</span>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.activeSessions}</span>
-          <span style={{ color: 'var(--text-dim)' }}>sessions</span>
-        </div>
-      )}
-    </div>
-  )
-
-  const FailureList = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {(data.recentFailures || []).map((f, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
-          padding: '3px 8px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ color: 'var(--red)', flexShrink: 0 }}>✗</span>
-          <span style={{ fontWeight: 500, flex: 1, overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.username || '?'}</span>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)',
-            fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>{f.clientIp}</span>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{timeAgo(f.createdAt)}</span>
-        </div>
-      ))}
-    </div>
-  )
-
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-      <Summary />
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login` : '#'}
+          target="_blank" rel="noopener noreferrer"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11, textDecoration: 'none', color: 'inherit' }}
+          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+          onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+          <span style={{ color: 'var(--green)' }}>✓</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{(data.logins ?? 0).toLocaleString()}</span>
+          <span style={{ color: 'var(--text-dim)' }}>logins</span>
+        </a>
+        <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login_failed` : '#'}
+          target="_blank" rel="noopener noreferrer"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+            borderRadius: 6, background: 'var(--surface2)',
+            border: `1px solid ${alerting ? 'var(--red)' : 'var(--border)'}`,
+            fontSize: 11, textDecoration: 'none', color: 'inherit' }}
+          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+          onMouseOut={e => e.currentTarget.style.borderColor = alerting ? 'var(--red)' : 'var(--border)'}>
+          <span style={{ color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
+            color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'inherit' }}>{(data.failures ?? 0).toLocaleString()}</span>
+          <span style={{ color: 'var(--text-dim)' }}>failed</span>
+        </a>
+        {data.activeSessions > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+            <span style={{ color: 'var(--text-dim)' }}>⚡</span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.activeSessions}</span>
+            <span style={{ color: 'var(--text-dim)' }}>sessions</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 
   return (
     <div style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      <TimeRangePills />
-      <Summary />
+      {/* Time range pills — inlined to avoid remount-on-render from inner component definition */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 8, alignItems: 'center' }}>
+        {DAY_OPTIONS.map(opt => (
+          <button key={opt.days} onClick={() => setDays(opt.days)}
+            style={{ padding: '2px 8px', borderRadius: 5, fontSize: 10, cursor: 'pointer',
+              fontWeight: days === opt.days ? 700 : 400,
+              background: days === opt.days ? 'var(--accent)' : 'var(--surface2)',
+              color: days === opt.days ? '#fff' : 'var(--text-dim)',
+              border: `1px solid ${days === opt.days ? 'var(--accent)' : 'var(--border)'}` }}>
+            {opt.label}
+          </button>
+        ))}
+        {/* Fixed-width placeholder keeps row stable while loading */}
+        <span style={{ width: 14, textAlign: 'center', fontSize: 10, color: 'var(--text-dim)',
+          visibility: loading ? 'visible' : 'hidden' }}>…</span>
+      </div>
+
+      {/* Summary */}
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
+        <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login` : '#'}
+          target="_blank" rel="noopener noreferrer"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)',
+            fontSize: 11, textDecoration: 'none', color: 'inherit' }}
+          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+          onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+          <span style={{ color: 'var(--green)' }}>✓</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{(data.logins ?? 0).toLocaleString()}</span>
+          <span style={{ color: 'var(--text-dim)' }}>logins</span>
+        </a>
+        <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login_failed` : '#'}
+          target="_blank" rel="noopener noreferrer"
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+            borderRadius: 6, background: 'var(--surface2)',
+            border: `1px solid ${alerting ? 'var(--red)' : 'var(--border)'}`,
+            fontSize: 11, textDecoration: 'none', color: 'inherit' }}
+          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+          onMouseOut={e => e.currentTarget.style.borderColor = alerting ? 'var(--red)' : 'var(--border)'}>
+          <span style={{ color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'var(--text-dim)' }}>✗</span>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
+            color: (data.failures ?? 0) > 0 ? 'var(--red)' : 'inherit' }}>{(data.failures ?? 0).toLocaleString()}</span>
+          <span style={{ color: 'var(--text-dim)' }}>failed</span>
+        </a>
+        {data.activeSessions > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px',
+            borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+            <span style={{ color: 'var(--text-dim)' }}>⚡</span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{data.activeSessions}</span>
+            <span style={{ color: 'var(--text-dim)' }}>sessions</span>
+          </div>
+        )}
+      </div>
+
+      {/* Failed logins */}
       {hasFailures && (
         <>
-          {sectionTitle(`Failed logins (${(data.recentFailures || []).length} shown)`)}
-          <FailureList />
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
+            letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>
+            Failed logins ({(data.recentFailures || []).length} shown)
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {(data.recentFailures || []).map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8,
+                padding: '3px 8px', borderRadius: 6,
+                background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+                <span style={{ color: 'var(--red)', flexShrink: 0 }}>✗</span>
+                <span style={{ fontWeight: 500, flex: 1, overflow: 'hidden',
+                  textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.username || '?'}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)',
+                  fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>{f.clientIp}</span>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>{timeAgo(f.createdAt)}</span>
+              </div>
+            ))}
+          </div>
         </>
       )}
       {!hasFailures && (
