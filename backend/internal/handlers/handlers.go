@@ -850,12 +850,18 @@ func CreateTag(db *sql.DB) http.HandlerFunc {
 		if req.Scope == "personal" || claims.Role != models.RoleAdmin {
 			ownerID = claims.UserID
 		}
+		var existing int
+		db.QueryRow("SELECT COUNT(*) FROM tags WHERE LOWER(name)=LOWER(?)", req.Name).Scan(&existing)
+		if existing > 0 {
+			writeError(w, http.StatusConflict, fmt.Sprintf("a tag named %q already exists", req.Name))
+			return
+		}
 		id := generateID()
 		_, err := db.Exec(
 			"INSERT INTO tags (id, name, color, created_by) VALUES (?, ?, ?, ?)",
 			id, req.Name, req.Color, ownerID)
 		if err != nil {
-			writeError(w, http.StatusConflict, "tag already exists")
+			writeError(w, http.StatusInternalServerError, "failed to create tag")
 			return
 		}
 		writeJSON(w, http.StatusCreated, models.Tag{ID: id, Name: req.Name, Color: req.Color, CreatedAt: time.Now()})

@@ -14,6 +14,7 @@ export default function TagsPanel() {
   const [name, setName] = useState('')
   const [color, setColor] = useState(COLORS[0])
   const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState('')
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editColor, setEditColor] = useState('')
@@ -26,9 +27,15 @@ export default function TagsPanel() {
   const create = async () => {
     if (!name.trim()) return
     setCreating(true)
-    await tagsApi.create(name.trim(), color)
-    setName(''); setShowForm(false); load()
-    setCreating(false)
+    setCreateError('')
+    try {
+      await tagsApi.create(name.trim(), color)
+      setName(''); setShowForm(false); load()
+    } catch (e: any) {
+      setCreateError(e.response?.data?.error || 'Failed to create tag')
+    } finally {
+      setCreating(false)
+    }
   }
 
   const remove = async (t: Tag) => {
@@ -61,18 +68,21 @@ export default function TagsPanel() {
 
       {showForm && (
         <div className="card" style={{ marginBottom: 20, padding: 20 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: 16 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', marginBottom: createError ? 8 : 16 }}>
             <div style={{ flex: 1 }}>
               <label className="label">Tag name</label>
-              <input className="input" value={name} onChange={e => setName(e.target.value)}
+              <input className="input" value={name} onChange={e => { setName(e.target.value); setCreateError('') }}
                 placeholder="media, infra, work..." autoFocus
                 onKeyDown={e => e.key === 'Enter' && create()} />
             </div>
             <button className="btn btn-primary" onClick={create} disabled={creating}>
               {creating ? <span className="spinner" /> : 'Create'}
             </button>
-            <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+            <button className="btn btn-secondary" onClick={() => { setShowForm(false); setCreateError('') }}>Cancel</button>
           </div>
+          {createError && (
+            <div style={{ fontSize: 12, color: 'var(--red)', marginBottom: 12 }}>⚠ {createError}</div>
+          )}
           <div>
             <label className="label">Color</label>
             <ColorPicker value={color} onChange={setColor} />

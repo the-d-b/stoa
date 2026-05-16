@@ -22,7 +22,7 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 		rows, err := db.Query(`
 			SELECT id, user_id, name, is_default,
 			       COALESCE(layout,'stylos'), COALESCE(column_count,3), COALESCE(column_height,8),
-			       created_at
+			       COALESCE(dynamic_height,0), created_at
 			FROM porticos WHERE user_id = ?
 			ORDER BY is_default DESC, sort_order ASC, created_at ASC
 		`, claims.UserID)
@@ -35,7 +35,7 @@ func ListPorticos(db *sql.DB) http.HandlerFunc {
 		porticos := []models.Portico{}
 		for rows.Next() {
 			var p models.Portico
-			rows.Scan(&p.ID, &p.UserID, &p.Name, &p.IsDefault, &p.Layout, &p.ColumnCount, &p.ColumnHeight, &p.CreatedAt)
+			rows.Scan(&p.ID, &p.UserID, &p.Name, &p.IsDefault, &p.Layout, &p.ColumnCount, &p.ColumnHeight, &p.DynamicHeight, &p.CreatedAt)
 			// Load tag states with name and color for dot display
 			tagRows, _ := db.Query(`
 				SELECT pt.tag_id, COALESCE(t.name,''), COALESCE(t.color,''), pt.active
@@ -403,10 +403,11 @@ func UpdatePortico(db *sql.DB) http.HandlerFunc {
 		id := mux.Vars(r)["id"]
 
 		var req struct {
-			Name         string `json:"name"`
-			Layout       string `json:"layout"`
-			ColumnCount  int    `json:"columnCount"`
-			ColumnHeight int    `json:"columnHeight"`
+			Name          string `json:"name"`
+			Layout        string `json:"layout"`
+			ColumnCount   int    `json:"columnCount"`
+			ColumnHeight  int    `json:"columnHeight"`
+			DynamicHeight bool   `json:"dynamicHeight"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request")
@@ -431,9 +432,9 @@ func UpdatePortico(db *sql.DB) http.HandlerFunc {
 			db.Exec("UPDATE porticos SET name=? WHERE id=? AND user_id=?", req.Name, id, claims.UserID)
 		}
 		db.Exec(`
-			UPDATE porticos SET layout=?, column_count=?, column_height=?
+			UPDATE porticos SET layout=?, column_count=?, column_height=?, dynamic_height=?
 			WHERE id=? AND user_id=?
-		`, req.Layout, req.ColumnCount, req.ColumnHeight, id, claims.UserID)
+		`, req.Layout, req.ColumnCount, req.ColumnHeight, req.DynamicHeight, id, claims.UserID)
 
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

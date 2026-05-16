@@ -358,7 +358,7 @@ export default function DashboardPage() {
   const containerPadding = colCount >= 5 ? '0 8px' : colCount >= 4 ? '0 16px' : '0 24px'
 
   return (
-    <div style={{ maxWidth: containerMax, margin: '0 auto', padding: containerPadding,
+    <div className="dashboard-container" style={{ maxWidth: containerMax, margin: '0 auto', padding: containerPadding,
       boxSizing: 'border-box', width: '100%' }}>
     <div style={{ display: 'flex', gap: 20, position: 'relative' }}>
       {/* Main content */}
@@ -645,6 +645,9 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
   const colCount    = portico?.columnCount  ?? 3
   const colHeight   = portico?.columnHeight ?? 8
   const minColWidth = DENSITY_MIN_WIDTH[density] ?? 240
+  // Dynamic height: panels size to content instead of fixed px. Not compatible with
+  // Seira/flow (which use CSS grid row spans that require a fixed row height).
+  const dynamicHeight = !!(portico?.dynamicHeight) && layout !== 'seira' && layout !== 'flow'
 
   // Mobile: detect via matchMedia, kept in sync on resize
   const [isMobile, setIsMobile] = useState(() =>
@@ -714,7 +717,7 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
             alignItems: 'start',
           }}>
             {row.map(panel => (
-              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} onResize={onPanelResize} />
+              <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} onResize={onPanelResize} dynamicHeight={dynamicHeight} />
             ))}
           </div>
         ))}
@@ -744,7 +747,7 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
           <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
             {col.map(panel => (
               <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]}
-                allExpanded={allExpanded} />
+                allExpanded={allExpanded} dynamicHeight={dynamicHeight} />
             ))}
           </div>
         ))}
@@ -790,7 +793,7 @@ function PanelGrid({ panels, subtrees, portico, density, allExpanded, customColu
       {columns.map((col, ci) => (
         <div key={ci} style={{ display: 'flex', flexDirection: 'column', gap: GRID_GAP }}>
           {col.map(panel => (
-            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} onResize={onPanelResize} />
+            <PanelCard key={panel.id} panel={panel} subtree={subtrees[panel.id]} allExpanded={allExpanded} onResize={onPanelResize} dynamicHeight={dynamicHeight} />
           ))}
         </div>
       ))}
@@ -807,11 +810,12 @@ function getPanelHeight(panel: Panel): number {
 
 // ── Panel card ────────────────────────────────────────────────────────────────
 
-function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: {
+function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dynamicHeight }: {
   panel: Panel; subtree?: BookmarkNode
   onCollapseChange?: (collapsed: boolean) => void
   allExpanded?: boolean | null
   onResize?: (panelId: string, newHeight: number) => void
+  dynamicHeight?: boolean
 }) {
   const [treeExpanded, setTreeExpanded] = useState<boolean | null>(null)
   const [collapsedManual, setCollapsedManual] = useState<boolean | null>(null)
@@ -848,7 +852,8 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize }: 
       background: 'var(--surface)', border: '1px solid var(--border)',
       borderRadius: 12, overflow: 'hidden', transition: 'border-color 0.15s',
       display: 'flex', flexDirection: 'column',
-      height: collapsed ? 'auto' : `${cardHeight}px`,
+      height: (collapsed || dynamicHeight) ? 'auto' : `${cardHeight}px`,
+      maxHeight: (dynamicHeight && !collapsed) ? `${8 * (ROW_UNIT + GRID_GAP) - GRID_GAP}px` : undefined,
       position: 'relative',
     }}
       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}

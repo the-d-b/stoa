@@ -108,6 +108,26 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
   const [editing, setEditing] = useState(false)
   const typeDef = INTEGRATION_TYPES.find(t => t.id === ig.type)
 
+  const apiUrlSummary = (() => {
+    if (ig.type === 'stocks') {
+      try { const s = JSON.parse(ig.apiUrl || '{}').symbols || []; return `${s.length} symbol${s.length !== 1 ? 's' : ''}` } catch { return '' }
+    }
+    if (ig.type === 'crypto') {
+      try { const c = JSON.parse(ig.apiUrl || '{}').coins || []; return `${c.length} coin${c.length !== 1 ? 's' : ''}` } catch { return '' }
+    }
+    if (ig.type === 'sports') {
+      try {
+        const cfg = JSON.parse(ig.apiUrl || '{}')
+        const leagues: string[] = cfg.leagues || []
+        const teams: string[] = cfg.teams || []
+        const parts = [leagues.map((l: string) => l.toUpperCase()).join(', ')]
+        if (teams.length) parts.push(`${teams.length} team${teams.length !== 1 ? 's' : ''}`)
+        return parts.filter(Boolean).join(' · ') || ig.apiUrl
+      } catch { return ig.apiUrl }
+    }
+    return ig.apiUrl
+  })()
+
   return (
     <div style={{
       background: 'var(--surface)', border: `1px solid ${expanded ? 'var(--border2)' : 'var(--border)'}`,
@@ -127,7 +147,8 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
           </span>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{ig.apiUrl}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
+            maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{apiUrlSummary}</span>
           {assignedGroups.length === 0
             ? <span style={{ fontSize: 10, color: 'var(--amber)', fontStyle: 'italic' }}>visible to all users</span>
             : <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{assignedGroups.length} group{assignedGroups.length !== 1 ? 's' : ''}</span>
@@ -189,8 +210,13 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>API URL</div>
-                <div style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)' }}>{ig.apiUrl}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>
+                  {['stocks','crypto','sports'].includes(ig.type) ? 'Config' : 'API URL'}
+                </div>
+                <div style={{ fontSize: 12, fontFamily: 'DM Mono, monospace', color: 'var(--text-muted)',
+                  overflowWrap: 'break-word', wordBreak: 'break-all' }}>
+                  {['stocks','crypto','sports'].includes(ig.type) ? apiUrlSummary : ig.apiUrl}
+                </div>
               </div>
               <div>
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 2 }}>UI URL</div>

@@ -130,6 +130,47 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				}
 			}
 
+		case "readarr":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] readarr resolveIntegration error: %v", err)
+				continue
+			}
+			upcoming, err := arrGet(apiURL, apiKey,
+				fmt.Sprintf("/api/v1/calendar?unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
+			if err != nil {
+				log.Printf("[CAL] readarr fetch error: %v", err)
+				continue
+			}
+			var books []map[string]interface{}
+			json.Unmarshal(upcoming, &books)
+			for _, bk := range books {
+				title, _ := bk["title"].(string)
+				rawDate, _ := bk["releaseDate"].(string)
+				date := localDate(rawDate)
+				if date == "" {
+					continue
+				}
+				titleSlug, _ := bk["titleSlug"].(string)
+				author := ""
+				if a, ok := bk["author"].(map[string]interface{}); ok {
+					author, _ = a["authorName"].(string)
+				}
+				displayTitle := title
+				if author != "" {
+					displayTitle = fmt.Sprintf("%s — %s", author, title)
+				}
+				events = append(events, map[string]interface{}{
+					"source":    "readarr",
+					"date":      date,
+					"title":     displayTitle,
+					"titleSlug": titleSlug,
+					"uiUrl":     uiURL,
+					"color":     "#6ee7b7",
+					"hasFile":   bk["hasFile"] == true,
+				})
+			}
+
 		case "lidarr":
 			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 			if err != nil {

@@ -61,7 +61,7 @@ export default function AdminPage() {
         <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 16, paddingBottom: 12, borderBottom: '1px solid var(--border)' }}>
           Administration
         </div>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <nav className="profile-nav-desktop" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {navGroups.map(group => (
             <div key={group.label}>
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, paddingLeft: 8 }}>
@@ -88,7 +88,22 @@ export default function AdminPage() {
           ))}
         </nav>
 
-        <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+        {/* Nav — mobile select */}
+        <div className="profile-nav-mobile">
+          <select className="input" value={location.pathname}
+            onChange={e => navigate(e.target.value)}
+            style={{ width: '100%', fontSize: 14, cursor: 'pointer' }}>
+            {navGroups.map(group => (
+              <optgroup key={group.label} label={group.label}>
+                {group.items.map(t => (
+                  <option key={t.path} value={t.path}>{t.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
           <button
             onClick={() => navigate('/express-setup')}
             style={{

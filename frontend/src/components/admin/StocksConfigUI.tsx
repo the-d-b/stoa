@@ -38,7 +38,7 @@ export default function StocksConfigUI({ apiUrl, onChange }: {
   const custom = cfg.symbols.filter(s => !POPULAR.includes(s))
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
         {POPULAR.map(s => {
           const on = cfg.symbols.includes(s)
@@ -71,7 +71,7 @@ export default function StocksConfigUI({ apiUrl, onChange }: {
         </div>
       )}
       {cfg.symbols.length > 0 && (
-        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', overflowWrap: 'break-word', wordBreak: 'break-all' }}>
           {cfg.symbols.length} symbol{cfg.symbols.length !== 1 ? 's' : ''}: {cfg.symbols.join(', ')}
         </div>
       )}

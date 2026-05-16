@@ -61,7 +61,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   const [rawData, setRawData] = useState<any>(null)
   const [error, setError] = useState('')
   const [swoosh, setSwoosh] = useState(false)
-  const isNonQuote = ['weather', 'sports', 'rss', 'stocks'].includes(ticker.type)
+  const isNonQuote = ['weather', 'sports', 'rss', 'stocks', 'crypto'].includes(ticker.type)
 
   const fetchData = useCallback(async () => {
     try {
@@ -125,7 +125,7 @@ function SingleTicker({ ticker }: { ticker: Ticker }) {
   }
 
   // Stocks/crypto ticker — reads from MarketData.quotes
-  if (ticker.type === 'stocks') {
+  if (ticker.type === 'stocks' || ticker.type === 'crypto') {
     if (!rawData) return <div style={{ padding: '6px 24px', fontSize: 11, color: 'var(--text-dim)' }}>Loading...</div>
     const mquotes: any[] = rawData.quotes || []
     if (mquotes.length === 0) return <div style={{ padding: '6px 16px', fontSize: 11, color: 'var(--text-dim)' }}>No market data</div>

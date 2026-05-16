@@ -337,7 +337,7 @@ export default function SportsPanel({ panel, heightUnits }: { panel: Panel; heig
       {/* League pills — only if multiple leagues */}
       {allLeagues.length > 1 && (
         <div style={{ display:'flex', gap:4, padding:'8px 12px 0', flexShrink:0,
-          overflowX:'auto', scrollbarWidth:'none' }}>
+          flexWrap:'wrap' }}>
           {allLeagues.map(lg => (
             <button key={lg} onClick={() => setActiveLeagueState(lg)} style={{
               padding:'3px 10px', fontSize:11, borderRadius:6, cursor:'pointer',

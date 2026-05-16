@@ -613,6 +613,23 @@ var migrations = []migration{
 		version: 41,
 		name:    "sessions_schema_upgrade",
 	},
+	{
+		version: 42,
+		name:    "portico_dynamic_height",
+		up: `ALTER TABLE porticos ADD COLUMN dynamic_height INTEGER NOT NULL DEFAULT 0;`,
+	},
+	{
+		version: 43,
+		name:    "panel_custom_columns_table",
+		up: `CREATE TABLE IF NOT EXISTS panel_custom_columns (
+			id         TEXT PRIMARY KEY,
+			user_id    TEXT NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+			portico_id TEXT NOT NULL REFERENCES porticos(id) ON DELETE CASCADE,
+			panel_id   TEXT NOT NULL REFERENCES panels(id)  ON DELETE CASCADE,
+			col        INTEGER NOT NULL DEFAULT 1,
+			UNIQUE(user_id, portico_id, panel_id)
+		);`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

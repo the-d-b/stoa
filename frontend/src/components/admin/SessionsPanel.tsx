@@ -116,7 +116,8 @@ function IntegrationHealthSection() {
       ) : displayed.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No errors — all integrations healthy.</div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 480 }}>
           {displayed.map(item => {
             const catStyle = item.status === 'error' && item.errorCategory
               ? categoryColor(item.errorCategory) : null
@@ -193,6 +194,7 @@ function IntegrationHealthSection() {
               </div>
             )
           })}
+        </div>
         </div>
       )}
     </div>

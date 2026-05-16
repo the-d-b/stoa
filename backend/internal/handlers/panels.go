@@ -499,29 +499,33 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 
 		// System panels: tagged with an active tag on this portico
 		// Also panels with NO tags (always visible) that the user can access
-		// LEFT JOIN order + column scoped to THIS portico only
+		// LEFT JOIN position from user_panel_order_v3 and col from panel_custom_columns
 		rows, err := db.Query(`
 			SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				COALESCE(p.created_by,''),
 				COALESCE(upo.position, 99999),
-				COALESCE(upo.custom_column, 1)
+				COALESCE(pcc.col, 1)
 			FROM panels p
 			LEFT JOIN user_panel_order_v3 upo
 				ON upo.panel_id = p.id
 				AND upo.user_id = ?
 				AND upo.portico_id = ?
+			LEFT JOIN panel_custom_columns pcc
+				ON pcc.panel_id = p.id
+				AND pcc.user_id = ?
+				AND pcc.portico_id = ?
 			WHERE p.created_by = 'SYSTEM'
 			AND (
 				-- Panels with no tags: always visible on all porticos
 				NOT EXISTS (SELECT 1 FROM panel_tags WHERE panel_id = p.id)
 				OR
 				-- Panels whose tag appears in portico_tags for this portico
-				-- (active/inactive = temporary filter, not membership)
 				EXISTS (
 					SELECT 1 FROM panel_tags ptag
 					JOIN portico_tags pt ON pt.tag_id = ptag.tag_id
 					WHERE ptag.panel_id = p.id
 					AND pt.portico_id = ?
+					AND pt.active = 1
 				)
 			)
 			AND (
@@ -537,18 +541,24 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 			SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
 				COALESCE(p.created_by,''),
 				COALESCE(upo2.position, 99999),
-				COALESCE(upo2.custom_column, 1)
+				COALESCE(pcc2.col, 1)
 			FROM panels p
 			LEFT JOIN user_panel_order_v3 upo2
 				ON upo2.panel_id = p.id
 				AND upo2.user_id = ?
 				AND upo2.portico_id = ?
+			LEFT JOIN panel_custom_columns pcc2
+				ON pcc2.panel_id = p.id
+				AND pcc2.user_id = ?
+				AND pcc2.portico_id = ?
 			WHERE p.created_by = ?
 			AND p.scope = 'personal'
 			AND json_extract(p.config, '$.assignedWalls') LIKE '%' || ? || '%'
 			ORDER BY 7, p.id
-		`, claims.UserID, porticoID, porticoID, claims.UserID,
-		   claims.UserID, porticoID, claims.UserID, porticoID)
+		`, claims.UserID, porticoID, claims.UserID, porticoID,
+		   porticoID, claims.UserID,
+		   claims.UserID, porticoID, claims.UserID, porticoID,
+		   claims.UserID, porticoID)
 
 		if err != nil {
 			log.Printf("[PANELS] portico config panels error: %v", err)
@@ -640,64 +650,45 @@ func GetCustomColumns(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		rows, err := db.Query(`
-			SELECT panel_id, COALESCE(custom_column, 1)
-			FROM user_panel_order_v3
+			SELECT panel_id, col FROM panel_custom_columns
 			WHERE user_id = ? AND portico_id = ?
-			ORDER BY position ASC
 		`, claims.UserID, porticoID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "query failed")
 			return
 		}
 		defer rows.Close()
-
-		// Read in order, then enforce monotonically non-decreasing columns.
-		// If a panel was reordered and now has a column lower than its predecessor,
-		// snap it down to match — keeps the breakpoint model consistent.
-		type entry struct{ id string; col int }
-		var entries []entry
+		result := map[string]int{}
 		for rows.Next() {
 			var panelID string
 			var col int
 			rows.Scan(&panelID, &col)
-			entries = append(entries, entry{panelID, col})
-		}
-		result := map[string]int{}
-		minCol := 1
-		for _, e := range entries {
-			col := e.col
-			if col < minCol { col = minCol }
-			if col > minCol { minCol = col }
-			result[e.id] = col
+			result[panelID] = col
 		}
 		writeJSON(w, http.StatusOK, result)
 	}
 }
 
 // SetCustomColumns saves panel→column assignments for a portico.
-// Setting a panel to column N also cascades all subsequent panels to >= N.
 func SetCustomColumns(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		var req struct {
 			PorticoID string         `json:"porticoId"`
 			Columns   map[string]int `json:"columns"` // panelId -> column
-			Order     []string       `json:"order"`   // panelIds in position order
+			Order     []string       `json:"order"`   // unused, kept for API compat
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.PorticoID == "" {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-		for i, panelID := range req.Order {
-			col := req.Columns[panelID]
-			rowID := claims.UserID + "-" + panelID + "-" + req.PorticoID
+		for panelID, col := range req.Columns {
+			rowID := claims.UserID + "-" + req.PorticoID + "-" + panelID
 			db.Exec(`
-				INSERT INTO user_panel_order_v3 (id, user_id, panel_id, portico_id, position, custom_column)
-				VALUES (?, ?, ?, ?, ?, ?)
-				ON CONFLICT(user_id, panel_id, COALESCE(portico_id,'')) DO UPDATE
-				SET custom_column = excluded.custom_column
-			`, rowID, claims.UserID, panelID, req.PorticoID, i, col)
-			_ = i // position only used for initial insert, not update
+				INSERT INTO panel_custom_columns (id, user_id, portico_id, panel_id, col)
+				VALUES (?, ?, ?, ?, ?)
+				ON CONFLICT(user_id, portico_id, panel_id) DO UPDATE SET col = excluded.col
+			`, rowID, claims.UserID, req.PorticoID, panelID, col)
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

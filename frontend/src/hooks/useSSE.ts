@@ -30,7 +30,13 @@ function getSSEManager(): SSEManager {
   let lastPingAt: number = Date.now()
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let deadTimer: ReturnType<typeof setInterval> | null = null
+  let bufferFlushTimer: ReturnType<typeof setTimeout> | null = null
   let reconnectCount = 0
+
+  // Reconnect every 30 minutes to release the browser's accumulated EventSource
+  // response buffer. The server drains the full cache on every new connection so
+  // all panels repopulate instantly — this is transparent to the user.
+  const BUFFER_FLUSH_MS = 30 * 60 * 1000
 
   function setStatus(s: SSEStatus) {
     if (status === s) return
@@ -71,6 +77,18 @@ function getSSEManager(): SSEManager {
       lastPingAt = Date.now()
       reconnectCount = 0 // reset backoff on successful connection
       setStatus('connected')
+      // Schedule a buffer-flush reconnect — clears the browser's accumulated
+      // EventSource response body which grows continuously on long-lived connections
+      if (bufferFlushTimer) clearTimeout(bufferFlushTimer)
+      bufferFlushTimer = setTimeout(() => {
+        bufferFlushTimer = null
+        console.log('[SSE] scheduled buffer flush — reconnecting to free response buffer')
+        reconnectCount = 0
+        if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+        es?.close()
+        es = null
+        connect()
+      }, BUFFER_FLUSH_MS)
     })
 
     es.addEventListener('ping', (_e: MessageEvent) => {
@@ -147,6 +165,7 @@ function getSSEManager(): SSEManager {
     forceReconnect() {
       reconnectCount = 0
       if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+      if (bufferFlushTimer) { clearTimeout(bufferFlushTimer); bufferFlushTimer = null }
       es?.close()
       es = null
       connect()

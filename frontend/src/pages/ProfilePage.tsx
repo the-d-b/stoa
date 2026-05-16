@@ -7,7 +7,7 @@ import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, porticoConfigApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import PanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/PanelForm'
 import CalendarSourceAdder from '../components/admin/CalendarSourceAdder'
 import IntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/IntegrationForm'
@@ -87,8 +87,8 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Nav groups */}
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {/* Nav groups — desktop */}
+        <nav className="profile-nav-desktop" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           {navGroups.map(group => (
             <div key={group.label}>
               <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text-dim)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4, paddingLeft: 8 }}>
@@ -119,6 +119,21 @@ export default function ProfilePage() {
             </div>
           ))}
         </nav>
+
+        {/* Nav — mobile select */}
+        <div className="profile-nav-mobile">
+          <select className="input" value={tab}
+            onChange={e => { const t = e.target.value as Tab; setTab(t); navigate(`/profile?tab=${t}`, { replace: true }) }}
+            style={{ width: '100%', fontSize: 14, cursor: 'pointer' }}>
+            {navGroups.map(group => (
+              <optgroup key={group.label} label={group.label}>
+                {group.items.map(item => (
+                  <option key={item.id} value={item.id}>{item.label}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Main content */}
@@ -579,31 +594,30 @@ function MailSettingsTab() {
 // ── Portico layout preview ────────────────────────────────────────────────────
 // Renders a tiny schematic of the portico layout — proportional blocks
 // representing panels in their computed positions. Mirrors PanelGrid logic.
+type ConfPanel = { id: string; title: string; customColumn: number }
+
 function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; colCount: number }) {
   const [open, setOpen] = useState(false)
-  const [panels, setPanels] = useState<Panel[]>([])
+  const [panels, setPanels] = useState<ConfPanel[]>([])
   const [columns, setColumns] = useState<Record<string,number>>({})
   const [saving, setSaving] = useState(false)
 
   const load = async () => {
-    // Use the same panelsApi.list(porticoId) call that panel order tab uses —
-    // it already returns the correct panels for this portico with position + customColumn
-    const pr = await panelsApi.list(porticoId)
-    // Only panels with a saved position for this portico — position=0 means not in this portico's order
-    const items: Panel[] = (pr.data || []).filter((p: Panel) => (p.position || 0) > 0)
+    // Use the tag-filtered endpoint — returns exactly the panels visible in this portico
+    const pr = await porticoConfigApi.panels(porticoId)
+    const items = (pr.data || []) as ConfPanel[]
 
-    // Items are already sorted by position from the backend.
     // Build column map — validate monotonically non-decreasing, reset to 1 if invalid
     const colData: Record<string,number> = {}
     let lastCol = 1
     let valid = true
     for (const p of items) {
-      const col = (p as any).customColumn || 1
+      const col = p.customColumn || 1
       if (col < lastCol) { valid = false; break }
       lastCol = col
     }
-    items.forEach((p: Panel) => {
-      colData[p.id] = valid ? ((p as any).customColumn || 1) : 1
+    items.forEach(p => {
+      colData[p.id] = valid ? (p.customColumn || 1) : 1
     })
 
     setPanels(items)
@@ -612,7 +626,7 @@ function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; 
 
   useEffect(() => { if (open) load() }, [open, porticoId])
 
-  const setCol = (panelId: string, col: number, allPanels: Panel[]) => {
+  const setCol = (panelId: string, col: number, allPanels: ConfPanel[]) => {
     const idx = allPanels.findIndex(p => p.id === panelId)
     if (idx < 0) return
     const next = { ...columns }
@@ -1052,7 +1066,8 @@ function PorticosTab() {
                 const colHeight = portico.columnHeight || 8
                 const updatePortico = async (patch: Record<string, unknown>) => {
                   await porticosApi.update(portico.id, {
-                    layout, columnCount: colCount, columnHeight: colHeight, ...patch
+                    layout, columnCount: colCount, columnHeight: colHeight,
+                    dynamicHeight: portico.dynamicHeight, ...patch
                   })
                   const updated = await porticosApi.list()
                   setPorticos(updated.data || [])
@@ -1098,6 +1113,20 @@ function PorticosTab() {
                       title="Column height — how many units tall before wrapping to next column">
                       {[4,6,8,10,12,16].map(n => <option key={n} value={n}>{n}u tall</option>)}
                     </select>
+                  )}
+                  {layout !== 'seira' && layout !== 'flow' && (
+                    <button
+                      onClick={() => updatePortico({ dynamicHeight: !portico.dynamicHeight })}
+                      title="Auto-height: panels grow to fit their content instead of a fixed height. Height setting still controls what content is rendered."
+                      style={{
+                        fontSize: 11, padding: '2px 8px', borderRadius: 5, cursor: 'pointer',
+                        background: portico.dynamicHeight ? 'var(--accent-bg)' : 'var(--surface2)',
+                        border: `1px solid ${portico.dynamicHeight ? 'var(--accent)' : 'var(--border)'}`,
+                        color: portico.dynamicHeight ? 'var(--accent2)' : 'var(--text-muted)',
+                        fontWeight: portico.dynamicHeight ? 600 : 400,
+                      }}>
+                      auto-h
+                    </button>
                   )}
                 </>)
               })()}
@@ -2164,9 +2193,7 @@ function ThemeDensityBlock() {
 // ── Tickers ───────────────────────────────────────────────────────────────────
 
 const TICKER_TYPES = [
-  { id: 'stocks',  label: 'Stocks',  desc: 'US stock quotes (Yahoo Finance, no API key required)', needsSecret: false },
-  { id: 'crypto',  label: 'Crypto',  desc: 'Crypto prices (CoinGecko, no API key required)',      needsSecret: false },
-
+  { id: 'stocks',  label: 'Stocks & Crypto',  desc: 'Stock quotes and crypto prices — powered by your Stocks or Crypto integration', needsSecret: false },
   { id: 'weather', label: 'Weather',       desc: 'Current conditions — Open-Meteo, no API key', needsSecret: false },
   { id: 'sports',  label: 'Sports scores', desc: 'Live scores — NHL, NFL, NBA, MLB via ESPN (no API key required)', needsSecret: false },
   { id: 'rss',     label: 'RSS headlines', desc: 'Scrolling headlines from any RSS/Atom feed', needsSecret: false },
@@ -2282,7 +2309,7 @@ function TickersTab() {
         ))}
         {tickers.length === 0 && !showForm && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '24px 0' }}>
-            No tickers yet. Add a stocks or crypto ticker to get started.
+            No tickers yet. Add a ticker to get started.
           </div>
         )}
       </div>
@@ -2379,9 +2406,10 @@ function TickerRow({ ticker, secrets, porticos, integrations, editing, onEdit, o
       borderRadius: 10, overflow: 'hidden',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 500 }}>{typeDef?.label ?? ticker.type}</div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {zoneDef?.label ?? ticker.zone} · {symbolsArr.length} symbol{symbolsArr.length !== 1 ? 's' : ''}
             {symbolsArr.length > 0 && (
               <span style={{ fontFamily: 'DM Mono, monospace', marginLeft: 6 }}>
@@ -2710,11 +2738,14 @@ function PersonalIntegrationsTab() {
                 background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8,
               }}>
                 <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: 'var(--surface2)',
-                  color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                  color: 'var(--text-dim)', border: '1px solid var(--border)', flexShrink: 0 }}>
                   {INTEGRATION_TYPES.find(t => t.id === ig.type)?.label ?? ig.type}
                 </span>
-                <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{ig.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ig.name}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  maxWidth: '30%', flexShrink: 1, minWidth: 0 }}>
                   {ig.uiUrl || ig.apiUrl}
                 </span>
               </div>
@@ -2757,15 +2788,18 @@ function PersonalIntegrationsTab() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px' }}>
               <span style={{ fontSize: 11, padding: '1px 6px', borderRadius: 4, background: 'var(--surface2)',
-                color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
+                color: 'var(--text-dim)', border: '1px solid var(--border)', flexShrink: 0 }}>
                 {INTEGRATION_TYPES.find(t => t.id === ig.type)?.label ?? ig.type}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 500, flex: 1 }}>{ig.name}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+              <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ig.name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                maxWidth: '25%', flexShrink: 1, minWidth: 0 }}>
                 {ig.apiUrl}
               </span>
-              <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={() => setEditId(editId === ig.id ? null : ig.id)}>Edit</button>
-              <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }} onClick={() => remove(ig.id, ig.name)}>Delete</button>
+              <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setEditId(editId === ig.id ? null : ig.id)}>Edit</button>
+              <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)', flexShrink: 0 }} onClick={() => remove(ig.id, ig.name)}>Delete</button>
             </div>
             {editId === ig.id && (
               <div style={{ borderTop: '1px solid var(--border)', padding: 14 }}>

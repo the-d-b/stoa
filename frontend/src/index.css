@@ -122,6 +122,7 @@
 /* ── Responsive helpers ──────────────────────────────────────────────────── */
 .mobile-only  { display: none; }
 .desktop-only { display: block; }
+.profile-nav-mobile { display: none; }
 
 @media (max-width: 640px) {
   .mobile-only  { display: block; }
@@ -132,6 +133,9 @@
 @media (max-width: 640px) {
   /* Tighter main padding */
   .main-content { padding: 12px 6px !important; }
+
+  /* Panels nearly edge-to-edge — main-content's 6px provides the visible gap */
+  .dashboard-container { padding-left: 0 !important; padding-right: 0 !important; }
 
   /* Header: tighter */
   .header-inner { padding: 0 12px !important; }
@@ -149,31 +153,9 @@
   }
   /* Sidebar user identity: smaller on mobile */
   .profile-sidebar > div:first-child { margin-bottom: 10px !important; padding-bottom: 10px !important; }
-  /* Nav groups: flow horizontally, scrollable */
-  .profile-sidebar nav {
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    gap: 2px !important;
-    padding-bottom: 4px;
-  }
-  /* Group labels: hide on mobile, just show the buttons */
-  .profile-sidebar nav > div > div:first-child { display: none; }
-  /* Nav buttons: compact pills */
-  .profile-sidebar nav > div > button {
-    white-space: nowrap;
-    padding: 5px 10px !important;
-    font-size: 12px !important;
-    border-radius: 20px !important;
-    background: var(--surface2) !important;
-    border: 1px solid var(--border) !important;
-  }
-  .profile-sidebar nav > div > button[style*="accent-bg"] {
-    background: var(--accent-bg) !important;
-    color: var(--accent2) !important;
-    border-color: var(--accent) !important;
-  }
+  /* Replace horizontal scroll nav with a select dropdown on mobile */
+  .profile-nav-desktop { display: none !important; }
+  .profile-nav-mobile  { display: block; }
 
   /* Dashboard: single column on mobile — both Seira and Stylos collapse cleanly */
   .panel-grid-seira  { grid-template-columns: 1fr !important; }

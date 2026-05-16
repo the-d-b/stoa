@@ -176,8 +176,8 @@ export default function UsersPanel() {
             background: 'var(--surface)', border: '1px solid var(--border)',
             borderRadius: 10, overflow: 'hidden',
           }}>
-            <div className="card-row" style={{ border: 'none', borderRadius: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="card-row" style={{ border: 'none', borderRadius: 0, flexWrap: 'wrap', rowGap: 6 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0, flex: 1 }}>
                 <div style={{
                   width: 34, height: 34, borderRadius: 8,
                   background: u.authProvider === 'local' ? 'var(--surface2)' : 'var(--accent-bg)',
@@ -189,19 +189,20 @@ export default function UsersPanel() {
                 }}>
                   {(u.username || '?')[0].toUpperCase()}
                 </div>
-                <div>
+                <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 500, display: 'flex', alignItems: 'center', gap: 8 }}>
                     {u.username}
                     {u.id === me?.id && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>you</span>}
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {u.authProvider === 'local' ? '🔑 local' : `⬡ ${u.authProvider}`}
                     {u.email ? ` · ${u.email}` : ''}
                     {u.lastLogin ? ` · last login ${new Date(u.lastLogin).toLocaleDateString()}` : ''}
                   </div>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, flexWrap: 'wrap' }}>
                 <span className={u.role === 'admin' ? 'badge badge-admin' : 'badge badge-user'}>
                   {u.role}
                 </span>

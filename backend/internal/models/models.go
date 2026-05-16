@@ -125,15 +125,16 @@ type CreatePanelRequest struct {
 // ── Walls ─────────────────────────────────────────────────────────────────────
 
 type Portico struct {
-	ID           string    `json:"id"`
-	UserID       string    `json:"userId"`
-	Name         string    `json:"name"`
-	IsDefault    bool      `json:"isDefault"`
-	Layout       string    `json:"layout"`
-	ColumnCount  int       `json:"columnCount"`
-	ColumnHeight int       `json:"columnHeight"`
-	CreatedAt    time.Time `json:"createdAt"`
-	Tags         []PorticoTag `json:"tags,omitempty"`
+	ID            string    `json:"id"`
+	UserID        string    `json:"userId"`
+	Name          string    `json:"name"`
+	IsDefault     bool      `json:"isDefault"`
+	Layout        string    `json:"layout"`
+	ColumnCount   int       `json:"columnCount"`
+	ColumnHeight  int       `json:"columnHeight"`
+	DynamicHeight bool      `json:"dynamicHeight"`
+	CreatedAt     time.Time `json:"createdAt"`
+	Tags          []PorticoTag `json:"tags,omitempty"`
 }
 
 type PorticoTag struct {
