@@ -216,6 +216,20 @@ Example secret value: `w86XNZob/8Oq8aC5r0kbNarNtd...:XeD26XVrJ5ilAc/EmglCRC+0j2.
 
 ---
 
+## Steam
+
+**What it shows:** Player profile (username, avatar, online/offline/in-game status, current game), owned game count and total hours, top 10 games by playtime, games played in the last 2 weeks, recent achievement unlocks, and Steam store sales and new releases.
+
+**Auth:** Steam Web API key. Get one at [https://steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey). Store it as a secret.
+
+**URL:** Your Steam ID (64-bit numeric ID, e.g. `76561198012345678`). This goes in the URL field — it's used as the account identifier, not a server address.
+
+**Finding your Steam ID:** Open your Steam profile in a browser. The URL contains your Steam ID (`/profiles/76561198...`). If your profile uses a custom URL (`/id/yourname`), Stoa can resolve it — enter your vanity name in the URL field and Stoa will look up the numeric ID automatically.
+
+**Note:** The Steam API returns public profile data only. If a user's profile is set to private in Steam privacy settings, library data will not be available.
+
+---
+
 ## Sports (ESPN)
 
 **What it shows:** Scores, standings, and schedules for NHL, NFL, NBA, and MLB. Data is sourced from ESPN's public API.
@@ -293,6 +307,13 @@ Google Calendar requires a two-step setup:
 2. **Connect accounts:** After saving credentials, click "Connect Google Account" to authorize. Each connected account can expose multiple calendars, which can be added as panel sources.
 
 Events appear on the dashboard as a calendar panel showing upcoming appointments. The days-ahead window (how far into the future to fetch events) is configurable per source — choose from 7, 14, 30, 60, or 90 days in Profile → Integrations → Calendar Sources.
+
+**Non-routable domains and OAuth:** Google's OAuth redirect URI validation requires the callback URL to be reachable from the internet — or at minimum, to be a valid registered hostname. If Stoa runs on a local TLD like `.local`, `.lan`, or `.home.arpa`, Google may reject the redirect URI registration.
+
+Workarounds:
+- **Use your router's DNS override** to make a real domain (e.g. `stoa.yourdomain.com`) resolve to your local IP, then register that URL as the redirect URI.
+- **Use a local IP address** as the authorized redirect URI (e.g. `http://192.168.1.10:8080/api/google/callback`). Google accepts IP addresses for development credentials.
+- **Use an SSH tunnel or VPN** to expose Stoa temporarily during the OAuth authorization step, then remove the tunnel afterward — the refresh token persists.
 
 ---
 

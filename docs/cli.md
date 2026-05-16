@@ -71,11 +71,21 @@ stoa-cli config show
 Switch between single-user and multi-user deployment modes.
 
 ```bash
-stoa-cli config set-mode single
+# Switch to multi-user mode (re-enables all accounts)
 stoa-cli config set-mode multi
+
+# Switch to single-user mode — all other accounts are disabled (data preserved)
+stoa-cli config set-mode single --user <username>
+
+# Single-user with no login required (auto-login)
+stoa-cli config set-mode single --user <username> --no-auth
 ```
 
-**Note:** Switching modes is experimental and may affect data visibility. Only do this if you're intentionally changing your deployment.
+**Flags for `single` mode:**
+- `--user <username>` — required; the account that will be the sole active user
+- `--no-auth` — skip the login screen entirely; the dashboard loads without a password
+
+**Note:** Other user accounts are disabled (not deleted) when switching to single-user mode. Switching back to `multi` re-enables them all.
 
 ---
 
@@ -92,9 +102,25 @@ stoa-cli geo stats
 Remove old geo-IP cache entries to reduce database size.
 
 ```bash
-stoa-cli geo prune                  # prune entries older than 30 days (default)
+stoa-cli geo prune                  # prune entries older than 90 days (default)
 stoa-cli geo prune --older-than 7d  # prune entries older than 7 days
 ```
+
+---
+
+## Chat
+
+### `chat prune`
+Delete old AI chat messages to reduce database size.
+
+```bash
+stoa-cli chat prune --before 2026-01-01            # delete messages before a date
+stoa-cli chat prune --before 2026-01-01 --dry-run  # show what would be deleted
+```
+
+**Flags:**
+- `--before <YYYY-MM-DD>` — required; delete messages created before this date
+- `--dry-run` — show the count without deleting anything
 
 ---
 
@@ -120,11 +146,47 @@ stoa-cli db check
 ```
 
 ### `db backup`
-Create a hot backup of the database (safe to run while Stoa is running).
+Copy the raw database file. Safe to run while Stoa is running (SQLite WAL mode ensures consistency). This copies the database only — no icons, uploads, or CSS.
 
 ```bash
 stoa-cli db backup /backups/stoa-$(date +%Y%m%d).db
 ```
+
+For a full backup including assets, use `backup create` instead.
+
+---
+
+## Full backups
+
+### `backup create`
+Create a full backup archive: database + icons + uploads + custom CSS, packaged as a `.tar.gz`.
+
+```bash
+stoa-cli backup create                                            # auto-named output
+stoa-cli backup create --output /data/backups/stoa-2026-05.tar.gz
+stoa-cli backup create --output /data/backups/stoa.tar.gz --data-dir /data
+```
+
+**Flags:**
+- `--output <file>` / `-o <file>` — output path (default: `stoa-backup-YYYY-MM-DD-HHMMSS.tar.gz` in current directory)
+- `--data-dir <dir>` — data root directory if using a non-standard layout (default: derived from `--db` path)
+
+Safe to run while Stoa is running. The database is snapshotted via `VACUUM INTO` for a clean, consistent copy.
+
+### `backup restore`
+Restore a full backup archive. **Stop the Stoa server before restoring.**
+
+```bash
+stoa-cli backup restore /data/backups/stoa-2026-05.tar.gz
+stoa-cli backup restore /data/backups/stoa-2026-05.tar.gz --yes         # skip confirmation
+stoa-cli backup restore /data/backups/stoa-2026-05.tar.gz --data-dir /data
+```
+
+**Flags:**
+- `--yes` / `-y` — skip the confirmation prompt
+- `--data-dir <dir>` — data root directory if using a non-standard layout
+
+The restore command validates the archive manifest before extracting and prints a summary of what it will overwrite.
 
 ---
 

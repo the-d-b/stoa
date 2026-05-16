@@ -1,0 +1,47 @@
+services:
+  stoa:
+    image: ghcr.io/the-d-b/stoa:latest
+    container_name: stoa
+    ports:
+      - "8080:8080"
+    volumes:
+      - stoa-data:/data
+      # Uncomment to enable the Docker control panel (local socket access):
+      # - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      # ── Required ──────────────────────────────────────────────────────────────
+      # Session secret — used to sign JWTs and derive the AES-256 key for
+      # encrypting stored secrets. Change this and keep it secret.
+      # Generate one with: openssl rand -hex 32
+      STOA_SESSION_SECRET: "change-me-use-openssl-rand-hex-32"
+
+      # ── Optional: paths ───────────────────────────────────────────────────────
+      # STOA_DB_PATH: /data/db/stoa.db          # default
+      # STOA_PORT: "8080"                        # default
+      # STOA_ICONS_DIR: /data/icons              # default
+      # STOA_CSS_DIR: /data/css                  # default
+
+      # ── Optional: CORS ────────────────────────────────────────────────────────
+      # Comma-separated list of allowed origins (for the API).
+      # Only needed if the frontend is served from a different origin.
+      # STOA_ALLOWED_ORIGINS: "https://stoa.example.com"
+
+      # ── Optional: OAuth / OIDC ───────────────────────────────────────────────
+      # Connect an OIDC provider (Authentik, Keycloak, Google, etc.) for SSO.
+      # See docs/oauth.md for full setup instructions.
+      # STOA_OAUTH_CLIENT_ID: ""
+      # STOA_OAUTH_CLIENT_SECRET: ""
+      # STOA_OAUTH_ISSUER_URL: "https://auth.example.com/application/o/stoa/"
+      # STOA_OAUTH_REDIRECT_URL: "https://stoa.example.com/api/auth/callback"
+
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  stoa-data:
+    driver: local
