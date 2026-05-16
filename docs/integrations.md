@@ -22,9 +22,23 @@ Different services use different authentication schemes. Stoa normalises these b
 
 ---
 
+## Readarr
+
+**What it shows:** Upcoming book and audiobook releases, recently added titles, missing books, book and author counts.
+
+**Auth:** Plain API key. Find it in Readarr → Settings → General → API Key.
+
+**URL:** Your Readarr base URL, e.g. `http://192.168.1.10:8787`
+
+**Calendar:** Readarr releases appear on the calendar panel. Configure days-ahead per source (7–90 days) in Profile → Integrations → Calendar Sources.
+
+---
+
 ## Sonarr
 
 **What it shows:** Upcoming episode schedule, recently downloaded episodes, wanted/missing episodes, series count, episode count.
+
+**Calendar:** Sonarr episode air dates appear on the calendar panel. Configure days-ahead per source (7–90 days) in Profile → Integrations → Calendar Sources.
 
 **Auth:** Plain API key. Find it in Sonarr → Settings → General → API Key.
 
@@ -42,6 +56,8 @@ Different services use different authentication schemes. Stoa normalises these b
 
 **URL:** Your Radarr base URL, e.g. `http://192.168.1.10:7878`
 
+**Calendar:** Radarr release dates appear on the calendar panel. Configure days-ahead per source (7–90 days) in Profile → Integrations → Calendar Sources.
+
 ---
 
 ## Lidarr
@@ -51,6 +67,8 @@ Different services use different authentication schemes. Stoa normalises these b
 **Auth:** Plain API key. Find it in Lidarr → Settings → General → API Key.
 
 **URL:** Your Lidarr base URL, e.g. `http://192.168.1.10:8686`
+
+**Calendar:** Lidarr release dates appear on the calendar panel. Configure days-ahead per source (7–90 days) in Profile → Integrations → Calendar Sources.
 
 ---
 
@@ -166,6 +184,94 @@ Example secret value: `w86XNZob/8Oq8aC5r0kbNarNtd...:XeD26XVrJ5ilAc/EmglCRC+0j2.
 
 ---
 
+## Jellyfin
+
+**What it shows:** Active streams with user, media title, progress, and transcode vs. direct play status. Library counts by type (movies, shows, music, etc.). Server name and version.
+
+**Auth:** API key. Create one in Jellyfin Dashboard → API Keys → +. The key goes in the secret field.
+
+**URL:** Your Jellyfin base URL, e.g. `http://192.168.1.10:8096`
+
+---
+
+## Home Assistant
+
+**What it shows:** Entity states for your smart home devices. You can display all entities or filter by specific entity IDs or domains (e.g. `sensor`, `light`, `switch`). Shows friendly name, state, unit, and time of last change.
+
+**Auth:** Long-lived access token. Create one in Home Assistant → Profile (bottom-left avatar) → Long-Lived Access Tokens → Create Token.
+
+**URL:** Your Home Assistant base URL, e.g. `http://homeassistant.local:8123`
+
+**Filtering:** In the panel config, enter specific entity IDs (comma-separated) or domain names to narrow what's shown. Without a filter, all entities are displayed.
+
+---
+
+## Overseerr / Jellyseerr
+
+**What it shows:** Media request counts by status (pending, processing, available, declined, total), a breakdown by movie vs. TV, and a list of recent pending requests. Update availability indicator.
+
+**Auth:** API key. Find it in Overseerr/Jellyseerr → Settings → General → API Key.
+
+**URL:** Your Overseerr or Jellyseerr base URL, e.g. `http://192.168.1.10:5055`
+
+---
+
+## Sports (ESPN)
+
+**What it shows:** Scores, standings, and schedules for NHL, NFL, NBA, and MLB. Data is sourced from ESPN's public API.
+
+**Auth:** None required.
+
+**URL:** Not required — no server to point to.
+
+**Setup:** Create a Sports integration with no URL or secret, then create a panel. In the panel config, select the sport and league.
+
+---
+
+## Stocks
+
+**What it shows:** US stock quotes with mini sparklines for recent price movement.
+
+**Auth:** None required — data is sourced from Yahoo Finance.
+
+**URL:** Not required.
+
+**Setup:** Create a Stocks integration (no URL or secret needed), then create a panel and enter the ticker symbols you want to track.
+
+---
+
+## Crypto
+
+**What it shows:** Cryptocurrency prices with sparklines for recent price movement, sourced from CoinGecko.
+
+**Auth:** Optional. The public CoinGecko API works without a key but has strict rate limits. For higher limits, create a free Demo API key at coingecko.com and store it as a secret.
+
+**URL:** Not required.
+
+---
+
+## Weather
+
+**What it shows:** Current conditions (temperature, feels-like, wind, humidity) and a multi-day forecast. Data is sourced from Open-Meteo.
+
+**Auth:** None required.
+
+**URL:** Not required.
+
+**Setup:** Create a Weather integration (no URL or secret needed), then configure the panel with your location (city name or latitude/longitude).
+
+---
+
+## RSS / Atom
+
+**What it shows:** Items from any RSS or Atom feed — title, summary, and link.
+
+**Auth:** Optional Bearer token for password-protected feeds. Leave the secret empty for public feeds.
+
+**URL:** Not required at the integration level — the feed URL is configured per panel.
+
+---
+
 ## Custom API
 
 A generic panel for services not natively supported. Makes a GET request to any URL and displays the JSON response.
@@ -186,7 +292,7 @@ Google Calendar requires a two-step setup:
 
 2. **Connect accounts:** After saving credentials, click "Connect Google Account" to authorize. Each connected account can expose multiple calendars, which can be added as panel sources.
 
-Events appear on the dashboard as a calendar panel showing upcoming appointments.
+Events appear on the dashboard as a calendar panel showing upcoming appointments. The days-ahead window (how far into the future to fetch events) is configurable per source — choose from 7, 14, 30, 60, or 90 days in Profile → Integrations → Calendar Sources.
 
 ---
 

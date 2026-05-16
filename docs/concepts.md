@@ -54,8 +54,10 @@ Porticos (στοά) are named views of your dashboard — like tabs or saved fil
 
 - Each portico has its own set of active tags, so switching porticos instantly changes which panels are shown
 - Porticos have their own panel order, independent of other porticos
-- Each portico can use a different **layout mode** (Stylos, Seira, or Rema)
+- Each portico can use a different **layout mode** (Stylos, Seira, Rema, or Custom)
+- **Dynamic panel height** can be toggled per-portico — cards grow to fit their content instead of being clipped at a fixed height
 - The **Home** portico always shows panels with all of your active tags
+- The **live preview** in Profile → Porticos shows a scaled-down thumbnail of the actual dashboard for that portico, updating whenever you change tags, layout, or column assignments
 
 A typical use: one portico for work services (tagged "work"), one for media (tagged "media"), one for infrastructure (tagged "infra"). Switching between them is one click.
 

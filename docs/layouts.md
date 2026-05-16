@@ -1,6 +1,6 @@
 # Layout modes
 
-Each portico can use one of three layout modes, selectable from Profile → Porticos.
+Each portico can use one of four layout modes, selectable from Profile → Porticos.
 
 ---
 
@@ -89,6 +89,30 @@ Row 1 (all collapsed)
 
 ---
 
+## Custom
+
+Panels are manually assigned to specific columns. You control exactly which column each panel appears in, and panel order within each column follows your saved panel order.
+
+**Configuration:**
+- **Columns** — how many columns to assign panels across (2–6)
+- **Configure columns** — opens the column assignment editor, which lists every panel visible on this portico. Click a column number next to each panel to assign it. Assignments cascade — moving a panel to a higher column also shifts adjacent panels to maintain a valid order.
+
+**Best for:** Porticos where you want precise, fixed placement — e.g. always keeping a specific panel in column 1 and a different set in columns 2 and 3 regardless of other settings.
+
+---
+
+## Dynamic panel height
+
+An optional toggle available for Stylos, Rema, and Custom layouts (not Seira). When enabled, panel cards expand vertically to fit their content rather than being clipped at the configured height.
+
+- Toggle it per-portico in Profile → Porticos → expand the portico settings
+- Height is capped at 8× height units (~1072px) to prevent runaway growth on content-heavy panels
+- Not available for Seira — that layout uses CSS grid row spans which require fixed heights
+
+**Best for:** Porticos where panels vary widely in content length and you'd rather let the content dictate the card size than tune heights manually.
+
+---
+
 ## Mobile behaviour
 
 All three modes collapse to a single column on mobile, stacking panels in panel order. Your panel order (set in Profile → Panel Order) determines the mobile stack sequence regardless of layout mode.
@@ -105,3 +129,5 @@ All three modes collapse to a single column on mobile, stacking panels in panel 
 | Building a "command center" with one dominant panel | Stylos |
 | Media/content dashboard with cards | Seira |
 | Quick-reference panels you toggle open/closed | Rema |
+| Want exact control over which panel is in which column | Custom |
+| Content length varies too much to tune heights manually | Any + Dynamic height |
