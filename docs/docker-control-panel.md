@@ -34,8 +34,10 @@ Type: local
 For the socket to be accessible, mount it in the Stoa container:
 ```yaml
 volumes:
-  - /var/run/docker.sock:/var/run/docker.sock:ro
+  - /var/run/docker.sock:/var/run/docker.sock
 ```
+
+**Do not use `:ro`.** Start, stop, and restart actions send POST requests through the socket. A read-only mount prevents write access to the socket, so the action buttons will fail. If you only want passive container listing and don't need management actions, `:ro` is safe — but the buttons will return errors.
 
 **Remote** — connects to a Docker daemon exposed over HTTP. Use this for managing containers on a different machine or for Docker setups that expose the TCP socket.
 

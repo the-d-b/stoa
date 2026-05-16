@@ -18,8 +18,7 @@ services:
     volumes:
       - stoa-data:/data
     environment:
-      - STOA_MODE=multi          # or: single
-      - STOA_SECRET_KEY=changeme # change this — used to encrypt secrets at rest
+      STOA_SESSION_SECRET: "change-me-use-openssl-rand-hex-32"
     restart: unless-stopped
 
 volumes:
@@ -27,6 +26,38 @@ volumes:
 ```
 
 See [docker-compose.yml](../docker-compose.yml) for a full reference with all available environment variables.
+
+### Volume mounts
+
+Stoa uses a single data directory (`/data`) that you should mount as a persistent volume. Within it:
+
+| Path | What's stored | Required? |
+|---|---|---|
+| `/data/db` | SQLite database — all configuration, users, panels, integrations | **Yes** |
+| `/data/icons` | Custom bookmark icons uploaded by users | Recommended |
+| `/data/css` | Custom CSS sheets uploaded per user for dashboard personalization | Recommended |
+
+If you mount the whole `/data` volume (as in the example above), all three subdirectories are covered automatically.
+
+### Optional mounts
+
+These are not part of `/data` and must be mounted separately if you need them:
+
+**`/usr/local/share/ca-certificates`** — Custom CA certificates. Mount your host's CA directory here if any of your integrations use TLS certificates signed by a private CA. Without this, you'd have to enable "Skip TLS verify" on every integration using that CA.
+
+```yaml
+volumes:
+  - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
+```
+
+**`/var/run/docker.sock`** — Docker socket for the container management panel. Required only if you want to use the Docker control panel feature. Mount **without** `:ro` — start, stop, and restart actions require write access to the socket.
+
+```yaml
+volumes:
+  - /var/run/docker.sock:/var/run/docker.sock
+```
+
+If you only want read-only container listing (no start/stop/restart), you can add `:ro`, but the action buttons will fail.
 
 ### First run
 

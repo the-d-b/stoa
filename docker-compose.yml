@@ -6,8 +6,13 @@ services:
       - "8080:8080"
     volumes:
       - stoa-data:/data
-      # Uncomment to enable the Docker control panel (local socket access):
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Uncomment to enable the Docker control panel (local socket access).
+      # Mount WITHOUT :ro — start/stop/restart require write access to the socket.
+      # - /var/run/docker.sock:/var/run/docker.sock
+      #
+      # Optional: mount your private CA bundle so integrations with internal TLS
+      # certificates are trusted without enabling "Skip TLS verify".
+      # - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
     environment:
       # ── Required ──────────────────────────────────────────────────────────────
       # Session secret — used to sign JWTs and derive the AES-256 key for

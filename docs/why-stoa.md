@@ -52,7 +52,7 @@ Stoa isn't trying to be everything. A few deliberate omissions:
 
 **No plugin system.** Every integration in Stoa is a first-class feature with real UI. A plugin ecosystem would let us support more services faster, but it also means fragmentation, abandoned plugins, and inconsistent UX. We'd rather support fewer things well.
 
-**No theming.** Stoa has a design. We're not planning to expose a full theming system. If you want a different aesthetic entirely, there are good alternatives.
+**No built-in theme switcher.** Stoa has a design. We're not planning to expose a library of pre-built themes. That said, every user can upload custom CSS sheets from Profile → Appearance — write overrides, upload the file, and the dashboard applies them. The CSS files are stored on the server and survive updates. You can export, edit, and re-import them at any time. This gives you fine-grained control over colors, spacing, fonts, or anything else without us shipping a theme picker we'd have to maintain.
 
 ---
 
