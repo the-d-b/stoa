@@ -1334,7 +1334,7 @@ function SearchGlyphConfig({ localConfig, setLocalConfig }: { localConfig: any; 
           <label className="label">SearXNG URL</label>
           <input className="input" value={localConfig.searxngUrl || ''}
             onChange={e => setLocalConfig((c: any) => ({ ...c, searxngUrl: e.target.value }))}
-            placeholder="https://search.rose.home" />
+            placeholder="https://searxng.example.com" />
         </div>
       )}
       <div>

@@ -12,11 +12,11 @@ services:
       STOA_ICONS_DIR: /data/icons
       STOA_PORT: "8080"
       STOA_FRONTEND_PATH: /dev/null
-      STOA_ALLOWED_ORIGINS: "http://localhost,https://stoa.rose.home"
+      STOA_ALLOWED_ORIGINS: "http://localhost,https://stoa.example.com"
     volumes:
-      - /mnt/tna01-fassdpool/container_data/stoa/db:/data/db
-      - /mnt/tna01-fassdpool/container_data/stoa/icons:/data/icons
-      - /mnt/tna01-fassdpool/container_data/stoa/css:/data/css
+      - /mnt/your-pool/container_data/stoa/db:/data/db
+      - /mnt/your-pool/container_data/stoa/icons:/data/icons
+      - /mnt/your-pool/container_data/stoa/css:/data/css
       - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
     networks:
       - stoa-net

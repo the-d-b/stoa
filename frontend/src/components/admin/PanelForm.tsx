@@ -408,7 +408,7 @@ export default function PanelForm({
               <label className="label">SearXNG URL</label>
               <input className="input" value={searxngUrl}
                 onChange={e => setSearxngUrl(e.target.value)}
-                placeholder="https://search.rose.home" />
+                placeholder="https://searxng.example.com" />
             </div>
           )}
           <div>
