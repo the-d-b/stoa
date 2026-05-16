@@ -12,7 +12,7 @@ Connect Stoa to your services (Sonarr, Radarr, TrueNAS, Proxmox, OPNsense, Plex,
 </p>
 <p align="center">
   <img src="screenshots/porticos.png" width="49%" alt="Portico profile and live preview" />
-  <img src="screenshots/mobile.png" width="49%" alt="Mobile layout" />
+  <img src="screenshots/mobile.png" width="20%" alt="Mobile layout" />
 </p>
 
 ---
