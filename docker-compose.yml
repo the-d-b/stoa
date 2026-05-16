@@ -1,23 +1,18 @@
 services:
-  stoa:
-    image: ghcr.io/the-d-b/stoa:latest
-    container_name: stoa
-    ports:
-      - "8080:8080"
+
+  stoa-backend:
+    image: ghcr.io/the-d-b/stoa-backend:latest
+    container_name: stoa-backend
     volumes:
       - stoa-data:/data
-      # Uncomment to enable the Docker control panel (local socket access).
-      # Mount WITHOUT :ro — start/stop/restart require write access to the socket.
+      # Docker control panel — mount WITHOUT :ro (start/stop/restart need write access)
       # - /var/run/docker.sock:/var/run/docker.sock
-      #
-      # Optional: mount your private CA bundle so integrations with internal TLS
-      # certificates are trusted without enabling "Skip TLS verify".
+      # Private CA certificates — avoids needing "Skip TLS verify" on internal services
       # - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
     environment:
       # ── Required ──────────────────────────────────────────────────────────────
-      # Session secret — used to sign JWTs and derive the AES-256 key for
-      # encrypting stored secrets. Change this and keep it secret.
-      # Generate one with: openssl rand -hex 32
+      # Signs JWTs and derives the AES-256 key for encrypting stored secrets.
+      # Generate with: openssl rand -hex 32
       STOA_SESSION_SECRET: "change-me-use-openssl-rand-hex-32"
 
       # ── Optional: paths ───────────────────────────────────────────────────────
@@ -27,12 +22,11 @@ services:
       # STOA_CSS_DIR: /data/css                  # default
 
       # ── Optional: CORS ────────────────────────────────────────────────────────
-      # Comma-separated list of allowed origins (for the API).
-      # Only needed if the frontend is served from a different origin.
+      # Required if your reverse proxy rewrites the Host header or if you access
+      # the API from a different origin than the frontend.
       # STOA_ALLOWED_ORIGINS: "https://stoa.example.com"
 
       # ── Optional: OAuth / OIDC ───────────────────────────────────────────────
-      # Connect an OIDC provider (Authentik, Keycloak, Google, etc.) for SSO.
       # See docs/oauth.md for full setup instructions.
       # STOA_OAUTH_CLIENT_ID: ""
       # STOA_OAUTH_CLIENT_SECRET: ""
@@ -40,12 +34,29 @@ services:
       # STOA_OAUTH_REDIRECT_URL: "https://stoa.example.com/api/auth/callback"
 
     restart: unless-stopped
+    networks:
+      - stoa-net
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/api/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  stoa-frontend:
+    image: ghcr.io/the-d-b/stoa-frontend:latest
+    container_name: stoa-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - stoa-backend
+    restart: unless-stopped
+    networks:
+      - stoa-net
+
+networks:
+  stoa-net:
+    driver: bridge
 
 volumes:
   stoa-data:

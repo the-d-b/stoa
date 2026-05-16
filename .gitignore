@@ -1,5 +1,8 @@
 # Go
 backend/stoa
+backend/stoa-cli
+backend/stoa.exe
+backend/stoa-cli.exe
 backend/*.db
 
 # Node
@@ -14,3 +17,9 @@ stoa.db
 stoa.db-shm
 stoa.db-wal
 
+# Claude Code
+.claude/
+
+# Local dev / scratch files
+fix_*.ps1
+stoa-handoff.md

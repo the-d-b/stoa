@@ -10,20 +10,36 @@ This guide walks you through setting up Stoa from scratch: installing it, creati
 
 ```yaml
 services:
-  stoa:
-    image: ghcr.io/the-d-b/stoa:latest
-    container_name: stoa
-    ports:
-      - "8080:8080"
+  stoa-backend:
+    image: ghcr.io/the-d-b/stoa-backend:latest
+    container_name: stoa-backend
     volumes:
       - stoa-data:/data
     environment:
       STOA_SESSION_SECRET: "change-me-use-openssl-rand-hex-32"
     restart: unless-stopped
+    networks:
+      - stoa-net
+
+  stoa-frontend:
+    image: ghcr.io/the-d-b/stoa-frontend:latest
+    container_name: stoa-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - stoa-backend
+    restart: unless-stopped
+    networks:
+      - stoa-net
+
+networks:
+  stoa-net:
 
 volumes:
   stoa-data:
 ```
+
+Stoa runs as two containers: `stoa-backend` (Go API + SQLite) and `stoa-frontend` (nginx serving the React app, proxying `/api/` to the backend). Only the frontend port needs to be exposed externally.
 
 See [docker-compose.yml](../docker-compose.yml) for a full reference with all available environment variables.
 

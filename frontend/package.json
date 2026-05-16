@@ -1,6 +1,6 @@
 {
   "name": "stoa-frontend",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "private": true,
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,6 @@
   },
   "dependencies": {
     "axios": "^1.7.2",
-    "html2canvas": "^1.4.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.23.1"

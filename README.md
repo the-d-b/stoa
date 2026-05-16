@@ -40,16 +40,30 @@ Connect Stoa to your services (Sonarr, Radarr, TrueNAS, Proxmox, OPNsense, Plex,
 
 ```yaml
 services:
-  stoa:
-    image: ghcr.io/the-d-b/stoa:latest
-    container_name: stoa
-    ports:
-      - "8080:8080"
+  stoa-backend:
+    image: ghcr.io/the-d-b/stoa-backend:latest
+    container_name: stoa-backend
     volumes:
       - stoa-data:/data
     environment:
       STOA_SESSION_SECRET: "change-me-use-openssl-rand-hex-32"
     restart: unless-stopped
+    networks:
+      - stoa-net
+
+  stoa-frontend:
+    image: ghcr.io/the-d-b/stoa-frontend:latest
+    container_name: stoa-frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - stoa-backend
+    restart: unless-stopped
+    networks:
+      - stoa-net
+
+networks:
+  stoa-net:
 
 volumes:
   stoa-data:
@@ -61,7 +75,7 @@ docker compose up -d
 
 Open `http://localhost:8080` and follow the setup wizard to create your admin account.
 
-See [docker-compose.yml](docker-compose.yml) for a full reference including optional mounts (Docker socket, custom CA certificates).
+See [docker-compose.yml](docker-compose.yml) for a full reference including optional mounts (Docker socket, custom CA certificates, OAuth).
 
 ---
 
@@ -69,16 +83,16 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `STOA_SESSION_SECRET` | **Yes** | — | Signs JWTs and derives the AES key for encrypting stored secrets. Generate with `openssl rand -hex 32`. |
+| `STOA_SESSION_SECRET` | **Yes** | — | Signs JWTs and derives the AES-256 key for encrypting stored secrets. Generate with `openssl rand -hex 32`. |
 | `STOA_DB_PATH` | No | `/data/db/stoa.db` | SQLite database path |
-| `STOA_PORT` | No | `8080` | Port to listen on |
+| `STOA_PORT` | No | `8080` | Port the backend listens on |
 | `STOA_ICONS_DIR` | No | `/data/icons` | Directory for uploaded bookmark icons |
 | `STOA_CSS_DIR` | No | `/data/css` | Directory for user CSS customization files |
+| `STOA_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated allowed CORS origins |
 | `STOA_OAUTH_CLIENT_ID` | No | — | OIDC client ID for SSO |
 | `STOA_OAUTH_CLIENT_SECRET` | No | — | OIDC client secret |
 | `STOA_OAUTH_ISSUER_URL` | No | — | OIDC issuer URL |
 | `STOA_OAUTH_REDIRECT_URL` | No | — | OAuth callback URL |
-| `STOA_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated allowed CORS origins |
 
 ---
 
@@ -102,17 +116,21 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 ## Development
 
 ```bash
-# Backend
+# Backend (Go + SQLite, serves API on :8080)
 cd backend
 go run ./cmd/stoa
 
-# Frontend
+# Frontend (React + Vite, dev server on :5173, proxies /api to :8080)
 cd frontend
 npm install
 npm run dev
 ```
 
-The frontend dev server proxies `/api` to `localhost:8080`.
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
