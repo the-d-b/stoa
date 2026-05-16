@@ -147,9 +147,24 @@ export default function DashboardPage() {
         setPanels(panelData)
         setPorticos(wallData)
         setAllTags(tagData)
-        setActiveTags(tagData.map((tag: Tag) => tag.id))
-        sessionStorage.setItem('active_portico', 'home')
-        window.dispatchEvent(new CustomEvent('portico-change', { detail: 'home' }))
+
+        // If opened with ?preview=porticoId (e.g. from profile page iframe), auto-select that portico
+        const urlPreviewId = new URLSearchParams(window.location.search).get('preview')
+        const previewWall = urlPreviewId ? wallData.find((w: Portico) => w.id === urlPreviewId) : null
+        if (previewWall) {
+          const wallActiveTags = (previewWall.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId)
+          setActiveTags(wallActiveTags.length > 0 ? wallActiveTags : tagData.map((t: Tag) => t.id))
+          setActivePorticoId(previewWall.id)
+          setActivePortico(previewWall)
+          sessionStorage.setItem('active_portico', previewWall.id)
+          window.dispatchEvent(new CustomEvent('portico-change', { detail: previewWall.id }))
+          const wallPanelRes = await panelsApi.list(previewWall.id)
+          setPanels(wallPanelRes.data || [])
+        } else {
+          setActiveTags(tagData.map((tag: Tag) => tag.id))
+          sessionStorage.setItem('active_portico', 'home')
+          window.dispatchEvent(new CustomEvent('portico-change', { detail: 'home' }))
+        }
 
         // Load subtrees for bookmark panels
         const map: Record<string, BookmarkNode> = {}

@@ -596,7 +596,7 @@ function MailSettingsTab() {
 // representing panels in their computed positions. Mirrors PanelGrid logic.
 type ConfPanel = { id: string; title: string; customColumn: number }
 
-function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; colCount: number }) {
+function CustomColumnConfigurator({ porticoId, colCount, onSaved }: { porticoId: string; colCount: number; onSaved?: () => void }) {
   const [open, setOpen] = useState(false)
   const [panels, setPanels] = useState<ConfPanel[]>([])
   const [columns, setColumns] = useState<Record<string,number>>({})
@@ -665,6 +665,7 @@ function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; 
     await customColumnsApi.set(porticoId, columns, panels.map(p => p.id))
     setSaving(false)
     setOpen(false)
+    onSaved?.()
   }
 
   if (!open) return (
@@ -740,135 +741,58 @@ function CustomColumnConfigurator({ porticoId, colCount }: { porticoId: string; 
   )
 }
 
-function PorticoPreview({ portico, panels, columnAssignments = {} }: {
-  portico: Portico; panels: Panel[]; columnAssignments?: Record<string,number>
-}) {
-  if (panels.length === 0) return (
-    <div style={{ fontSize: 11, color: 'var(--text-dim)', fontStyle: 'italic', padding: '6px 0' }}>
-      No panels match this portico's tags
-    </div>
-  )
+function PorticoPreview({ portico, columnSaveKey = 0 }: { portico: Portico; columnSaveKey?: number }) {
+  const [loaded, setLoaded] = useState(false)
+  const SCALE = 0.225
+  const IFRAME_W = 1280
+  const IFRAME_H = 900
+  const CONTAINER_W = Math.round(IFRAME_W * SCALE)   // 288
+  const CONTAINER_H = Math.round(IFRAME_H * SCALE)   // 203
 
-  const layout    = portico.layout    || 'stylos'
-  const colCount  = portico.columnCount  || 3
-  const colHeight = portico.columnHeight || 8
-  const isCustom  = layout === 'custom'
-  const W = 200; const UNIT = 10; const GAP = 2
-
-  function getPanelHeight(p: Panel): number {
-    try { return JSON.parse(p.config || '{}').height ?? 2 } catch { return 2 }
-  }
-
-  // Panel type → color
-  const TYPE_COLORS: Record<string, string> = {
-    sonarr: '#7c6fff', radarr: '#a78bfa', lidarr: '#ec4899',
-    truenas: '#38bdf8', proxmox: '#fb923c', opnsense: '#4ade80',
-    plex: '#fbbf24', kuma: '#2dd4bf', bookmarks: '#64748b',
-    default: 'var(--accent)',
-  }
-  function panelColor(p: Panel) {
-    try {
-      const cfg = JSON.parse(p.config || '{}')
-      const type = (p.type || cfg.type || '').toLowerCase()
-      for (const key of Object.keys(TYPE_COLORS)) {
-        if (type.includes(key)) return TYPE_COLORS[key]
-      }
-    } catch {}
-    return TYPE_COLORS.default
-  }
-
-  interface Block { x: number; y: number; w: number; h: number; color: string }
-  const blocks: Block[] = []
-  const colW = (W - (colCount - 1) * GAP) / colCount
-
-  if (layout === 'seira' || layout === 'flow') {
-    // Simulate CSS Grid auto-placement with gridRow: span N.
-    // Grid cells are UNIT px tall. Track which row-unit each column is occupied up to.
-    // For each panel, find the first row-unit where it fits across its column span of 1.
-    const colFill = new Array(colCount).fill(0) // next free row-unit per column
-    panels.forEach(p => {
-      const h = getPanelHeight(p) // in row units
-      // Find leftmost column with enough consecutive free space
-      // CSS grid auto-placement: scan row by row left to right
-      let placed = false
-      for (let row = 0; !placed; row++) {
-        for (let col = 0; col < colCount; col++) {
-          if (colFill[col] <= row) {
-            // Place here
-            const y = row * UNIT
-            const x = col * (colW + GAP)
-            blocks.push({ x, y, w: colW, h: h * UNIT - GAP, color: panelColor(p) })
-            colFill[col] = row + h
-            placed = true
-            break
-          }
-        }
-      }
-    })
-  } else if (layout === 'rema') {
-    // Rows of colCount panels. Each panel renders at its OWN height.
-    // Row reserves space = tallest panel height but shorter panels don't stretch.
-    let rowY = 0
-    for (let i = 0; i < panels.length; i += colCount) {
-      const row = panels.slice(i, i + colCount)
-      const rowH = Math.max(...row.map(p => getPanelHeight(p))) * UNIT
-      row.forEach((p, ci) => {
-        const h = getPanelHeight(p) * UNIT
-        blocks.push({ x: ci * (colW + GAP), y: rowY, w: colW, h: h - GAP, color: panelColor(p) })
-      })
-      rowY += rowH + GAP
-    }
-  } else if (isCustom && Object.keys(columnAssignments).length > 0) {
-    // Custom layout — use saved column assignments
-    // Each panel goes into its assigned column (1-based), rendered top-to-bottom per column
-    const cols: Panel[][] = Array.from({ length: colCount }, () => [])
-    panels.forEach(p => {
-      const col = (columnAssignments[p.id] || 1) - 1 // convert to 0-based
-      const safeCol = Math.min(Math.max(col, 0), colCount - 1)
-      cols[safeCol].push(p)
-    })
-    cols.forEach((col, ci) => {
-      let y = 0
-      col.forEach(p => {
-        const h = getPanelHeight(p) * UNIT
-        blocks.push({ x: ci * (colW + GAP), y, w: colW, h: h - GAP, color: panelColor(p) })
-        y += h + GAP
-      })
-    })
-  } else {
-    // Stylos — top-to-bottom column fill (greedy)
-    const cols: Panel[][] = Array.from({ length: colCount }, () => [])
-    const fill = new Array(colCount).fill(0)
-    let cur = 0
-    panels.forEach(p => {
-      const h = getPanelHeight(p)
-      while (cur < colCount - 1 && fill[cur] + h > colHeight) cur++
-      cols[cur].push(p)
-      fill[cur] += h
-    })
-    cols.forEach((col, ci) => {
-      let y = 0
-      col.forEach(p => {
-        const h = getPanelHeight(p) * UNIT
-        blocks.push({ x: ci * (colW + GAP), y, w: colW, h: h - GAP, color: panelColor(p) })
-        y += h + GAP
-      })
-    })
-  }
-
-  const totalH = blocks.length > 0 ? Math.max(...blocks.map(b => b.y + b.h)) + 4 : 20
+  // Derive a key from everything that affects the visual layout
+  const iframeKey = [
+    portico.id,
+    portico.layout,
+    portico.columnCount,
+    portico.columnHeight,
+    portico.dynamicHeight,
+    columnSaveKey,
+    (portico.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId).sort().join(','),
+  ].join('|')
 
   return (
     <div style={{ marginTop: 10, marginBottom: 4 }}>
       <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 4, textTransform: 'uppercase',
         letterSpacing: '0.06em', fontWeight: 600 }}>Preview</div>
-      <svg width={W} height={Math.min(totalH, 120)} style={{ overflow: 'hidden', display: 'block',
-        borderRadius: 6, background: 'var(--surface)' }}>
-        {blocks.map((b, i) => (
-          <rect key={i} x={b.x} y={b.y} width={b.w} height={b.h}
-            rx={2} fill={b.color} opacity={0.7} />
-        ))}
-      </svg>
+      <div style={{
+        width: CONTAINER_W, height: CONTAINER_H,
+        overflow: 'hidden', borderRadius: 6,
+        border: '1px solid var(--border)',
+        position: 'relative', background: 'var(--bg)',
+      }}>
+        {!loaded && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 1,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            background: 'var(--surface)',
+          }}>
+            <span className="spinner" />
+          </div>
+        )}
+        <iframe
+          key={iframeKey}
+          src={`/?preview=${portico.id}`}
+          onLoad={() => setLoaded(true)}
+          style={{
+            width: IFRAME_W,
+            height: IFRAME_H,
+            transform: `scale(${SCALE})`,
+            transformOrigin: 'top left',
+            pointerEvents: 'none',
+            border: 'none',
+          }}
+        />
+      </div>
     </div>
   )
 }
@@ -888,40 +812,12 @@ function PorticosTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
-  const [previewPanels, setPreviewPanels] = useState<Panel[]>([])
-  const [previewColumns, setPreviewColumns] = useState<Record<string,number>>({})
+  const [columnSaveKey, setColumnSaveKey] = useState(0)
 
   const load = async () => {
     const [w, sysT] = await Promise.all([porticosApi.list(), tagsApi.list()])
     setPorticos(w.data || [])
     setAllTags(sysT.data || [])
-  }
-
-  const loadPreview = async (porticoId: string) => {
-    try {
-      const [res, colRes, porticoRes] = await Promise.all([
-        panelsApi.list(),
-        customColumnsApi.get(porticoId),
-        porticosApi.list(),
-      ])
-      const allPanels: Panel[] = res.data || []
-      const colData: Record<string,number> = colRes.data || {}
-      const portico = porticoRes.data?.find((p: any) => p.id === porticoId)
-      const activeTags: string[] = (portico?.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId)
-      const filtered = allPanels.filter((p: Panel) => {
-        if (p.scope === 'personal') {
-          const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-          return (cfg.assignedWalls || []).includes(porticoId)
-        }
-        if (!p.tags || p.tags.length === 0) return true
-        if (activeTags.length === 0) return false
-        return p.tags.some((t: any) => activeTags.includes(t.id) || activeTags.includes(t.tagId))
-      })
-      // Sort by saved position if available
-      filtered.sort((a, b) => (a.position || 9999) - (b.position || 9999))
-      setPreviewPanels(filtered)
-      setPreviewColumns(colData)
-    } catch { setPreviewPanels([]); setPreviewColumns({}) }
   }
 
   useEffect(() => {
@@ -1099,7 +995,7 @@ function PorticosTab() {
                     {[2,3,4,5].map(n => <option key={n} value={n}>{n} cols</option>)}
                   </select>
                   {layout === 'custom' && (
-                    <CustomColumnConfigurator porticoId={portico.id} colCount={colCount} />
+                    <CustomColumnConfigurator porticoId={portico.id} colCount={colCount} onSaved={() => setColumnSaveKey(k => k + 1)} />
                   )}
                   {(layout === 'stylos' || layout === 'columns') && (
                     <select
@@ -1148,10 +1044,7 @@ function PorticosTab() {
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Rename">✎</button>
-            <button onClick={e => { e.stopPropagation(); const nextId = expandedId === portico.id ? null : portico.id
-              setExpandedId(nextId)
-              if (nextId) loadPreview(nextId)
-              else { setPreviewPanels([]); setPreviewColumns({}) } }}
+            <button onClick={e => { e.stopPropagation(); setExpandedId(id => id === portico.id ? null : portico.id) }}
               style={{ background: 'none', border: 'none', cursor: 'pointer',
                 color: expandedId === portico.id ? 'var(--accent2)' : 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
               title="Edit tags">◉</button>
@@ -1176,7 +1069,6 @@ function PorticosTab() {
                       <button key={t.id} onClick={async () => {
                         await porticosApi.setTagActive(portico.id, t.id, !active)
                         await load()
-                        await loadPreview(portico.id)
                       }} style={{
                         padding: '3px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
                         background: active ? t.color + '20' : 'transparent',
@@ -1196,7 +1088,7 @@ function PorticosTab() {
                   No system tags yet. Add tags in My Setup → My Tags or admin settings.
                 </div>
               )}
-              <PorticoPreview portico={portico} panels={previewPanels} columnAssignments={previewColumns} />
+              <PorticoPreview portico={portico} columnSaveKey={columnSaveKey} />
             </div>
           )}
         </div>
