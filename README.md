@@ -1,113 +1,101 @@
 # Stoa
 
-A self-hosted homelab dashboard — fast, modern, and built to stay out of your way.
+A self-hosted homelab dashboard — multi-user, data-rich, and built to stay out of your way.
 
-Stoa connects to your services (Sonarr, TrueNAS, Proxmox, OPNsense, Plex, and more), pulls live data, and presents it in a clean, responsive dashboard. It supports multiple users, groups, tag-based filtering, and real-time updates via SSE and WebSocket.
+Connect Stoa to your services (Sonarr, Radarr, TrueNAS, Proxmox, OPNsense, Plex, and more), pull live data, and present it in a clean, responsive dashboard. Every user gets their own view — panel ordering, layout modes, tag filters, and named porticos — without affecting anyone else.
 
-![Stoa Dashboard](docs/screenshot.png)
+---
+
+<p align="center">
+  <img src="screenshots/dashboard.png" width="49%" alt="Dashboard" />
+  <img src="screenshots/panels.png" width="49%" alt="Panel types" />
+</p>
+<p align="center">
+  <img src="screenshots/porticos.png" width="49%" alt="Portico profile and live preview" />
+  <img src="screenshots/mobile.png" width="49%" alt="Mobile layout" />
+</p>
 
 ---
 
 ## Features
 
-- **Live data** — TrueNAS and OPNsense push updates in real-time via WebSocket/SSE. Other integrations poll on configurable intervals.
-- **Multi-user** — users, groups, and tag-based access control. Each user gets their own layout.
-- **Layout modes** — Stylos (column-fill), Seira (row-fill), and Rema (collapsible rows).
-- **Porticos** — named dashboard views with independent tag filters and panel ordering.
-- **Personal panels** — users can add their own integrations alongside shared system panels.
-- **Bookmarks** — built-in bookmark manager with nested folders.
-- **Glyphs & Tickers** — persistent status indicators and live data tickers.
-- **OAuth/SSO** — supports Authentik, Keycloak, and any OIDC-compatible provider.
-- **CLI** — `stoa-cli` for user management, database backup, and maintenance.
+- **30+ integrations** — Sonarr, Radarr, Lidarr, Readarr, Plex, Tautulli, Jellyfin, TrueNAS, Proxmox, OPNsense, Home Assistant, Uptime Kuma, Overseerr, Steam, and more
+- **Live data** — TrueNAS and OPNsense push updates every ~1–2 seconds via WebSocket/SSE; other integrations poll on configurable intervals
+- **Multi-user** — users, groups, and tag-based access control; each user gets their own layout and panel order
+- **Porticos** — named dashboard views with independent tag filters, layouts, and panel ordering; live scaled preview in profile settings
+- **Layout modes** — Stylos (column-fill), Seira (CSS grid rows), Rema (collapsible rows), Custom (manual column assignment)
+- **Calendar** — multi-source calendar aggregating Sonarr/Radarr/Lidarr/Readarr releases and Google Calendar events
+- **Glyphs & Tickers** — persistent status indicators (weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) in the header and footer
+- **Docker control panel** — view and manage containers across local and remote Docker hosts
+- **Notes & Checklists** — shared panels with per-user locking (notes) and shared state (checklists)
+- **Bookmarks** — nested folder tree with custom icons, import/export via CLI
+- **Custom CSS** — per-user CSS upload for fine-grained personalization
+- **OAuth/SSO** — Authentik, Keycloak, and any OIDC-compatible provider; local accounts always work as a fallback
+- **Security** — AES-256-GCM encrypted secrets, auth rate limiting, CSP headers, audit log
+- **CLI** — `stoa-cli` for user management, database maintenance, and full backups
 
 ---
 
 ## Quick start
 
-### Docker Compose
-
 ```yaml
 services:
   stoa:
     image: ghcr.io/the-d-b/stoa:latest
+    container_name: stoa
     ports:
       - "8080:8080"
     volumes:
-      - ./data:/data/db
+      - stoa-data:/data
     environment:
-      - STOA_JWT_SECRET=change-me-to-something-long-and-random
+      STOA_SESSION_SECRET: "change-me-use-openssl-rand-hex-32"
     restart: unless-stopped
+
+volumes:
+  stoa-data:
 ```
 
 ```bash
 docker compose up -d
 ```
 
-Then open `http://localhost:8080` and follow the setup wizard.
+Open `http://localhost:8080` and follow the setup wizard to create your admin account.
 
-### Environment variables
+See [docker-compose.yml](docker-compose.yml) for a full reference including optional mounts (Docker socket, custom CA certificates).
+
+---
+
+## Environment variables
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `STOA_JWT_SECRET` | **Yes** | — | Secret for signing JWTs. Use a long random string. |
-| `STOA_DB_PATH` | No | `/data/db/stoa.db` | Path to the SQLite database file. |
-| `STOA_PORT` | No | `8080` | Port to listen on. |
-| `STOA_GEO_DB_PATH` | No | `/data/db/GeoLite2-City.mmdb` | Path to MaxMind GeoLite2 database for geo-IP lookup. |
-
----
-
-## Setup wizard
-
-On first run, Stoa walks you through:
-
-1. **Deployment mode** — Single user (just you) or Multi user (teams, households, groups).
-2. **Admin account** — Your permanent local admin account. Works even if OAuth is misconfigured.
-3. **Authentication** — Configure OAuth/SSO, or use local accounts only.
-4. **Tags** — Create your first tags for filtering panels.
-5. **Groups** — (Multi-user only) Create your first group with tag assignments.
-
-You can re-run parts of the setup from **Admin → Settings** at any time.
-
----
-
-## CLI — stoa-cli
-
-`stoa-cli` is a separate binary for administration tasks, useful in Docker environments or automation scripts.
-
-```bash
-# Docker
-docker exec stoa stoa-cli user list
-
-# Local
-stoa-cli --db /data/db/stoa.db user list
-```
-
-### Commands
-
-| Command | Description |
-|---|---|
-| `user list` | List all users |
-| `user create` | Create a new user |
-| `user reset-password` | Reset a user's password |
-| `config show` | Show current configuration |
-| `config set-mode <single\|multi>` | Switch deployment mode |
-| `geo stats` | Show geo-IP database statistics |
-| `geo prune [--older-than Nd]` | Remove old geo-IP cache entries |
-| `storage prune [--dry-run]` | Remove orphaned storage entries |
-| `db check` | Verify database integrity |
-| `db backup <output.db>` | Create a database backup |
-| `bookmarks export <output.json>` | Export bookmarks to JSON |
-| `bookmarks import <input.json> [--replace]` | Import bookmarks from JSON |
+| `STOA_SESSION_SECRET` | **Yes** | — | Signs JWTs and derives the AES key for encrypting stored secrets. Generate with `openssl rand -hex 32`. |
+| `STOA_DB_PATH` | No | `/data/db/stoa.db` | SQLite database path |
+| `STOA_PORT` | No | `8080` | Port to listen on |
+| `STOA_ICONS_DIR` | No | `/data/icons` | Directory for uploaded bookmark icons |
+| `STOA_CSS_DIR` | No | `/data/css` | Directory for user CSS customization files |
+| `STOA_OAUTH_CLIENT_ID` | No | — | OIDC client ID for SSO |
+| `STOA_OAUTH_CLIENT_SECRET` | No | — | OIDC client secret |
+| `STOA_OAUTH_ISSUER_URL` | No | — | OIDC issuer URL |
+| `STOA_OAUTH_REDIRECT_URL` | No | — | OAuth callback URL |
+| `STOA_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated allowed CORS origins |
 
 ---
 
 ## Documentation
 
-- [Concepts — Users, Groups, Tags, Panels, Porticos](docs/concepts.md)
-- [Integrations](docs/integrations.md)
-- [Layout modes — Stylos, Seira, Rema](docs/layouts.md)
-- [OAuth / SSO setup](docs/oauth.md)
-- [CLI reference](docs/cli.md)
+| | |
+|---|---|
+| [Getting started](docs/getting-started.md) | Install, volume mounts, order of operations, express setup |
+| [Concepts](docs/concepts.md) | Users, groups, tags, panels, and porticos |
+| [Integrations](docs/integrations.md) | Service-specific auth and URL notes for all 30+ integrations |
+| [Panels](docs/panels.md) | All panel types, integration requirements, heights |
+| [Layouts](docs/layouts.md) | Stylos, Seira, Rema, and Custom layout modes |
+| [Glyphs & Tickers](docs/glyphs-and-tickers.md) | Header/footer widgets |
+| [Docker control panel](docs/docker-control-panel.md) | Container management setup |
+| [OAuth / SSO](docs/oauth.md) | OIDC provider setup |
+| [CLI reference](docs/cli.md) | stoa-cli commands |
+| [Why Stoa](docs/why-stoa.md) | Background and design philosophy |
 
 ---
 
