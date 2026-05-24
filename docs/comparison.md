@@ -7,11 +7,11 @@ How Stoa compares to other popular self-hosted dashboard apps. Last updated May 
 | | Multi-user & roles | Per-user layout | Named views | 30+ live integrations | Real-time (WS/SSE) | Google Calendar | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Glyphs & Tickers | OAuth / SSO | Audit log |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Stoa** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Homepage** | ❌ | ❌ | 🟡 | ✅ | 🟡 | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| **Homepage** | ❌ | ❌ | 🟡 | ✅ | 🟡 | 🟡 | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ |
 | **Homarr** | ✅ | 🟡 | ✅ | ✅ | ❌ | 🟡 | ❌ | 🟡 | ✅ | ❌ | ❌ | ✅ | ❌ |
 | **Organizr** | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
 | **Dashy** | 🟡 | ❌ | ✅ | ✅ | ❌ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Glance** | ❌ | ❌ | 🟡 | 🟡 | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Glance** | ❌ | ❌ | 🟡 | 🟡 | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ |
 | **Heimdall** | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ |
 | **Flame** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ |
 
@@ -31,6 +31,6 @@ How Stoa compares to other popular self-hosted dashboard apps. Last updated May 
 
 **Docker management** — Stoa supports start, stop, and restart across local (Unix socket) and remote Docker hosts. Homarr also supports container management. Homepage displays container status only. Flame auto-discovers containers via Docker labels but offers no management actions.
 
-**Glyphs & Tickers** — Stoa's header/footer widgets (clock, weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) are persistent across all views. No other app in this list has an equivalent feature.
+**Glyphs & Tickers** — Stoa's header/footer widgets (clock, weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) are sticky — they stay visible as you scroll and across all portico views. Homepage has "info widgets" (weather, clock, stocks) that render above the panel grid but scroll off with the page. Glance has "head-widgets," a full-width area above the column layout that can show a live markets strip — the closest equivalent in any other app — but it isn't a scrolling ticker and doesn't persist across navigation.
 
 **Audit log** — Stoa logs authentication events, password resets, and admin actions to a queryable audit log. No other app in this list has audit logging.
