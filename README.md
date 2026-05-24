@@ -100,6 +100,7 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 
 | | |
 |---|---|
+| [Comparison](docs/comparison.md) | How Stoa compares to Homepage, Homarr, Organizr, and others |
 | [Getting started](docs/getting-started.md) | Install, volume mounts, order of operations, express setup |
 | [Concepts](docs/concepts.md) | Users, groups, tags, panels, and porticos |
 | [Integrations](docs/integrations.md) | Service-specific auth and URL notes for all 30+ integrations |

@@ -1,0 +1,36 @@
+# Dashboard comparison
+
+How Stoa compares to other popular self-hosted dashboard apps. Last updated May 2026 — features change; check each project's docs for the latest.
+
+✅ Supported &nbsp;&nbsp; 🟡 Partial / limited &nbsp;&nbsp; ❌ Not supported
+
+| | Multi-user & roles | Per-user layout | Named views | 30+ live integrations | Real-time (WS/SSE) | Google Calendar | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Glyphs & Tickers | OAuth / SSO | Audit log |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Stoa** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Homepage** | ❌ | ❌ | 🟡 | ✅ | 🟡 | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| **Homarr** | ✅ | 🟡 | ✅ | ✅ | ❌ | 🟡 | ❌ | 🟡 | ✅ | ❌ | ❌ | ✅ | ❌ |
+| **Organizr** | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Dashy** | 🟡 | ❌ | ✅ | ✅ | ❌ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Glance** | ❌ | ❌ | 🟡 | 🟡 | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
+| **Heimdall** | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ |
+| **Flame** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ |
+
+---
+
+### Notes
+
+**Multi-user & roles** — Stoa supports users, groups, and tag-based access control with full per-user panel ordering. Homarr and Organizr have multi-user but limited per-user layout isolation. Homepage has no authentication layer at all — it delegates to a reverse proxy.
+
+**Per-user layout** — Stoa users each have their own panel order, active tags, and portico configurations that don't affect anyone else. Homarr and Organizr offer some per-user access but shared layout state.
+
+**Named views** — Stoa's porticos are saved views with independent tag filters, layouts, column assignments, and panel ordering, with a live scaled preview. Homepage tabs and Homarr boards are closer to separate pages than personalized views.
+
+**Real-time (WS/SSE)** — Stoa maintains persistent WebSocket connections to TrueNAS and SSE streams to OPNsense, updating every 1–2 seconds without polling. Homepage has some live widgets but no persistent connections.
+
+**Google Calendar** — Stoa uses a real OAuth 2.0 flow — users authorize with their Google account and all personal calendars are available. Homepage and Homarr support iCal URLs only, which requires generating a shareable link from Google Calendar settings and doesn't access private calendars directly.
+
+**Docker management** — Stoa supports start, stop, and restart across local (Unix socket) and remote Docker hosts. Homarr also supports container management. Homepage displays container status only. Flame auto-discovers containers via Docker labels but offers no management actions.
+
+**Glyphs & Tickers** — Stoa's header/footer widgets (clock, weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) are persistent across all views. No other app in this list has an equivalent feature.
+
+**Audit log** — Stoa logs authentication events, password resets, and admin actions to a queryable audit log. No other app in this list has audit logging.
