@@ -6,43 +6,57 @@
  * Edit mode:   panel prop is provided. Type is locked, fields pre-populated.
  */
 import { useState, useEffect } from 'react'
-import { panelsApi, myPanelsApi, Integration, Panel, Tag } from '../../api'
+import { panelsApi, myPanelsApi, integrationsApi, secretsApi, weatherApi, Integration, Panel, Tag } from '../../api'
+import TypeCardPicker from './TypeCardPicker'
+import SportsConfigUI from './SportsConfigUI'
+import StocksConfigUI from './StocksConfigUI'
+import CryptoConfigUI from './CryptoConfigUI'
 
 // ── Authoritative panel type list ─────────────────────────────────────────────
 export const PANEL_TYPES: {
-  id: string; label: string; desc: string; needsIntegration: boolean
+  id: string; label: string; desc: string; needsIntegration: boolean; category: string
 }[] = [
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                    needsIntegration: true  },
-  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',                  needsIntegration: false },
-  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                needsIntegration: false },
-  { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',             needsIntegration: false },
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings', needsIntegration: false },
-  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',          needsIntegration: false },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                        needsIntegration: true  },
-  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',                     needsIntegration: false },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                    needsIntegration: true  },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking',                       needsIntegration: true  },
-  { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',             needsIntegration: false },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                needsIntegration: true  },
-  { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats', needsIntegration: true  },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                     needsIntegration: true  },
-  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',            needsIntegration: true  },
-  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                         needsIntegration: true  },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server',                         needsIntegration: true  },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                           needsIntegration: true  },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                       needsIntegration: true  },
-  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook tracking',            needsIntegration: true  },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',            needsIntegration: true  },
-  { id: 'search',       label: 'Search',       desc: 'External search engine panel',         needsIntegration: false },
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking',                     needsIntegration: true  },
-  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',      needsIntegration: true  },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                       needsIntegration: true  },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                    needsIntegration: true  },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                       needsIntegration: true  },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',        needsIntegration: true  },
-  { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule', needsIntegration: true  },
-  { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparkline charts', needsIntegration: true  },
+  // Media
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking',                              needsIntegration: true,  category: 'Media' },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                                needsIntegration: true,  category: 'Media' },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music tracking',                                needsIntegration: true,  category: 'Media' },
+  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook tracking',                     needsIntegration: true,  category: 'Media' },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server',                                  needsIntegration: true,  category: 'Media' },
+  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                                  needsIntegration: true,  category: 'Media' },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                needsIntegration: true,  category: 'Media' },
+  { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats',               needsIntegration: true,  category: 'Media' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Media' },
+  // Infrastructure
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                    needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                         needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',                   needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
+  // Gaming
+  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
+  // Finance
+  { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparklines', needsIntegration: true, category: 'Finance' },
+  // Content
+  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Content' },
+  // Productivity
+  { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',                      needsIntegration: false, category: 'Productivity' },
+  { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',                      needsIntegration: false, category: 'Productivity' },
+  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',                           needsIntegration: false, category: 'Productivity' },
+  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                         needsIntegration: false, category: 'Productivity' },
+  { id: 'search',       label: 'Search',       desc: 'External search engine panel',                  needsIntegration: false, category: 'Productivity' },
+  // Custom
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings',          needsIntegration: false, category: 'Custom' },
+  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',                   needsIntegration: false, category: 'Custom' },
+  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',                              needsIntegration: false, category: 'Custom' },
 ]
+
+const INLINE_NO_URL  = ['sports', 'stocks', 'crypto', 'weather']
+const INLINE_NO_TEST = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
 
 const SEARCH_ENGINE_LIST = [
   { id: 'ddg', label: 'DuckDuckGo' }, { id: 'google', label: 'Google' },
@@ -120,12 +134,13 @@ interface Props {
   onSaved: () => void
   onCancel: () => void
   onDeleted?: () => void
+  onTagChanged?: () => void        // reload without collapsing — for tag toggles in edit mode
   children?: React.ReactNode       // calendar sources slot — only used in edit mode
 }
 
 export default function PanelForm({
   scope, integrations, tags = [], panel,
-  bookmarkRoots = [], onSaved, onCancel, onDeleted, children,
+  bookmarkRoots = [], onSaved, onCancel, onDeleted, onTagChanged, children,
 }: Props) {
   const isEdit = !!panel
   const cfg = parseCfg(panel?.config)
@@ -172,6 +187,27 @@ export default function PanelForm({
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
+  // ── local integrations copy (appended when user creates inline) ─────────────
+  const [localIntegrations, setLocalIntegrations] = useState<Integration[]>(integrations)
+  useEffect(() => setLocalIntegrations(integrations), [integrations])
+
+  // ── inline integration creator ─────────────────────────────────────────────
+  const [showInlineCreate, setShowInlineCreate] = useState(false)
+  const [inlineName, setInlineName] = useState('')
+  const [inlineUrl, setInlineUrl] = useState('')
+  const [inlineSecretId, setInlineSecretId] = useState('')
+  const [inlineSecrets, setInlineSecrets] = useState<any[]>([])
+  const [inlineShowNewSecret, setInlineShowNewSecret] = useState(false)
+  const [inlineNewSecretName, setInlineNewSecretName] = useState('')
+  const [inlineNewSecretValue, setInlineNewSecretValue] = useState('')
+  const [inlineSavingSecret, setInlineSavingSecret] = useState(false)
+  const [inlineTesting, setInlineTesting] = useState(false)
+  const [inlineTestResult, setInlineTestResult] = useState<{ok:boolean;error?:string}|null>(null)
+  const [inlineCreating, setInlineCreating] = useState(false)
+  const [inlineGeoQuery, setInlineGeoQuery] = useState('')
+  const [inlineGeoResults, setInlineGeoResults] = useState<any[]>([])
+  const [inlineGeoSearching, setInlineGeoSearching] = useState(false)
+
   // Re-init when switching to a different panel in edit mode
   useEffect(() => {
     if (!panel) return
@@ -201,6 +237,83 @@ export default function PanelForm({
   const handleTypeChange = (t: string) => {
     setType(t); setIntegrationId(''); setAllowedRatings('')
     setHaEntityIds(''); setHaDomains('')
+    setShowInlineCreate(false)
+    setInlineName(''); setInlineUrl(''); setInlineSecretId('')
+    setInlineTestResult(null); setInlineGeoQuery(''); setInlineGeoResults([])
+  }
+
+  const openInlineCreate = async (label: string) => {
+    setInlineName(`My ${label}`)
+    setInlineUrl(''); setInlineSecretId(''); setInlineTestResult(null)
+    setInlineGeoQuery(''); setInlineGeoResults([])
+    setInlineShowNewSecret(false)
+    setShowInlineCreate(true)
+    const r = await secretsApi.list()
+    setInlineSecrets(r.data || [])
+  }
+
+  const inlineSaveSecret = async () => {
+    if (!inlineNewSecretName.trim() || !inlineNewSecretValue.trim()) return
+    setInlineSavingSecret(true)
+    try {
+      const r = await secretsApi.create({
+        name: inlineNewSecretName.trim(),
+        value: inlineNewSecretValue.trim(),
+        scope: scope === 'system' ? 'shared' : 'personal',
+      })
+      const s = { id: r.data.id, name: inlineNewSecretName.trim() }
+      setInlineSecrets(prev => [...prev, s])
+      setInlineSecretId(s.id)
+      setInlineNewSecretName(''); setInlineNewSecretValue('')
+      setInlineShowNewSecret(false)
+    } finally { setInlineSavingSecret(false) }
+  }
+
+  const inlineTest = async () => {
+    setInlineTesting(true); setInlineTestResult(null)
+    try {
+      const res = await integrationsApi.test({
+        type, apiUrl: inlineUrl,
+        secretId: inlineSecretId || undefined, skipTls: false,
+      })
+      setInlineTestResult(res.data)
+    } catch { setInlineTestResult({ ok: false, error: 'Request failed' }) }
+    finally { setInlineTesting(false) }
+  }
+
+  const inlineCreate = async () => {
+    if (!inlineName.trim()) return
+    setInlineCreating(true)
+    try {
+      const res = await integrationsApi.create({
+        name: inlineName.trim(), type,
+        apiUrl: inlineUrl,
+        secretId: inlineSecretId || undefined,
+        skipTls: false, refreshSecs: 60,
+        ...(scope === 'personal' ? { scope: 'personal' } : {}),
+      })
+      const newInteg = {
+        id: res.data.id, name: inlineName.trim(), type,
+        apiUrl: inlineUrl, uiUrl: '', secretId: inlineSecretId || undefined,
+        skipTls: false, refreshSecs: 60,
+      } as Integration
+      setLocalIntegrations(prev => [...prev, newInteg])
+      setIntegrationId(newInteg.id)
+      setShowInlineCreate(false)
+    } finally { setInlineCreating(false) }
+  }
+
+  const inlineSearchGeo = async () => {
+    if (!inlineGeoQuery.trim()) return
+    setInlineGeoSearching(true)
+    try { const r = await weatherApi.geocode(inlineGeoQuery); setInlineGeoResults(r.data || []) }
+    finally { setInlineGeoSearching(false) }
+  }
+
+  const inlineSelectGeo = (r: any) => {
+    const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
+    setInlineUrl(`${r.latitude}|${r.longitude}|${city}|f`)
+    setInlineGeoResults([]); setInlineGeoQuery('')
   }
 
   const buildConfig = (): string => {
@@ -267,37 +380,29 @@ export default function PanelForm({
 
   const typeDef = PANEL_TYPES.find(t => t.id === type)
   const needsIntegration = INTEGRATION_TYPES.includes(type)
-  const compatibleIntegrations = integrations.filter(i =>
+  const compatibleIntegrations = localIntegrations.filter(i =>
     i.type === type || (type === 'stocks' && i.type === 'crypto'))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-      {/* Row 1: Title, Type, Height */}
+      {/* Row 1: Title, Height, (edit: locked type) */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ flex: 2, minWidth: 160 }}>
           <label className="label">Panel title</label>
           <input className="input" value={title} onChange={e => setTitle(e.target.value)}
             placeholder="e.g. My Sonarr" autoFocus={!isEdit} />
         </div>
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <label className="label">Panel type</label>
-          {isEdit ? (
+        {isEdit && (
+          <div style={{ flex: 1, minWidth: 140 }}>
+            <label className="label">Panel type</label>
             <div style={{ padding: '6px 10px', borderRadius: 6, fontSize: 13,
               background: 'var(--surface2)', border: '1px solid var(--border)',
               color: 'var(--text-muted)' }}>
               {typeDef?.label ?? type}
             </div>
-          ) : (
-            <select className="input" value={type}
-              onChange={e => handleTypeChange(e.target.value)} style={{ cursor: 'pointer' }}>
-              {PANEL_TYPES.map(t => {
-                const warn = t.needsIntegration && !integrations.some(i => i.type === t.id)
-                return <option key={t.id} value={t.id}>{t.label}{warn ? ' ⚠' : ''}</option>
-              })}
-            </select>
-          )}
-        </div>
+          </div>
+        )}
         <div>
           <label className="label">Height</label>
           <select className="input" value={height}
@@ -307,24 +412,46 @@ export default function PanelForm({
         </div>
       </div>
 
-      {/* Type description — create mode only */}
-      {!isEdit && typeDef?.desc && (
-        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: -4 }}>
-          {typeDef.desc}
+      {/* Type picker — create mode only */}
+      {!isEdit && (
+        <div>
+          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Panel type</label>
+          <TypeCardPicker
+            types={PANEL_TYPES.map(t => ({
+              ...t,
+              warn: t.needsIntegration && !integrations.some(i => i.type === t.id),
+            }))}
+            value={type}
+            onChange={handleTypeChange}
+          />
         </div>
       )}
 
-      {/* Integration selector */}
+      {/* Integration selector + inline creator */}
       {needsIntegration && (
-        <div>
-          <label className="label">Integration</label>
-          {compatibleIntegrations.length === 0 ? (
-            <div style={{ fontSize: 12, color: 'var(--amber)', marginTop: 2 }}>
-              ⚠ No {typeDef?.label ?? type} integration configured.{' '}
-              <a href={scope === 'system' ? '/admin/integrations' : '/profile'}
-                style={{ color: 'var(--accent2)' }}>Add one →</a>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <label className="label" style={{ marginBottom: 0 }}>Integration</label>
+            {!showInlineCreate && (
+              <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                onClick={() => openInlineCreate(typeDef?.label ?? type)}>
+                + New
+              </button>
+            )}
+          </div>
+
+          {compatibleIntegrations.length === 0 && !showInlineCreate && (
+            <div style={{ fontSize: 12, color: 'var(--amber)' }}>
+              ⚠ No {typeDef?.label ?? type} integration yet —{' '}
+              <button type="button" onClick={() => openInlineCreate(typeDef?.label ?? type)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer',
+                  color: 'var(--accent2)', fontSize: 12, padding: 0 }}>
+                create one now
+              </button>
             </div>
-          ) : (
+          )}
+
+          {compatibleIntegrations.length > 0 && (
             <select className="input" value={integrationId}
               onChange={e => setIntegrationId(e.target.value)} style={{ cursor: 'pointer' }}>
               <option value="">— Select integration —</option>
@@ -332,6 +459,145 @@ export default function PanelForm({
                 <option key={i.id} value={i.id}>{i.name}</option>
               ))}
             </select>
+          )}
+
+          {/* Inline integration creator */}
+          {showInlineCreate && (
+            <div style={{ padding: '12px 14px', borderRadius: 8, border: '1px solid var(--border)',
+              background: 'var(--surface)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
+                New {typeDef?.label ?? type} integration
+              </div>
+
+              {/* Name */}
+              <div>
+                <label className="label">Name</label>
+                <input className="input" value={inlineName} autoFocus
+                  onChange={e => setInlineName(e.target.value)}
+                  placeholder={`My ${typeDef?.label ?? type}`} />
+              </div>
+
+              {/* URL — standard types */}
+              {!INLINE_NO_URL.includes(type) && (
+                <div>
+                  <label className="label">API URL</label>
+                  <input className="input" value={inlineUrl}
+                    onChange={e => { setInlineUrl(e.target.value); setInlineTestResult(null) }}
+                    placeholder="http://host:port" />
+                </div>
+              )}
+
+              {/* Weather geocoder */}
+              {type === 'weather' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label className="label">Location</label>
+                  {inlineUrl && (
+                    <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
+                      📍 {inlineUrl.split('|').slice(2, 3).join('')}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <input className="input" value={inlineGeoQuery}
+                      onChange={e => setInlineGeoQuery(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && inlineSearchGeo()}
+                      placeholder="Search city..." style={{ flex: 1 }} />
+                    <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                      onClick={inlineSearchGeo} disabled={inlineGeoSearching}>
+                      {inlineGeoSearching ? '...' : 'Search'}
+                    </button>
+                  </div>
+                  {inlineGeoResults.length > 0 && (
+                    <div style={{ border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+                      {inlineGeoResults.map((r, i) => (
+                        <button key={i} type="button" onClick={() => inlineSelectGeo(r)}
+                          style={{ display: 'block', width: '100%', textAlign: 'left',
+                            padding: '7px 12px', fontSize: 12, background: 'none', border: 'none',
+                            borderBottom: i < inlineGeoResults.length - 1 ? '1px solid var(--border)' : 'none',
+                            cursor: 'pointer', color: 'var(--text)' }}>
+                          {[r.name, r.admin1, r.country].filter(Boolean).join(', ')}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Sports / Stocks / Crypto config UIs */}
+              {type === 'sports'  && <SportsConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
+              {type === 'stocks'  && <StocksConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
+              {type === 'crypto'  && <CryptoConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
+
+              {/* Secret */}
+              <div>
+                <label className="label">API key secret <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span></label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <select className="input" value={inlineSecretId}
+                    onChange={e => setInlineSecretId(e.target.value)}
+                    style={{ cursor: 'pointer', flex: 1 }}>
+                    <option value="">— None —</option>
+                    {inlineSecrets.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                    onClick={() => setInlineShowNewSecret(v => !v)}>
+                    {inlineShowNewSecret ? 'Cancel' : '+ New'}
+                  </button>
+                </div>
+                {inlineShowNewSecret && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8,
+                    padding: '10px 12px', borderRadius: 7, background: 'var(--surface2)',
+                    border: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <label className="label">Name</label>
+                        <input className="input" value={inlineNewSecretName}
+                          onChange={e => setInlineNewSecretName(e.target.value)}
+                          placeholder="e.g. Sonarr API Key" autoFocus />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label className="label">Value</label>
+                        <input className="input" type="password" value={inlineNewSecretValue}
+                          onChange={e => setInlineNewSecretValue(e.target.value)}
+                          placeholder="Paste key here" />
+                      </div>
+                    </div>
+                    <button className="btn btn-primary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                      disabled={inlineSavingSecret || !inlineNewSecretName || !inlineNewSecretValue}
+                      onClick={inlineSaveSecret}>
+                      {inlineSavingSecret ? <span className="spinner" /> : 'Save & select'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Test result */}
+              {inlineTestResult && (
+                <div style={{ padding: '7px 10px', borderRadius: 6, fontSize: 12,
+                  background: inlineTestResult.ok ? '#4ade8018' : '#f8717118',
+                  border: `1px solid ${inlineTestResult.ok ? '#4ade8040' : '#f8717140'}`,
+                  color: inlineTestResult.ok ? 'var(--green)' : 'var(--red)' }}>
+                  {inlineTestResult.ok ? '✓ Connection successful' : `✗ ${inlineTestResult.error}`}
+                </div>
+              )}
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: 8 }}>
+                {!INLINE_NO_TEST.includes(type) && (
+                  <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                    onClick={inlineTest} disabled={inlineTesting || !inlineUrl}>
+                    {inlineTesting ? <span className="spinner" /> : 'Test'}
+                  </button>
+                )}
+                <button className="btn btn-primary" style={{ fontSize: 12 }}
+                  onClick={inlineCreate}
+                  disabled={inlineCreating || !inlineName.trim()}>
+                  {inlineCreating ? <span className="spinner" /> : 'Create & select'}
+                </button>
+                <button className="btn btn-ghost" style={{ fontSize: 12 }}
+                  onClick={() => setShowInlineCreate(false)}>
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
       )}
@@ -545,7 +811,7 @@ export default function PanelForm({
                   if (!panel) return
                   if (hasTag) await panelsApi.removeTag(panel.id, t.id)
                   else await panelsApi.addTag(panel.id, t.id)
-                  onSaved()
+                  onTagChanged ? onTagChanged() : onSaved()
                 }} style={{
                   padding: '2px 10px', borderRadius: 7, cursor: 'pointer', fontSize: 12,
                   background: hasTag ? t.color + '20' : 'transparent',

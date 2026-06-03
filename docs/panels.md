@@ -33,6 +33,8 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Calendar | Yes (one or more — Sonarr/Radarr/Lidarr/Readarr/Google Calendar) |
 | RSS / Atom | Yes |
 | Custom API | Yes |
+| Text/HTML | No — content is written directly in the panel config |
+| Web Embed | No — renders any URL in an iframe |
 | Weather | No — public API, no credentials |
 | Sports | No — ESPN public API |
 | Stocks | No — Yahoo Finance public data |
@@ -114,6 +116,27 @@ Items from any RSS or Atom feed — title, summary, and link. The feed URL is co
 A generic panel that makes a GET request to any URL and displays the JSON response as formatted text. Useful for services not natively supported in Stoa, simple status endpoints, or custom scripts that expose JSON.
 
 The integration URL is the endpoint to call. An optional Bearer token can be stored as a secret.
+
+### Text/HTML
+A freeform panel that renders arbitrary HTML content. Write anything directly into the panel config — no integration or external service needed.
+
+**No integration required:** Create a Text/HTML panel and paste your HTML into the content field.
+
+Useful for static content, custom layouts, or embedding images from a direct URL. To display an image sized to fit the panel:
+
+```html
+<img src="https://example.com/photo.jpg"
+     style="width:100%;height:100%;object-fit:contain;display:block;">
+```
+
+`object-fit: contain` scales the image down to fit the panel while preserving its aspect ratio. Use `object-fit: cover` instead to fill the panel completely, cropping the edges.
+
+### Web Embed
+Renders any URL inside an iframe that fills the panel. Useful for embedding web pages, dashboards, or other live content.
+
+**No integration required:** Create a Web Embed panel and enter the URL to embed.
+
+Note: loading a direct image URL (e.g. a `.jpg`) in a Web Embed panel will display the image at its native size with scrollbars, since the browser's built-in image viewer has no awareness of the panel's dimensions. Use a **Text/HTML** panel with an `<img>` tag instead when you want an image to resize to fit.
 
 ### Weather
 Current conditions (temperature, feels-like, wind, humidity) and a multi-day forecast. Sourced from [Open-Meteo](https://open-meteo.com) — no API key required.

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { chatApi, aiApi, ChatMessage, PresenceUser } from '../../api'
+import Picker from '@emoji-mart/react'
+import data from '@emoji-mart/data'
+import { useTheme } from '../../context/ThemeContext'
 
 const isMobile = () => window.innerWidth < 640
 import { useChatSSE, useTypingSSE } from '../../hooks/useSSE'
@@ -37,6 +40,47 @@ function UserAvatar({ username, avatarUrl, online, size = 26 }: {
   )
 }
 
+function insertAtCursor(el: HTMLTextAreaElement | null, native: string, setValue: React.Dispatch<React.SetStateAction<string>>) {
+  if (!el) { setValue(prev => prev + native); return }
+  const start = el.selectionStart ?? el.value.length
+  const end = el.selectionEnd ?? el.value.length
+  const newVal = el.value.slice(0, start) + native + el.value.slice(end)
+  setValue(newVal)
+  const pos = start + native.length
+  setTimeout(() => { el.focus(); el.setSelectionRange(pos, pos) }, 0)
+}
+
+function EmojiPickerButton({ onPick, emojiTheme }: { onPick: (native: string) => void; emojiTheme: 'dark' | 'light' }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  return (
+    <div ref={ref} style={{ position: 'relative', flexShrink: 0 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} title="Emoji" style={{
+        width: 32, height: 32, borderRadius: '50%', border: 'none',
+        background: open ? 'var(--surface2)' : 'none', cursor: 'pointer',
+        color: 'var(--text-dim)', fontSize: 17,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}>☺</button>
+      {open && (
+        <div style={{ position: 'absolute', bottom: '100%', right: 0, zIndex: 600, marginBottom: 4 }}>
+          <Picker data={data} theme={emojiTheme} onEmojiSelect={(e: any) => { onPick(e.native); setOpen(false) }} />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── AI Tab (Claude or Gemini) ─────────────────────────────────────────────────
 
 interface AIMsg { id: string; role: 'user' | 'assistant'; content: string; createdAt: string }
@@ -63,6 +107,8 @@ function AITab({ config }: { config: AITabConfig }) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { provider, icon, color } = config
+  const { themeDef } = useTheme()
+  const emojiTheme = themeDef.dark ? 'dark' : 'light'
 
   useEffect(() => {
     setLoading(true)
@@ -252,10 +298,12 @@ function AITab({ config }: { config: AITabConfig }) {
       <div style={{ padding: '8px 12px 12px', borderTop: '1px solid var(--border)',
         flexShrink: 0 }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+          <EmojiPickerButton emojiTheme={emojiTheme}
+            onPick={native => insertAtCursor(inputRef.current, native, setInput)} />
           <textarea ref={inputRef} value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
-            placeholder="Message Claude... (Enter to send)"
+            placeholder={`Message ${config.label}... (Enter to send)`}
             rows={1} style={{
               flex: 1, resize: 'none', fontSize: 13, padding: '8px 10px',
               borderRadius: 10, border: '1px solid var(--border)',
@@ -312,6 +360,13 @@ interface ChatPanelProps {
 export default function ChatPanel({ open, onClose, currentUserId, singleUser }: ChatPanelProps) {
   const [tab, setTab] = useState<'stoa' | 'claude' | 'gemini'>('stoa')
   const [maximized, setMaximized] = useState(false)
+  const [availableProviders, setAvailableProviders] = useState<{ claude: boolean; gemini: boolean }>({ claude: false, gemini: false })
+  const { themeDef } = useTheme()
+  const emojiTheme = themeDef.dark ? 'dark' : 'light'
+
+  useEffect(() => {
+    aiApi.providers().then(r => setAvailableProviders(r.data || { claude: false, gemini: false })).catch(() => {})
+  }, [])
   const [typingUsers, setTypingUsers] = useState<{userId: string; username: string}[]>([])
   const [mobile, setMobile] = useState(isMobile())
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -484,7 +539,7 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
                 borderBottom: tab === 'stoa' ? '2px solid var(--accent)' : '2px solid transparent',
                 borderRadius: 0,
               }}>💬 Stoa</button>
-              {AI_PROVIDERS.map(p => (
+              {AI_PROVIDERS.filter(p => availableProviders[p.provider]).map(p => (
                 <button key={p.provider} onClick={() => setTab(p.provider)} style={{
                   padding: '4px 12px', fontSize: 12, border: 'none', cursor: 'pointer',
                   background: 'none', fontWeight: tab === p.provider ? 600 : 400,
@@ -606,6 +661,8 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
             {!singleUser && (
               <div style={{ padding: '8px 12px 12px', borderTop: '1px solid var(--border)',
                 flexShrink: 0, display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <EmojiPickerButton emojiTheme={emojiTheme}
+                  onPick={native => insertAtCursor(inputRef.current, native, setInput)} />
                 <textarea ref={inputRef} value={input} onChange={e => handleInputChange(e.target.value)}
                   onKeyDown={handleKey} placeholder="Message... (Enter to send)"
                   rows={1} style={{
@@ -629,7 +686,7 @@ export default function ChatPanel({ open, onClose, currentUserId, singleUser }: 
         )}
 
         {/* AI tabs */}
-        {AI_PROVIDERS.map(p => tab === p.provider && <AITab key={p.provider} config={p} />)}
+        {AI_PROVIDERS.filter(p => availableProviders[p.provider]).map(p => tab === p.provider && <AITab key={p.provider} config={p} />)}
       </div>
     </>
   )

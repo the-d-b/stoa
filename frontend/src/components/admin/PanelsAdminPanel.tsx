@@ -155,6 +155,7 @@ export default function PanelsAdminPanel() {
                     tags={tags}
                     bookmarkRoots={flatNodes.map(({node, label}) => ({ id: node.id, label }))}
                     onSaved={async () => { setExpandedPanelId(null); await load() }}
+                    onTagChanged={load}
                     onCancel={() => setExpandedPanelId(null)}
                     onDeleted={async () => { setExpandedPanelId(null); await load() }}
                   >

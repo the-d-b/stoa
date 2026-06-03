@@ -531,6 +531,7 @@ export const sessionsApi = {
 }
 
 export const aiApi = {
+  providers: () => api.get<{ claude: boolean; gemini: boolean }>('/ai/providers'),
   history: (provider: string) =>
     api.get<{ id: string; role: string; content: string; createdAt: string }[]>(`/ai/history?provider=${provider}`),
   clear: (provider: string) => api.delete(`/ai/clear?provider=${provider}`),

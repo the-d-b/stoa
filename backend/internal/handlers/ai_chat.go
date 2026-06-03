@@ -25,6 +25,21 @@ type aiMessage struct {
 	Content string `json:"content"`
 }
 
+// GetAIProviders returns which AI providers have API keys configured
+func GetAIProviders(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		check := func(name string) bool {
+			var val string
+			db.QueryRow(`SELECT value FROM secrets WHERE name = ? AND created_by = 'SYSTEM' LIMIT 1`, name).Scan(&val)
+			return strings.TrimSpace(val) != ""
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{
+			"claude": check("ANTHROPIC_API_KEY"),
+			"gemini": check("GEMINI_API_KEY"),
+		})
+	}
+}
+
 // GetAIHistory returns the user's AI chat history for a provider
 func GetAIHistory(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

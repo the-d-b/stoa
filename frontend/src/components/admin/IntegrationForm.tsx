@@ -10,31 +10,37 @@ import { integrationsApi, myIntegrationsApi, secretsApi, weatherApi, steamApi, I
 import SportsConfigUI from './SportsConfigUI'
 import StocksConfigUI from './StocksConfigUI'
 import CryptoConfigUI from './CryptoConfigUI'
+import TypeCardPicker from './TypeCardPicker'
 
 export const INTEGRATION_TYPES = [
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider' },
-  { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko — add Demo API key secret for higher rate limits)' },
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container' },
-  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform' },
-  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server' },
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring' },
-  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management' },
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router' },
-  { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management' },
-  { id: 'plex',         label: 'Plex',         desc: 'Media server' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor' },
-  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management' },
-  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management' },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader' },
-  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management' },
-  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN, no key required)' },
-  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store' },
-  { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)' },
-  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics' },
-  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client' },
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management' },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)' },
+  // Media
+  { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management',                                          category: 'Media' },
+  { id: 'radarr',       label: 'Radarr',       desc: 'Movie management',                                            category: 'Media' },
+  { id: 'lidarr',       label: 'Lidarr',       desc: 'Music management',                                            category: 'Media' },
+  { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management',                                 category: 'Media' },
+  { id: 'plex',         label: 'Plex',         desc: 'Media server',                                                category: 'Media' },
+  { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                                                category: 'Media' },
+  { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                              category: 'Media' },
+  { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media' },
+  // Infrastructure
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                              category: 'Infrastructure' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                                  category: 'Infrastructure' },
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Infrastructure' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform',                                      category: 'Infrastructure' },
+  { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                                           category: 'Infrastructure' },
+  // Gaming
+  { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
+  // Finance
+  { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)', category: 'Finance' },
+  { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
+  // Content
+  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)', category: 'Content' },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Content' },
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
@@ -204,28 +210,23 @@ export default function IntegrationForm({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-      {/* Row 1: Name, Type, Secret */}
+      {/* Row 1: Name, (edit: locked type), Secret */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={{ flex: 2, minWidth: 160 }}>
           <label className="label">Name</label>
           <input className="input" value={name} onChange={e => setName(e.target.value)}
             placeholder="e.g. My Sonarr" autoFocus={!isEdit} />
         </div>
-        <div style={{ flex: 1, minWidth: 120 }}>
-          <label className="label">Type</label>
-          {isEdit ? (
+        {isEdit && (
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label className="label">Type</label>
             <div style={{ padding: '6px 10px', borderRadius: 6, fontSize: 13,
               background: 'var(--surface2)', border: '1px solid var(--border)',
               color: 'var(--text-muted)' }}>
               {typeDef?.label ?? activeType}
             </div>
-          ) : (
-            <select className="input" value={type}
-              onChange={e => handleTypeChange(e.target.value)} style={{ cursor: 'pointer' }}>
-              {INTEGRATION_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-            </select>
-          )}
-        </div>
+          </div>
+        )}
         <div style={{ flex: 1, minWidth: 160 }}>
           <label className="label">API key secret</label>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -242,6 +243,18 @@ export default function IntegrationForm({
           </div>
         </div>
       </div>
+
+      {/* Type picker — create mode only */}
+      {!isEdit && (
+        <div>
+          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Type</label>
+          <TypeCardPicker
+            types={INTEGRATION_TYPES}
+            value={type}
+            onChange={handleTypeChange}
+          />
+        </div>
+      )}
 
       {/* Inline secret creation */}
       {showNewSecret && (
