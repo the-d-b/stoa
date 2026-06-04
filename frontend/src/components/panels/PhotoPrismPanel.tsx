@@ -1,11 +1,17 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
+interface PhotoPrismPhoto {
+  hash: string
+  title: string
+}
+
 interface PhotoPrismData {
-  uiUrl: string; version: string
+  uiUrl: string; version: string; integrationId: string
   photos: number; videos: number; albums: number; folders: number
   moments: number; people: number; places: number; labels: number
+  preview?: PhotoPrismPhoto[]
 }
 
 function fmt(n: number) {
@@ -14,6 +20,173 @@ function fmt(n: number) {
   return n.toLocaleString()
 }
 
+function authedFetch(url: string) {
+  const token = localStorage.getItem('stoa_token')
+  return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+}
+
+function AuthenticatedThumb({ src, alt }: { src: string; alt: string }) {
+  const [objectUrl, setObjectUrl] = useState<string | null>(null)
+  const urlRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    authedFetch(src)
+      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.blob() })
+      .then(blob => {
+        if (cancelled) return
+        const u = URL.createObjectURL(blob)
+        urlRef.current = u
+        setObjectUrl(u)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+      if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null }
+    }
+  }, [src])
+
+  if (!objectUrl) return (
+    <div style={{ width: '100%', height: '100%', background: 'var(--surface2)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</span>
+    </div>
+  )
+
+  return (
+    <img src={objectUrl} alt={alt}
+      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+  )
+}
+
+function PhotoCarousel({ photos, integrationId, uiUrl }: {
+  photos: PhotoPrismPhoto[]
+  integrationId: string
+  uiUrl: string
+}) {
+  const [current, setCurrent] = useState(0)
+  const [hovered, setHovered] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const advance = useCallback(() => {
+    setCurrent(c => (c + 1) % photos.length)
+  }, [photos.length])
+
+  useEffect(() => {
+    if (hovered || photos.length <= 1) return
+    timerRef.current = setInterval(advance, 4000)
+    return () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
+  }, [hovered, advance, photos.length])
+
+  if (photos.length === 0) return null
+
+  const photo = photos[current]
+  const thumbUrl = `/api/photoprism/${integrationId}/thumb/${photo.hash}`
+
+  return (
+    <div
+      style={{ position: 'relative', width: '100%', height: '100%',
+        overflow: 'hidden', borderRadius: 8 }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      <a href={uiUrl || undefined} target="_blank" rel="noopener noreferrer"
+        style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
+        <AuthenticatedThumb src={thumbUrl} alt={photo.title || 'Photo'} key={thumbUrl} />
+      </a>
+
+      {/* Bottom gradient + title */}
+      <div style={{
+        position: 'absolute', bottom: 0, left: 0, right: 0,
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
+        padding: '20px 10px 8px',
+        pointerEvents: 'none',
+      }}>
+        {photo.title && (
+          <span style={{
+            fontSize: 11, color: '#fff', fontWeight: 500,
+            textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+            display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            paddingRight: photos.length > 1 ? 52 : 0,
+          }}>
+            {photo.title}
+          </span>
+        )}
+      </div>
+
+      {/* Dot nav */}
+      {photos.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 3, zIndex: 2 }}>
+          {photos.map((_, i) => (
+            <button key={i}
+              onClick={e => { e.preventDefault(); setCurrent(i) }}
+              style={{
+                width: i === current ? 14 : 5, height: 5, borderRadius: 3,
+                background: i === current ? '#fff' : 'rgba(255,255,255,0.4)',
+                border: 'none', padding: 0, cursor: 'pointer',
+                transition: 'width 0.25s, background 0.25s',
+              }} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Stat chip ─────────────────────────────────────────────────────────────────
+
+function Stat({ label, value, icon, href, grow = false }: {
+  label: string; value: number | string; icon: string; href?: string; grow?: boolean
+}) {
+  const inner = (
+    <>
+      <span style={{ fontSize: 14 }}>{icon}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 13,
+          color: 'var(--text)', lineHeight: 1.2 }}>
+          {typeof value === 'number' ? fmt(value) : value}
+        </span>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.2 }}>{label}</span>
+      </div>
+    </>
+  )
+  const style: React.CSSProperties = {
+    display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
+    borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)',
+    flex: grow ? 1 : '0 0 auto', minWidth: 0,
+    textDecoration: 'none', color: 'inherit',
+  }
+  return href
+    ? <a href={href} target="_blank" rel="noopener noreferrer" style={style}
+        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
+        onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>{inner}</a>
+    : <div style={style}>{inner}</div>
+}
+
+// ── Centered wrapping stat grid ───────────────────────────────────────────────
+
+function StatGrid({ data, uiUrl }: { data: PhotoPrismData; uiUrl: string }) {
+  const stats = [
+    { key: 'albums',   label: 'albums',   value: data.albums,   icon: '🗂️' },
+    { key: 'people',   label: 'people',   value: data.people,   icon: '👤' },
+    { key: 'places',   label: 'places',   value: data.places,   icon: '📍' },
+    { key: 'labels',   label: 'labels',   value: data.labels,   icon: '🏷️' },
+    { key: 'moments',  label: 'moments',  value: data.moments,  icon: '⏰' },
+    { key: 'folders',  label: 'folders',  value: data.folders,  icon: '📁' },
+    { key: 'photos',   label: 'photos',   value: data.photos,   icon: '📷', href: uiUrl || undefined },
+    { key: 'videos',   label: 'videos',   value: data.videos,   icon: '🎬' },
+  ].filter(s => s.value > 0)
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center', alignContent: 'center' }}>
+      {stats.map(s => (
+        <Stat key={s.key} label={s.label} value={s.value} icon={s.icon} href={(s as any).href} />
+      ))}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<PhotoPrismData | null>(null)
@@ -33,10 +206,7 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
   }, [panel.id])
 
   const sseData = useSSE<PhotoPrismData>(integrationId)
-  useEffect(() => {
-    if (sseData !== null) setData(sseData)
-  }, [sseData])
-
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
@@ -44,62 +214,35 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
   if (!data)   return null
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
+  const preview = data.preview ?? []
+  const hasCarousel = preview.length > 0 && !!data.integrationId
 
-  const Stat = ({ label, value, icon, href }: { label: string; value: number | string; icon: string; href?: string }) => {
-    const inner = (
-      <>
-        <span style={{ fontSize: 14 }}>{icon}</span>
-        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 13,
-            color: 'var(--text)', lineHeight: 1.2 }}>
-            {typeof value === 'number' ? fmt(value) : value}
-          </span>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.2 }}>{label}</span>
-        </div>
-      </>
-    )
-    const style: React.CSSProperties = {
-      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
-      borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)',
-      flex: 1, minWidth: 0, textDecoration: 'none', color: 'inherit',
-    }
-    return href
-      ? <a href={href} target="_blank" rel="noopener noreferrer" style={style}
-          onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border2)'}
-          onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}>{inner}</a>
-      : <div style={style}>{inner}</div>
-  }
-
-  const sectionTitle = (text: string) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
-      letterSpacing: '0.07em', marginBottom: 6, marginTop: 8 }}>{text}</div>
-  )
-
-  // ── 1x — photos, videos, size ─────────────────────────────────────────────
+  // ── 1x — photos + videos side by side ────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
-      <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
-      <Stat label="videos" value={data.videos} icon="🎬" />
+      <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} grow />
+      <Stat label="videos" value={data.videos} icon="🎬" grow />
     </div>
   )
 
-  // ── 2x and larger — same layout ─────────────────────────────────────────
+  // ── 2x–3x — extended stats, centered and wrapping ────────────────────────
+  if (heightUnits < 4) return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <StatGrid data={data} uiUrl={uiUrl} />
+    </div>
+  )
+
+  // ── 4x+ — carousel + stats below ─────────────────────────────────────────
   return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <div style={{ display: 'flex', gap: 6 }}>
-        <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} />
-        <Stat label="videos" value={data.videos} icon="🎬" />
-      </div>
-      {sectionTitle('Library')}
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap', marginBottom: 5 }}>
-        {data.albums > 0 && <Stat label="albums" value={data.albums} icon="🗂️" />}
-        {data.people > 0 && <Stat label="people" value={data.people} icon="👤" />}
-        {data.places > 0 && <Stat label="places" value={data.places} icon="📍" />}
-        {data.labels > 0 && <Stat label="labels" value={data.labels} icon="🏷️" />}
-      </div>
-      <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
-        {data.moments > 0 && <Stat label="moments" value={data.moments} icon="⏰" />}
-        {data.folders > 0 && <Stat label="folders" value={data.folders} icon="📁" />}
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
+      {hasCarousel && (
+        // Cap at 260px so the carousel doesn't crowd out stats on very tall panels
+        <div style={{ flex: '0 0 55%', maxHeight: 260, minHeight: 80 }}>
+          <PhotoCarousel photos={preview} integrationId={data.integrationId} uiUrl={uiUrl} />
+        </div>
+      )}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', alignItems: 'flex-start' }}>
+        <StatGrid data={data} uiUrl={uiUrl} />
       </div>
     </div>
   )

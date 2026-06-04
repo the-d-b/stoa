@@ -28,6 +28,9 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
+| qBittorrent | Yes |
+| Deluge | Yes |
+| ruTorrent | Yes |
 | PhotoPrism | Yes |
 | Authentik | Yes |
 | Jellyfin | Yes |
@@ -112,8 +115,25 @@ VPN status, current IP address and location, WireGuard/OpenVPN mode. See [integr
 ### Transmission
 Active downloads with progress and speed, seeding count, total upload/download stats. See [integrations.md](integrations.md#transmission).
 
+**Height behavior:** 1 unit = speed + status counts; 2 units = + active torrent list with progress bars; 4 units = + tracker breakdown.
+
+### qBittorrent
+Active downloads with progress and speed, seeding count, free disk space, tracker breakdown. See [integrations.md](integrations.md#qbittorrent).
+
+**Height behavior:** 1 unit = speed + status counts; 2 units = + active torrent list with progress bars; 4 units = + tracker breakdown.
+
+### Deluge
+Active downloads with progress and speed, seeding count, free disk space, tracker breakdown. See [integrations.md](integrations.md#deluge).
+
+**Height behavior:** 1 unit = speed + status counts; 2 units = + active torrent list with progress bars; 4 units = + tracker breakdown.
+
+### ruTorrent
+Active downloads with progress and speed, seeding count, free disk space. Tracker breakdown shown when the httprpc plugin's `mode=trkl` is available. See [integrations.md](integrations.md#rutorrent).
+
+**Height behavior:** 1 unit = speed + status counts; 2 units = + active torrent list with progress bars; 4 units = + tracker breakdown.
+
 ### PhotoPrism
-Photo and video counts, library size, recent imports, indexing status. See [integrations.md](integrations.md#photoprism).
+Photo and video counts, library size, recent imports, indexing status. Photo preview carousel (random thumbnails, refreshed daily). See [integrations.md](integrations.md#photoprism).
 
 ### Authentik
 Login counts, failed login attempts, recent failure details, active sessions. See [integrations.md](integrations.md#authentik).

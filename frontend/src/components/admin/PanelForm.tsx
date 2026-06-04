@@ -395,6 +395,21 @@ export default function PanelForm({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
+      {/* Type picker — create mode only, shown first so type drives the rest of the form */}
+      {!isEdit && (
+        <div>
+          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Panel type</label>
+          <TypeCardPicker
+            types={PANEL_TYPES.map(t => ({
+              ...t,
+              warn: t.needsIntegration && !integrations.some(i => i.type === t.id),
+            }))}
+            value={type}
+            onChange={handleTypeChange}
+          />
+        </div>
+      )}
+
       {/* Row 1: Title, Height, (edit: locked type) */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
         <div style={{ flex: 2, minWidth: 160 }}>
@@ -420,21 +435,6 @@ export default function PanelForm({
           </select>
         </div>
       </div>
-
-      {/* Type picker — create mode only */}
-      {!isEdit && (
-        <div>
-          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Panel type</label>
-          <TypeCardPicker
-            types={PANEL_TYPES.map(t => ({
-              ...t,
-              warn: t.needsIntegration && !integrations.some(i => i.type === t.id),
-            }))}
-            value={type}
-            onChange={handleTypeChange}
-          />
-        </div>
-      )}
 
       {/* Integration selector + inline creator */}
       {needsIntegration && (

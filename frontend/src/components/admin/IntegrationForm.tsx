@@ -217,6 +217,18 @@ export default function IntegrationForm({
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
+      {/* Type picker — create mode only, shown first so type drives the rest of the form */}
+      {!isEdit && (
+        <div>
+          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Type</label>
+          <TypeCardPicker
+            types={INTEGRATION_TYPES}
+            value={type}
+            onChange={handleTypeChange}
+          />
+        </div>
+      )}
+
       {/* Row 1: Name, (edit: locked type), Secret */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div style={{ flex: 2, minWidth: 160 }}>
@@ -250,18 +262,6 @@ export default function IntegrationForm({
           </div>
         </div>
       </div>
-
-      {/* Type picker — create mode only */}
-      {!isEdit && (
-        <div>
-          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Type</label>
-          <TypeCardPicker
-            types={INTEGRATION_TYPES}
-            value={type}
-            onChange={handleTypeChange}
-          />
-        </div>
-      )}
 
       {/* Inline secret creation */}
       {showNewSecret && (

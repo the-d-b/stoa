@@ -13,7 +13,8 @@ Different services use different authentication schemes. Stoa normalises these b
 | Format | Used by | Why |
 |---|---|---|
 | Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma | These services issue a single opaque token |
-| `username:password` | OMV, Synology, QNAP, Transmission, PhotoPrism, Gluetun | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
 | Token (query param) | Plex | Plex appends `X-Plex-Token` to every request URL |
@@ -229,9 +230,39 @@ Example secret value: `w86XNZob/8Oq8aC5r0kbNarNtd...:XeD26XVrJ5ilAc/EmglCRC+0j2.
 
 ---
 
+## qBittorrent
+
+**What it shows:** Active downloads with progress and speed, seeding count, free disk space, tracker breakdown.
+
+**Auth:** qBittorrent Web UI username and password in `username:password` format. Configured in qBittorrent → Options → Web UI.
+
+**URL:** Your qBittorrent Web UI base URL, e.g. `http://192.168.1.10:8080`
+
+---
+
+## Deluge
+
+**What it shows:** Active downloads with progress and speed, seeding count, free disk space, tracker breakdown.
+
+**Auth:** Deluge Web UI password **only** (no username) — just the password string in the secret field. Set in Deluge Web UI → Preferences → Interface.
+
+**URL:** Your Deluge Web UI base URL, e.g. `http://192.168.1.10:8112`
+
+---
+
+## ruTorrent
+
+**What it shows:** Active downloads with progress and speed, seeding count, free disk space, tracker breakdown (if the httprpc plugin is installed).
+
+**Auth:** ruTorrent username and password in `username:password` format. These are the HTTP Basic Auth credentials configured in your web server (nginx/Apache) in front of ruTorrent.
+
+**URL:** Your ruTorrent base URL, e.g. `http://192.168.1.10/rutorrent`. Stoa appends `/plugins/httprpc/action.php` — the httprpc plugin must be installed in ruTorrent.
+
+---
+
 ## PhotoPrism
 
-**What it shows:** Photo and video counts, library size, recent imports, indexing status.
+**What it shows:** Photo and video counts, library size, recent imports, indexing status. Photo preview carousel with random thumbnails (refreshed daily; use "Refresh now" in the panel context menu to pick a new set).
 
 **Auth:** PhotoPrism username and password in `username:password` format. Stoa logs in via the PhotoPrism API and uses the session token for subsequent requests.
 
