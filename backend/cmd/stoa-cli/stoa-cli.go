@@ -480,6 +480,7 @@ func chatPrune(dbPath string, args []string) {
 	defer db.Close()
 
 	var beforeStr string
+	attachDir := "/data/attachments"
 	dryRun := false
 	for i, a := range args {
 		if a == "--dry-run" {
@@ -488,6 +489,10 @@ func chatPrune(dbPath string, args []string) {
 			beforeStr = args[i+1]
 		} else if strings.HasPrefix(a, "--before=") {
 			beforeStr = strings.TrimPrefix(a, "--before=")
+		} else if a == "--attachments-dir" && i+1 < len(args) {
+			attachDir = args[i+1]
+		} else if strings.HasPrefix(a, "--attachments-dir=") {
+			attachDir = strings.TrimPrefix(a, "--attachments-dir=")
 		}
 	}
 
@@ -512,21 +517,61 @@ func chatPrune(dbPath string, args []string) {
 	var count int
 	db.QueryRow(`SELECT COUNT(*) FROM chat_messages WHERE created_at < ?`, beforeISO).Scan(&count)
 
+	// Count associated attachment files
+	var attachCount int
+	db.QueryRow(`SELECT COUNT(*) FROM chat_attachments ca
+		JOIN chat_messages m ON m.id = ca.message_id
+		WHERE m.created_at < ?`, beforeISO).Scan(&attachCount)
+
 	if count == 0 {
 		fmt.Printf("No messages found before %s\n", beforeStr)
-		return
+	} else {
+		fmt.Printf("Found %d message(s) before %s (%d with attachments)\n", count, beforeStr, attachCount)
 	}
 
-	fmt.Printf("Found %d message(s) before %s\n", count, beforeStr)
+	// Count orphaned attachment files (no linked message)
+	var orphanedFiles []string
+	entries, _ := os.ReadDir(attachDir)
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		var n int
+		db.QueryRow(`SELECT COUNT(*) FROM chat_attachments WHERE filename = ?`, e.Name()).Scan(&n)
+		if n == 0 {
+			orphanedFiles = append(orphanedFiles, e.Name())
+		}
+	}
+	if len(orphanedFiles) > 0 {
+		fmt.Printf("Found %d orphaned attachment file(s)\n", len(orphanedFiles))
+	}
+
+	if count == 0 && len(orphanedFiles) == 0 {
+		return
+	}
 
 	if dryRun {
-		fmt.Println("(dry run — no messages deleted)")
+		fmt.Println("(dry run — nothing deleted)")
 		return
 	}
 
-	if !confirm(fmt.Sprintf("Delete %d message(s)?", count)) {
+	if !confirm(fmt.Sprintf("Delete %d message(s) and %d attachment file(s)?", count, attachCount+len(orphanedFiles))) {
 		fmt.Println("Aborted.")
 		return
+	}
+
+	// Collect attachment filenames before CASCADE deletes them
+	var attachFiles []string
+	rows, _ := db.Query(`SELECT ca.filename FROM chat_attachments ca
+		JOIN chat_messages m ON m.id = ca.message_id
+		WHERE m.created_at < ?`, beforeISO)
+	if rows != nil {
+		for rows.Next() {
+			var f string
+			rows.Scan(&f)
+			attachFiles = append(attachFiles, f)
+		}
+		rows.Close()
 	}
 
 	res, err := db.Exec(`DELETE FROM chat_messages WHERE created_at < ?`, beforeISO)
@@ -535,6 +580,17 @@ func chatPrune(dbPath string, args []string) {
 	}
 	deleted, _ := res.RowsAffected()
 	fmt.Printf("✓ Deleted %d message(s)\n", deleted)
+
+	// Delete attachment files
+	for _, f := range attachFiles {
+		os.Remove(filepath.Join(attachDir, f))
+	}
+	for _, f := range orphanedFiles {
+		os.Remove(filepath.Join(attachDir, f))
+	}
+	if len(attachFiles)+len(orphanedFiles) > 0 {
+		fmt.Printf("✓ Deleted %d attachment file(s)\n", len(attachFiles)+len(orphanedFiles))
+	}
 }
 
 // ── storage ───────────────────────────────────────────────────────────────────

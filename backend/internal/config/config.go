@@ -6,13 +6,14 @@ import (
 )
 
 type Config struct {
-	DBPath         string
-	Port           string
-	FrontendPath   string
-	IconsDir       string
-	CSSDir         string
-	SessionSecret  string
-	AllowedOrigins []string
+	DBPath          string
+	Port            string
+	FrontendPath    string
+	IconsDir        string
+	CSSDir          string
+	AttachmentsDir  string
+	SessionSecret   string
+	AllowedOrigins  []string
 
 	OAuthClientID     string
 	OAuthClientSecret string
@@ -25,8 +26,9 @@ func Load() *Config {
 		DBPath:       getEnv("STOA_DB_PATH", "/data/db/stoa.db"),
 		Port:         getEnv("STOA_PORT", "8080"),
 		FrontendPath: getEnv("STOA_FRONTEND_PATH", "/app/frontend/dist"),
-		IconsDir:     getEnv("STOA_ICONS_DIR", "/data/icons"),
-		CSSDir:       getEnv("STOA_CSS_DIR", "/data/css"),
+		IconsDir:       getEnv("STOA_ICONS_DIR", "/data/icons"),
+		CSSDir:         getEnv("STOA_CSS_DIR", "/data/css"),
+		AttachmentsDir: getEnv("STOA_ATTACHMENTS_DIR", "/data/attachments"),
 		SessionSecret: getEnv("STOA_SESSION_SECRET", ""),
 		AllowedOrigins: strings.Split(
 			getEnv("STOA_ALLOWED_ORIGINS", "http://localhost:3000"),

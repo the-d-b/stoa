@@ -10,6 +10,7 @@ interface SSEManager {
   subscribe: (integrationId: string, cb: SSEListener) => () => void
   subscribeChat: (cb: (data: unknown) => void) => () => void
   subscribeTyping: (cb: (data: unknown) => void) => () => void
+  subscribeDM: (cb: (data: unknown) => void) => () => void
   subscribeStatus: (cb: (status: SSEStatus) => void) => () => void
   getStatus: () => SSEStatus
   forceReconnect: () => void
@@ -23,6 +24,7 @@ function getSSEManager(): SSEManager {
   const listeners     = new Map<string, Set<SSEListener>>()
   const chatListeners = new Set<(data: unknown) => void>()
   const typingListeners = new Set<(data: unknown) => void>()
+  const dmListeners = new Set<(data: unknown) => void>()
   const statusListeners = new Set<(s: SSEStatus) => void>()
 
   let status: SSEStatus = 'offline'
@@ -120,6 +122,13 @@ function getSSEManager(): SSEManager {
       } catch {}
     })
 
+    es.addEventListener('dm', (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data)
+        dmListeners.forEach(cb => cb(data))
+      } catch {}
+    })
+
     es.onerror = (e) => {
       console.warn('[SSE] onerror fired, readyState=', es?.readyState, e)
       es?.close()
@@ -156,6 +165,10 @@ function getSSEManager(): SSEManager {
     subscribeTyping(cb) {
       typingListeners.add(cb)
       return () => { typingListeners.delete(cb) }
+    },
+    subscribeDM(cb) {
+      dmListeners.add(cb)
+      return () => { dmListeners.delete(cb) }
     },
     subscribeStatus(cb) {
       statusListeners.add(cb)
@@ -230,5 +243,15 @@ export function useChatSSE(cb: (msg: unknown) => void) {
   useEffect(() => {
     const mgr = getSSEManager()
     return mgr.subscribeChat((data) => cbRef.current(data))
+  }, [])
+}
+
+// ── useDMSSE ──────────────────────────────────────────────────────────────────
+export function useDMSSE(cb: (ev: unknown) => void) {
+  const cbRef = useRef(cb)
+  cbRef.current = cb
+  useEffect(() => {
+    const mgr = getSSEManager()
+    return mgr.subscribeDM((data) => cbRef.current(data))
   }, [])
 }

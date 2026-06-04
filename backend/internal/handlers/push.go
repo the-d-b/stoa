@@ -94,6 +94,50 @@ func UnsubscribePush(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// SendPushToUser sends a push notification to a single specific user if they are offline.
+func SendPushToUser(db *sql.DB, userID, title, body string) {
+	if IsUserOnline(userID) {
+		return
+	}
+	privateKey, publicKey, err := getOrCreateVAPIDKeys(db)
+	if err != nil {
+		return
+	}
+	rows, err := db.Query(`SELECT endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`, userID)
+	if err != nil {
+		return
+	}
+	defer rows.Close()
+	type sub struct{ endpoint, p256dh, auth string }
+	var subs []sub
+	for rows.Next() {
+		var s sub
+		rows.Scan(&s.endpoint, &s.p256dh, &s.auth)
+		subs = append(subs, s)
+	}
+	payload, _ := json.Marshal(map[string]string{"title": title, "body": body})
+	for _, s := range subs {
+		go func(s sub) {
+			resp, err := webpush.SendNotification(payload, &webpush.Subscription{
+				Endpoint: s.endpoint,
+				Keys:     webpush.Keys{P256dh: s.p256dh, Auth: s.auth},
+			}, &webpush.Options{
+				VAPIDPublicKey:  publicKey,
+				VAPIDPrivateKey: privateKey,
+				Subscriber:      "mailto:admin@stoa.local",
+				TTL:             60,
+			})
+			if err != nil {
+				if resp != nil && (resp.StatusCode == 410 || resp.StatusCode == 404) {
+					db.Exec(`DELETE FROM push_subscriptions WHERE endpoint = ?`, s.endpoint)
+				}
+				return
+			}
+			resp.Body.Close()
+		}(s)
+	}
+}
+
 // SendPushToOfflineUsers sends push notifications for a chat message to all users
 // who have push subscriptions and are not currently connected via SSE.
 // Called in a goroutine from SendChatMessage.

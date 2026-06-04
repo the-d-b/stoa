@@ -121,6 +121,14 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 			}
 		})
 
+		unregisterDM := RegisterDMListener(claims.UserID, func(ev DMEvent) {
+			b, _ := json.Marshal(ev)
+			select {
+			case client.ch <- sseEvent{Event: "dm", RawData: string(b)}:
+			default:
+			}
+		})
+
 		// Notify worker manager — spins up workers if this is the first client
 		if GlobalWorkerManager != nil {
 			GlobalWorkerManager.ClientConnected()
@@ -129,6 +137,7 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		defer func() {
 			unregisterChat()
 			unregisterTyping()
+			unregisterDM()
 			sseMu.Lock()
 			delete(sseClients, clientID)
 			remainingClients := len(sseClients)

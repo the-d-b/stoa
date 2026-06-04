@@ -13,6 +13,7 @@ import MailConfigPanel from '../components/admin/MailConfigPanel'
 import SessionsPanel from '../components/admin/SessionsPanel'
 import BackupPanel from '../components/admin/BackupPanel'
 import DockerAdminPanel from '../components/admin/DockerAdminPanel'
+import SettingsPanel from '../components/admin/SettingsPanel'
 
 const tabs = [
   { path: '/admin/bookmarks', label: 'Bookmarks',        icon: '↗' },
@@ -20,9 +21,10 @@ const tabs = [
   { path: '/admin/secrets',   label: 'System Secrets',   icon: '🔑' },
   { path: '/admin/integrations', label: 'System Integrations', icon: '⇄' },
   { path: '/admin/docker',    label: 'Docker',           icon: '▣' },
-  { path: '/admin/oauth',     label: 'OAuth',     icon: '⬡' },
+  { path: '/admin/settings',  label: 'Settings',        icon: '⚙' },
+  { path: '/admin/oauth',     label: 'OAuth',           icon: '⬡' },
   { path: '/admin/mail',      label: 'Mail',            icon: '✉' },
-  { path: '/admin/google',    label: 'Google Cal', icon: '📅' },
+  { path: '/admin/google',    label: 'Google Cal',      icon: '📅' },
   { path: '/admin/backup',    label: 'Backup',          icon: '⊞' },
   { path: '/admin/sessions',  label: 'Sessions',  icon: '◎' },
   { path: '/admin/users',     label: 'Users',     icon: '○' },
@@ -49,7 +51,7 @@ export default function AdminPage() {
     },
     {
       label: 'Config',
-      items: tabs.filter(t => ['/admin/oauth', '/admin/google', '/admin/mail', '/admin/backup'].includes(t.path)),
+      items: tabs.filter(t => ['/admin/settings', '/admin/oauth', '/admin/google', '/admin/mail', '/admin/backup'].includes(t.path)),
     },
   ]
 
@@ -136,6 +138,7 @@ export default function AdminPage() {
           <Route path="sessions"  element={<SessionsPanel />} />
           <Route path="users"     element={<UsersPanel />} />
           <Route path="docker"    element={<DockerAdminPanel />} />
+          <Route path="settings"  element={<SettingsPanel />} />
           <Route path="groups"    element={<GroupsPanel />} />
           <Route path="tags"      element={<TagsPanel />} />
         </Routes>

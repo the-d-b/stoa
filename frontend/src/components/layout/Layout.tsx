@@ -7,9 +7,10 @@ import { useAuth } from '../../context/AuthContext'
 
 import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
-import { useSSEStatus, useChatSSE } from '../../hooks/useSSE'
-import { chatApi, pushApi } from '../../api'
+import { useSSEStatus, useChatSSE, useDMSSE } from '../../hooks/useSSE'
+import { chatApi, dmApi, pushApi } from '../../api'
 import ChatPanel from './ChatPanel'
+import PresenceWidget from './PresenceWidget'
 import DockerOverlay from '../DockerOverlay'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
 
@@ -51,6 +52,10 @@ export default function Layout() {
   const [activePorticoId, setActivePorticoId] = useState(() => sessionStorage.getItem('active_portico') || 'home')
   const [chatOpen, setChatOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [dmUnreadCount, setDmUnreadCount] = useState(0)
+  const [pendingDM, setPendingDM] = useState<{
+    conversationId: string; otherUserId: string; otherUsername: string; otherAvatarUrl: string
+  } | null>(null)
   const [dockerOpen, setDockerOpen] = useState(false)
   const [dockerAccess, setDockerAccess] = useState(false)
   const sseStatus = useSSEStatus()
@@ -71,38 +76,31 @@ export default function Layout() {
     dockerApi.getAccess().then(r => setDockerAccess(r.data.hasAccess)).catch(() => {})
   }, [user?.id])
 
-  // Load unread count from DB on mount
+  // Load unread counts on mount
   useEffect(() => {
-    chatApi.unreadCount().then(r => {
-      const c = r.data.count || 0
-      setUnreadCount(c)
-      if (c > 0) document.title = `(${c}) Stoa`
-    }).catch(() => {})
+    chatApi.unreadCount().then(r => setUnreadCount(r.data.count || 0)).catch(() => {})
+    dmApi.unreadTotal().then(r => setDmUnreadCount(r.data.count || 0)).catch(() => {})
   }, [])
 
   // Update title when unread count changes
+  const totalUnread = unreadCount + dmUnreadCount
   useEffect(() => {
-    if (unreadCount > 0) document.title = `(${unreadCount}) Stoa`
-  }, [unreadCount])
+    if (totalUnread > 0) document.title = `(${totalUnread}) Stoa`
+    else document.title = 'Stoa'
+  }, [totalUnread])
 
-  // Mark messages as read and reset badge when chat opens
+  // Mark group chat as read when panel opens; refresh DM total
   useEffect(() => {
     if (!chatOpen) return
     setUnreadCount(0)
-    document.title = 'Stoa'
-    // Mark current timestamp as last-read — backend stores it, no message ID needed
     chatApi.markRead('now').catch(() => {})
+    dmApi.unreadTotal().then(r => setDmUnreadCount(r.data.count || 0)).catch(() => {})
   }, [chatOpen])
 
   // Increment unread, update title, fire notification when message arrives and panel is closed
   useChatSSE((msg: any) => {
     if (chatOpenRef.current) return // panel is open — user already sees it
-    setUnreadCount(c => {
-      const next = c + 1
-      document.title = `(${next}) Stoa`
-      // Also mark the message ID so DB stays in sync
-      return next
-    })
+    setUnreadCount(c => c + 1)
     // Web Notification — only if tab is not focused
     if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
       const sender = msg?.username || msg?.user || 'Someone'
@@ -110,11 +108,38 @@ export default function Layout() {
       const n = new Notification(`Stoa — ${sender}`, {
         body: text.length > 80 ? text.slice(0, 80) + '…' : text,
         icon: '/favicon.ico',
-        tag: 'stoa-chat', // replaces previous notification instead of stacking
+        tag: 'stoa-chat',
       })
       n.onclick = () => { window.focus(); n.close() }
     }
   })
+
+  // Track DM unread when panel is closed
+  useDMSSE((ev: any) => {
+    if (chatOpenRef.current) return // ChatPanel manages its own unread when open
+    const msg = ev?.message
+    if (!msg || msg.senderId === user?.id) return // own messages don't count
+    setDmUnreadCount(c => c + 1)
+    if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+      const sender = msg.senderUsername || 'Someone'
+      const text = msg.text || '📎 Attachment'
+      const n = new Notification(`Stoa — ${sender}`, {
+        body: text.length > 80 ? text.slice(0, 80) + '…' : text,
+        icon: '/favicon.ico',
+        tag: 'stoa-dm-' + ev.conversationId,
+      })
+      n.onclick = () => { window.focus(); n.close() }
+    }
+  })
+
+  const handleStartDM = async (userId: string, username: string, avatarUrl: string) => {
+    try {
+      const r = await dmApi.getOrCreate(userId)
+      const conversationId = r.data.conversationId
+      setPendingDM({ conversationId, otherUserId: userId, otherUsername: username, otherAvatarUrl: avatarUrl })
+      setChatOpen(true)
+    } catch {}
+  }
 
   const location = useLocation()
 
@@ -328,6 +353,9 @@ export default function Layout() {
           {/* Right: footer-right glyphs then chat icon at far right */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <GlyphZone glyphs={glyphs} zone="footer-right" activePorticoId={activePorticoId} />
+            {modeLoaded && userMode === 'multi' && (
+              <PresenceWidget currentUserId={user?.id || ''} onStartDM={handleStartDM} />
+            )}
             <button onClick={() => {
               setChatOpen(v => !v)
               // Request notification permission on first chat open (requires user gesture)
@@ -339,7 +367,7 @@ export default function Layout() {
                 })
               }
             }}
-              title={unreadCount > 0 ? `Chat (${unreadCount} unread)` : 'Chat'}
+              title={totalUnread > 0 ? `Chat (${totalUnread} unread)` : 'Chat'}
               style={{
                 width: 30, height: 30, borderRadius: 8, border: '1px solid var(--border)',
                 background: chatOpen ? 'var(--accent-bg)' : 'var(--surface)',
@@ -349,7 +377,7 @@ export default function Layout() {
                 position: 'relative',
               }}>
               💬
-              {unreadCount > 0 && (
+              {totalUnread > 0 && (
                 <span style={{
                   position: 'absolute', top: -4, right: -4,
                   minWidth: 16, height: 16, borderRadius: 8,
@@ -358,7 +386,7 @@ export default function Layout() {
                   textAlign: 'center', padding: '0 3px',
                   boxSizing: 'border-box', pointerEvents: 'none',
                 }}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
+                  {totalUnread > 99 ? '99+' : totalUnread}
                 </span>
               )}
             </button>
@@ -368,7 +396,14 @@ export default function Layout() {
       </div>
     </div>
     <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)}
-      currentUserId={user?.id || ''} singleUser={userMode === 'single'} />
+      currentUserId={user?.id || ''} singleUser={userMode === 'single'}
+      pendingDM={pendingDM}
+      onDMOpened={() => setPendingDM(null)}
+      onDMRead={() => {
+        if (userMode === 'multi') {
+          dmApi.unreadTotal().then(r => setDmUnreadCount(r.data.count || 0)).catch(() => {})
+        }
+      }} />
     <DockerOverlay open={dockerOpen} onClose={() => setDockerOpen(false)} />
     </>
   )

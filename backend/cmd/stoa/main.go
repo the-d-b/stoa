@@ -42,6 +42,10 @@ func main() {
 
 	iconsDir := cfg.IconsDir
 
+	if err := os.MkdirAll(cfg.AttachmentsDir, 0755); err != nil {
+		log.Printf("[WARN] could not create attachments dir %s: %v", cfg.AttachmentsDir, err)
+	}
+
 	// Clear stale note locks from previous server session.
 	// Locks persist in DB across restarts — clear on startup so crashed
 	// clients don't leave notes permanently locked.
@@ -152,6 +156,19 @@ func main() {
 	protected.HandleFunc("/chat/messages", handlers.GetChatMessages(database)).Methods("GET")
 	protected.HandleFunc("/chat/messages", handlers.SendChatMessage(database)).Methods("POST")
 	protected.HandleFunc("/chat/presence", handlers.GetChatPresence(database)).Methods("GET")
+	protected.HandleFunc("/presence/status", handlers.SetPresenceStatus(database)).Methods("PUT")
+	protected.HandleFunc("/chat/attachments", handlers.UploadChatAttachment(database, cfg.AttachmentsDir)).Methods("POST")
+	protected.HandleFunc("/chat/attachments/fetch", handlers.FetchURLAttachment(database, cfg.AttachmentsDir)).Methods("POST")
+	protected.HandleFunc("/chat/attachments/{id}", handlers.ServeChatAttachment(database, cfg.AttachmentsDir)).Methods("GET")
+	protected.HandleFunc("/chat/attachments/{id}", handlers.DeleteChatAttachment(database, cfg.AttachmentsDir)).Methods("DELETE")
+
+	// Direct messages
+	protected.HandleFunc("/dm/conversations", handlers.GetOrCreateDMConversation(database)).Methods("POST")
+	protected.HandleFunc("/dm/conversations", handlers.ListDMConversations(database)).Methods("GET")
+	protected.HandleFunc("/dm/conversations/{id}/messages", handlers.GetDMMessages(database)).Methods("GET")
+	protected.HandleFunc("/dm/conversations/{id}/messages", handlers.SendDMMessage(database)).Methods("POST")
+	protected.HandleFunc("/dm/conversations/{id}/read", handlers.MarkDMConversationRead(database)).Methods("PUT")
+	protected.HandleFunc("/dm/unread", handlers.GetDMUnreadTotal(database)).Methods("GET")
 
 	// Push notifications
 	protected.HandleFunc("/push/vapid-public-key", handlers.GetVapidPublicKey(database)).Methods("GET")
@@ -245,6 +262,8 @@ func main() {
 	admin.HandleFunc("/mail-config/test", handlers.TestMailConfig(database)).Methods("POST")
 	admin.HandleFunc("/session-config", handlers.GetSessionConfig(database)).Methods("GET")
 	admin.HandleFunc("/session-config", handlers.SaveSessionConfig(database)).Methods("PUT")
+	admin.HandleFunc("/attachment-config", handlers.GetAttachmentConfig(database)).Methods("GET")
+	admin.HandleFunc("/attachment-config", handlers.SaveAttachmentConfig(database)).Methods("PUT")
 
 	// Google OAuth admin config
 	admin.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")

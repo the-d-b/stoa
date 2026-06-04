@@ -630,6 +630,57 @@ var migrations = []migration{
 			UNIQUE(user_id, portico_id, panel_id)
 		);`,
 	},
+	{
+		version: 45,
+		name:    "chat_presence_status",
+		stmts: []string{
+			`ALTER TABLE user_preferences ADD COLUMN chat_status TEXT NOT NULL DEFAULT 'available'`,
+			`ALTER TABLE user_preferences ADD COLUMN chat_status_expires_at DATETIME DEFAULT NULL`,
+		},
+	},
+	{
+		version: 44,
+		name:    "chat_attachments",
+		up: `CREATE TABLE IF NOT EXISTS chat_attachments (
+			id            TEXT PRIMARY KEY,
+			message_id    TEXT REFERENCES chat_messages(id) ON DELETE CASCADE,
+			uploader_id   TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+			filename      TEXT NOT NULL,
+			original_name TEXT NOT NULL,
+			mime_type     TEXT NOT NULL,
+			size          INTEGER NOT NULL DEFAULT 0,
+			source        TEXT NOT NULL DEFAULT 'upload',
+			source_url    TEXT,
+			created_at    DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
+	{
+		version: 46,
+		name:    "dm_conversations",
+		stmts: []string{
+			`CREATE TABLE IF NOT EXISTS dm_conversations (
+				id         TEXT PRIMARY KEY,
+				user_a     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				user_b     TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				UNIQUE(user_a, user_b)
+			)`,
+			`CREATE TABLE IF NOT EXISTS dm_messages (
+				id              TEXT PRIMARY KEY,
+				conversation_id TEXT NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+				sender_id       TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				text            TEXT NOT NULL DEFAULT '',
+				attachment_id   TEXT,
+				created_at      DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE TABLE IF NOT EXISTS dm_read_receipts (
+				user_id         TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+				conversation_id TEXT NOT NULL REFERENCES dm_conversations(id) ON DELETE CASCADE,
+				last_read_at    DATETIME NOT NULL,
+				PRIMARY KEY (user_id, conversation_id)
+			)`,
+		},
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

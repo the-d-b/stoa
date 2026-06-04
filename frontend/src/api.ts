@@ -506,21 +506,85 @@ export interface SessionRow {
   issuedAt: string; expiresAt?: string; lastSeenAt: string; online: boolean
 }
 
+export interface ChatAttachment {
+  id: string; originalName: string; mimeType: string
+  size: number; source: string; sourceUrl?: string; url: string
+}
 export interface ChatMessage {
   id: string; userId: string; username: string; avatarUrl?: string
   text: string; createdAt: string; own?: boolean
+  attachment?: ChatAttachment
 }
+export type PresenceStatus = 'available' | 'away' | 'busy' | 'dnd'
 export interface PresenceUser {
   userId: string; username: string; avatarUrl?: string; online: boolean
+  status: PresenceStatus
+}
+export const presenceApi = {
+  setStatus: (status: PresenceStatus, expiresAt?: string) =>
+    api.put('/presence/status', { status, expiresAt }),
 }
 
 export const chatApi = {
   messages: (beforeId?: string) => api.get<ChatMessage[]>(`/chat/messages${beforeId ? '?before='+beforeId : ''}`),
-  send: (text: string) => api.post<ChatMessage>('/chat/messages', { text }),
+  send: (text: string, attachmentId?: string) =>
+    api.post<ChatMessage>('/chat/messages', { text, attachmentId }),
   unreadCount: () => api.get<{ count: number }>('/chat/unread'),
   typing: (typing: boolean) => api.post('/chat/typing', { typing }),
   markRead: (lastMessageId: string) => api.put('/chat/read', { lastMessageId }),
   presence: () => api.get<PresenceUser[]>('/chat/presence'),
+  uploadAttachment: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post<ChatAttachment>('/chat/attachments', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+  fetchAttachment: (url: string) =>
+    api.post<ChatAttachment>('/chat/attachments/fetch', { url }),
+  deleteAttachment: (id: string) => api.delete(`/chat/attachments/${id}`),
+}
+
+export interface DMMessage {
+  id: string
+  conversationId: string
+  senderId: string
+  senderUsername: string
+  senderAvatarUrl?: string
+  text: string
+  attachment?: ChatAttachment
+  createdAt: string
+  own?: boolean
+}
+
+export interface DMConversation {
+  id: string
+  otherUserId: string
+  otherUsername: string
+  otherAvatarUrl?: string
+  otherOnline: boolean
+  otherStatus: PresenceStatus
+  lastMessage?: DMMessage
+  unreadCount: number
+  createdAt: string
+}
+
+export const dmApi = {
+  getOrCreate: (userId: string) =>
+    api.post<{ conversationId: string }>('/dm/conversations', { userId }),
+  list: () => api.get<DMConversation[]>('/dm/conversations'),
+  messages: (conversationId: string, beforeId?: string) =>
+    api.get<DMMessage[]>(`/dm/conversations/${conversationId}/messages${beforeId ? '?before=' + beforeId : ''}`),
+  send: (conversationId: string, text: string, attachmentId?: string) =>
+    api.post<DMMessage>(`/dm/conversations/${conversationId}/messages`, { text, attachmentId }),
+  markRead: (conversationId: string) =>
+    api.put(`/dm/conversations/${conversationId}/read`, {}),
+  unreadTotal: () => api.get<{ count: number }>('/dm/unread'),
+}
+
+export const attachmentConfigApi = {
+  get: () => api.get<{ maxMB: number }>('/attachment-config'),
+  save: (maxMB: number) => api.put<{ maxMB: number }>('/attachment-config', { maxMB }),
 }
 
 export const sessionsApi = {
