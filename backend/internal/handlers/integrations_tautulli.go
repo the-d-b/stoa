@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"io"
 	"strings"
 )
@@ -74,7 +73,6 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		"&time_range=%d&stats_count=10&stats_type=plays", timeRange,
 	), skipTLS)
 	if err == nil {
-		log.Printf("[TAUTULLI] most-played raw: %.500s", string(mostPlayedBody))
 		var resp struct {
 			Response struct {
 				Data []struct {
@@ -92,12 +90,8 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 				} `json:"data"`
 			} `json:"response"`
 		}
-		if err2 := json.Unmarshal(mostPlayedBody, &resp); err2 != nil {
-			log.Printf("[TAUTULLI] most-played unmarshal error: %v", err2)
-		} else {
-			log.Printf("[TAUTULLI] most-played parsed: %d stat groups", len(resp.Response.Data))
+		if json.Unmarshal(mostPlayedBody, &resp) == nil {
 			for _, stat := range resp.Response.Data {
-				log.Printf("[TAUTULLI] stat_id=%q rows=%d", stat.StatID, len(stat.Rows))
 				// Accept any stat with media rows
 				for _, row := range stat.Rows {
 					rk := ""

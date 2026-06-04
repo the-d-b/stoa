@@ -90,13 +90,27 @@ function LoadingScreen() {
 
 export function StoaLogo({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="2" y="24" width="28" height="3" rx="1.5" fill="var(--accent)" />
-      <rect x="4" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.7" />
-      <rect x="10" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.85" />
-      <rect x="19" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.85" />
-      <rect x="25" y="8" width="3" height="16" rx="1.5" fill="var(--accent)" opacity="0.7" />
-      <rect x="2" y="5" width="28" height="3" rx="1.5" fill="var(--accent2)" />
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Torso */}
+      <path d="M28 74 C24 88 32 98 50 98 C68 98 76 88 72 74 Z" fill="var(--accent)"/>
+      {/* Head */}
+      <circle cx="50" cy="52" r="32" fill="var(--accent)"/>
+      {/* Left ear tuft */}
+      <polygon points="25,32 31,4 45,28" fill="var(--accent)"/>
+      {/* Right ear tuft — one notch higher for a slightly asymmetric, alert look */}
+      <polygon points="55,28 69,2 75,32" fill="var(--accent)"/>
+      {/* Facial disc */}
+      <ellipse cx="50" cy="54" rx="23" ry="21" fill="var(--accent2)"/>
+      {/* Left eye */}
+      <circle cx="36" cy="49" r="12" fill="white"/>
+      <circle cx="37.5" cy="49" r="8.5" fill="#0e0c1a"/>
+      <circle cx="41" cy="45" r="3" fill="white"/>
+      {/* Right eye — pupils angled slightly inward for focused intensity */}
+      <circle cx="64" cy="49" r="12" fill="white"/>
+      <circle cx="62.5" cy="49" r="8.5" fill="#0e0c1a"/>
+      <circle cx="67" cy="45" r="3" fill="white"/>
+      {/* Beak */}
+      <polygon points="44,62 56,62 50,72" fill="#f5c518"/>
     </svg>
   )
 }

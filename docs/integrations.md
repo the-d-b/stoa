@@ -12,13 +12,14 @@ Different services use different authentication schemes. Stoa normalises these b
 
 | Format | Used by | Why |
 |---|---|---|
-| Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Authentik, Kuma, Gluetun | These services issue a single opaque token |
-| `key:secret` | OPNsense, Transmission, PhotoPrism | These services use HTTP Basic Auth with two separate values |
+| Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma | These services issue a single opaque token |
+| `username:password` | OMV, Synology, QNAP, Transmission, PhotoPrism, Gluetun | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
 | Token (query param) | Plex | Plex appends `X-Plex-Token` to every request URL |
 | API key (query param) | Tautulli | Tautulli appends `apikey` to every request URL |
 
-**Why `key:secret` as a single field?** HTTP Basic Auth requires both a username and password. Rather than two separate secret fields, Stoa uses the convention `username:password` stored as one secret. The colon is the separator — Stoa splits on the first colon when making requests. This is the same format curl uses with `-u key:secret`.
+**Why a single field for two values?** Several services require both a username and a password (or key and secret). Rather than two separate secret fields, Stoa uses the convention `username:password` stored as one value. The colon is the separator — Stoa splits on the first colon. This is the same format curl uses with `-u user:pass`.
 
 ---
 
@@ -103,6 +104,70 @@ Different services use different authentication schemes. Stoa normalises these b
 **URL:** Your TrueNAS base URL, e.g. `https://truenas.local`
 
 **TLS:** TrueNAS uses TLS renegotiation — Stoa handles this automatically. Enable "Skip TLS verify" for self-signed certificates.
+
+---
+
+## Unraid
+
+**What it shows:** CPU usage (per-core and aggregate), memory usage, network throughput, array status, disk temperatures, running VMs and containers, Docker containers.
+
+**Real-time:** Unraid uses a persistent WebSocket connection (`graphql-transport-ws` subprotocol) to `/graphql`. Live subscriptions stream CPU, memory, and network data without polling. Stoa falls back to HTTP polling if the WebSocket connection is unavailable.
+
+**Auth:** Plain API key. In Unraid: Settings → Management Access → API → Create API Key.
+
+**URL:** Your Unraid base URL, e.g. `http://tower` or `http://192.168.1.10`
+
+**Port:** Unraid's built-in web interface runs on port 80 (HTTP) by default. If you've configured a different port or HTTPS, use the full URL.
+
+---
+
+## OpenMediaVault (OMV)
+
+**What it shows:** CPU usage, memory usage, network throughput (per interface), filesystem usage, disk temperatures and SMART status, and system uptime.
+
+**Auth:** OMV username and password in `username:password` format. Stoa logs in via the OMV RPC API and holds a session token (`X-OPENMEDIAVAULT-SESSIONID` header) for subsequent requests. The session is automatically refreshed if it expires.
+
+**URL:** Your OMV base URL, e.g. `http://192.168.1.10`
+
+**Port:** OMV's web interface runs on port 80 (HTTP) by default.
+
+**TLS:** Enable "Skip TLS verify" if using a self-signed certificate.
+
+---
+
+## Synology DSM
+
+**What it shows:** CPU usage, memory usage, network throughput (per interface), volume health and capacity, disk temperatures and SMART status, shared folder list, hostname, model, DSM version, and uptime.
+
+**Auth:** Synology username and password in `username:password` format. Stoa authenticates via POST to `/webapi/auth.cgi` and receives a session ID (`_sid`), which is passed as a query parameter on all subsequent API calls. The session is automatically refreshed on expiry (DSM error code 119).
+
+**URL:** Your Synology base URL, e.g. `http://192.168.1.10:5000`
+
+**Ports:** DSM defaults to port 5000 (HTTP) and 5001 (HTTPS).
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates (common when using DSM's built-in certificate).
+
+**2FA:** Two-factor authentication is not supported — use an account without 2FA enabled, or create a dedicated Stoa account with 2FA disabled.
+
+**Network rates:** Synology's utilization API returns current transfer rates in KB/s directly (not cumulative counters), so no delta calculation is needed.
+
+---
+
+## QNAP QTS
+
+**What it shows:** CPU usage, memory usage, aggregate network throughput, volume health and capacity, disk temperatures and SMART status, shared folder list, hostname, model, firmware version, and uptime.
+
+**Auth:** QNAP username and password in `username:password` format. Stoa MD5-hashes the password (matching the QTS web UI's own login flow) and authenticates via `/cgi-bin/authLogin.cgi`, receiving a session ID (`authSid`) in an XML response. The session ID is appended to all subsequent CGI requests. Session expiry is detected either by HTTP 401 or by `authPassed=0` in the XML response body.
+
+**URL:** Your QNAP base URL, e.g. `http://192.168.1.10:8080`
+
+**Port:** QNAP QTS defaults to port 8080 (HTTP) and 443 (HTTPS). Older firmwares may use port 80.
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates.
+
+**2FA:** Two-factor authentication is not supported — use an account without 2FA, or create a dedicated Stoa user with 2FA disabled.
+
+**Firmware compatibility:** Stoa supports both QTS 4.x and QTS 5.x. The two versions use different XML schemas for system info; Stoa detects which is in use at runtime and parses accordingly.
 
 ---
 

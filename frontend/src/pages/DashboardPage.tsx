@@ -13,6 +13,10 @@ import JellyfinPanel from '../components/panels/JellyfinPanel'
 import HomeAssistantPanel from '../components/panels/HomeAssistantPanel'
 import TautulliPanel from '../components/panels/TautulliPanel'
 import TrueNASPanel from '../components/panels/TrueNASPanel'
+import UnraidPanel from '../components/panels/UnraidPanel'
+import OMVPanel from '../components/panels/OMVPanel'
+import SynologyPanel from '../components/panels/SynologyPanel'
+import QNAPPanel from '../components/panels/QNAPPanel'
 import ProxmoxPanel from '../components/panels/ProxmoxPanel'
 import KumaPanel from '../components/panels/KumaPanel'
 import GluetunPanel from '../components/panels/GluetunPanel'
@@ -1013,6 +1017,10 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'homeassistant' && <HomeAssistantPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'tautulli' && <TautulliPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'unraid' && <UnraidPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'omv' && <OMVPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'synology' && <SynologyPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'qnap' && <QNAPPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'proxmox' && <ProxmoxPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'kuma' && <KumaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'gluetun' && <GluetunPanel panel={panel} heightUnits={heightUnits} />}

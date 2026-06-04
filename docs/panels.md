@@ -19,6 +19,10 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Plex | Yes |
 | Tautulli | Yes |
 | TrueNAS | Yes |
+| Unraid | Yes |
+| OpenMediaVault | Yes |
+| Synology DSM | Yes |
+| QNAP QTS | Yes |
 | Proxmox | Yes |
 | OPNsense | Yes |
 | Uptime Kuma | Yes |
@@ -68,6 +72,30 @@ Current streams, most played content, recently played history, user statistics. 
 
 ### TrueNAS
 CPU, RAM, ARC, disk I/O, network throughput, pool health, disk temperatures, alerts, VMs, apps. Uses a persistent WebSocket connection — data updates every ~2 seconds. See [integrations.md](integrations.md#truenas).
+
+### Unraid
+CPU usage (per-core and aggregate), memory usage, network throughput, array disk temperatures, running VMs and Docker containers. Uses a persistent WebSocket connection for live data. See [integrations.md](integrations.md#unraid).
+
+**Height:** 2× shows host stats and network. 4× adds disk temperature rows and container counts. 8× adds full per-core CPU breakdown and container details.
+
+### OpenMediaVault (OMV)
+CPU usage, memory usage, per-interface network throughput, filesystem usage, disk temperatures and SMART status. See [integrations.md](integrations.md#openmedivault-omv).
+
+**Height:** 1× shows compact stats only. 2–3× adds network and filesystem rows. 4×+ adds full disk table.
+
+### Synology DSM
+CPU usage, memory usage, per-interface network throughput, volume health and capacity, disk temperatures and SMART status, shared folder list. Displays hostname, model, DSM version, and uptime. See [integrations.md](integrations.md#synology-dsm).
+
+**Height:** 1× shows compact arcs only. 2–3× adds network widget, volume rows, disk temperatures (compact), and shares. 4×+ adds full disk table and per-interface network breakdown.
+
+**Status indicators:** Degraded volumes display an amber warning badge. Failed or problem disks display a red error badge. Both appear in the panel header at any height.
+
+### QNAP QTS
+CPU usage, memory usage, aggregate network throughput, volume health and capacity, disk temperatures and SMART status, shared folder list. Displays hostname, model, firmware version (QTS x.x.x), and uptime. See [integrations.md](integrations.md#qnap-qts).
+
+**Height:** 1× shows compact arcs only. 2–3× adds disk temperature rows (with SMART status indicator) and shares pill. 4×+ adds full disk table with model, size, and SMART detail.
+
+**Status indicators:** Degraded volumes display an amber warning badge. Disks with non-passing SMART status display a warning badge. Both appear in the panel header at any height.
 
 ### Proxmox
 Node CPU and memory, storage, running VMs and containers, cluster overview. See [integrations.md](integrations.md#proxmox).

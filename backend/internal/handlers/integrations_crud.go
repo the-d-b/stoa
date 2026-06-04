@@ -232,6 +232,14 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "unraid":
+			err = testUnraidConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "omv":
+			err = testOMVConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "synology":
+			err = testSynologyConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "qnap":
+			err = testQNAPConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "authentik", "customapi":
 			err = testAuthentikConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
@@ -274,6 +282,14 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
+						case "unraid":
+							retryErr = testUnraidConnection(req.APIURL, apiKey, true)
+						case "omv":
+							retryErr = testOMVConnection(req.APIURL, apiKey, true)
+						case "synology":
+							retryErr = testSynologyConnection(req.APIURL, apiKey, true)
+						case "qnap":
+							retryErr = testQNAPConnection(req.APIURL, apiKey, true)
 						case "authentik", "customapi":
 							retryErr = testAuthentikConnection(req.APIURL, apiKey, true)
 						}
@@ -472,7 +488,7 @@ func isTLSError(err error) bool {
 
 func defaultRefreshSecs(igType string) int {
 	switch igType {
-	case "opnsense", "truenas", "proxmox", "transmission":
+	case "opnsense", "truenas", "proxmox", "transmission", "unraid", "omv", "synology", "qnap":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "kuma", "gluetun":
 		return 60

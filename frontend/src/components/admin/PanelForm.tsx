@@ -28,6 +28,10 @@ export const PANEL_TYPES: {
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Media' },
   // Infrastructure
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'unraid',       label: 'Unraid',       desc: 'NAS & storage server',                          needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'omv',          label: 'OpenMediaVault', desc: 'NAS & storage server',                        needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'synology',     label: 'Synology',     desc: 'Synology DSM NAS',                              needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                  needsIntegration: true,  category: 'Infrastructure' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                    needsIntegration: true,  category: 'Infrastructure' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                         needsIntegration: true,  category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -67,7 +71,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','jellyfin','homeassistant','tautulli','truenas','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','homeassistant','tautulli','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','transmission','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
@@ -195,6 +199,7 @@ export default function PanelForm({
   const [showInlineCreate, setShowInlineCreate] = useState(false)
   const [inlineName, setInlineName] = useState('')
   const [inlineUrl, setInlineUrl] = useState('')
+  const [inlineUiUrl, setInlineUiUrl] = useState('')
   const [inlineSecretId, setInlineSecretId] = useState('')
   const [inlineSecrets, setInlineSecrets] = useState<any[]>([])
   const [inlineShowNewSecret, setInlineShowNewSecret] = useState(false)
@@ -244,7 +249,7 @@ export default function PanelForm({
 
   const openInlineCreate = async (label: string) => {
     setInlineName(`My ${label}`)
-    setInlineUrl(''); setInlineSecretId(''); setInlineTestResult(null)
+    setInlineUrl(''); setInlineUiUrl(''); setInlineSecretId(''); setInlineTestResult(null)
     setInlineGeoQuery(''); setInlineGeoResults([])
     setInlineShowNewSecret(false)
     setShowInlineCreate(true)
@@ -287,14 +292,15 @@ export default function PanelForm({
     try {
       const res = await integrationsApi.create({
         name: inlineName.trim(), type,
-        apiUrl: inlineUrl,
+        apiUrl: inlineUrl, uiUrl: inlineUiUrl || undefined,
         secretId: inlineSecretId || undefined,
         skipTls: false, refreshSecs: 60,
         ...(scope === 'personal' ? { scope: 'personal' } : {}),
       })
       const newInteg = {
         id: res.data.id, name: inlineName.trim(), type,
-        apiUrl: inlineUrl, uiUrl: '', secretId: inlineSecretId || undefined,
+        apiUrl: inlineUrl, uiUrl: inlineUiUrl || '',
+        secretId: inlineSecretId || undefined,
         skipTls: false, refreshSecs: 60,
       } as Integration
       setLocalIntegrations(prev => [...prev, newInteg])
@@ -479,11 +485,21 @@ export default function PanelForm({
 
               {/* URL — standard types */}
               {!INLINE_NO_URL.includes(type) && (
-                <div>
-                  <label className="label">API URL</label>
-                  <input className="input" value={inlineUrl}
-                    onChange={e => { setInlineUrl(e.target.value); setInlineTestResult(null) }}
-                    placeholder="http://host:port" />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">API URL</label>
+                    <input className="input" value={inlineUrl}
+                      onChange={e => { setInlineUrl(e.target.value); setInlineTestResult(null) }}
+                      placeholder="http://host:port" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label className="label">
+                      UI URL <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span>
+                    </label>
+                    <input className="input" value={inlineUiUrl}
+                      onChange={e => setInlineUiUrl(e.target.value)}
+                      placeholder="https://host.yourdomain.com" />
+                  </div>
                 </div>
               )}
 
@@ -526,6 +542,13 @@ export default function PanelForm({
               {type === 'sports'  && <SportsConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
               {type === 'stocks'  && <StocksConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
               {type === 'crypto'  && <CryptoConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
+
+              {/* Credential hint for username:password types */}
+              {(type === 'omv' || type === 'synology' || type === 'qnap' || type === 'photoprism') && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
+                </div>
+              )}
 
               {/* Secret */}
               <div>

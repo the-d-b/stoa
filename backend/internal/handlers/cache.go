@@ -245,6 +245,11 @@ func loadAllIntegrations(db *sql.DB) ([]integrationMeta, error) {
 func startWorker(db *sql.DB, ig integrationMeta) {
 	stop := make(chan struct{})
 	workerStopMu.Lock()
+	// Close any orphaned stop channel before overwriting — prevents goroutine leaks
+	// when startAllWorkers races with a concurrent StartWorkerForIntegration call.
+	if old, exists := workerStop[ig.id]; exists {
+		close(old)
+	}
 	workerStop[ig.id] = stop
 	workerStopMu.Unlock()
 
@@ -277,6 +282,30 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	// Market data uses smart refresh based on market hours
 	if ig.igType == "stocks" || ig.igType == "crypto" {
 		StartMarketWorker(db, ig, stop)
+		return
+	}
+
+	// Unraid uses graphql-transport-ws for live CPU/memory/network + HTTP poll for slow data
+	if ig.igType == "unraid" {
+		StartUnraidWorker(db, ig, stop)
+		return
+	}
+
+	// OMV uses HTTP polling with session-based auth
+	if ig.igType == "omv" {
+		StartOMVWorker(db, ig, stop)
+		return
+	}
+
+	// Synology DSM uses HTTP polling with session-based auth
+	if ig.igType == "synology" {
+		StartSynologyWorker(db, ig, stop)
+		return
+	}
+
+	// QNAP QTS uses HTTP polling with MD5-auth session
+	if ig.igType == "qnap" {
+		StartQNAPWorker(db, ig, stop)
 		return
 	}
 

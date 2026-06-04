@@ -42,6 +42,10 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"weather":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchWeatherForIntegration(db, cfg) },
 	"steam":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return FetchSteamForIntegration(db, cfg) },
 	"overseerr":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOverseerrPanelData(db, cfg) },
+	"unraid":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchUnraidPanelData(db, cfg) },
+	"omv":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOMVPanelData(db, cfg) },
+	"synology":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSynologyPanelData(db, cfg) },
+	"qnap":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchQNAPPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
@@ -66,6 +70,7 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		hasOverride := false
 		if r.URL.Query().Get("nocache") == "1" {
 			hasOverride = true
+			config["forceRefresh"] = true
 		}
 		if d := r.URL.Query().Get("days"); d != "" {
 			var daysVal float64

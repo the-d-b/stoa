@@ -25,6 +25,10 @@ export const INTEGRATION_TYPES = [
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media' },
   // Infrastructure
   { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                              category: 'Infrastructure' },
+  { id: 'unraid',       label: 'Unraid',       desc: 'NAS & storage server',                                        category: 'Infrastructure' },
+  { id: 'omv',          label: 'OpenMediaVault', desc: 'NAS & storage server',                                      category: 'Infrastructure' },
+  { id: 'synology',     label: 'Synology',     desc: 'Synology DSM NAS',                                          category: 'Infrastructure' },
+  { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                              category: 'Infrastructure' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                                  category: 'Infrastructure' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
@@ -391,6 +395,13 @@ export default function IntegrationForm({
               onChange={e => setUiUrl(e.target.value)}
               placeholder="https://sonarr.yourdomain.com" />
           </div>
+        </div>
+      )}
+
+      {/* Credential format hint for types that use username:password in the secret field */}
+      {(activeType === 'omv' || activeType === 'synology' || activeType === 'qnap' || activeType === 'photoprism') && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
         </div>
       )}
 

@@ -162,6 +162,9 @@ func main() {
 	protected.HandleFunc("/chat/attachments/{id}", handlers.ServeChatAttachment(database, cfg.AttachmentsDir)).Methods("GET")
 	protected.HandleFunc("/chat/attachments/{id}", handlers.DeleteChatAttachment(database, cfg.AttachmentsDir)).Methods("DELETE")
 
+	// PhotoPrism thumbnail proxy (auth-gated, browser-cached 24h)
+	protected.HandleFunc("/photoprism/{integrationId}/thumb/{hash}", handlers.ProxyPhotoPrismThumbnail(database)).Methods("GET")
+
 	// Direct messages
 	protected.HandleFunc("/dm/conversations", handlers.GetOrCreateDMConversation(database)).Methods("POST")
 	protected.HandleFunc("/dm/conversations", handlers.ListDMConversations(database)).Methods("GET")
