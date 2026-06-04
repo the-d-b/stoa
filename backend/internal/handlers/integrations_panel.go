@@ -48,6 +48,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"qnap":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchQNAPPanelData(db, cfg) },
 	"qbittorrent":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchQBTPanelData(db, cfg) },
 	"deluge":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchDelugePanelData(db, cfg) },
+	"rutorrent":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRTorrentPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

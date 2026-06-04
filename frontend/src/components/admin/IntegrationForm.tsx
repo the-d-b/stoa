@@ -38,6 +38,7 @@ export const INTEGRATION_TYPES = [
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   { id: 'deluge',      label: 'Deluge',       desc: 'BitTorrent client',                                           category: 'Infrastructure' },
+  { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',                        category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   // Finance
@@ -401,7 +402,7 @@ export default function IntegrationForm({
       )}
 
       {/* Credential format hint for types that use username:password in the secret field */}
-      {(activeType === 'omv' || activeType === 'synology' || activeType === 'qnap' || activeType === 'photoprism' || activeType === 'qbittorrent') && (
+      {(activeType === 'omv' || activeType === 'synology' || activeType === 'qnap' || activeType === 'photoprism' || activeType === 'qbittorrent' || activeType === 'rutorrent') && (
         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
         </div>

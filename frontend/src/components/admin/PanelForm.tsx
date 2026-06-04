@@ -41,6 +41,7 @@ export const PANEL_TYPES: {
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'deluge',      label: 'Deluge',       desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',          needsIntegration: true,  category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   // Finance
@@ -74,7 +75,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','homeassistant','tautulli','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','transmission','qbittorrent','deluge','photoprism','authentik','overseerr',
+  'kuma','gluetun','opnsense','transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 
@@ -546,7 +547,7 @@ export default function PanelForm({
               {type === 'crypto'  && <CryptoConfigUI  apiUrl={inlineUrl} onChange={setInlineUrl} />}
 
               {/* Credential hint for username:password types */}
-              {(type === 'omv' || type === 'synology' || type === 'qnap' || type === 'photoprism' || type === 'qbittorrent') && (
+              {(type === 'omv' || type === 'synology' || type === 'qnap' || type === 'photoprism' || type === 'qbittorrent' || type === 'rutorrent') && (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                   API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
                 </div>

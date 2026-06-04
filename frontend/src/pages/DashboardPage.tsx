@@ -24,6 +24,7 @@ import OPNsensePanel from '../components/panels/OPNsensePanel'
 import TransmissionPanel from '../components/panels/TransmissionPanel'
 import QBittorrentPanel from '../components/panels/QBittorrentPanel'
 import DelugePanel from '../components/panels/DelugePanel'
+import RTorrentPanel from '../components/panels/RTorrentPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1030,6 +1031,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'rutorrent' && <RTorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'photoprism' && <PhotoPrismPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'authentik' && <AuthentikPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'checklist' && <ChecklistPanel panel={panel} />}
