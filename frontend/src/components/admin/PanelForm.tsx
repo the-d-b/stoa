@@ -40,6 +40,7 @@ export const PANEL_TYPES: {
   { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',                   needsIntegration: true,  category: 'Infrastructure' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'deluge',      label: 'Deluge',       desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   // Finance
@@ -73,7 +74,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','homeassistant','tautulli','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','transmission','qbittorrent','photoprism','authentik','overseerr',
+  'kuma','gluetun','opnsense','transmission','qbittorrent','deluge','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 
@@ -548,6 +549,12 @@ export default function PanelForm({
               {(type === 'omv' || type === 'synology' || type === 'qnap' || type === 'photoprism' || type === 'qbittorrent') && (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                   API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
+                </div>
+              )}
+              {/* Deluge uses a password only — no username */}
+              {type === 'deluge' && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  API key secret should contain just the Deluge Web UI <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>password</code> (no username).
                 </div>
               )}
 

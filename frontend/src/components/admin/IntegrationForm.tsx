@@ -37,6 +37,7 @@ export const INTEGRATION_TYPES = [
   { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform',                                      category: 'Infrastructure' },
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                                           category: 'Infrastructure' },
+  { id: 'deluge',      label: 'Deluge',       desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   // Finance
@@ -403,6 +404,12 @@ export default function IntegrationForm({
       {(activeType === 'omv' || activeType === 'synology' || activeType === 'qnap' || activeType === 'photoprism' || activeType === 'qbittorrent') && (
         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
+        </div>
+      )}
+      {/* Deluge uses a password only — no username */}
+      {activeType === 'deluge' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          API key secret should contain just the Deluge Web UI <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>password</code> (no username).
         </div>
       )}
 
