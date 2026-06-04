@@ -269,33 +269,6 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
     </div>
   )
 
-  // ── Disk temps grid ───────────────────────────────────────────────────────
-  const DiskTemps = () => {
-    const withTemp = disks.filter(d => d.tempC > 0)
-    if (withTemp.length === 0) return null
-    const rows: OMVDisk[][] = []
-    for (let i = 0; i < withTemp.length; i += 4) rows.push(withTemp.slice(i, i + 4))
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {rows.map((row, ri) => (
-          <div key={ri} style={{ display: 'flex', gap: 5 }}>
-            {row.map((d, di) => (
-              <div key={di} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-                padding: '2px 6px', borderRadius: 5, background: 'var(--surface2)',
-                border: '1px solid var(--border)', fontSize: 10, fontFamily: 'DM Mono, monospace' }}>
-                <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>{d.deviceName}</span>
-                <span style={{ fontWeight: 600, color: tempColor(d.tempC) }}>{d.tempC}°</span>
-                {d.powerMode === 'standby' && (
-                  <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>zz</span>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    )
-  }
-
   // ── Disk details table (4x+) ──────────────────────────────────────────────
   const DiskTable = () => (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>

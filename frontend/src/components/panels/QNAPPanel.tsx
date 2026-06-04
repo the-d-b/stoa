@@ -40,13 +40,6 @@ function fmtSize(gb: number) {
   return `${(gb * 1024).toFixed(0)}M`
 }
 
-function fmtMbs(mbs: number) {
-  if (mbs >= 1000) return `${(mbs / 1000).toFixed(1)}G/s`
-  if (mbs >= 1)    return `${mbs.toFixed(1)}M/s`
-  if (mbs > 0)     return `${(mbs * 1000).toFixed(0)}K/s`
-  return '—'
-}
-
 function fmtUptime(secs: number) {
   if (!secs || secs <= 0) return ''
   const d = Math.floor(secs / 86400)
