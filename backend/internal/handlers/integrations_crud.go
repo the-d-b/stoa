@@ -230,6 +230,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testOPNsenseConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "qbittorrent":
+			err = testQBTConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unraid":
@@ -280,6 +282,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testOPNsenseConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
+						case "qbittorrent":
+							retryErr = testQBTConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
 						case "unraid":
@@ -488,7 +492,7 @@ func isTLSError(err error) bool {
 
 func defaultRefreshSecs(igType string) int {
 	switch igType {
-	case "opnsense", "truenas", "proxmox", "transmission", "unraid", "omv", "synology", "qnap":
+	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "unraid", "omv", "synology", "qnap":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "kuma", "gluetun":
 		return 60

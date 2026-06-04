@@ -46,6 +46,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"omv":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOMVPanelData(db, cfg) },
 	"synology":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSynologyPanelData(db, cfg) },
 	"qnap":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchQNAPPanelData(db, cfg) },
+	"qbittorrent":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchQBTPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
