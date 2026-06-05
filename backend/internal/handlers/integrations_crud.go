@@ -236,6 +236,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testOmadaConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unifi":
 			err = testUniFiConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "traefik":
+			err = testTraefikConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -318,6 +320,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testOmadaConnection(req.APIURL, apiKey, true)
 						case "unifi":
 							retryErr = testUniFiConnection(req.APIURL, apiKey, true)
+						case "traefik":
+							retryErr = testTraefikConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -557,6 +561,8 @@ func defaultRefreshSecs(igType string) int {
 	case "omada":
 		return 30
 	case "unifi":
+		return 30
+	case "traefik":
 		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30

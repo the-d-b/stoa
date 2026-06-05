@@ -253,6 +253,27 @@ Example: `root:mypassword`
 
 ---
 
+## Traefik
+
+**What it shows:** All configured HTTP and TCP routes with their rules, entry points, TLS status, provider, and enabled/warning/disabled state. Backend service health — for any service with health checks enabled, shows each server URL as UP or DOWN. Provider summary (Docker, Kubernetes, file). Traefik version. Features active (metrics, tracing, access log).
+
+**API:** Traefik's built-in REST API (`/api`). Must be enabled explicitly — add `--api=true` (or `api: {}` in static config). The API is read-only.
+
+**Security:** The API should not be exposed publicly without authentication. Common setups use a Traefik BasicAuth middleware on the dashboard router. Stoa supports:
+- No secret: open API (insecure mode or no auth required)
+- `username:password` in the API key field → HTTP Basic Auth
+- Bare token → `Authorization: Bearer` header
+
+**URL:** Your Traefik API base URL, e.g. `http://192.168.1.10:8080` (the API port, not a proxied route).
+
+**Internal routes:** Routes created by Traefik itself (`api@internal`, `dashboard@internal`, `ping@internal`) are excluded from the route list but counted in the totals.
+
+**Backend health:** Service server status (UP/DOWN) only appears when health checks are configured for that service. Services without health checks are listed with no health indicator.
+
+**TLS:** Enable "Skip TLS verify" if your Traefik API is behind HTTPS with a self-signed certificate.
+
+---
+
 ## UniFi
 
 **What it shows:** Device inventory (APs, switches, gateways) with online/offline status and per-device detail — AP radio stats (band, channel, channel utilization %, client count), switch port summary (ports up, PoE power delivered), gateway WAN status (IP, latency, speedtest results). Connected client list with IP, band (2.4G/5G/6G), RSSI, and satisfaction score (0–100). Real-time event log (client connects/disconnects, device state changes).

@@ -29,6 +29,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | OpenWrt | Yes |
 | Omada SDN | Yes |
 | UniFi | Yes |
+| Traefik | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -140,6 +141,13 @@ Device inventory (APs, switches, gateways with online/offline status), connected
 **Height:** 1× = compact bar (WAN status, device count, client count); 2–3× = device type badges + WAN IP + speedtest + recent events; 4×+ = full device list with per-device radio/port/WAN detail + client list + event log.
 
 **Real-time:** WebSocket connection to UniFi event stream for instant client and device state updates.
+
+### Traefik
+HTTP/TCP route inventory with enabled/warning/disabled status, backend service health (servers UP/DOWN per service), TLS indicators, entry point labels, and provider badges (Docker, Kubernetes, file). See [integrations.md](integrations.md#traefik).
+
+**Height:** 1× = compact bar (route count, backend health, active providers); 2–3× = section chips + degraded backends highlighted + service list; 4×+ = two-column layout with full service list (with per-server URLs) and route table.
+
+**Note:** Backend health requires Traefik health checks to be enabled for your services. Routes without health checks show as grey (no health data), not red.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
