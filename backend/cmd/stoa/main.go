@@ -170,6 +170,8 @@ func main() {
 	protected.HandleFunc("/kavita/{integrationId}/cover/{seriesId}", handlers.ProxyKavitaCover(database)).Methods("GET")
 	// Komga series cover proxy (auth-gated, browser-cached 24h)
 	protected.HandleFunc("/komga/{integrationId}/cover/{seriesId}", handlers.ProxyKomgaCover(database)).Methods("GET")
+	// Lychee thumbnail proxy (auth-gated, browser-cached 24h; src= path param)
+	protected.HandleFunc("/lychee/{integrationId}/thumb", handlers.ProxyLycheeThumbnail(database)).Methods("GET")
 
 	// Direct messages
 	protected.HandleFunc("/dm/conversations", handlers.GetOrCreateDMConversation(database)).Methods("POST")
