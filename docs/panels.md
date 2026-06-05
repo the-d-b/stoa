@@ -32,6 +32,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Traefik | Yes |
 | Cloudflare | Yes |
 | Pi-hole | Yes |
+| AdGuard Home | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -164,6 +165,13 @@ DNS query statistics — total queries, blocked percentage, unique clients, grav
 **Height:** 1× = compact bar (query count, blocked %, client count, gravity size); 2–3× = arc gauge showing block percentage + stat chips + 24h sparkline; 4×+ = all of the above + top blocked domains, top clients, query type breakdown, and upstream resolver breakdown in a three-column layout.
 
 **Blocking indicator:** A green/red dot in the header shows whether Pi-hole's blocking is active. Visible at all heights.
+
+### AdGuard Home
+DNS query statistics — total queries, blocked percentage, and per-category breakdown (blocklist, Safe Browsing, Safe Search, Parental Control). 24-hour query timeline with blocked queries overlaid. Top blocked domains, top querying clients, top queried domains, upstream resolver breakdown with average response times, and active blocklist inventory with per-list rule counts. See [integrations.md](integrations.md#adguard-home).
+
+**Height:** 1× = compact bar (query count, blocked %, avg latency, total rules); 2–3× = arc gauge showing block percentage + stat chips per protection category + 24h sparkline; 4×+ = all of the above + three-column detail: top blocked domains and top queried, top clients and upstreams, and the full blocklist table with a protection breakdown.
+
+**Protection categories:** Safe Browsing, Safe Search, and Parental Control chips only appear when those features are enabled and have non-zero counts — they're hidden when all are zero.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

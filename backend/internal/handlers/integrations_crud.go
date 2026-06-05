@@ -242,6 +242,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testCloudflareConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "pihole":
 			err = testPiHoleConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "adguard":
+			err = testAdGuardConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -330,6 +332,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testCloudflareConnection(req.APIURL, apiKey, true)
 						case "pihole":
 							retryErr = testPiHoleConnection(req.APIURL, apiKey, true)
+						case "adguard":
+							retryErr = testAdGuardConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -575,6 +579,8 @@ func defaultRefreshSecs(igType string) int {
 	case "cloudflare":
 		return 300 // analytics are 1-minute resolution; polling faster wastes quota
 	case "pihole":
+		return 30
+	case "adguard":
 		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30

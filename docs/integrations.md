@@ -18,6 +18,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | No secret, `username:password`, or Bearer token | Traefik | Three auth modes: open API (no secret required), HTTP Basic Auth (`username:password`), or a bare Bearer token. |
 | Bearer token or `email:globalApiKey` | Cloudflare | Scoped API token (recommended — no colon) or legacy Global API Key with your account email (`you@example.com:globalkey`). |
 | Bare token (v5) or bare password (v6) | Pi-hole | v5: API token from Settings → API (appended as `?auth=<token>`). v6: web interface password or an app password (used to obtain a 30-minute session ID). Stoa auto-detects the version at connection time. |
+| `username:password` | AdGuard Home | HTTP Basic Auth on every request — Stoa splits on the first colon and sets the `Authorization: Basic` header. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -301,6 +302,30 @@ Stoa auto-detects the version by probing `GET /api/info/version` — if that end
 **Polling:** Every 30 seconds. Pi-hole has no real-time push (no SSE or WebSocket). The over-time data uses 10-minute buckets, so faster polling would not produce new data.
 
 **Blocking status:** Stoa shows a live indicator (green = blocking active, red = blocking disabled). Blocking can be paused from the Pi-hole web interface without affecting stats collection.
+
+---
+
+## AdGuard Home
+
+**What it shows:** DNS query statistics — total queries, blocked queries, block percentage, and a breakdown by protection category (blocklist filtering, Safe Browsing, Safe Search, Parental Control). A query timeline with blocked queries overlaid (bucketed by hour or day). Top blocked domains, top querying clients, top queried domains, upstream DNS resolver breakdown with average response times, and the active blocklist inventory with per-list rule counts.
+
+**Auth:** AdGuard Home uses HTTP Basic Authentication on all API requests. Store credentials as `username:password` in the secret field — the same format as your AdGuard Home web login. Stoa splits on the first colon and sends `Authorization: Basic <base64>` with every request.
+
+The default AdGuard Home admin credentials are `admin` and whatever password you set during the initial setup wizard.
+
+**URL:** Your AdGuard Home base URL, e.g. `http://192.168.1.10:3000`. The API is served at the same address as the web interface. Do not include `/control` — Stoa appends the correct path automatically.
+
+**Port:** AdGuard Home defaults to port `3000` (HTTP) for the web interface and API during initial setup. After setup completes, you can reconfigure it to port `80` or `443`. Use whichever port your instance runs on.
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates. AdGuard Home supports HTTPS if you configure a certificate; most home users run it on plain HTTP.
+
+**Safe Browsing / Safe Search / Parental Control:** If these features are enabled in AdGuard Home, Stoa shows separate counters for how many queries were intercepted by each protection category. They appear as stat chips in the 2× and 4× panel layouts. If all three are zero (features disabled), the chips are hidden.
+
+**Blocklists:** The 4× panel shows your complete blocklist inventory — each list by name, its rule count, and a proportional bar showing what fraction of total rules it contributes. Disabled lists are shown with a strikethrough.
+
+**Upstream DNS resolvers:** AdGuard Home tracks which upstream servers answered queries and how long each took. Stoa shows these in the 4× layout under "Upstreams" with per-server average response times — useful for spotting a slow upstream or confirming that DoH/DoT is working.
+
+**Polling:** Every 30 seconds. AdGuard Home has no real-time push API (no SSE or WebSocket). The stats time series uses hourly or daily buckets depending on your AdGuard stats interval setting; faster polling does not produce new time-series data.
 
 ---
 

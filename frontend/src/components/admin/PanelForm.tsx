@@ -50,6 +50,7 @@ export const PANEL_TYPES: {
   { id: 'traefik',      label: 'Traefik',      desc: 'Reverse proxy — routes, backend health, providers',                           needsIntegration: true,  category: 'Infrastructure' },
   { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Zones with 24h analytics, tunnel health and ingress rules',                    needsIntegration: true,  category: 'Infrastructure' },
   { id: 'pihole',       label: 'Pi-hole',      desc: 'DNS sinkhole — query stats, block rates, top domains, clients & query types',   needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'adguard',      label: 'AdGuard Home', desc: 'DNS sinkhole — query stats, block rate, safe browsing/search, top domains, clients, blocklists & upstreams', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },

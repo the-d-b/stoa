@@ -41,6 +41,7 @@ import UniFiPanel from '../components/panels/UniFiPanel'
 import TraefikPanel from '../components/panels/TraefikPanel'
 import CloudflarePanel from '../components/panels/CloudflarePanel'
 import PiHolePanel from '../components/panels/PiHolePanel'
+import AdGuardPanel from '../components/panels/AdGuardPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1060,6 +1061,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'traefik' && <TraefikPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'cloudflare' && <CloudflarePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'pihole' && <PiHolePanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'adguard' && <AdGuardPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}
