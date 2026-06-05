@@ -242,6 +242,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testJellystatConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tracearr":
 			err = testTracearrConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "immich":
+			err = testImmichConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unraid":
@@ -304,6 +306,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testJellystatConnection(req.APIURL, apiKey, true)
 						case "tracearr":
 							retryErr = testTracearrConnection(req.APIURL, apiKey, true)
+						case "immich":
+							retryErr = testImmichConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
 						case "unraid":
@@ -520,7 +524,7 @@ func defaultRefreshSecs(igType string) int {
 		return 300
 	case "overseerr":
 		return 120
-	case "sonarr", "radarr", "lidarr", "photoprism":
+	case "sonarr", "radarr", "lidarr", "photoprism", "immich":
 		return 1800
 	case "calendar":
 		return 3600

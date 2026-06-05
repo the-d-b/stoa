@@ -24,6 +24,7 @@ export const INTEGRATION_TYPES = [
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                              category: 'Media' },
   { id: 'jellystat',    label: 'Jellystat',    desc: 'Jellyfin statistics & watch history',                          category: 'Media' },
   { id: 'tracearr',     label: 'Tracearr',     desc: 'Cross-platform analytics & account-sharing detection (Plex/Jellyfin/Emby)', category: 'Media' },
+  { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                                         category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media' },
   // Infrastructure

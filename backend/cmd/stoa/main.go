@@ -164,6 +164,8 @@ func main() {
 
 	// PhotoPrism thumbnail proxy (auth-gated, browser-cached 24h)
 	protected.HandleFunc("/photoprism/{integrationId}/thumb/{hash}", handlers.ProxyPhotoPrismThumbnail(database)).Methods("GET")
+	// Immich thumbnail proxy (auth-gated, browser-cached 24h)
+	protected.HandleFunc("/immich/{integrationId}/thumb/{assetId}", handlers.ProxyImmichThumbnail(database)).Methods("GET")
 
 	// Direct messages
 	protected.HandleFunc("/dm/conversations", handlers.GetOrCreateDMConversation(database)).Methods("POST")
