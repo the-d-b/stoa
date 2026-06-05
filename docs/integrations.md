@@ -253,6 +253,27 @@ Example: `root:mypassword`
 
 ---
 
+## Cloudflare
+
+**What it shows:** All zones managed by your account with 24-hour analytics (requests, cached requests, threats blocked, bandwidth, unique visitors). Cloudflare Tunnel status — each tunnel shows healthy/degraded/down/inactive, which PoPs it's connected through (colo codes), and its full ingress rule table (hostname → local service).
+
+**Auth:** API token (recommended) — create one at dash.cloudflare.com → My Profile → API Tokens. The token needs:
+- Zone → Zone → Read
+- Zone → Analytics → Read
+- Account → Cloudflare Tunnel → Read
+
+Store the bare token in the API key field. Leave the URL field blank.
+
+**Legacy auth:** Store `email:globalApiKey` (your Cloudflare login email, colon, your Global API Key). Global API Key has full account access; API tokens are preferred.
+
+**Analytics:** The 24h window uses the last 1440 minutes. The analytics dashboard endpoint is available on all plans including Free. Data has approximately 1-minute resolution but is sampled — exact numbers may differ slightly from the Cloudflare dashboard.
+
+**Tunnels:** Requires your account to have Cloudflare Tunnel configured. If no tunnels exist, the panel shows zones only. Ingress rules are fetched from the tunnel configuration; only named hostname rules are shown (the catch-all fallback is omitted).
+
+**Polling:** Every 5 minutes (Cloudflare's analytics API has rate limits and 1-minute data resolution makes faster polling pointless).
+
+---
+
 ## Traefik
 
 **What it shows:** All configured HTTP and TCP routes with their rules, entry points, TLS status, provider, and enabled/warning/disabled state. Backend service health — for any service with health checks enabled, shows each server URL as UP or DOWN. Provider summary (Docker, Kubernetes, file). Traefik version. Features active (metrics, tracing, access log).

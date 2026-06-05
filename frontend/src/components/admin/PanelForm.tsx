@@ -48,6 +48,7 @@ export const PANEL_TYPES: {
   { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada controller — device status, client counts, alerts',          needsIntegration: true,  category: 'Infrastructure' },
   { id: 'unifi',        label: 'UniFi',        desc: 'Ubiquiti UniFi controller — devices, clients, WAN, real-time events',         needsIntegration: true,  category: 'Infrastructure' },
   { id: 'traefik',      label: 'Traefik',      desc: 'Reverse proxy — routes, backend health, providers',                           needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Zones with 24h analytics, tunnel health and ingress rules',                    needsIntegration: true,  category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },

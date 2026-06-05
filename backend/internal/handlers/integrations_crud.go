@@ -238,6 +238,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testUniFiConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "traefik":
 			err = testTraefikConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "cloudflare":
+			err = testCloudflareConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -322,6 +324,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testUniFiConnection(req.APIURL, apiKey, true)
 						case "traefik":
 							retryErr = testTraefikConnection(req.APIURL, apiKey, true)
+						case "cloudflare":
+							retryErr = testCloudflareConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -564,6 +568,8 @@ func defaultRefreshSecs(igType string) int {
 		return 30
 	case "traefik":
 		return 30
+	case "cloudflare":
+		return 300 // analytics are 1-minute resolution; polling faster wastes quota
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

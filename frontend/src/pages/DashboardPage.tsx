@@ -39,6 +39,7 @@ import OpenWrtPanel from '../components/panels/OpenWrtPanel'
 import OmadaPanel from '../components/panels/OmadaPanel'
 import UniFiPanel from '../components/panels/UniFiPanel'
 import TraefikPanel from '../components/panels/TraefikPanel'
+import CloudflarePanel from '../components/panels/CloudflarePanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1056,6 +1057,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'omada' && <OmadaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'unifi' && <UniFiPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'traefik' && <TraefikPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'cloudflare' && <CloudflarePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

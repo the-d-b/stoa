@@ -45,6 +45,7 @@ export const INTEGRATION_TYPES = [
   { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada SDN controller — Open API v2 (Omada 5.0+); username:password in API key field', category: 'Infrastructure' },
   { id: 'unifi',        label: 'UniFi',        desc: 'Ubiquiti UniFi Network Application — API key (v9.3.43+) or username:password; supports WebSocket real-time events', category: 'Infrastructure' },
   { id: 'traefik',      label: 'Traefik',      desc: 'Traefik reverse proxy — API must be enabled (--api=true); no auth, Basic Auth (username:password), or Bearer token', category: 'Infrastructure' },
+  { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Cloudflare — API token (Zone:Read + Analytics:Read + Tunnel:Read); or email:globalApiKey for legacy auth. Leave URL blank.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
