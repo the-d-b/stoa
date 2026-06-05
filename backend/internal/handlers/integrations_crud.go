@@ -228,6 +228,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testGluetunConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "opnsense":
 			err = testOPNsenseConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "pfsense":
+			err = testPfSenseConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -302,6 +304,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testGluetunConnection(req.APIURL, apiKey, true)
 						case "opnsense":
 							retryErr = testOPNsenseConnection(req.APIURL, apiKey, true)
+						case "pfsense":
+							retryErr = testPfSenseConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -536,6 +540,8 @@ func isTLSError(err error) bool {
 
 func defaultRefreshSecs(igType string) int {
 	switch igType {
+	case "pfsense":
+		return 5
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

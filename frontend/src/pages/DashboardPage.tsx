@@ -34,6 +34,7 @@ import KomgaPanel from '../components/panels/KomgaPanel'
 import LycheePanel from '../components/panels/LycheePanel'
 import AudiobookshelfPanel from '../components/panels/AudiobookshelfPanel'
 import NavidromePanel from '../components/panels/NavidromePanel'
+import PfSensePanel from '../components/panels/PfSensePanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1046,6 +1047,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'kuma' && <KumaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'gluetun' && <GluetunPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'opnsense' && <OPNsensePanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'pfsense' && <PfSensePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

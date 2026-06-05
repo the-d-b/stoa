@@ -58,6 +58,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"lychee":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLycheePanelData(db, cfg) },
 	"audiobookshelf": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchABSPanelData(db, cfg) },
 	"navidrome":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNavidromePanelData(db, cfg) },
+	"pfsense":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPfSensePanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

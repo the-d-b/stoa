@@ -40,6 +40,7 @@ export const INTEGRATION_TYPES = [
   { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                              category: 'Infrastructure' },
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                                  category: 'Infrastructure' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Infrastructure' },
+  { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router (requires pfSense-pkg-API package; API key or username:password)', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
