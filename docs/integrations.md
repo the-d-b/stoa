@@ -19,6 +19,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Bearer token or `email:globalApiKey` | Cloudflare | Scoped API token (recommended — no colon) or legacy Global API Key with your account email (`you@example.com:globalkey`). |
 | Bare token (v5) or bare password (v6) | Pi-hole | v5: API token from Settings → API (appended as `?auth=<token>`). v6: web interface password or an app password (used to obtain a 30-minute session ID). Stoa auto-detects the version at connection time. |
 | `username:password` | AdGuard Home | HTTP Basic Auth on every request — Stoa splits on the first colon and sets the `Authorization: Basic` header. |
+| Plain API key | NextDNS | Bare API key sent as `X-Api-Key` header on every request. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -326,6 +327,30 @@ The default AdGuard Home admin credentials are `admin` and whatever password you
 **Upstream DNS resolvers:** AdGuard Home tracks which upstream servers answered queries and how long each took. Stoa shows these in the 4× layout under "Upstreams" with per-server average response times — useful for spotting a slow upstream or confirming that DoH/DoT is working.
 
 **Polling:** Every 30 seconds. AdGuard Home has no real-time push API (no SSE or WebSocket). The stats time series uses hourly or daily buckets depending on your AdGuard stats interval setting; faster polling does not produce new time-series data.
+
+---
+
+## NextDNS
+
+**What it shows:** DNS analytics for the last 24 hours — total queries, blocked queries, allowed queries, block percentage, encrypted query percentage, and IPv6 query percentage. A 24-hour hourly query timeline with blocked queries overlaid as red bars. Top blocked domains ranked by block count, top querying clients, and a block reason breakdown showing which NextDNS security features (Denylist, Regex, Threat Intelligence Feeds, SafeBrowsing, etc.) triggered each block.
+
+**Cloud-only:** NextDNS is a cloud DNS service. All queries are processed by NextDNS servers and analytics are fetched via the NextDNS REST API at `api.nextdns.io`. There is no self-hosted component — no local server to configure.
+
+**Auth:** Bare API key from your NextDNS account → Account → API. Sent as `X-Api-Key: <key>` header on every request. Do not include a colon or username — it is a plain token.
+
+**URL:** `https://api.nextdns.io/profiles/{profileId}` — where `{profileId}` is the 6-character ID of your NextDNS profile. You can find it in the NextDNS dashboard URL (e.g. `https://my.nextdns.io/abc123/setup` → profileId is `abc123`), or in your NextDNS → Settings → Profile ID.
+
+**UI URL:** Optional. Defaults to `https://my.nextdns.io` if left blank. The panel header links to this URL.
+
+**Profile name:** Stoa fetches the profile's display name from the NextDNS API and shows it in 2× and 4× panel layouts.
+
+**Block reasons:** NextDNS categorises each blocked query by the security feature that triggered the block. Common reasons include: `Denylist` (manual blocklist), `Regex` (regex rule), `Threat Intelligence Feeds`, `SafeBrowsing`, and `Adult & Explicit Content`. Stoa shows these with proportional bars so you can see which protection categories are doing the most work.
+
+**Top blocked domains:** Derived from the `/analytics/domains` endpoint by filtering to entries where `blocked > 0` and sorting by block count descending. Not a separate API call.
+
+**Polling:** Every 30 seconds. NextDNS has no real-time push (no SSE or WebSocket). The time-series data uses 1-hour buckets, so faster polling would not produce new timeline data.
+
+**TLS:** NextDNS is always HTTPS (`api.nextdns.io`). The "Skip TLS" option has no effect for this integration.
 
 ---
 

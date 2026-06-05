@@ -244,6 +244,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testPiHoleConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "adguard":
 			err = testAdGuardConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "nextdns":
+			err = testNextDNSConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -334,6 +336,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testPiHoleConnection(req.APIURL, apiKey, true)
 						case "adguard":
 							retryErr = testAdGuardConnection(req.APIURL, apiKey, true)
+						case "nextdns":
+							retryErr = testNextDNSConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -581,6 +585,8 @@ func defaultRefreshSecs(igType string) int {
 	case "pihole":
 		return 30
 	case "adguard":
+		return 30
+	case "nextdns":
 		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30

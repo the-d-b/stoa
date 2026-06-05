@@ -48,6 +48,7 @@ export const INTEGRATION_TYPES = [
   { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Cloudflare — API token (Zone:Read + Analytics:Read + Tunnel:Read); or email:globalApiKey for legacy auth. Leave URL blank.', category: 'Infrastructure' },
   { id: 'pihole',       label: 'Pi-hole',      desc: 'Pi-hole DNS sinkhole — v5: bare API token from Settings → API; v6: app password or web password. URL is http://your-pihole/. No auth needed for basic v5 stats.', category: 'Infrastructure' },
   { id: 'adguard',      label: 'AdGuard Home', desc: 'AdGuard Home DNS sinkhole — username:password in API key field. URL is http://your-adguard:3000/. Requires admin credentials.', category: 'Infrastructure' },
+  { id: 'nextdns',      label: 'NextDNS',      desc: 'NextDNS cloud DNS — bare API key (from nextdns.io → Account → API). URL: https://api.nextdns.io/profiles/{profileId}. Leave UI URL as https://my.nextdns.io or blank.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -428,6 +429,14 @@ export default function IntegrationForm({
       {activeType === 'deluge' && (
         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           API key secret should contain just the Deluge Web UI <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>password</code> (no username).
+        </div>
+      )}
+      {/* NextDNS: non-obvious URL format */}
+      {activeType === 'nextdns' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          API URL format: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>https://api.nextdns.io/profiles/{'{'}<em>profileId</em>{'}'}</code>.
+          Find your Profile ID in the NextDNS dashboard URL (or Settings → Profile ID).
+          API key: bare token from nextdns.io → Account → API.
         </div>
       )}
 

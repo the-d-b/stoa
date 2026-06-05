@@ -33,6 +33,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Cloudflare | Yes |
 | Pi-hole | Yes |
 | AdGuard Home | Yes |
+| NextDNS | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -172,6 +173,15 @@ DNS query statistics — total queries, blocked percentage, and per-category bre
 **Height:** 1× = compact bar (query count, blocked %, avg latency, total rules); 2–3× = arc gauge showing block percentage + stat chips per protection category + 24h sparkline; 4×+ = all of the above + three-column detail: top blocked domains and top queried, top clients and upstreams, and the full blocklist table with a protection breakdown.
 
 **Protection categories:** Safe Browsing, Safe Search, and Parental Control chips only appear when those features are enabled and have non-zero counts — they're hidden when all are zero.
+
+### NextDNS
+Cloud DNS analytics — total queries, blocked queries and percentage, encrypted query percentage, and IPv6 query percentage. 24-hour hourly query timeline with blocked queries overlaid as red bars. Top blocked domains (ranked by block count), top querying clients, and block reason breakdown. See [integrations.md](integrations.md#nextdns).
+
+**Height:** 1× = compact bar (query count, blocked count and %, encrypted %, IPv6 %); 2–3× = arc gauge showing block percentage + stat chips (total, blocked, allowed, encrypted %, IPv6 %) + 24h hourly sparkline; 4×+ = all of the above + three-column detail: top blocked domains, top clients, and block reason breakdown with proportional bars.
+
+**Profile name:** Displayed at 2× and 4× when the NextDNS API returns the profile's display name.
+
+**Block reasons:** The block reason column shows which NextDNS security feature triggered each block — Denylist, Regex, Threat Intelligence Feeds, SafeBrowsing, etc. Each reason is shown with a proportional bar and the count.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
