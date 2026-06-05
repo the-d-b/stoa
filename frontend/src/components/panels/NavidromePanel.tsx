@@ -98,7 +98,9 @@ function Player({ queue, integId, uiUrl, initialIdx }: {
     const onTime = () => { if (!seeking) setCurrentTime(audio.currentTime) }
     const onPlay  = () => setPlaying(true)
     const onPause = () => setPlaying(false)
-    const onEnded = () => { if (idx < queue.length - 1) setIdx(i => i + 1) else setPlaying(false) }
+    const onEnded = () => {
+      if (idx < queue.length - 1) { setIdx(i => i + 1) } else { setPlaying(false) }
+    }
 
     audio.addEventListener('loadedmetadata', onMeta)
     audio.addEventListener('timeupdate', onTime)
@@ -221,8 +223,8 @@ function Player({ queue, integId, uiUrl, initialIdx }: {
 
 // ── Track row ─────────────────────────────────────────────────────────────────
 
-function TrackRow({ song, integId, active, onClick }: {
-  song: NavSong; integId: string; active: boolean; onClick: () => void
+function TrackRow({ song, active, onClick }: {
+  song: NavSong; active: boolean; onClick: () => void
 }) {
   return (
     <div onClick={onClick} style={{
@@ -351,7 +353,7 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
       {queue.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No tracks</div>}
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {queue.map((s, i) => (
-          <TrackRow key={s.id} song={s} integId={integId}
+          <TrackRow key={s.id} song={s}
             active={i === activeTrack} onClick={() => setActiveTrack(i)} />
         ))}
       </div>
@@ -366,7 +368,7 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
       {queue.length > 0 && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {queue.map((s, i) => (
-            <TrackRow key={s.id} song={s} integId={integId}
+            <TrackRow key={s.id} song={s}
               active={i === activeTrack} onClick={() => setActiveTrack(i)} />
           ))}
         </div>
