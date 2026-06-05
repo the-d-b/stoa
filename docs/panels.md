@@ -25,6 +25,9 @@ A few panel types are **standalone**: they don't require a backend integration b
 | QNAP QTS | Yes |
 | Proxmox | Yes |
 | OPNsense | Yes |
+| pfSense | Yes |
+| OpenWrt | Yes |
+| Omada SDN | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -114,6 +117,21 @@ Node CPU and memory, storage, running VMs and containers, cluster overview. See 
 
 ### OPNsense
 Interface traffic rates (live SSE stream), firewall event donut, top WAN talkers, DNS stats, PF states, firmware version. See [integrations.md](integrations.md#opnsense).
+
+### pfSense
+CPU and memory usage, uptime, version, interface traffic rates (Mbps deltas), gateway status with RTT and packet loss, firewall connection state count. Polls every 5 seconds. See [integrations.md](integrations.md#pfsense).
+
+**Height:** 1× = compact status bar; 2–3× = CPU/RAM bars + gateway pills + interface list; 4×+ = all + PF states fill bar.
+
+### OpenWrt
+Hostname, uptime, load average, memory usage, per-interface traffic rates (Mbps deltas), and WiFi client list with signal strength and per-client TX/RX rates. Polls every 5 seconds via ubus JSON-RPC. See [integrations.md](integrations.md#openwrt).
+
+**Height:** 1× = compact bar; 2–3× = load/memory bars + interface list; 4×+ = all + WiFi client list with signal bars.
+
+### Omada SDN
+Device status across your Omada network — gateways, APs, and switches with online/offline counts by type. Total client counts (wireless vs. wired), per-site breakdown for multi-site deployments, a device list with model and client count, and recent alerts. Polls every 30 seconds. See [integrations.md](integrations.md#omada-sdn).
+
+**Height:** 1× = compact bar with device and client counts; 2–3× = device type badges + wireless/wired split + site list; 4×+ = all + scrollable device list + client list + alerts.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

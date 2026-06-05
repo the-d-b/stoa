@@ -42,6 +42,7 @@ export const INTEGRATION_TYPES = [
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Infrastructure' },
   { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router (requires pfSense-pkg-API package; API key or username:password)', category: 'Infrastructure' },
   { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router (username:password; default username is root)',                              category: 'Infrastructure' },
+  { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada SDN controller — Open API v2 (Omada 5.0+); username:password in API key field', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },

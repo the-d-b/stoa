@@ -13,7 +13,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Format | Used by | Why |
 |---|---|---|
 | Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma, Emby, Jellystat, Immich, Kavita, Tracearr | These services issue a single opaque token |
-| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun, Lychee, Navidrome | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun, Lychee, Navidrome, OpenWrt, Omada | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
 | `username:password` or bare API key | Komga, Audiobookshelf | If the value contains a colon, Stoa uses Basic Auth (Komga) or logs in as a user (Audiobookshelf). If there is no colon, the value is treated as a direct API key. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
@@ -198,6 +198,58 @@ Example secret value: `root@pam!stoa:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 Example secret value: `w86XNZob/8Oq8aC5r0kbNarNtd...:XeD26XVrJ5ilAc/EmglCRC+0j2...`
 
 **URL:** Your OPNsense base URL, e.g. `https://opnsense.local`
+
+---
+
+## pfSense
+
+**What it shows:** CPU and memory usage, uptime, version, interface traffic rates (with Mbps deltas), gateway status with RTT and packet loss, firewall connection states (current and limit).
+
+**Polling:** No SSE or WebSocket — Stoa polls the pfSense REST API every 5 seconds.
+
+**Requirements:** The [pfSense-pkg-API](https://github.com/jaredhendrickson13/pfsense-api) community package must be installed (System → Package Manager → Available Packages → search "pfsense-api").
+
+**Auth:** Two options:
+- Bare API key (no colon) — generate one in pfSense-pkg-API Settings. Stoa sends it as `Authorization: {key}`.
+- `username:password` — Stoa sends Basic Auth.
+
+**URL:** Your pfSense base URL, e.g. `https://pfsense.local`
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates (common with pfSense).
+
+---
+
+## OpenWrt
+
+**What it shows:** Hostname, uptime, 1-minute load average, memory usage, interface traffic rates (Mbps deltas), and WiFi client list with signal strength and TX/RX rates per client. The WiFi client data is a differentiator — it uses `iwinfo.assoclist` to show which clients are connected and their signal quality.
+
+**Polling:** No SSE or WebSocket — Stoa polls via OpenWrt's ubus JSON-RPC interface every 5 seconds.
+
+**Auth:** `username:password` format. The default OpenWrt username is `root`. If you use a bare password with no colon, Stoa uses `root` as the username.
+
+Example: `root:mypassword`
+
+**URL:** Your OpenWrt LuCI base URL, e.g. `http://192.168.1.1`
+
+**WiFi clients:** Requires `iwinfo` to be installed. On some OpenWrt builds it's not included. The panel degrades gracefully — if `iwinfo` is unavailable, everything except the client list still works.
+
+---
+
+## Omada SDN
+
+**What it shows:** Device status across your Omada network (gateways, APs, switches — online/offline counts by type), total client counts (wireless vs. wired), per-site breakdown for multi-site deployments, a scrollable device list with model and client count, recent wireless and wired clients, and active alerts.
+
+**Polling:** REST-only — Stoa polls the Omada Open API every 30 seconds.
+
+**Requirements:** Omada SDN Controller 5.0+ (hardware: OC200/OC300, or software controller). Uses the Open API v2.
+
+**Auth:** `username:password` in the API key field. This must be an Omada controller account with permission to access the Open API. Create or use an existing admin account.
+
+**URL:** Your Omada controller base URL, e.g. `https://omada.local:8043`
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates (common with Omada controllers using self-signed TLS).
+
+**Multi-site:** If your controller manages multiple sites, Stoa fetches data for all sites and shows per-site device and client counts in addition to the aggregate.
 
 ---
 

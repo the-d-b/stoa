@@ -45,6 +45,7 @@ export const PANEL_TYPES: {
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                         needsIntegration: true,  category: 'Infrastructure' },
   { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router stats (pfSense-pkg-API)',        needsIntegration: true,  category: 'Infrastructure' },
   { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router stats, interface traffic & WiFi clients', needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada controller — device status, client counts, alerts',          needsIntegration: true,  category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
