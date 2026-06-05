@@ -32,8 +32,17 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Deluge | Yes |
 | ruTorrent | Yes |
 | PhotoPrism | Yes |
+| Immich | Yes |
+| Lychee | Yes |
+| Kavita | Yes |
+| Komga | Yes |
+| Audiobookshelf | Yes |
+| Navidrome | Yes |
 | Authentik | Yes |
 | Jellyfin | Yes |
+| Emby | Yes |
+| Jellystat | Yes |
+| Tracearr | Yes |
 | Home Assistant | Yes |
 | Overseerr / Jellyseerr | Yes |
 | Steam | Yes |
@@ -135,11 +144,42 @@ Active downloads with progress and speed, seeding count, free disk space. Tracke
 ### PhotoPrism
 Photo and video counts, library size, recent imports, indexing status. Photo preview carousel (random thumbnails, refreshed daily). See [integrations.md](integrations.md#photoprism).
 
+### Immich
+Photo and video counts, storage usage, user count, and a photo preview carousel (random thumbnails, refreshed daily). See [integrations.md](integrations.md#immich).
+
+### Lychee
+Photo count, album count, storage usage, user count, and a photo preview carousel. See [integrations.md](integrations.md#lychee).
+
+### Kavita
+Series count, total files, library list, and a recently-added series strip with cover thumbnails. See [integrations.md](integrations.md#kavita).
+
+### Komga
+Series count, book count, library list, and a recently-added series strip with cover thumbnails. See [integrations.md](integrations.md#komga).
+
+### Audiobookshelf
+In-progress audiobooks and podcasts with a mini audio player. Select any in-progress item to play directly from the dashboard — with seek controls and progress sync back to Audiobookshelf. See [integrations.md](integrations.md#audiobookshelf).
+
+**Height:** 1× shows stats only; 2–3× adds the in-progress list; 4×+ adds the full mini player with controls.
+
+### Navidrome
+Music library browser with built-in player. Choose a playlist, see the track list, and play music directly from the dashboard. The selected playlist persists per panel. See [integrations.md](integrations.md#navidrome).
+
+**Height:** 1× shows playlist name and track count; 2–3× adds the playlist selector and track list; 4×+ adds the player bar with album art, seek, and prev/next controls.
+
 ### Authentik
 Login counts, failed login attempts, recent failure details, active sessions. See [integrations.md](integrations.md#authentik).
 
 ### Jellyfin
 Active streams with user, title, progress, and transcode vs. direct play status. Library counts. Server name and version. See [integrations.md](integrations.md#jellyfin).
+
+### Emby
+Active streams with user, media title, and progress. Library counts by type. Server version. See [integrations.md](integrations.md#emby).
+
+### Jellystat
+Watch history, most played content, top users, and views by library type. Time range is configurable (7 / 30 / 90 days). See [integrations.md](integrations.md#jellystat).
+
+### Tracearr
+Live stream count, watch history, top users, recent plays, and unacknowledged account-sharing violations. Works across Plex, Jellyfin, and Emby. See [integrations.md](integrations.md#tracearr).
 
 ### Home Assistant
 Entity states for smart home devices. Filter by entity ID or domain (`sensor`, `light`, `switch`, etc.). Shows friendly name, state, unit, and last-changed time. See [integrations.md](integrations.md#home-assistant).

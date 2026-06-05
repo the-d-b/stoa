@@ -12,8 +12,9 @@ Different services use different authentication schemes. Stoa normalises these b
 
 | Format | Used by | Why |
 |---|---|---|
-| Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma | These services issue a single opaque token |
-| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma, Emby, Jellystat, Immich, Kavita, Tracearr | These services issue a single opaque token |
+| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun, Lychee, Navidrome | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| `username:password` or bare API key | Komga, Audiobookshelf | If the value contains a colon, Stoa uses Basic Auth (Komga) or logs in as a user (Audiobookshelf). If there is no colon, the value is treated as a direct API key. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -270,6 +271,82 @@ Example secret value: `w86XNZob/8Oq8aC5r0kbNarNtd...:XeD26XVrJ5ilAc/EmglCRC+0j2.
 
 ---
 
+## Immich
+
+**What it shows:** Photo and video counts, storage usage, user count, server version, and a photo preview carousel with random thumbnails (refreshed daily; use "Refresh now" in the panel context menu to pick a new set).
+
+**Auth:** API key. In Immich: Account Settings → API Keys → New API Key. An admin key shows server-wide statistics; a user key shows only that user's library.
+
+**URL:** Your Immich base URL, e.g. `http://192.168.1.10:2283`
+
+---
+
+## Lychee
+
+**What it shows:** Photo count, album count, total storage, user count, and a photo preview carousel (random thumbnails, refreshed daily).
+
+**Auth:** Lychee username and password in `username:password` format. Stoa logs in via the Lychee API and holds a session cookie for subsequent requests.
+
+**URL:** Your Lychee base URL, e.g. `http://192.168.1.10`
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates.
+
+---
+
+## Kavita
+
+**What it shows:** Series count, total file count, library list, and a recently-added series strip with cover thumbnails.
+
+**Auth:** API key. In Kavita: User Settings (top right avatar) → API Key. Copy the key and store it as a secret.
+
+**URL:** Your Kavita base URL, e.g. `http://192.168.1.10:5000`
+
+---
+
+## Komga
+
+**What it shows:** Series count, book count, library list, and a recently-added series strip with cover thumbnails.
+
+**Auth:** Two options — use whichever matches your Komga setup:
+- `username:password` — standard Komga credentials (Basic Auth)
+- Bare API key — if you have an API key configured in Komga
+
+Store the value as a secret. If it contains a colon, Stoa uses Basic Auth. If it has no colon, Stoa sends it as `X-API-Key`.
+
+**URL:** Your Komga base URL, e.g. `http://192.168.1.10:25600`
+
+---
+
+## Audiobookshelf
+
+**What it shows:** In-progress audiobooks and podcasts with author, progress percentage, and remaining time. Includes a mini audio player — select an in-progress item to play it directly from the dashboard, with seek controls and automatic progress sync back to Audiobookshelf.
+
+**Auth:** Two options:
+- `username:password` — Stoa logs in and obtains a session token
+- Bare API key — stored in your Audiobookshelf user account under Settings → Account
+
+**URL:** Your Audiobookshelf base URL, e.g. `http://192.168.1.10:13378`
+
+**Multi-file books:** For audiobooks split across multiple files, Stoa resolves which file to start from based on your saved progress and seeks to the correct position within that file.
+
+**Height:** 1× shows stats only; 2–3× adds the in-progress item list; 4×+ adds the full mini player with controls.
+
+---
+
+## Navidrome
+
+**What it shows:** Your music library playlists with a built-in player — browse playlists, see the track list, and play music directly from the dashboard. The active playlist is saved per panel.
+
+**Auth:** Navidrome username and password in `username:password` format. Stoa uses the Subsonic API with MD5 token authentication.
+
+**URL:** Your Navidrome base URL, e.g. `http://192.168.1.10:4533`
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates.
+
+**Height:** 1× shows the current playlist name and track count; 2–3× adds the playlist selector and scrollable track list; 4×+ adds the full player bar with album art, seek control, and prev/next.
+
+---
+
 ## Authentik
 
 **What it shows:** Login counts, failed login attempts, recent failure details, active sessions.
@@ -287,6 +364,40 @@ Example secret value: `w86XNZob/8Oq8aC5r0kbNarNtd...:XeD26XVrJ5ilAc/EmglCRC+0j2.
 **Auth:** API key. Create one in Jellyfin Dashboard → API Keys → +. The key goes in the secret field.
 
 **URL:** Your Jellyfin base URL, e.g. `http://192.168.1.10:8096`
+
+---
+
+## Emby
+
+**What it shows:** Active streams with user, media title, and progress. Library counts by type (movies, shows, music, etc.). Server version.
+
+**Auth:** API key. In Emby: Admin Dashboard → Advanced → API Keys → New API Key.
+
+**URL:** Your Emby server base URL, e.g. `http://192.168.1.10:8096`
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates.
+
+---
+
+## Jellystat
+
+**What it shows:** Watch history, most played content, top users, views by library type over a configurable time range (7 / 30 / 90 days).
+
+**Auth:** API key. In Jellystat: Settings → API Keys → Generate.
+
+**URL:** Your Jellystat base URL, e.g. `http://192.168.1.10:3000`
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates.
+
+---
+
+## Tracearr
+
+**What it shows:** Live stream count, watch history, recent plays, top users, account-sharing violations (unacknowledged flagged sessions) across Plex, Jellyfin, and Emby.
+
+**Auth:** API key (Bearer token). In Tracearr: Settings → API Keys → Create.
+
+**URL:** Your Tracearr base URL, e.g. `http://192.168.1.10:7880`
 
 ---
 
