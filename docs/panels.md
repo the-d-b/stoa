@@ -31,6 +31,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | UniFi | Yes |
 | Traefik | Yes |
 | Cloudflare | Yes |
+| Pi-hole | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -156,6 +157,13 @@ Zone list with 24h analytics (requests, threats blocked, bandwidth served, uniqu
 **Height:** 1× = compact bar (requests, threats, tunnel health fraction, zone count); 2–3× = aggregate stat chips + tunnel list + zone list with per-zone stats; 4×+ = two-column layout with full tunnel detail (ingress rules) and full zone list.
 
 **Polling:** Every 5 minutes — Cloudflare analytics have 1-minute resolution and rate limits make faster polling wasteful.
+
+### Pi-hole
+DNS query statistics — total queries, blocked percentage, unique clients, gravity (blocklist) size. Includes a 24-hour query timeline (10-minute buckets) with blocked queries overlaid, top blocked domains, top querying clients, query type breakdown (A, AAAA, CNAME, PTR, etc.), and upstream resolver distribution. See [integrations.md](integrations.md#pi-hole).
+
+**Height:** 1× = compact bar (query count, blocked %, client count, gravity size); 2–3× = arc gauge showing block percentage + stat chips + 24h sparkline; 4×+ = all of the above + top blocked domains, top clients, query type breakdown, and upstream resolver breakdown in a three-column layout.
+
+**Blocking indicator:** A green/red dot in the header shows whether Pi-hole's blocking is active. Visible at all heights.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

@@ -17,6 +17,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | `username:password` or bare API key | Komga, Audiobookshelf, pfSense | If the value contains a colon, Stoa uses Basic Auth (Komga, pfSense) or logs in as a user (Audiobookshelf). If there is no colon, the value is treated as a direct API key. |
 | No secret, `username:password`, or Bearer token | Traefik | Three auth modes: open API (no secret required), HTTP Basic Auth (`username:password`), or a bare Bearer token. |
 | Bearer token or `email:globalApiKey` | Cloudflare | Scoped API token (recommended — no colon) or legacy Global API Key with your account email (`you@example.com:globalkey`). |
+| Bare token (v5) or bare password (v6) | Pi-hole | v5: API token from Settings → API (appended as `?auth=<token>`). v6: web interface password or an app password (used to obtain a 30-minute session ID). Stoa auto-detects the version at connection time. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -273,6 +274,33 @@ Store the bare token in the API key field. Leave the URL field blank.
 **Tunnels:** Requires your account to have Cloudflare Tunnel configured. If no tunnels exist, the panel shows zones only. Ingress rules are fetched from the tunnel configuration; only named hostname rules are shown (the catch-all fallback is omitted).
 
 **Polling:** Every 5 minutes (Cloudflare's analytics API has rate limits and 1-minute data resolution makes faster polling pointless).
+
+---
+
+## Pi-hole
+
+**What it shows:** DNS query statistics for the last 24 hours — total queries, blocked queries, block percentage, unique clients, unique domains queried, and gravity (blocklist) size. A 24-hour query timeline (10-minute buckets) with blocked queries overlaid as a red bar. Top blocked domains, top querying clients, query type breakdown (A, AAAA, CNAME, PTR, MX, etc.), and upstream DNS resolver distribution.
+
+**API versions:** Pi-hole ships two distinct API generations:
+- **v5** (PHP-based): accessed at `/admin/api.php`. Authenticated via API token appended as `?auth=<token>`.
+- **v6** (FTL-native): REST API built into the FTL binary at `/api/`. Authenticated with the web interface password or an app password — Stoa posts credentials to `/api/auth` and receives a 30-minute session ID.
+
+Stoa auto-detects the version by probing `GET /api/info/version` — if that endpoint responds 200, v6 is used; otherwise v5. The result is cached per integration so detection only happens once.
+
+**Auth:** Bare token or password in the secret field (no colon prefix):
+- **v5:** Copy the API token from Pi-hole Web Interface → Settings → API → Show API token. Paste the bare token.
+- **v6:** Use your web interface password, or create an app password in Settings → Web Interface → API → App passwords. App passwords are recommended — they can be revoked independently of your main password.
+- **No auth (v5 only):** Pi-hole v5 exposes basic summary stats without authentication. Leave the secret empty and Stoa will still fetch total queries, blocked percentage, and client/domain counts. Top blocked domains, top clients, and over-time data require auth.
+
+**URL:** Your Pi-hole base URL, e.g. `http://192.168.1.10` or `http://pihole.local`. Do not include `/admin` — Stoa appends the correct path automatically.
+
+**Port:** Pi-hole's web interface and v6 FTL API both default to port 80 (HTTP). Include the port in the URL only if you've changed it.
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates. Pi-hole does not use TLS by default.
+
+**Polling:** Every 30 seconds. Pi-hole has no real-time push (no SSE or WebSocket). The over-time data uses 10-minute buckets, so faster polling would not produce new data.
+
+**Blocking status:** Stoa shows a live indicator (green = blocking active, red = blocking disabled). Blocking can be paused from the Pi-hole web interface without affecting stats collection.
 
 ---
 
