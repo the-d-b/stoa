@@ -61,6 +61,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"pfsense":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPfSensePanelData(db, cfg) },
 	"openwrt":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOpenWrtPanelData(db, cfg) },
 	"omada":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOmadaPanelData(db, cfg) },
+	"unifi":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchUniFiPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

@@ -12,8 +12,8 @@ Different services use different authentication schemes. Stoa normalises these b
 
 | Format | Used by | Why |
 |---|---|---|
-| Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma, Emby, Jellystat, Immich, Kavita, Tracearr | These services issue a single opaque token |
-| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun, Lychee, Navidrome, OpenWrt, Omada | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
+| Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma, Emby, Jellystat, Immich, Kavita, Tracearr, UniFi (v9.3.43+) | These services issue a single opaque token |
+| `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun, Lychee, Navidrome, OpenWrt, Omada, UniFi (legacy) | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
 | `username:password` or bare API key | Komga, Audiobookshelf | If the value contains a colon, Stoa uses Basic Auth (Komga) or logs in as a user (Audiobookshelf). If there is no colon, the value is treated as a direct API key. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
@@ -250,6 +250,24 @@ Example: `root:mypassword`
 **TLS:** Enable "Skip TLS verify" for self-signed certificates (common with Omada controllers using self-signed TLS).
 
 **Multi-site:** If your controller manages multiple sites, Stoa fetches data for all sites and shows per-site device and client counts in addition to the aggregate.
+
+---
+
+## UniFi
+
+**What it shows:** Device inventory (APs, switches, gateways) with online/offline status and per-device detail — AP radio stats (band, channel, channel utilization %, client count), switch port summary (ports up, PoE power delivered), gateway WAN status (IP, latency, speedtest results). Connected client list with IP, band (2.4G/5G/6G), RSSI, and satisfaction score (0–100). Real-time event log (client connects/disconnects, device state changes).
+
+**Real-time:** Stoa connects to the UniFi WebSocket event stream for near-instant event updates. Full device and client stats refresh every 30 seconds via REST.
+
+**Auth (API key, recommended):** Generate an API key in UniFi OS → Settings → API → Create New API Key. Paste the bare key (no colon) into the API key field. Requires UniFi Network Application v9.3.43 or later.
+
+**Auth (username:password):** Store `username:password` in the API key field. Stoa auto-detects UniFi OS (port 443, `/api/auth/login`) and falls back to legacy controller (port 8443, `/api/login`).
+
+**URL:** Your controller base URL, e.g. `https://192.168.1.1` for UniFi OS, or `https://192.168.1.1:8443` for the legacy Network Application.
+
+**Site:** Stoa connects to the `default` site. Single-site setups work automatically. If you need a different site key, it must be `default` for now (multi-site support is planned).
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates (common with UniFi OS's built-in certificate).
 
 ---
 

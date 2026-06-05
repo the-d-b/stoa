@@ -309,6 +309,12 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 		return
 	}
 
+	// UniFi uses a persistent WebSocket for real-time events + REST polling for stats
+	if ig.igType == "unifi" {
+		StartUniFiWorker(db, ig, stop)
+		return
+	}
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

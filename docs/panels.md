@@ -28,6 +28,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | pfSense | Yes |
 | OpenWrt | Yes |
 | Omada SDN | Yes |
+| UniFi | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -132,6 +133,13 @@ Hostname, uptime, load average, memory usage, per-interface traffic rates (Mbps 
 Device status across your Omada network — gateways, APs, and switches with online/offline counts by type. Total client counts (wireless vs. wired), per-site breakdown for multi-site deployments, a device list with model and client count, and recent alerts. Polls every 30 seconds. See [integrations.md](integrations.md#omada-sdn).
 
 **Height:** 1× = compact bar with device and client counts; 2–3× = device type badges + wireless/wired split + site list; 4×+ = all + scrollable device list + client list + alerts.
+
+### UniFi
+Device inventory (APs, switches, gateways with online/offline status), connected client list with signal strength and satisfaction score, WAN status and IP, real-time event log. AP radio breakdown (band, channel, utilization %) and gateway speedtest results at tall heights. See [integrations.md](integrations.md#unifi).
+
+**Height:** 1× = compact bar (WAN status, device count, client count); 2–3× = device type badges + WAN IP + speedtest + recent events; 4×+ = full device list with per-device radio/port/WAN detail + client list + event log.
+
+**Real-time:** WebSocket connection to UniFi event stream for instant client and device state updates.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
