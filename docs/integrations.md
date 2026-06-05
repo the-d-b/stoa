@@ -14,7 +14,9 @@ Different services use different authentication schemes. Stoa normalises these b
 |---|---|---|
 | Plain API key | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Authentik, Kuma, Emby, Jellystat, Immich, Kavita, Tracearr, UniFi (v9.3.43+) | These services issue a single opaque token |
 | `username:password` | OMV, Synology, QNAP, Transmission, qBittorrent, ruTorrent, PhotoPrism, Gluetun, Lychee, Navidrome, OpenWrt, Omada, UniFi (legacy) | Stoa logs in with these credentials and uses a session token (or passes them as Basic Auth). The colon separates the username from the password — Stoa splits on the first colon. |
-| `username:password` or bare API key | Komga, Audiobookshelf | If the value contains a colon, Stoa uses Basic Auth (Komga) or logs in as a user (Audiobookshelf). If there is no colon, the value is treated as a direct API key. |
+| `username:password` or bare API key | Komga, Audiobookshelf, pfSense | If the value contains a colon, Stoa uses Basic Auth (Komga, pfSense) or logs in as a user (Audiobookshelf). If there is no colon, the value is treated as a direct API key. |
+| No secret, `username:password`, or Bearer token | Traefik | Three auth modes: open API (no secret required), HTTP Basic Auth (`username:password`), or a bare Bearer token. |
+| Bearer token or `email:globalApiKey` | Cloudflare | Scoped API token (recommended — no colon) or legacy Global API Key with your account email (`you@example.com:globalkey`). |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |

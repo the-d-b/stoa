@@ -97,7 +97,7 @@ CPU usage (per-core and aggregate), memory usage, network throughput, array disk
 **Height:** 2× shows host stats and network. 4× adds disk temperature rows and container counts. 8× adds full per-core CPU breakdown and container details.
 
 ### OpenMediaVault (OMV)
-CPU usage, memory usage, per-interface network throughput, filesystem usage, disk temperatures and SMART status. See [integrations.md](integrations.md#openmedivault-omv).
+CPU usage, memory usage, per-interface network throughput, filesystem usage, disk temperatures and SMART status. See [integrations.md](integrations.md#openmediavault-omv).
 
 **Height:** 1× shows compact stats only. 2–3× adds network and filesystem rows. 4×+ adds full disk table.
 
@@ -143,19 +143,19 @@ Device inventory (APs, switches, gateways with online/offline status), connected
 
 **Real-time:** WebSocket connection to UniFi event stream for instant client and device state updates.
 
-### Cloudflare
-Zone list with 24h analytics (requests, threats blocked, bandwidth served, unique visitors) and tunnel health. Each tunnel shows its connection status (healthy/degraded/down), active PoP connections (colo codes), and ingress rules (hostname → service mappings). See [integrations.md](integrations.md#cloudflare).
-
-**Height:** 1× = compact bar (requests, threats, tunnel health fraction, zone count); 2–3× = aggregate stat chips + tunnel list + zone list with per-zone stats; 4×+ = two-column layout with full tunnel detail (ingress rules) and full zone list.
-
-**Polling:** Every 5 minutes — Cloudflare analytics have 1-minute resolution and rate limits make faster polling wasteful.
-
 ### Traefik
 HTTP/TCP route inventory with enabled/warning/disabled status, backend service health (servers UP/DOWN per service), TLS indicators, entry point labels, and provider badges (Docker, Kubernetes, file). See [integrations.md](integrations.md#traefik).
 
 **Height:** 1× = compact bar (route count, backend health, active providers); 2–3× = section chips + degraded backends highlighted + service list; 4×+ = two-column layout with full service list (with per-server URLs) and route table.
 
 **Note:** Backend health requires Traefik health checks to be enabled for your services. Routes without health checks show as grey (no health data), not red.
+
+### Cloudflare
+Zone list with 24h analytics (requests, threats blocked, bandwidth served, unique visitors) and tunnel health. Each tunnel shows its connection status (healthy/degraded/down), active PoP connections (colo codes), and ingress rules (hostname → service mappings). See [integrations.md](integrations.md#cloudflare).
+
+**Height:** 1× = compact bar (requests, threats, tunnel health fraction, zone count); 2–3× = aggregate stat chips + tunnel list + zone list with per-zone stats; 4×+ = two-column layout with full tunnel detail (ingress rules) and full zone list.
+
+**Polling:** Every 5 minutes — Cloudflare analytics have 1-minute resolution and rate limits make faster polling wasteful.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
