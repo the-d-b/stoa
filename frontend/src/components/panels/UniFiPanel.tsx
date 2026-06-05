@@ -121,14 +121,6 @@ function fmtUptime(secs: number): string {
   return `${Math.floor(secs / 60)}m`
 }
 
-function fmtBytes(b: number): string {
-  if (!b) return '0 B'
-  if (b >= 1e12) return `${(b / 1e12).toFixed(1)} TB`
-  if (b >= 1e9) return `${(b / 1e9).toFixed(1)} GB`
-  if (b >= 1e6) return `${(b / 1e6).toFixed(1)} MB`
-  return `${(b / 1e3).toFixed(0)} KB`
-}
-
 function fmtMbps(mbps: number): string {
   if (!mbps) return ''
   if (mbps >= 1000) return `${(mbps / 1000).toFixed(1)} Gbps`
@@ -372,19 +364,23 @@ interface Props {
 }
 
 export default function UniFiPanel({ panel, heightUnits }: Props) {
-  const integrationId = panel.config?.integrationId as string | undefined
+  const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId = config.integrationId as string | undefined
   const [data, setData] = useState<UniFiData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!integrationId) return
-    integrationsApi.getPanelData(panel.id).then(d => {
-      setData(d as UniFiData)
+    integrationsApi.getPanelData(panel.id).then(res => {
+      setData(res.data)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [panel.id, integrationId])
 
-  useSSE<UniFiData>(integrationId, (d) => setData(d))
+  const sseData = useSSE<UniFiData>(integrationId)
+  useEffect(() => {
+    if (sseData) { setData(sseData); setLoading(false) }
+  }, [sseData])
 
   const root: React.CSSProperties = {
     height: '100%',

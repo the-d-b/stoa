@@ -228,19 +228,23 @@ interface Props {
 }
 
 export default function TraefikPanel({ panel, heightUnits }: Props) {
-  const integrationId = panel.config?.integrationId as string | undefined
+  const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId = config.integrationId as string | undefined
   const [data, setData] = useState<TraefikData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!integrationId) return
-    integrationsApi.getPanelData(panel.id).then(d => {
-      setData(d as TraefikData)
+    integrationsApi.getPanelData(panel.id).then(res => {
+      setData(res.data)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [panel.id, integrationId])
 
-  useSSE<TraefikData>(integrationId, d => setData(d))
+  const sseData = useSSE<TraefikData>(integrationId)
+  useEffect(() => {
+    if (sseData) { setData(sseData); setLoading(false) }
+  }, [sseData])
 
   const root: React.CSSProperties = {
     height: '100%',
