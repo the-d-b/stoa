@@ -20,7 +20,9 @@ export const INTEGRATION_TYPES = [
   { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook management',                                 category: 'Media' },
   { id: 'plex',         label: 'Plex',         desc: 'Media server',                                                category: 'Media' },
   { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                                                category: 'Media' },
+  { id: 'emby',         label: 'Emby',         desc: 'Media server',                                                category: 'Media' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                              category: 'Media' },
+  { id: 'jellystat',    label: 'Jellystat',    desc: 'Jellyfin statistics & watch history',                          category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media' },
   // Infrastructure

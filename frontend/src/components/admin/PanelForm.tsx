@@ -23,7 +23,9 @@ export const PANEL_TYPES: {
   { id: 'readarr',      label: 'Readarr',      desc: 'Book & audiobook tracking',                     needsIntegration: true,  category: 'Media' },
   { id: 'plex',         label: 'Plex',         desc: 'Media server',                                  needsIntegration: true,  category: 'Media' },
   { id: 'jellyfin',     label: 'Jellyfin',     desc: 'Media server',                                  needsIntegration: true,  category: 'Media' },
+  { id: 'emby',         label: 'Emby',         desc: 'Media server',                                  needsIntegration: true,  category: 'Media' },
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                needsIntegration: true,  category: 'Media' },
+  { id: 'jellystat',    label: 'Jellystat',    desc: 'Jellyfin analytics',                             needsIntegration: true,  category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats',               needsIntegration: true,  category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Media' },
   // Infrastructure
@@ -74,7 +76,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','jellyfin','homeassistant','tautulli','truenas','unraid','omv','synology','qnap','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]

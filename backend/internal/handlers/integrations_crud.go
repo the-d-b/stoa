@@ -236,6 +236,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testDelugeConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "rutorrent":
 			err = testRTorrentConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "emby":
+			err = testEmbyConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "jellystat":
+			err = testJellystatConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unraid":
@@ -292,6 +296,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testDelugeConnection(req.APIURL, apiKey, true)
 						case "rutorrent":
 							retryErr = testRTorrentConnection(req.APIURL, apiKey, true)
+						case "emby":
+							retryErr = testEmbyConnection(req.APIURL, apiKey, true)
+						case "jellystat":
+							retryErr = testJellystatConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
 						case "unraid":
@@ -500,9 +508,9 @@ func isTLSError(err error) bool {
 
 func defaultRefreshSecs(igType string) int {
 	switch igType {
-	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap":
+	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
-	case "plex", "jellyfin", "homeassistant", "tautulli", "kuma", "gluetun":
+	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "kuma", "gluetun":
 		return 60
 	case "authentik", "customapi":
 		return 300
