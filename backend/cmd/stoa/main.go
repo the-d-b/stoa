@@ -176,6 +176,9 @@ func main() {
 	protected.HandleFunc("/abs/{integrationId}/cover/{itemId}", handlers.ProxyABSCover(database)).Methods("GET")
 	protected.HandleFunc("/abs/{integrationId}/stream/{itemId}", handlers.ProxyABSStream(database)).Methods("GET")
 	protected.HandleFunc("/abs/{integrationId}/progress/{itemId}", handlers.SyncABSProgress(database)).Methods("POST")
+	// Navidrome proxies (auth-gated)
+	protected.HandleFunc("/navidrome/{integrationId}/cover", handlers.ProxyNavidromeCover(database)).Methods("GET")
+	protected.HandleFunc("/navidrome/{integrationId}/stream", handlers.ProxyNavidromeStream(database)).Methods("GET")
 
 	// Direct messages
 	protected.HandleFunc("/dm/conversations", handlers.GetOrCreateDMConversation(database)).Methods("POST")

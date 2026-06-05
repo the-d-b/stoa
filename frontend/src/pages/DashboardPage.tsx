@@ -33,6 +33,7 @@ import KavitaPanel from '../components/panels/KavitaPanel'
 import KomgaPanel from '../components/panels/KomgaPanel'
 import LycheePanel from '../components/panels/LycheePanel'
 import AudiobookshelfPanel from '../components/panels/AudiobookshelfPanel'
+import NavidromePanel from '../components/panels/NavidromePanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1035,6 +1036,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'komga' && <KomgaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'lychee' && <LycheePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'audiobookshelf' && <AudiobookshelfPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'navidrome' && <NavidromePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'unraid' && <UnraidPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'omv' && <OMVPanel panel={panel} heightUnits={heightUnits} />}

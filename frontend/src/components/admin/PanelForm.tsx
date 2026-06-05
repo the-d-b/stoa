@@ -32,6 +32,7 @@ export const PANEL_TYPES: {
   { id: 'komga',        label: 'Komga',        desc: 'Comic & manga server stats and recent series',     needsIntegration: true,  category: 'Media' },
   { id: 'lychee',       label: 'Lychee',       desc: 'Photo gallery stats and carousel',                 needsIntegration: true,  category: 'Media' },
   { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook/podcast player with in-progress queue', needsIntegration: true, category: 'Media' },
+  { id: 'navidrome',     label: 'Navidrome',     desc: 'Music server with playlist player',               needsIntegration: true, category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats',               needsIntegration: true,  category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Media' },
   // Infrastructure
@@ -82,7 +83,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','truenas','unraid','omv','synology','qnap','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]

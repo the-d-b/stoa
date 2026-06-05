@@ -252,6 +252,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testLycheeConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "audiobookshelf":
 			err = testABSConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "navidrome":
+			err = testNavidromeConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unraid":
@@ -324,6 +326,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testLycheeConnection(req.APIURL, apiKey, true)
 						case "audiobookshelf":
 							retryErr = testABSConnection(req.APIURL, apiKey, true)
+						case "navidrome":
+							retryErr = testNavidromeConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
 						case "unraid":
@@ -542,7 +546,7 @@ func defaultRefreshSecs(igType string) int {
 		return 120
 	case "sonarr", "radarr", "lidarr", "photoprism", "immich", "kavita", "komga", "lychee":
 		return 1800
-	case "audiobookshelf":
+	case "audiobookshelf", "navidrome":
 		return 60
 	case "calendar":
 		return 3600
