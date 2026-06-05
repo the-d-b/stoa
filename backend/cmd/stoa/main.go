@@ -172,6 +172,10 @@ func main() {
 	protected.HandleFunc("/komga/{integrationId}/cover/{seriesId}", handlers.ProxyKomgaCover(database)).Methods("GET")
 	// Lychee thumbnail proxy (auth-gated, browser-cached 24h; src= path param)
 	protected.HandleFunc("/lychee/{integrationId}/thumb", handlers.ProxyLycheeThumbnail(database)).Methods("GET")
+	// Audiobookshelf proxies (auth-gated)
+	protected.HandleFunc("/abs/{integrationId}/cover/{itemId}", handlers.ProxyABSCover(database)).Methods("GET")
+	protected.HandleFunc("/abs/{integrationId}/stream/{itemId}", handlers.ProxyABSStream(database)).Methods("GET")
+	protected.HandleFunc("/abs/{integrationId}/progress/{itemId}", handlers.SyncABSProgress(database)).Methods("POST")
 
 	// Direct messages
 	protected.HandleFunc("/dm/conversations", handlers.GetOrCreateDMConversation(database)).Methods("POST")

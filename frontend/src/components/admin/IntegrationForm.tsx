@@ -28,6 +28,7 @@ export const INTEGRATION_TYPES = [
   { id: 'kavita',       label: 'Kavita',       desc: 'Self-hosted manga, comic & book server',                                       category: 'Media' },
   { id: 'komga',        label: 'Komga',        desc: 'Self-hosted comic book & manga server',                                         category: 'Media' },
   { id: 'lychee',       label: 'Lychee',       desc: 'Self-hosted photo gallery (username:password in API key field)',                 category: 'Media' },
+  { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook, podcast & ebook server (username:password or bare API key)',       category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media' },
   // Infrastructure
