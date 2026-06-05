@@ -30,6 +30,7 @@ import JellystatPanel from '../components/panels/JellystatPanel'
 import TracearrPanel from '../components/panels/TracearrPanel'
 import ImmichPanel from '../components/panels/ImmichPanel'
 import KavitaPanel from '../components/panels/KavitaPanel'
+import KomgaPanel from '../components/panels/KomgaPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1029,6 +1030,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'tracearr' && <TracearrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'immich' && <ImmichPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'kavita' && <KavitaPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'komga' && <KomgaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'unraid' && <UnraidPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'omv' && <OMVPanel panel={panel} heightUnits={heightUnits} />}

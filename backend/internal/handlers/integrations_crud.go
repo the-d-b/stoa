@@ -246,6 +246,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testImmichConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "kavita":
 			err = testKavitaConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "komga":
+			err = testKomgaConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unraid":
@@ -312,6 +314,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testImmichConnection(req.APIURL, apiKey, true)
 						case "kavita":
 							retryErr = testKavitaConnection(req.APIURL, apiKey, true)
+						case "komga":
+							retryErr = testKomgaConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
 						case "unraid":
@@ -528,7 +532,7 @@ func defaultRefreshSecs(igType string) int {
 		return 300
 	case "overseerr":
 		return 120
-	case "sonarr", "radarr", "lidarr", "photoprism", "immich", "kavita":
+	case "sonarr", "radarr", "lidarr", "photoprism", "immich", "kavita", "komga":
 		return 1800
 	case "calendar":
 		return 3600

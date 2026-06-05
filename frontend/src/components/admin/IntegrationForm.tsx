@@ -26,6 +26,7 @@ export const INTEGRATION_TYPES = [
   { id: 'tracearr',     label: 'Tracearr',     desc: 'Cross-platform analytics & account-sharing detection (Plex/Jellyfin/Emby)', category: 'Media' },
   { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                                         category: 'Media' },
   { id: 'kavita',       label: 'Kavita',       desc: 'Self-hosted manga, comic & book server',                                       category: 'Media' },
+  { id: 'komga',        label: 'Komga',        desc: 'Self-hosted comic book & manga server',                                         category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media' },
   // Infrastructure

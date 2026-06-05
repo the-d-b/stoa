@@ -54,6 +54,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"tracearr":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTracearrPanelData(db, cfg) },
 	"immich":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchImmichPanelData(db, cfg) },
 	"kavita":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchKavitaPanelData(db, cfg) },
+	"komga":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchKomgaPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
