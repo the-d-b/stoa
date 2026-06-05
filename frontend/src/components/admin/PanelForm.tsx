@@ -52,6 +52,7 @@ export const PANEL_TYPES: {
   { id: 'pihole',       label: 'Pi-hole',      desc: 'DNS sinkhole — query stats, block rates, top domains, clients & query types',   needsIntegration: true,  category: 'Infrastructure' },
   { id: 'adguard',      label: 'AdGuard Home', desc: 'DNS sinkhole — query stats, block rate, safe browsing/search, top domains, clients, blocklists & upstreams', needsIntegration: true, category: 'Infrastructure' },
   { id: 'nextdns',      label: 'NextDNS',      desc: 'Cloud DNS — query stats, block rate, encrypted/IPv6 percentages, top blocked domains, top clients & block reason breakdown', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'Proxy host inventory (enabled/disabled, SSL), certificate expiry countdown, redirect hosts & stream stats', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -93,7 +94,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns',
+  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm',
   'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
@@ -582,6 +583,12 @@ export default function PanelForm({
                 <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                   API URL format: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>https://api.nextdns.io/profiles/{'{'}<em>profileId</em>{'}'}</code>.
                   Your Profile ID appears in the NextDNS dashboard URL.
+                </div>
+              )}
+              {/* Nginx Proxy Manager: email:password auth */}
+              {type === 'nginxpm' && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>email:password</code> — your NPM web UI login credentials.
                 </div>
               )}
 

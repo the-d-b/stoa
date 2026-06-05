@@ -34,6 +34,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Pi-hole | Yes |
 | AdGuard Home | Yes |
 | NextDNS | Yes |
+| Nginx Proxy Manager | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -182,6 +183,15 @@ Cloud DNS analytics — total queries, blocked queries and percentage, encrypted
 **Profile name:** Displayed at 2× and 4× when the NextDNS API returns the profile's display name.
 
 **Block reasons:** The block reason column shows which NextDNS security feature triggered each block — Denylist, Regex, Threat Intelligence Feeds, SafeBrowsing, etc. Each reason is shown with a proportional bar and the count.
+
+### Nginx Proxy Manager
+Reverse proxy configuration overview — proxy host inventory with enabled/disabled status and SSL indicators, SSL certificate expiry countdown with color-coded urgency, redirect host list, and stream/access-list counts. See [integrations.md](integrations.md#nginx-proxy-manager).
+
+**Height:** 1× = compact bar (enabled/total hosts, SSL count, cert expiry alerts); 2–3× = donut chart (enabled vs total proxy hosts) + stat chips + certificate expiry list (sorted by urgency, color coded); 4×+ = donut + chips + three-column detail: full proxy host list, full certificate list, redirect list and stream/access-list counts.
+
+**Certificate expiry colors:** Red = expired, orange = expiring within 7 days, amber = expiring within 30 days, green = healthy. Let's Encrypt certificates are marked with a `LE` badge.
+
+**Proxy host status:** Green dot = enabled, grey dot = disabled. Blue lock icon indicates SSL is active on the host.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

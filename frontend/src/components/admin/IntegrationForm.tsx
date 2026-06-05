@@ -49,6 +49,7 @@ export const INTEGRATION_TYPES = [
   { id: 'pihole',       label: 'Pi-hole',      desc: 'Pi-hole DNS sinkhole — v5: bare API token from Settings → API; v6: app password or web password. URL is http://your-pihole/. No auth needed for basic v5 stats.', category: 'Infrastructure' },
   { id: 'adguard',      label: 'AdGuard Home', desc: 'AdGuard Home DNS sinkhole — username:password in API key field. URL is http://your-adguard:3000/. Requires admin credentials.', category: 'Infrastructure' },
   { id: 'nextdns',      label: 'NextDNS',      desc: 'NextDNS cloud DNS — bare API key (from nextdns.io → Account → API). URL: https://api.nextdns.io/profiles/{profileId}. Leave UI URL as https://my.nextdns.io or blank.', category: 'Infrastructure' },
+  { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'NPM reverse proxy — email:password in API key field. URL is http://your-npm:81/. Creates a JWT session token automatically.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -437,6 +438,13 @@ export default function IntegrationForm({
           API URL format: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>https://api.nextdns.io/profiles/{'{'}<em>profileId</em>{'}'}</code>.
           Find your Profile ID in the NextDNS dashboard URL (or Settings → Profile ID).
           API key: bare token from nextdns.io → Account → API.
+        </div>
+      )}
+      {/* Nginx Proxy Manager: email:password auth */}
+      {activeType === 'nginxpm' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>email:password</code> — your NPM web UI login credentials.
+          Stoa exchanges these for a JWT session token automatically.
         </div>
       )}
 

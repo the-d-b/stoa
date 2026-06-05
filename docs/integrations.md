@@ -20,6 +20,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Bare token (v5) or bare password (v6) | Pi-hole | v5: API token from Settings → API (appended as `?auth=<token>`). v6: web interface password or an app password (used to obtain a 30-minute session ID). Stoa auto-detects the version at connection time. |
 | `username:password` | AdGuard Home | HTTP Basic Auth on every request — Stoa splits on the first colon and sets the `Authorization: Basic` header. |
 | Plain API key | NextDNS | Bare API key sent as `X-Api-Key` header on every request. |
+| `email:password` → JWT session | Nginx Proxy Manager | Stoa posts credentials to `POST /api/tokens` and caches the returned JWT for up to 23 hours. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -351,6 +352,39 @@ The default AdGuard Home admin credentials are `admin` and whatever password you
 **Polling:** Every 30 seconds. NextDNS has no real-time push (no SSE or WebSocket). The time-series data uses 1-hour buckets, so faster polling would not produce new timeline data.
 
 **TLS:** NextDNS is always HTTPS (`api.nextdns.io`). The "Skip TLS" option has no effect for this integration.
+
+---
+
+## Nginx Proxy Manager
+
+**What it shows:** Proxy host inventory — every configured reverse proxy rule with its domain name, forward target (scheme, host, port), enabled/disabled status, and SSL status. A certificate expiry dashboard showing all SSL certificates sorted by urgency (expired and nearest-expiry first), with color-coded countdown: red for expired, orange for less than 7 days, amber for less than 30 days, green for healthy. Redirect host inventory, TCP/UDP stream counts, and access list count.
+
+**Auth:** NPM uses its own session API. Store your login credentials as `email:password` in the secret field — the same credentials you use to log in to the NPM web UI. Stoa posts these to `POST /api/tokens` and receives a JWT bearer token, which is cached for 23 hours and refreshed automatically. The actual NPM token lasts 30 days, but Stoa refreshes proactively to stay ahead of expiry.
+
+**URL:** Your Nginx Proxy Manager base URL, e.g. `http://192.168.1.10:81`. NPM's admin UI and API both default to port `81`. Do not include `/api` — Stoa appends the correct path.
+
+**UI URL:** Optional. If set, the panel header links to this URL. Typically the same as the API URL.
+
+**Port:** NPM defaults to port `81` for the admin web interface (not port 80, which is used for proxied traffic). Port `81` is the API port. If you've changed this in your NPM configuration or put NPM behind another reverse proxy, use the appropriate URL.
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates. NPM itself does not use TLS on its admin port by default.
+
+**What each category shows:**
+- **Proxy hosts:** All reverse proxy entries with domain → target mapping, enabled/disabled status (green/grey dot), and SSL padlock indicator. Sorted enabled-first, then alphabetically.
+- **Certificates:** All SSL certificates with expiry countdown. Sorted by urgency (expired first, then by days remaining). Each shows the primary domain name, Let's Encrypt badge where applicable, and days remaining colored by urgency.
+- **Redirects:** HTTP redirect entries (e.g. `http://foo.com → https://foo.com`) with enabled status.
+- **Streams:** TCP/UDP stream proxy count (enabled/total).
+- **Access lists:** Count of IP/auth access control lists configured.
+
+**Certificate urgency colors:**
+- Red: expired (daysLeft < 0)
+- Orange: expiring within 7 days
+- Amber: expiring within 30 days
+- Green: healthy (more than 30 days remaining)
+
+**Let's Encrypt badge:** Certificates issued via Let's Encrypt (managed by NPM's built-in Certbot integration) are marked with a `LE` badge. These auto-renew at 30 days; if you see an LE cert in the amber zone something may have gone wrong with renewal.
+
+**Polling:** Every 60 seconds. NPM has no real-time push (no SSE or WebSocket). Certificate expiry data changes slowly; host enable/disable state changes only when you manually toggle it in the UI.
 
 ---
 

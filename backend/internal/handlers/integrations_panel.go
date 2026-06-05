@@ -67,6 +67,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"pihole":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPiHolePanelData(db, cfg) },
 	"adguard":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchAdGuardPanelData(db, cfg) },
 	"nextdns":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNextDNSPanelData(db, cfg) },
+	"nginxpm":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNPMPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
