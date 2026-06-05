@@ -28,6 +28,7 @@ export const PANEL_TYPES: {
   { id: 'jellystat',    label: 'Jellystat',    desc: 'Jellyfin analytics',                             needsIntegration: true,  category: 'Media' },
   { id: 'tracearr',     label: 'Tracearr',     desc: 'Cross-platform media analytics & security',      needsIntegration: true,  category: 'Media' },
   { id: 'immich',       label: 'Immich',       desc: 'Photo library stats & preview carousel',          needsIntegration: true,  category: 'Media' },
+  { id: 'kavita',       label: 'Kavita',       desc: 'Manga & comic library stats and recent series',   needsIntegration: true,  category: 'Media' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats',               needsIntegration: true,  category: 'Media' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Media' },
   // Infrastructure
@@ -78,7 +79,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','truenas','unraid','omv','synology','qnap','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]

@@ -53,6 +53,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"jellystat":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchJellystatPanelData(db, cfg) },
 	"tracearr":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTracearrPanelData(db, cfg) },
 	"immich":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchImmichPanelData(db, cfg) },
+	"kavita":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchKavitaPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
