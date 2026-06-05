@@ -59,6 +59,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"audiobookshelf": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchABSPanelData(db, cfg) },
 	"navidrome":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNavidromePanelData(db, cfg) },
 	"pfsense":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPfSensePanelData(db, cfg) },
+	"openwrt":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchOpenWrtPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

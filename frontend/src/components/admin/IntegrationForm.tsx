@@ -41,6 +41,7 @@ export const INTEGRATION_TYPES = [
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                                  category: 'Infrastructure' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Infrastructure' },
   { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router (requires pfSense-pkg-API package; API key or username:password)', category: 'Infrastructure' },
+  { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router (username:password; default username is root)',                              category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },

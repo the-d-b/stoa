@@ -44,6 +44,7 @@ export const PANEL_TYPES: {
   { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                    needsIntegration: true,  category: 'Infrastructure' },
   { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                         needsIntegration: true,  category: 'Infrastructure' },
   { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router stats (pfSense-pkg-API)',        needsIntegration: true,  category: 'Infrastructure' },
+  { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router stats, interface traffic & WiFi clients', needsIntegration: true,  category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -85,7 +86,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
+  'kuma','gluetun','opnsense','pfsense','openwrt','transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 
