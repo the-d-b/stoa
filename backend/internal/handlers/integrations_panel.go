@@ -51,6 +51,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"rutorrent":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRTorrentPanelData(db, cfg) },
 	"emby":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchEmbyPanelData(db, cfg) },
 	"jellystat":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchJellystatPanelData(db, cfg) },
+	"tracearr":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTracearrPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

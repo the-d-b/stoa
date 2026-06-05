@@ -240,6 +240,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testEmbyConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "jellystat":
 			err = testJellystatConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "tracearr":
+			err = testTracearrConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "photoprism":
 			err = testPhotoPrismConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "unraid":
@@ -300,6 +302,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testEmbyConnection(req.APIURL, apiKey, true)
 						case "jellystat":
 							retryErr = testJellystatConnection(req.APIURL, apiKey, true)
+						case "tracearr":
+							retryErr = testTracearrConnection(req.APIURL, apiKey, true)
 						case "photoprism":
 							retryErr = testPhotoPrismConnection(req.APIURL, apiKey, true)
 						case "unraid":
@@ -510,7 +514,7 @@ func defaultRefreshSecs(igType string) int {
 	switch igType {
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
-	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "kuma", "gluetun":
+	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":
 		return 60
 	case "authentik", "customapi":
 		return 300

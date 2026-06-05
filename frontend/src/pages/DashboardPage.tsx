@@ -27,6 +27,7 @@ import DelugePanel from '../components/panels/DelugePanel'
 import RTorrentPanel from '../components/panels/RTorrentPanel'
 import EmbyPanel from '../components/panels/EmbyPanel'
 import JellystatPanel from '../components/panels/JellystatPanel'
+import TracearrPanel from '../components/panels/TracearrPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1023,6 +1024,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'homeassistant' && <HomeAssistantPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'tautulli' && <TautulliPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'jellystat' && <JellystatPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'tracearr' && <TracearrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'unraid' && <UnraidPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'omv' && <OMVPanel panel={panel} heightUnits={heightUnits} />}
