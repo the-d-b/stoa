@@ -71,6 +71,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"wgeasy":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchWGEasyPanelData(db, cfg) },
 	"tailscale":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTailscalePanelData(db, cfg) },
 	"prometheus":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPrometheusPanelData(db, cfg) },
+	"grafana":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchGrafanaPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

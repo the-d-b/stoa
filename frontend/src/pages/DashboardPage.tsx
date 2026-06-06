@@ -47,6 +47,7 @@ import NPMPanel from '../components/panels/NPMPanel'
 import WGEasyPanel from '../components/panels/WGEasyPanel'
 import TailscalePanel from '../components/panels/TailscalePanel'
 import PrometheusPanel from '../components/panels/PrometheusPanel'
+import GrafanaPanel from '../components/panels/GrafanaPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1072,6 +1073,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'wgeasy' && <WGEasyPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'tailscale' && <TailscalePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'prometheus' && <PrometheusPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'grafana' && <GrafanaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

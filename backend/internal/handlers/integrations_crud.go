@@ -254,6 +254,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testTailscaleConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "prometheus":
 			err = testPrometheusConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "grafana":
+			err = testGrafanaConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -354,6 +356,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testTailscaleConnection(req.APIURL, apiKey, true)
 						case "prometheus":
 							retryErr = testPrometheusConnection(req.APIURL, apiKey, true)
+						case "grafana":
+							retryErr = testGrafanaConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -612,6 +616,8 @@ func defaultRefreshSecs(igType string) int {
 		return 60
 	case "prometheus":
 		return 30
+	case "grafana":
+		return 60
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

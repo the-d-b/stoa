@@ -56,6 +56,7 @@ export const PANEL_TYPES: {
   { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN — server status, connected/total clients, per-client handshake recency & transfer stats', needsIntegration: true, category: 'Infrastructure' },
   { id: 'tailscale',    label: 'Tailscale',    desc: 'Mesh VPN — device roster with online/offline status, OS, Tailscale IP, exit nodes, subnet routers, update & key-expiry alerts', needsIntegration: true, category: 'Infrastructure' },
   { id: 'prometheus',   label: 'Prometheus',   desc: 'Metrics server — scrape target health by job, firing & pending alerts with severity, plus optional custom PromQL stat cards with sparklines', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'grafana',      label: 'Grafana',      desc: 'Observability platform — datasource health by type, firing alerts with severity, plus dashboard/user counts and instance info', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -97,7 +98,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus',
+  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana',
   'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]

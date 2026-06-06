@@ -38,6 +38,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | wg-easy | Yes |
 | Tailscale | Yes |
 | Prometheus | Yes |
+| Grafana | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -230,6 +231,21 @@ Scrape target health by job, active alerting rule status (firing/pending with se
 **Alert severity colors:** Critical = red, warning = amber, info = cyan, unlabeled = red. Firing alerts appear before pending.
 
 **Polling:** Every 30 seconds. No real-time push — Prometheus has no SSE or WebSocket API.
+
+### Grafana
+Datasource health for every configured Grafana datasource, active alerts from Grafana's unified alerting engine, and instance metadata (version, database status, org, dashboard/user counts). See [integrations.md](integrations.md#grafana).
+
+**Height:** 1× = compact bar (N/M datasources healthy, firing alert count, version, org name); 2–3× = datasource health donut + stat chips (healthy/down/total DS, firing alerts, dashboard count, version) + alert list + datasource list with type badges; 4×+ = donut + full chip row + three-column layout (datasource roster, alert list, instance detail with version/org/dashboard count/user count and datasource type breakdown).
+
+**Datasource type badges:** Color-coded by type — Prometheus (orange), Loki (amber), InfluxDB (blue), Elasticsearch (teal), PostgreSQL (dark blue), MySQL (blue), CloudWatch (AWS orange), Azure Monitor, Tempo, Jaeger, and more. Unknown types display in grey.
+
+**Datasource health donut color:** Green = all datasources healthy; amber = some unhealthy (≥ 80% ok); red = majority unhealthy. Datasources with "unknown" health (Grafana older than 8.3, or health endpoint not implemented for that plugin) are shown but not counted as unhealthy.
+
+**Alert severity colors:** Critical/error = red, warning = amber, info = cyan. Sorted critical-first then alphabetically.
+
+**Admin-only data:** Dashboard count and user count require the Service Account to have Admin role. These chips are omitted when the token has only Viewer access.
+
+**Polling:** Every 60 seconds.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

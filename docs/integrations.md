@@ -24,6 +24,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Password only → session cookie | wg-easy | Stoa posts the password to `POST /api/session` and caches the returned session cookie for up to 23 hours. Leave blank for no-auth instances. |
 | Bearer token | Tailscale | API token (`tskey-api-...`) sent as `Authorization: Bearer` on every request. Generated in the Tailscale admin console. |
 | None, `username:password`, or bare Bearer token | Prometheus | Three auth modes: open (no secret), HTTP Basic Auth (`username:password`), or a bare Bearer token. Most home-lab Prometheus instances run open or behind a firewall. |
+| Bearer token (Service Account) | Grafana | Service Account token generated in Grafana → Administration → Service Accounts. Sent as `Authorization: Bearer`. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -497,6 +498,45 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 **No metrics shown?** If your Prometheus has no scrape targets configured, the targets section will show 0/0 up. This is normal for a freshly installed Prometheus. Configure scrape jobs in your `prometheus.yml` to start seeing data.
 
 **Alertmanager:** Stoa queries Prometheus alerting rules directly via `/api/v1/alerts`, not the Alertmanager API. Only alerts evaluated by Prometheus itself appear here — alerts routed through Alertmanager's silence or inhibition rules may still show as firing.
+
+---
+
+## Grafana
+
+**What it shows:** Datasource health for every configured datasource (Prometheus, Loki, InfluxDB, PostgreSQL, etc.) with a per-type color badge, any firing alerts from Grafana's built-in alerting engine with severity and time active, Grafana instance info (version, database state, org name), and — when the Service Account has Admin role — dashboard and user counts.
+
+**What is Grafana?** Grafana is an open-source observability and dashboarding platform. It connects to backend data sources (Prometheus, InfluxDB, Loki, Elasticsearch, SQL databases, cloud monitoring APIs, and many more), visualises their data as panels and dashboards, and runs its own alerting engine on top of those sources. Stoa's Grafana integration surfaces the operational health of the Grafana instance itself — datasource connectivity and active alerts — rather than replicating its dashboards.
+
+**Auth:** Service Account token (recommended) or a legacy API key. To create a Service Account token:
+
+1. In Grafana, go to **Administration → Service Accounts** (or **Configuration → API Keys** for older versions).
+2. Create a new Service Account with **Viewer** role (sufficient for datasources and alerts). Add **Admin** role if you want dashboard and user counts from the `/api/admin/stats` endpoint.
+3. Click the Service Account → **Add service account token** → Copy the token.
+4. Paste the token into the API key field in Stoa.
+
+**URL:** Your Grafana base URL, e.g. `http://192.168.1.10:3000`. Do not include trailing slashes or path segments.
+
+**TLS:** Enable "Skip TLS verify" if Grafana is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 60 seconds. Datasource health checks and alert state are re-fetched each cycle.
+
+**What the panel shows:**
+
+- **Datasource health:** Each datasource's health check result via `GET /api/datasources/{id}/health` (Grafana 8.3+). Displayed with the datasource name, type (color-coded by type — Prometheus, Loki, InfluxDB, etc.), and any error message. Requires Grafana 8.3 or later; on older versions datasources appear with "unknown" health.
+- **Firing alerts:** Active (unsuppressed) alerts from Grafana's alerting engine via the Alertmanager v2 API. Shows alert name, severity, summary annotation, and time active. Sorted by severity (critical → error → warning → info).
+- **Instance info:** Grafana version, database state (ok/error), org name, dashboard count, and user count (the latter two require Admin role).
+- **Datasource type breakdown (4× panel):** A summary of datasource types present (e.g. Prometheus ×2, Loki ×1, PostgreSQL ×3).
+
+**Role requirements:**
+
+| Feature | Required role |
+|---|---|
+| Datasource list and health | Viewer |
+| Active alerts | Viewer |
+| Org name | Viewer |
+| Dashboard count, user count | Admin (via `/api/admin/stats`) |
+
+**Grafana alerting vs Prometheus alerting:** If your Grafana uses Mimir or Prometheus as a datasource and you have both a Prometheus integration and a Grafana integration, the alert lists may overlap — Grafana can evaluate the same Prometheus alerting rules through its "unified alerting" engine. They may also differ if Grafana has silences, inhibitions, or additional alert rules defined only in Grafana. Both integrations remain useful for confirming alerts are visible at each layer.
 
 ---
 
