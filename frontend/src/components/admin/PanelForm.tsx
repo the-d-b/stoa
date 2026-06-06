@@ -55,6 +55,7 @@ export const PANEL_TYPES: {
   { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'Proxy host inventory (enabled/disabled, SSL), certificate expiry countdown, redirect hosts & stream stats', needsIntegration: true, category: 'Infrastructure' },
   { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN — server status, connected/total clients, per-client handshake recency & transfer stats', needsIntegration: true, category: 'Infrastructure' },
   { id: 'tailscale',    label: 'Tailscale',    desc: 'Mesh VPN — device roster with online/offline status, OS, Tailscale IP, exit nodes, subnet routers, update & key-expiry alerts', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'prometheus',   label: 'Prometheus',   desc: 'Metrics server — scrape target health by job, firing & pending alerts with severity, plus optional custom PromQL stat cards with sparklines', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -96,7 +97,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale',
+  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus',
   'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
@@ -187,6 +188,12 @@ export default function PanelForm({
   const [haEntityIds, setHaEntityIds] = useState(cfg.entityIds ?? '')
   const [haDomains, setHaDomains] = useState(cfg.domains ?? '')
 
+  // ── Prometheus custom metrics ──────────────────────────────────────────────
+  type PromMetric = { label: string; query: string; unit: string }
+  const [promMetrics, setPromMetrics] = useState<PromMetric[]>(
+    (cfg.metrics as PromMetric[]) ?? []
+  )
+
   // ── Bookmarks ──────────────────────────────────────────────────────────────
   const [bookmarkRootId, setBookmarkRootId] = useState(cfg.rootNodeId ?? '')
 
@@ -262,6 +269,7 @@ export default function PanelForm({
     setApiRefreshSecs(c.refreshSecs ?? 600)
     setApiPreview(null)
     setIfaceCaps(c.ifaceCaps || {})
+    setPromMetrics((c.metrics as PromMetric[]) ?? [])
   }, [panel?.id])
 
   const handleTypeChange = (t: string) => {
@@ -380,6 +388,10 @@ export default function PanelForm({
       }
       if (RATINGS_TYPES.includes(type) && allowedRatings.trim()) {
         base.allowedRatings = allowedRatings.trim()
+      }
+      if (type === 'prometheus') {
+        const valid = promMetrics.filter(m => m.query.trim() !== '')
+        if (valid.length > 0) base.metrics = valid
       }
     }
     return JSON.stringify(base)
@@ -604,6 +616,13 @@ export default function PanelForm({
                 <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                   API key is a Tailscale API token (<code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>tskey-api-...</code>) from login.tailscale.com → Settings → Keys.
                   Leave URL blank (Stoa always calls api.tailscale.com) or enter your tailnet domain.
+                </div>
+              )}
+              {/* Prometheus: local service, optional auth */}
+              {type === 'prometheus' && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  URL is your Prometheus base URL, e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>http://prometheus:9090</code>.
+                  Leave API key blank if Prometheus is open. For Basic Auth use <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>; for a Bearer token use a bare token string.
                 </div>
               )}
 
@@ -865,6 +884,44 @@ export default function PanelForm({
             <code>sensor</code>, <code>binary_sensor</code>, <code>climate</code>, <code>lock</code>,{' '}
             <code>cover</code>, <code>media_player</code>, <code>fan</code>, and more.
           </div>
+        </div>
+      )}
+
+      {/* Prometheus custom metrics */}
+      {type === 'prometheus' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <label className="label">
+            Custom metrics{' '}
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — target health &amp; alerts always shown)</span>
+          </label>
+          {promMetrics.map((m, i) => (
+            <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input className="input" value={m.label}
+                onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                placeholder="Label" style={{ width: 90, flexShrink: 0 }} />
+              <input className="input" value={m.query}
+                onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, query: e.target.value } : x))}
+                placeholder="PromQL expression" style={{ flex: 1, fontFamily: 'DM Mono, monospace', fontSize: 12 }} />
+              <input className="input" value={m.unit}
+                onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))}
+                placeholder="Unit" style={{ width: 55, flexShrink: 0 }} />
+              <button className="btn btn-ghost" style={{ fontSize: 14, padding: '0 8px', flexShrink: 0 }}
+                onClick={() => setPromMetrics(prev => prev.filter((_, j) => j !== i))}>×</button>
+            </div>
+          ))}
+          {promMetrics.length < 8 && (
+            <button className="btn btn-secondary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+              onClick={() => setPromMetrics(prev => [...prev, { label: '', query: '', unit: '' }])}>
+              + Add metric
+            </button>
+          )}
+          {promMetrics.length > 0 && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+              Each metric is displayed as a stat card with a 1-hour sparkline. Example queries:
+              CPU <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>100 - avg(rate(node_cpu_seconds_total{'{'}mode="idle"{'}'}{`[5m]`}) * 100)</code>,
+              Memory free <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>node_memory_MemAvailable_bytes</code>.
+            </div>
+          )}
         </div>
       )}
 

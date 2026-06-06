@@ -23,6 +23,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | `email:password` → JWT session | Nginx Proxy Manager | Stoa posts credentials to `POST /api/tokens` and caches the returned JWT for up to 23 hours. |
 | Password only → session cookie | wg-easy | Stoa posts the password to `POST /api/session` and caches the returned session cookie for up to 23 hours. Leave blank for no-auth instances. |
 | Bearer token | Tailscale | API token (`tskey-api-...`) sent as `Authorization: Bearer` on every request. Generated in the Tailscale admin console. |
+| None, `username:password`, or bare Bearer token | Prometheus | Three auth modes: open (no secret), HTTP Basic Auth (`username:password`), or a bare Bearer token. Most home-lab Prometheus instances run open or behind a firewall. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -449,6 +450,53 @@ Store the bare token string as the API key secret.
 **Polling:** Every 60 seconds. The Tailscale API is REST-only with no SSE or WebSocket. Tailscale's control server itself detects device presence; `connectedToControl` reflects near-real-time status.
 
 **No TLS setting:** The "Skip TLS verify" option has no effect for this integration — Tailscale's API is always HTTPS at `api.tailscale.com`.
+
+---
+
+## Prometheus
+
+**What it shows:** Scrape target health grouped by job (up/total per job, overall health percentage), any active alerting rules that are firing or pending with severity labels and human-readable summaries, the Prometheus server version, and — optionally — custom metric stat cards driven by PromQL expressions you configure per panel.
+
+**What is Prometheus?** Prometheus is an open-source time-series metrics database and monitoring system. It scrapes metrics from configured targets (exporters running alongside your services), stores them as labeled time series, and evaluates alerting rules. It is the de facto metrics backend for homelab and production Kubernetes environments. The Prometheus HTTP API is the source Stoa queries — not any specific exporter.
+
+**Auth:** Prometheus has no built-in authentication. Three modes are supported:
+
+- **No auth (default):** Leave the API key field blank. Most home-lab Prometheus instances run open on a local port.
+- **Basic Auth** (`username:password`): If your Prometheus is behind a reverse proxy (Nginx, Traefik, Caddy) with HTTP Basic Auth, put `user:pass` in the API key field. Stoa sends `Authorization: Basic ...` on every request.
+- **Bearer token**: If your setup uses token-based auth, put the bare token in the API key field. Stoa sends `Authorization: Bearer ...`.
+
+**URL:** Your Prometheus base URL, e.g. `http://192.168.1.10:9090`. Do not include `/api` — Stoa appends the correct paths automatically.
+
+**TLS:** Enable "Skip TLS verify" if Prometheus is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 30 seconds. Prometheus has no SSE or WebSocket push — Stoa polls the REST API. Alert state changes and target health changes are reflected within one poll cycle.
+
+**What the panel always shows (no configuration needed):**
+- **Target health:** Each scrape target's up/down/unknown state. Grouped by job (e.g. `node_exporter`, `cadvisor`, `blackbox`) with a per-job up/total count.
+- **Active alerts:** Any alerting rule currently in `firing` or `pending` state, with name, severity label, `summary` annotation, and time active. Sorted firing-first.
+- **Server version:** Fetched from `GET /api/v1/status/buildinfo`. Displayed as a chip; omitted if the endpoint is unavailable (older Prometheus versions).
+
+**Custom PromQL metrics (configured per panel):**
+In the panel configuration form, you can add up to 8 custom metric cards. Each card has a label, a PromQL expression, and an optional unit suffix. Stoa evaluates each expression as both an instant query (current value) and a 60-minute range query (30 data points, 2-minute step) to render a sparkline alongside the value.
+
+If your PromQL expression returns multiple series (e.g. per-CPU metrics), Stoa sums the values. Use aggregation functions (`sum(...)`, `avg(...)`) in your expressions to control this.
+
+Example PromQL expressions:
+
+| Label | Query | Unit |
+|---|---|---|
+| CPU | `100 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100` | `%` |
+| Memory used | `100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)` | `%` |
+| Disk I/O | `rate(node_disk_read_bytes_total[5m]) + rate(node_disk_written_bytes_total[5m])` | `B/s` |
+| HTTP error rate | `rate(http_requests_total{status=~"5.."}[5m])` | `req/s` |
+| Active connections | `pg_stat_activity_count` | `` |
+| Uptime | `time() - process_start_time_seconds` | `s` |
+
+These expressions work with [node_exporter](https://github.com/prometheus/node_exporter) for host metrics. Your actual metric names depend on which exporters you run.
+
+**No metrics shown?** If your Prometheus has no scrape targets configured, the targets section will show 0/0 up. This is normal for a freshly installed Prometheus. Configure scrape jobs in your `prometheus.yml` to start seeing data.
+
+**Alertmanager:** Stoa queries Prometheus alerting rules directly via `/api/v1/alerts`, not the Alertmanager API. Only alerts evaluated by Prometheus itself appear here — alerts routed through Alertmanager's silence or inhibition rules may still show as firing.
 
 ---
 

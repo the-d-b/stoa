@@ -52,6 +52,7 @@ export const INTEGRATION_TYPES = [
   { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'NPM reverse proxy — email:password in API key field. URL is http://your-npm:81/. Creates a JWT session token automatically.', category: 'Infrastructure' },
   { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN manager — bare password in API key field (leave blank for no-auth instances). URL is http://your-wgeasy:51821/.', category: 'Infrastructure' },
   { id: 'tailscale',    label: 'Tailscale',    desc: 'Tailscale mesh VPN — API token (tskey-api-...) from login.tailscale.com → Settings → Keys. Leave URL blank; Stoa always calls api.tailscale.com.', category: 'Infrastructure' },
+  { id: 'prometheus',   label: 'Prometheus',   desc: 'Prometheus metrics server — URL is http://prometheus:9090. No auth by default; use username:password for Basic Auth or a bare token for Bearer. Optional PromQL metric cards configured per panel.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -463,6 +464,15 @@ export default function IntegrationForm({
           Generate one at login.tailscale.com → Settings → Keys. Tokens expire in 1–90 days (you choose).
           Leave URL blank — Stoa always calls api.tailscale.com. Optionally enter your tailnet domain
           (e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>example.com</code>) if "-" does not resolve to your tailnet.
+        </div>
+      )}
+      {/* Prometheus: local service, optional auth */}
+      {activeType === 'prometheus' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          URL is your Prometheus base URL, e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>http://prometheus:9090</code>.
+          Leave API key blank if Prometheus has no authentication (common in home labs behind a firewall).
+          For reverse-proxy Basic Auth: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
+          For Bearer token auth: bare token string. Custom PromQL metric cards are configured per panel, not here.
         </div>
       )}
 

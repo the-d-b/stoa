@@ -37,6 +37,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Nginx Proxy Manager | Yes |
 | wg-easy | Yes |
 | Tailscale | Yes |
+| Prometheus | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -216,6 +217,19 @@ Mesh VPN device roster — online/offline status for every device in your tailne
 **Alert badges:** `UPDATE` (amber) = newer client available; `EXPIRED`/`Xd` (orange/red) = key expiry status.
 
 **Polling:** Every 60 seconds — Tailscale's API is REST-only (no real-time push). Device online status reflects connection to Tailscale's coordination server.
+
+### Prometheus
+Scrape target health by job, active alerting rule status (firing/pending with severity and summary), Prometheus version, and optional custom PromQL metric cards with 60-minute sparklines. See [integrations.md](integrations.md#prometheus).
+
+**Height:** 1× = compact bar (N/M targets up, firing alert count, inline custom metric values); 2–3× = health donut + stat chips + custom metric cards + firing alert list + down-target list; 4×+ = donut + chips + custom metric cards + three-column layout (jobs up/total, alert list, target health detail).
+
+**Target health donut color:** Green = all targets up; amber = some down (≥ 80% up); red = majority down or all down.
+
+**Custom metrics:** Configured per panel in the panel edit form. Add up to 8 PromQL expressions — each renders as a labeled card with the current value, optional unit suffix, and a 1-hour sparkline. Multi-series expressions are summed. See [integrations.md](integrations.md#prometheus) for example queries.
+
+**Alert severity colors:** Critical = red, warning = amber, info = cyan, unlabeled = red. Firing alerts appear before pending.
+
+**Polling:** Every 30 seconds. No real-time push — Prometheus has no SSE or WebSocket API.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
