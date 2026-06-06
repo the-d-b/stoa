@@ -50,6 +50,7 @@ import PrometheusPanel from '../components/panels/PrometheusPanel'
 import GrafanaPanel from '../components/panels/GrafanaPanel'
 import AutobrrPanel from '../components/panels/AutobrrPanel'
 import BazarrPanel from '../components/panels/BazarrPanel'
+import ProwlarrPanel from '../components/panels/ProwlarrPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1078,6 +1079,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'grafana' && <GrafanaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'autobrr' && <AutobrrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'bazarr' && <BazarrPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'prowlarr' && <ProwlarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

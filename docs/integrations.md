@@ -27,6 +27,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Bearer token (Service Account) | Grafana | Service Account token generated in Grafana → Administration → Service Accounts. Sent as `Authorization: Bearer`. |
 | Plain API key | autobrr | API key from autobrr → Settings → API. Sent as `X-API-Token` header on every request. |
 | Plain API key | Bazarr | API key from Bazarr → Settings → General → Security. Sent as `X-API-KEY` header on every request. |
+| Plain API key | Prowlarr | API key from Prowlarr → Settings → General → Security. Sent as `X-Api-Key` header on every request. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -539,6 +540,34 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 | Dashboard count, user count | Admin (via `/api/admin/stats`) |
 
 **Grafana alerting vs Prometheus alerting:** If your Grafana uses Mimir or Prometheus as a datasource and you have both a Prometheus integration and a Grafana integration, the alert lists may overlap — Grafana can evaluate the same Prometheus alerting rules through its "unified alerting" engine. They may also differ if Grafana has silences, inhibitions, or additional alert rules defined only in Grafana. Both integrations remain useful for confirming alerts are visible at each layer.
+
+---
+
+## Prowlarr
+
+**What it shows:** Indexer health (ok / degraded / auto-blocked), protocol and privacy breakdown (torrent vs usenet, public vs private vs semi-private), per-indexer lifetime query and grab counts with average response time and failure rate, connected \*arr application sync status, and Prowlarr health check issues.
+
+**What is Prowlarr?** Prowlarr is the indexer manager for the \*arr stack. It replaces Jackett by integrating directly with Sonarr, Radarr, Lidarr, Readarr, and other applications — managing all your indexers in one place and syncing them automatically to each app. Prowlarr supports both torrent and usenet indexers across public, semi-private, and private tiers.
+
+**Auth:** Plain API key. In Prowlarr, go to **Settings → General → Security → API Key**. Paste it into the API key field in Stoa.
+
+**URL:** Your Prowlarr base URL, e.g. `http://192.168.1.10:9696`. Do not include trailing slashes.
+
+**TLS:** Enable "Skip TLS verify" if Prowlarr is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 60 seconds.
+
+**What the panel shows:**
+
+- **Indexer health:** Each indexer's operational state. Prowlarr automatically tracks failures and temporarily blocks indexers that repeatedly fail. Health states: `ok` (green) — operating normally; `degraded` (amber) — has had recent failures but not yet blocked; `blocked` (red) — auto-blocked by Prowlarr until the `disabledTill` timestamp; `disabled` (grey) — manually disabled.
+- **Protocol badges:** `TRN` (green) = torrent indexer; `NZB` (purple) = usenet/Newznab indexer.
+- **Privacy badges:** `PVT` (cyan) = private indexer; `SEMI` (purple) = semi-private; `PUB` (grey) = public.
+- **Indexer stats:** Lifetime query count, grab count, average response time, and query failure rate per indexer. Response times over 3 seconds are highlighted amber.
+- **Connected apps:** Applications synced to this Prowlarr instance with their sync level (Full Sync / Add Only / Disabled).
+- **Health issues:** System-level warnings and errors from Prowlarr's health check endpoint (same pattern as Sonarr/Radarr).
+- **Version:** From `/api/v1/system/status`.
+
+**Indexer auto-blocking:** When an indexer fails repeatedly, Prowlarr sets a `disabledTill` timestamp and stops querying it temporarily. Stoa reads this field and marks the indexer as "blocked" with the timestamp. Once the block expires and Prowlarr retries, the status returns to `ok` or `degraded`.
 
 ---
 

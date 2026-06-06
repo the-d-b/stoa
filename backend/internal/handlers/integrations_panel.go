@@ -74,6 +74,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"grafana":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchGrafanaPanelData(db, cfg) },
 	"autobrr":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchAutobrrrPanelData(db, cfg) },
 	"bazarr":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchBazarrPanelData(db, cfg) },
+	"prowlarr":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchProwlarrPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

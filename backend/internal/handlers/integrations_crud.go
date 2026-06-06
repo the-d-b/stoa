@@ -260,6 +260,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testAutobrrrConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "bazarr":
 			err = testBazarrConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "prowlarr":
+			err = testProwlarrConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -366,6 +368,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testAutobrrrConnection(req.APIURL, apiKey, true)
 						case "bazarr":
 							retryErr = testBazarrConnection(req.APIURL, apiKey, true)
+						case "prowlarr":
+							retryErr = testProwlarrConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -629,6 +633,8 @@ func defaultRefreshSecs(igType string) int {
 	case "autobrr":
 		return 30
 	case "bazarr":
+		return 60
+	case "prowlarr":
 		return 60
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30

@@ -40,6 +40,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Prometheus | Yes |
 | Grafana | Yes |
 | autobrr | Yes |
+| Prowlarr | Yes |
 | Bazarr | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
@@ -261,6 +262,23 @@ Torrent autodl activity — IRC network connection health, cumulative grab/rejec
 **Activity feed statuses:** GRABBED (green) = successfully sent to download client or \*arr; FILTERED (grey) = no filter matched (expected, not an error); REJECTED (amber) = matched but downstream client refused it (duplicate, etc.); ERROR (red) = downstream client returned an error.
 
 **Polling:** Every 30 seconds.
+
+### Prowlarr
+Indexer manager health — indexer status across your torrent and usenet sources, per-indexer grab counts and response times, connected \*arr app sync status, and system health issues. See [integrations.md](integrations.md#prowlarr).
+
+**Height:** 1× = compact bar (enabled/total indexers, failing count, health issue count, total grabs, version); 2–3× = health donut + stat chips + health issues + indexer list with protocol/privacy badges; 4×+ = donut + full chip row + three-column layout (full indexer list | issues + connected apps | lifetime stats table with grabs, response time, and fail rate per indexer).
+
+**Health donut:** Counts enabled indexers with `ok` health vs total enabled. Green = all healthy; amber = some failing (≥ 80% ok); red = majority failing.
+
+**Indexer health states:** `ok` (green dot) — working normally; `degraded` (amber) — has recent failures; `blocked` (red) — Prowlarr has auto-blocked it until a future timestamp; `disabled` (grey, italic) — manually disabled by user.
+
+**Protocol badges:** `TRN` (green) = torrent/Torznab; `NZB` (purple) = usenet/Newznab.
+
+**Privacy badges:** `PVT` (cyan) = private; `SEMI` (purple) = semi-private; `PUB` (grey) = public.
+
+**Stats column (4× only):** Shows only indexers with query history. Response times > 3s are highlighted amber. Failure rate = `failedQueries / totalQueries × 100`.
+
+**Polling:** Every 60 seconds.
 
 ### Bazarr
 Subtitle management status — missing subtitle counts for TV and movies, per-provider health, and monthly download volume. See [integrations.md](integrations.md#bazarr).
