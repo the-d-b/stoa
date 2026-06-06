@@ -40,6 +40,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Prometheus | Yes |
 | Grafana | Yes |
 | autobrr | Yes |
+| Bazarr | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -260,6 +261,21 @@ Torrent autodl activity — IRC network connection health, cumulative grab/rejec
 **Activity feed statuses:** GRABBED (green) = successfully sent to download client or \*arr; FILTERED (grey) = no filter matched (expected, not an error); REJECTED (amber) = matched but downstream client refused it (duplicate, etc.); ERROR (red) = downstream client returned an error.
 
 **Polling:** Every 30 seconds.
+
+### Bazarr
+Subtitle management status — missing subtitle counts for TV and movies, per-provider health, and monthly download volume. See [integrations.md](integrations.md#bazarr).
+
+**Height:** 1× = compact bar (total missing count, TV/movie split, provider issues, version); 2–3× = missing subtitle donut + stat chips + provider list with health status; 4×+ = donut + chip row + two-column layout (provider roster | instance detail with Sonarr/Radarr live status, health issues, and TV vs movie download bar chart).
+
+**Missing donut:** Amber arc = TV episodes missing, cyan arc = movies missing. Green checkmark when nothing is missing. Total count shown in the centre; color shifts amber (< 10) → red (≥ 10).
+
+**Provider health:** Green dot = "Good" (provider operating normally); red dot = throttled or in backoff, with the status reason and retry time shown inline.
+
+**Monthly downloads:** Sums the daily counts from `/api/history/stats?timeframe=month`. The 4× bar chart scales TV and movies relative to each other.
+
+**Sonarr/Radarr live:** Bazarr maintains a persistent connection to Sonarr and Radarr for real-time library updates. "offline" here means Bazarr's internal connection lost — not necessarily that Sonarr/Radarr are down.
+
+**Polling:** Every 60 seconds.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

@@ -55,6 +55,7 @@ export const INTEGRATION_TYPES = [
   { id: 'prometheus',   label: 'Prometheus',   desc: 'Prometheus metrics server — URL is http://prometheus:9090. No auth by default; use username:password for Basic Auth or a bare token for Bearer. Optional PromQL metric cards configured per panel.', category: 'Infrastructure' },
   { id: 'grafana',      label: 'Grafana',      desc: 'Grafana observability platform — URL is http://grafana:3000. Create a Service Account (Admin → Service Accounts) and generate a token; paste the token in the API key field.', category: 'Infrastructure' },
   { id: 'autobrr',     label: 'autobrr',     desc: 'Torrent autodl — URL is http://autobrr:7474. API key found in autobrr → Settings → API.', category: 'Infrastructure' },
+  { id: 'bazarr',      label: 'Bazarr',      desc: 'Subtitle manager — URL is http://bazarr:6767. API key found in Bazarr → Settings → General → Security → API Key.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -475,6 +476,13 @@ export default function IntegrationForm({
           Leave API key blank if Prometheus has no authentication (common in home labs behind a firewall).
           For reverse-proxy Basic Auth: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
           For Bearer token auth: bare token string. Custom PromQL metric cards are configured per panel, not here.
+        </div>
+      )}
+      {/* Bazarr: API key */}
+      {activeType === 'bazarr' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          URL is your Bazarr base URL, e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>http://bazarr:6767</code>.
+          Find your API key in Bazarr → Settings → General → Security → API Key.
         </div>
       )}
       {/* autobrr: API token */}

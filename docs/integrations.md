@@ -26,6 +26,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | None, `username:password`, or bare Bearer token | Prometheus | Three auth modes: open (no secret), HTTP Basic Auth (`username:password`), or a bare Bearer token. Most home-lab Prometheus instances run open or behind a firewall. |
 | Bearer token (Service Account) | Grafana | Service Account token generated in Grafana → Administration → Service Accounts. Sent as `Authorization: Bearer`. |
 | Plain API key | autobrr | API key from autobrr → Settings → API. Sent as `X-API-Token` header on every request. |
+| Plain API key | Bazarr | API key from Bazarr → Settings → General → Security. Sent as `X-API-KEY` header on every request. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -538,6 +539,32 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 | Dashboard count, user count | Admin (via `/api/admin/stats`) |
 
 **Grafana alerting vs Prometheus alerting:** If your Grafana uses Mimir or Prometheus as a datasource and you have both a Prometheus integration and a Grafana integration, the alert lists may overlap — Grafana can evaluate the same Prometheus alerting rules through its "unified alerting" engine. They may also differ if Grafana has silences, inhibitions, or additional alert rules defined only in Grafana. Both integrations remain useful for confirming alerts are visible at each layer.
+
+---
+
+## Bazarr
+
+**What it shows:** Missing subtitle counts for TV episodes and movies separately, the health status of each configured subtitle provider (Good vs throttled/failing), monthly download stats broken down by TV and movies, Sonarr/Radarr live connection status, and the Bazarr version.
+
+**What is Bazarr?** Bazarr is a subtitle management companion application for Sonarr and Radarr. It monitors your TV and movie libraries for missing subtitles and automatically searches for and downloads them from configured subtitle providers (OpenSubtitles, Subscene, Addic7ed, Podnapisi, and many others). It replaces the manual process of hunting for subtitles and keeps them in sync as new content is added.
+
+**Auth:** Plain API key. In Bazarr, go to **Settings → General → Security** and copy the API Key. Paste it into the API key field in Stoa.
+
+**URL:** Your Bazarr base URL, e.g. `http://192.168.1.10:6767`. Do not include trailing slashes.
+
+**TLS:** Enable "Skip TLS verify" if Bazarr is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 60 seconds.
+
+**What the panel shows:**
+
+- **Missing subtitles:** Pulled from `/api/badges`. TV episodes (amber) and movies (cyan) are shown separately. The donut shows the split. Zero missing = green checkmark.
+- **Provider health:** Each configured subtitle provider with its status from `/api/providers`. "Good" = healthy (green); any other status (throttled, in backoff) = issue (red). The retry timestamp is shown for providers in backoff.
+- **Monthly downloads:** Subtitle download counts for the last 30 days from `/api/history/stats?timeframe=month`, split by TV and movies. Shown as a mini bar chart in the 4× layout.
+- **Sonarr/Radarr live:** Whether Bazarr's real-time connection to Sonarr and Radarr is active ("LIVE"). An offline connection means Bazarr may not receive notifications about new content.
+- **Health issues:** Count of system-level health issues reported by Bazarr (e.g. bad configuration, unreachable indexers).
+
+**Subtitle providers:** Bazarr supports a large number of subtitle providers. Some require accounts or API keys configured within Bazarr itself — Stoa only shows whether those providers are currently healthy, not their credentials.
 
 ---
 

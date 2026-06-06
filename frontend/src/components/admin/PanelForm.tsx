@@ -58,6 +58,7 @@ export const PANEL_TYPES: {
   { id: 'prometheus',   label: 'Prometheus',   desc: 'Metrics server — scrape target health by job, firing & pending alerts with severity, plus optional custom PromQL stat cards with sparklines', needsIntegration: true, category: 'Infrastructure' },
   { id: 'grafana',      label: 'Grafana',      desc: 'Observability platform — datasource health by type, firing alerts with severity, plus dashboard/user counts and instance info', needsIntegration: true, category: 'Infrastructure' },
   { id: 'autobrr',     label: 'autobrr',     desc: 'Torrent autodl — IRC connection health, grab/reject/error stats, and a live activity feed showing what was grabbed, filtered, or rejected and why', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'bazarr',      label: 'Bazarr',      desc: 'Subtitle management — missing subtitle counts for TV and movies, per-provider health status, and monthly download stats', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -99,7 +100,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr',
+  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr',
   'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]

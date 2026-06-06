@@ -73,6 +73,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"prometheus":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPrometheusPanelData(db, cfg) },
 	"grafana":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchGrafanaPanelData(db, cfg) },
 	"autobrr":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchAutobrrrPanelData(db, cfg) },
+	"bazarr":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchBazarrPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
