@@ -44,6 +44,7 @@ import PiHolePanel from '../components/panels/PiHolePanel'
 import AdGuardPanel from '../components/panels/AdGuardPanel'
 import NextDNSPanel from '../components/panels/NextDNSPanel'
 import NPMPanel from '../components/panels/NPMPanel'
+import WGEasyPanel from '../components/panels/WGEasyPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1066,6 +1067,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'adguard' && <AdGuardPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'nextdns' && <NextDNSPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'nginxpm' && <NPMPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'wgeasy' && <WGEasyPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

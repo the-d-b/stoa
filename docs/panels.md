@@ -35,6 +35,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | AdGuard Home | Yes |
 | NextDNS | Yes |
 | Nginx Proxy Manager | Yes |
+| wg-easy | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -192,6 +193,15 @@ Reverse proxy configuration overview — proxy host inventory with enabled/disab
 **Certificate expiry colors:** Red = expired, orange = expiring within 7 days, amber = expiring within 30 days, green = healthy. Let's Encrypt certificates are marked with a `LE` badge.
 
 **Proxy host status:** Green dot = enabled, grey dot = disabled. Blue lock icon indicates SSL is active on the host.
+
+### wg-easy
+WireGuard VPN server status and client roster — connected/total client counts, per-client handshake recency, and transfer stats. See [integrations.md](integrations.md#wg-easy).
+
+**Height:** 1× = compact bar (connected/total + aggregate ↑TX ↓RX); 2–3× = stat chips (server state, connected, total, disabled, aggregate TX/RX) + scrollable client list with name, IP, and last-seen time; 4×+ = connected/total donut chart + stat chips + full client table with per-client address, transfer stats, and last-handshake time.
+
+**Client status colors:** Green dot = connected (handshake within 3 min), grey dot = enabled but idle, dark dot = disabled. Connected clients are sorted first by most recent handshake; disabled clients appear last.
+
+**Transfer direction:** ↑ (cyan) = server sent to client; ↓ (purple) = server received from client.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

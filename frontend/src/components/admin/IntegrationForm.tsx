@@ -50,6 +50,7 @@ export const INTEGRATION_TYPES = [
   { id: 'adguard',      label: 'AdGuard Home', desc: 'AdGuard Home DNS sinkhole — username:password in API key field. URL is http://your-adguard:3000/. Requires admin credentials.', category: 'Infrastructure' },
   { id: 'nextdns',      label: 'NextDNS',      desc: 'NextDNS cloud DNS — bare API key (from nextdns.io → Account → API). URL: https://api.nextdns.io/profiles/{profileId}. Leave UI URL as https://my.nextdns.io or blank.', category: 'Infrastructure' },
   { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'NPM reverse proxy — email:password in API key field. URL is http://your-npm:81/. Creates a JWT session token automatically.', category: 'Infrastructure' },
+  { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN manager — bare password in API key field (leave blank for no-auth instances). URL is http://your-wgeasy:51821/.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -445,6 +446,13 @@ export default function IntegrationForm({
         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           API key secret should contain <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>email:password</code> — your NPM web UI login credentials.
           Stoa exchanges these for a JWT session token automatically.
+        </div>
+      )}
+      {/* wg-easy: password-only session auth */}
+      {activeType === 'wgeasy' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          API key secret is your wg-easy web UI password. Leave blank if your instance runs without a password.
+          Stoa exchanges the password for a session cookie automatically.
         </div>
       )}
 

@@ -248,6 +248,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testNextDNSConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "nginxpm":
 			err = testNPMConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "wgeasy":
+			err = testWGEasyConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -342,6 +344,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testNextDNSConnection(req.APIURL, apiKey, true)
 						case "nginxpm":
 							retryErr = testNPMConnection(req.APIURL, apiKey, true)
+						case "wgeasy":
+							retryErr = testWGEasyConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -594,6 +598,8 @@ func defaultRefreshSecs(igType string) int {
 		return 30
 	case "nginxpm":
 		return 60
+	case "wgeasy":
+		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

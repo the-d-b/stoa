@@ -21,6 +21,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | `username:password` | AdGuard Home | HTTP Basic Auth on every request — Stoa splits on the first colon and sets the `Authorization: Basic` header. |
 | Plain API key | NextDNS | Bare API key sent as `X-Api-Key` header on every request. |
 | `email:password` → JWT session | Nginx Proxy Manager | Stoa posts credentials to `POST /api/tokens` and caches the returned JWT for up to 23 hours. |
+| Password only → session cookie | wg-easy | Stoa posts the password to `POST /api/session` and caches the returned session cookie for up to 23 hours. Leave blank for no-auth instances. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -385,6 +386,32 @@ The default AdGuard Home admin credentials are `admin` and whatever password you
 **Let's Encrypt badge:** Certificates issued via Let's Encrypt (managed by NPM's built-in Certbot integration) are marked with a `LE` badge. These auto-renew at 30 days; if you see an LE cert in the amber zone something may have gone wrong with renewal.
 
 **Polling:** Every 60 seconds. NPM has no real-time push (no SSE or WebSocket). Certificate expiry data changes slowly; host enable/disable state changes only when you manually toggle it in the UI.
+
+---
+
+## wg-easy
+
+**What it shows:** WireGuard VPN server status (running/stopped, listen address, port) and a full client roster — each client's name, IP address, connected state (based on WireGuard handshake recency), last handshake time, and cumulative transfer stats (bytes sent to and received from each client). Summary counters for connected, enabled, disabled, and total clients, plus aggregate transfer totals.
+
+**Connection detection:** WireGuard handshakes occur every ~2 minutes while a peer is active. A client is considered "connected" if its last handshake was within 180 seconds (3 minutes). This matches the wg-easy UI's own connected indicator.
+
+**Auth:** Bare password only — just your wg-easy web UI password in the API key field. Stoa posts it to `POST /api/session` and receives a session cookie, which is cached for 23 hours and refreshed automatically.
+
+Leave the API key field blank if your wg-easy instance has no password set (the `PASSWORD` environment variable is not configured). Stoa will make unauthenticated requests.
+
+**URL:** Your wg-easy base URL, e.g. `http://192.168.1.10:51821`. The default wg-easy web UI and API port is `51821`.
+
+**UI URL:** Optional. If set, the panel header links to this URL. Defaults to the API URL.
+
+**API version compatibility:** wg-easy's API changed across versions:
+- **v14 and earlier:** Clients returned under `latestHandshakeAt` field. Responses are bare arrays.
+- **v15+:** Field renamed to `lastHandshake`. Responses are wrapped in `{"status":"success","data":...}`. Some builds also have a `transferTy` typo for the `transferTx` field.
+
+Stoa handles all variants automatically — it checks both field names and unwraps the response envelope.
+
+**No SSE or WebSocket:** wg-easy has no real-time push API. Stoa polls every 30 seconds. Since WireGuard handshakes occur every 2 minutes, 30-second polling is sufficient to keep the connected status accurate.
+
+**TLS:** Enable "Skip TLS verify" for self-signed certificates. wg-easy does not use TLS by default.
 
 ---
 
