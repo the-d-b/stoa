@@ -36,6 +36,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | NextDNS | Yes |
 | Nginx Proxy Manager | Yes |
 | wg-easy | Yes |
+| Tailscale | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -202,6 +203,19 @@ WireGuard VPN server status and client roster — connected/total client counts,
 **Client status colors:** Green dot = connected (handshake within 3 min), grey dot = enabled but idle, dark dot = disabled. Connected clients are sorted first by most recent handshake; disabled clients appear last.
 
 **Transfer direction:** ↑ (cyan) = server sent to client; ↓ (purple) = server received from client.
+
+### Tailscale
+Mesh VPN device roster — online/offline status for every device in your tailnet, with Tailscale IP, OS, assigned user, and role (exit node, subnet router). Surfaces update availability, key expiry warnings, and unauthorized devices. See [integrations.md](integrations.md#tailscale).
+
+**Height:** 1× = compact bar (online/total, updates, exit nodes, offline count, unauthorized/expiry alerts); 2–3× = online/total donut + stat chips + scrollable device list with name, IP, role badge, and update badge; 4×+ = donut + full stat chips + device table with OS, user, last seen, role and expiry badges, and unique tag summary.
+
+**Status colors:** Green dot = online (connected to control); grey dot = offline; red dot = unauthorized.
+
+**Role badges:** `EXIT` (cyan) = approved exit node; `SUBNET` (purple) = approved subnet router. A device can be both if it serves both roles.
+
+**Alert badges:** `UPDATE` (amber) = newer client available; `EXPIRED`/`Xd` (orange/red) = key expiry status.
+
+**Polling:** Every 60 seconds — Tailscale's API is REST-only (no real-time push). Device online status reflects connection to Tailscale's coordination server.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

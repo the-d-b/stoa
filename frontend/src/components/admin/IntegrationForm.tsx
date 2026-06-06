@@ -51,6 +51,7 @@ export const INTEGRATION_TYPES = [
   { id: 'nextdns',      label: 'NextDNS',      desc: 'NextDNS cloud DNS — bare API key (from nextdns.io → Account → API). URL: https://api.nextdns.io/profiles/{profileId}. Leave UI URL as https://my.nextdns.io or blank.', category: 'Infrastructure' },
   { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'NPM reverse proxy — email:password in API key field. URL is http://your-npm:81/. Creates a JWT session token automatically.', category: 'Infrastructure' },
   { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN manager — bare password in API key field (leave blank for no-auth instances). URL is http://your-wgeasy:51821/.', category: 'Infrastructure' },
+  { id: 'tailscale',    label: 'Tailscale',    desc: 'Tailscale mesh VPN — API token (tskey-api-...) from login.tailscale.com → Settings → Keys. Leave URL blank; Stoa always calls api.tailscale.com.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -453,6 +454,15 @@ export default function IntegrationForm({
         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           API key secret is your wg-easy web UI password. Leave blank if your instance runs without a password.
           Stoa exchanges the password for a session cookie automatically.
+        </div>
+      )}
+      {/* Tailscale: cloud API, bearer token */}
+      {activeType === 'tailscale' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          API key is a Tailscale API token (<code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>tskey-api-...</code>).
+          Generate one at login.tailscale.com → Settings → Keys. Tokens expire in 1–90 days (you choose).
+          Leave URL blank — Stoa always calls api.tailscale.com. Optionally enter your tailnet domain
+          (e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>example.com</code>) if "-" does not resolve to your tailnet.
         </div>
       )}
 

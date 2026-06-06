@@ -69,6 +69,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"nextdns":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNextDNSPanelData(db, cfg) },
 	"nginxpm":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNPMPanelData(db, cfg) },
 	"wgeasy":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchWGEasyPanelData(db, cfg) },
+	"tailscale":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTailscalePanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

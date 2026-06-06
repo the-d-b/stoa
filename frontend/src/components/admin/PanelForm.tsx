@@ -54,6 +54,7 @@ export const PANEL_TYPES: {
   { id: 'nextdns',      label: 'NextDNS',      desc: 'Cloud DNS — query stats, block rate, encrypted/IPv6 percentages, top blocked domains, top clients & block reason breakdown', needsIntegration: true, category: 'Infrastructure' },
   { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'Proxy host inventory (enabled/disabled, SSL), certificate expiry countdown, redirect hosts & stream stats', needsIntegration: true, category: 'Infrastructure' },
   { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN — server status, connected/total clients, per-client handshake recency & transfer stats', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'tailscale',    label: 'Tailscale',    desc: 'Mesh VPN — device roster with online/offline status, OS, Tailscale IP, exit nodes, subnet routers, update & key-expiry alerts', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -95,7 +96,7 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy',
+  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale',
   'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
   'weather','steam','rss','sports','stocks','crypto',
 ]
@@ -596,6 +597,13 @@ export default function PanelForm({
               {type === 'wgeasy' && (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
                   API key secret is your wg-easy web UI password. Leave blank if your instance has no password set.
+                </div>
+              )}
+              {/* Tailscale: cloud API, bearer token, URL field is optional tailnet name */}
+              {type === 'tailscale' && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+                  API key is a Tailscale API token (<code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>tskey-api-...</code>) from login.tailscale.com → Settings → Keys.
+                  Leave URL blank (Stoa always calls api.tailscale.com) or enter your tailnet domain.
                 </div>
               )}
 

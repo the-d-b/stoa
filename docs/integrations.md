@@ -22,6 +22,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Plain API key | NextDNS | Bare API key sent as `X-Api-Key` header on every request. |
 | `email:password` → JWT session | Nginx Proxy Manager | Stoa posts credentials to `POST /api/tokens` and caches the returned JWT for up to 23 hours. |
 | Password only → session cookie | wg-easy | Stoa posts the password to `POST /api/session` and caches the returned session cookie for up to 23 hours. Leave blank for no-auth instances. |
+| Bearer token | Tailscale | API token (`tskey-api-...`) sent as `Authorization: Bearer` on every request. Generated in the Tailscale admin console. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -412,6 +413,42 @@ Stoa handles all variants automatically — it checks both field names and unwra
 **No SSE or WebSocket:** wg-easy has no real-time push API. Stoa polls every 30 seconds. Since WireGuard handshakes occur every 2 minutes, 30-second polling is sufficient to keep the connected status accurate.
 
 **TLS:** Enable "Skip TLS verify" for self-signed certificates. wg-easy does not use TLS by default.
+
+---
+
+## Tailscale
+
+**What it shows:** Your Tailscale mesh VPN device roster — every device's name, hostname, Tailscale IP address, operating system, assigned user, and online/offline status. Summary counters for online, offline, and total devices, plus role identification (exit nodes and subnet routers), update availability alerts, key expiry warnings, and unauthorized device flags.
+
+**What is Tailscale?** Tailscale is a cloud-managed mesh VPN built on WireGuard. It creates a private network (tailnet) of your devices where each device gets a `100.x.x.x` Tailscale IP address. Unlike traditional VPNs, there is no central server — devices connect peer-to-peer through Tailscale's coordination server. Stoa queries the Tailscale management API to show your device fleet.
+
+**Auth:** Tailscale API token in `tskey-api-XXXXX` format. Generate one at [login.tailscale.com → Settings → Keys](https://login.tailscale.com/admin/settings/keys). The token must be created by an Owner, Admin, IT admin, or Network admin. Tokens expire in 1–90 days (your choice at creation time) — Stoa will stop working when the token expires; rotate it before that happens.
+
+Store the bare token string as the API key secret.
+
+**URL:** Leave blank. Stoa always calls `https://api.tailscale.com` — there is no local server to point to. Optionally enter your tailnet domain name (e.g. `example.com`) in the URL field if using an explicit tailnet rather than the default. The default (`-`) resolves to the tailnet associated with your API key.
+
+**UI URL:** Optional. The panel header links to this URL. Defaults to `https://login.tailscale.com/admin/machines` (the Tailscale admin machines page).
+
+**Online status:** A device is considered online if `connectedToControl` is true — meaning it recently connected to the Tailscale coordination server. When offline, the `lastSeen` timestamp shows when it last checked in.
+
+**Exit nodes:** Devices with `0.0.0.0/0` or `::/0` in their approved routes (`enabledRoutes`) are flagged as exit nodes. Exit nodes forward all internet traffic from other tailnet devices.
+
+**Subnet routers:** Devices with non-exit-node routes in `enabledRoutes` are flagged as subnet routers. These devices advertise local network subnets (e.g. `192.168.1.0/24`) to the rest of the tailnet so other Tailscale devices can reach local machines.
+
+**Key expiry:** By default, Tailscale device keys expire after 180 days of inactivity (configurable per device). Stoa warns when a device key expires within 30 days, and flags keys that are already expired. Key expiry can be disabled per device in the Tailscale admin console.
+
+**Update available:** When `updateAvailable` is true on a device, Stoa shows an UPDATE badge. This means a newer Tailscale client version is available for that device.
+
+**Unauthorized devices:** Devices with `authorized: false` are flagged with a red dot. These are devices that have joined your tailnet but not yet been approved by an admin.
+
+**Tags:** Tailscale tags (e.g. `tag:server`, `tag:router`) are shown as pills on device rows. In the 4× panel, all unique tags across your fleet are listed at the bottom.
+
+**External devices:** Devices shared from other tailnets appear in the list. They have fewer fields populated (`clientVersion` is empty, `updateAvailable` is always false). They are identified by `isExternal: true`.
+
+**Polling:** Every 60 seconds. The Tailscale API is REST-only with no SSE or WebSocket. Tailscale's control server itself detects device presence; `connectedToControl` reflects near-real-time status.
+
+**No TLS setting:** The "Skip TLS verify" option has no effect for this integration — Tailscale's API is always HTTPS at `api.tailscale.com`.
 
 ---
 
