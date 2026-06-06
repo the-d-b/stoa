@@ -54,6 +54,7 @@ export const INTEGRATION_TYPES = [
   { id: 'tailscale',    label: 'Tailscale',    desc: 'Tailscale mesh VPN — API token (tskey-api-...) from login.tailscale.com → Settings → Keys. Leave URL blank; Stoa always calls api.tailscale.com.', category: 'Infrastructure' },
   { id: 'prometheus',   label: 'Prometheus',   desc: 'Prometheus metrics server — URL is http://prometheus:9090. No auth by default; use username:password for Basic Auth or a bare token for Bearer. Optional PromQL metric cards configured per panel.', category: 'Infrastructure' },
   { id: 'grafana',      label: 'Grafana',      desc: 'Grafana observability platform — URL is http://grafana:3000. Create a Service Account (Admin → Service Accounts) and generate a token; paste the token in the API key field.', category: 'Infrastructure' },
+  { id: 'autobrr',     label: 'autobrr',     desc: 'Torrent autodl — URL is http://autobrr:7474. API key found in autobrr → Settings → API.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -474,6 +475,13 @@ export default function IntegrationForm({
           Leave API key blank if Prometheus has no authentication (common in home labs behind a firewall).
           For reverse-proxy Basic Auth: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
           For Bearer token auth: bare token string. Custom PromQL metric cards are configured per panel, not here.
+        </div>
+      )}
+      {/* autobrr: API token */}
+      {activeType === 'autobrr' && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          URL is your autobrr base URL, e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>http://autobrr:7474</code>.
+          Find your API key in autobrr → Settings → API → Copy.
         </div>
       )}
       {/* Grafana: Service Account token */}

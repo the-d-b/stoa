@@ -39,6 +39,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Tailscale | Yes |
 | Prometheus | Yes |
 | Grafana | Yes |
+| autobrr | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -246,6 +247,19 @@ Datasource health for every configured Grafana datasource, active alerts from Gr
 **Admin-only data:** Dashboard count and user count require the Service Account to have Admin role. These chips are omitted when the token has only Viewer access.
 
 **Polling:** Every 60 seconds.
+
+### autobrr
+Torrent autodl activity — IRC network connection health, cumulative grab/reject/error statistics, and a live feed of recent releases showing what was grabbed, filtered out, or rejected and why. See [integrations.md](integrations.md#autobrr).
+
+**Height:** 1× = compact bar (IRC health dot, grabbed count, reject count, error count, filter count); 2–3× = grab donut + stat chips + IRC network list + recent grabs list; 4×+ = donut + full chip row + three-column layout (IRC networks with channel counts and uptime | full recent activity feed with all statuses | grabs-only feed).
+
+**Grab donut:** Shows grabbed count relative to total seen. Color is not health-based — cyan at low grab rates (most traffic filtered, which is normal), green at high grab rates.
+
+**IRC network rows:** Green dot = connected; red dot = disconnected. Channel count and time connected shown inline. A disconnected network is the most critical operational signal — autobrr cannot receive announces without an IRC connection.
+
+**Activity feed statuses:** GRABBED (green) = successfully sent to download client or \*arr; FILTERED (grey) = no filter matched (expected, not an error); REJECTED (amber) = matched but downstream client refused it (duplicate, etc.); ERROR (red) = downstream client returned an error.
+
+**Polling:** Every 30 seconds.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

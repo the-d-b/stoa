@@ -25,6 +25,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Bearer token | Tailscale | API token (`tskey-api-...`) sent as `Authorization: Bearer` on every request. Generated in the Tailscale admin console. |
 | None, `username:password`, or bare Bearer token | Prometheus | Three auth modes: open (no secret), HTTP Basic Auth (`username:password`), or a bare Bearer token. Most home-lab Prometheus instances run open or behind a firewall. |
 | Bearer token (Service Account) | Grafana | Service Account token generated in Grafana → Administration → Service Accounts. Sent as `Authorization: Bearer`. |
+| Plain API key | autobrr | API key from autobrr → Settings → API. Sent as `X-API-Token` header on every request. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -537,6 +538,40 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 | Dashboard count, user count | Admin (via `/api/admin/stats`) |
 
 **Grafana alerting vs Prometheus alerting:** If your Grafana uses Mimir or Prometheus as a datasource and you have both a Prometheus integration and a Grafana integration, the alert lists may overlap — Grafana can evaluate the same Prometheus alerting rules through its "unified alerting" engine. They may also differ if Grafana has silences, inhibitions, or additional alert rules defined only in Grafana. Both integrations remain useful for confirming alerts are visible at each layer.
+
+---
+
+## autobrr
+
+**What it shows:** Cumulative grab statistics (total seen, grabbed, filtered, rejected, push errors), IRC network connection status (connected/disconnected per network with channel count and uptime), active filter count, and a live activity feed of recent releases showing what was grabbed, what was filtered out, and the rejection reason for anything that didn't make it through.
+
+**What is autobrr?** autobrr is a modern torrent autodl replacement. It monitors IRC announce channels and RSS feeds from private torrent trackers, applies your filter rules (by release name, category, size, freeleech percentage, etc.), and automatically pushes matching torrents to download clients (qBittorrent, Deluge, Transmission, rTorrent) or directly to Sonarr, Radarr, Lidarr, or Readarr. It replaces the older autodl-irssi plugin with a web UI and a proper REST API.
+
+**Auth:** Plain API key. In autobrr, go to **Settings → API** and copy the API key. Paste it into the API key field in Stoa.
+
+**URL:** Your autobrr base URL, e.g. `http://192.168.1.10:7474`. Do not include trailing slashes.
+
+**TLS:** Enable "Skip TLS verify" if autobrr is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 30 seconds.
+
+**What the panel shows:**
+
+- **Grab statistics:** Pulled from `GET /api/releases/stats`. Four counters: total seen (all announces evaluated), grabbed (push approved), rejected (filter rejected + push rejected), and push errors (grab attempted but the download client or \*arr instance rejected or errored).
+- **IRC network status:** Each configured IRC network with its connection state (green = connected, red = disconnected), number of monitored announce channels, and time since last connection. Disconnected networks mean autobrr is blind to new announces on that tracker — this is the most operationally critical signal.
+- **Active filter count:** Number of enabled filters in your autobrr configuration.
+- **Recent activity feed:** Last 50 releases autobrr evaluated. Each entry shows the release name, indexer, filter that matched (or rejected), the action taken (which download client or \*arr received it), and the rejection reason for filtered/rejected entries.
+
+**Release statuses:**
+
+| Status | Color | Meaning |
+|---|---|---|
+| GRABBED | Green | Filter matched and successfully pushed to a download client or \*arr |
+| FILTERED | Grey | Did not match any filter — not an error, just not wanted |
+| REJECTED | Amber | Filter matched but the download client or \*arr rejected it (duplicate, wrong quality, etc.) |
+| ERROR | Red | Filter matched and push was attempted, but the downstream client returned an error |
+
+**IRC network health:** If an IRC network shows as disconnected, autobrr will not receive new announces from trackers on that network until the connection is restored. This can be caused by an IRC server restart, a nick collision, or a network issue. autobrr attempts to reconnect automatically.
 
 ---
 
