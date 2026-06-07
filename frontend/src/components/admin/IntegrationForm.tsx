@@ -84,6 +84,8 @@ export const INTEGRATION_TYPES = [
   { id: 'lubelogger',  label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — URL is http://lubelogger:8080. API key field: x-api-key from LubeLogger → Profile → API Keys. Alternatively, use username:password for Basic Auth. Also works as a calendar source for date-bound reminders.', category: 'Smart Home' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
+  { id: 'romm',         label: 'RomM',         desc: 'Self-hosted ROM manager — URL is http://romm:8080. API key field: username:password for Basic Auth, or an rmm_ bearer token from RomM → Settings → API Keys.', category: 'Gaming' },
+  { id: 'pterodactyl',  label: 'Pterodactyl',  desc: 'Game server panel — URL is http://pterodactyl. API key field: Client API key (ptlc_…) from Pterodactyl → Account → API Credentials.', category: 'Gaming' },
   // Finance
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance manager — URL is http://firefly:8080. API key field: Personal Access Token from Firefly III → Profile → OAuth → Personal Access Tokens.', category: 'Finance' },
   { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — requires the actual-http-api sidecar (not your actual-server directly). URL is http://actual-http-api:5007. API key field: the API_KEY you set when deploying actual-http-api.', category: 'Finance' },

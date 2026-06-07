@@ -298,6 +298,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testTdarrConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "docspell":
 			err = testDocspellConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "romm":
+			err = testRommConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "pterodactyl":
+			err = testPterodactylConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -442,6 +446,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testTdarrConnection(req.APIURL, apiKey, true)
 						case "docspell":
 							retryErr = testDocspellConnection(req.APIURL, apiKey, true)
+						case "romm":
+							retryErr = testRommConnection(req.APIURL, apiKey, true)
+						case "pterodactyl":
+							retryErr = testPterodactylConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -736,8 +744,10 @@ func defaultRefreshSecs(igType string) int {
 		return 15
 	case "tdarr":
 		return 30
-	case "tandoor", "lubelogger", "docspell":
+	case "tandoor", "lubelogger", "docspell", "romm":
 		return 900
+	case "pterodactyl":
+		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

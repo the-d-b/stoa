@@ -87,6 +87,8 @@ export const PANEL_TYPES: {
   { id: 'lubelogger', label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — urgency-color-coded reminder list per vehicle (past due/urgent/not urgent), odometer readings, and service history with cost. Also works as a calendar source for date-bound reminders.', needsIntegration: true, category: 'Smart Home' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
+  { id: 'romm',         label: 'RomM',         desc: 'ROM manager — total platform & ROM count, library size, cover art grid of recently added games, platform list with logos and ROM counts', needsIntegration: true, category: 'Gaming' },
+  { id: 'pterodactyl',  label: 'Pterodactyl',  desc: 'Game server panel — running/total server count, per-server CPU & RAM usage bars, uptime, state badge', needsIntegration: true, category: 'Gaming' },
   // Finance
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance — monthly summary (earned, spent, net-worth, left-to-spend), asset account balances', needsIntegration: true, category: 'Finance' },
   { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — monthly income/spent/balance, spending progress by category group, account balances, net worth. Requires the actual-http-api sidecar.', needsIntegration: true, category: 'Finance' },
@@ -131,7 +133,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
