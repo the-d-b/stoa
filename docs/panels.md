@@ -48,6 +48,8 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Netbird | Yes |
 | Firefly III | Yes |
 | Actual Budget | Yes |
+| Ghostfolio | Yes |
+| Coinbase | Yes |
 | Scrutiny | Yes |
 | Paperless-ngx | Yes |
 | Mealie | Yes |
@@ -384,6 +386,26 @@ Envelope budgeting panel — monthly income, spending, and available balance wit
 **Amounts:** All amounts are in cents internally. Stoa divides by 100 and formats with `$` prefix and two decimal places. For non-USD budgets, the dollar sign is a display artifact — the numeric values are correct.
 
 **Budget discovery:** If you have a single budget in Actual, no panel configuration is needed. If you have multiple budgets, set `budgetId` in the panel config JSON to your budget's sync ID (visible in the Actual Budget URL or via the actual-http-api `/v1/budgets` endpoint).
+
+**Polling:** Every 5 minutes.
+
+### Ghostfolio
+Portfolio tracking panel — current net worth, today/year/all-time performance with color-coded returns, a multi-segment holdings donut showing allocation by asset, and a full holdings list with individual values and returns. See [integrations.md](integrations.md#ghostfolio).
+
+**Height:** 1× = net worth value + today's change % + all-time return % + holding count; 2–3× = net worth + performance trio (today/year/all-time) + allocation bar + top holdings list; 4×+ = left column (large net worth, performance table with dollar amounts, total invested) + right column (holdings donut + full holdings list with quantity and price per unit).
+
+**Holdings donut:** Multi-segment ring showing the proportional allocation of each holding. Top 9 are shown individually; the remainder are grouped as "Other." The center shows the current net worth.
+
+**Performance rows:** Today's change and all-time change include both the percentage and the absolute currency amount. Year change shows percentage only.
+
+**Polling:** Every 5 minutes.
+
+### Coinbase
+Coinbase account panel — total portfolio value in USD, per-asset allocation donut, and full account list with crypto quantities and native USD values. See [integrations.md](integrations.md#coinbase).
+
+**Height:** 1× = total USD value + asset count; 2–3× = total value + account list with USD values and quantities; 4×+ = left column (total value, allocation donut) + right column (full account list with proportional bars).
+
+**Accounts:** All Coinbase wallets are listed, including USD/USDC cash balances. Accounts with zero balance are filtered out. Each account shows the crypto quantity and the equivalent USD value.
 
 **Polling:** Every 5 minutes.
 

@@ -34,6 +34,8 @@ Different services use different authentication schemes. Stoa normalises these b
 | Personal Access Token | Netbird | PAT from Netbird → Settings → Personal Access Tokens. Sent as `Authorization: Token <PAT>`. |
 | Personal Access Token | Firefly III | PAT from Firefly III → Profile → OAuth → Personal Access Tokens. Sent as `Authorization: Bearer <token>`. |
 | API key | Actual Budget | API key set via `API_KEY` env var on the `actual-http-api` sidecar. Sent as `x-api-key` request header. |
+| Security token → JWT | Ghostfolio | Security token from Ghostfolio → User Account → Security Token. Stoa exchanges it for a short-lived JWT via `POST /api/v1/auth/anonymous` and uses the JWT as `Authorization: Bearer`. |
+| `apiKey:apiSecret` | Coinbase | Read-only API key + secret from Coinbase → Settings → API. Store as `apiKey:apiSecret` (colon-separated). Stoa signs every request with HMAC-SHA256. |
 | None | Scrutiny | No authentication required. Scrutiny runs unauthenticated by default. Leave the API key field blank. |
 | API token | Paperless-ngx | Token generated in Paperless-ngx → Settings → API → Generate Token. Stoa sends it as `Authorization: Token <token>`. |
 | API token (Bearer) | Mealie | Long-lived API token from Mealie → User Settings → API Tokens. Stoa sends it as `Authorization: Bearer <token>`. |
@@ -745,6 +747,34 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 - **Drive type:** SSD (rotational speed = 0), NVMe (protocol = NVMe), or HDD (rotational speed > 0) detected automatically from SMART data.
 
 **Sort order:** Failed drives appear first, then warning, then passed, then unknown — so the most urgent items are always at the top.
+
+---
+
+## Ghostfolio
+
+**What it shows:** Current portfolio net worth, today's change (% and amount), 1-year return, all-time return (% and amount), total amount invested, and a full holdings breakdown — each position with name, value, allocation %, quantity, and individual return.
+
+**What is Ghostfolio?** Ghostfolio is an open-source wealth management application for tracking stocks, ETFs, cryptocurrencies, and other assets. It connects to price data providers (Yahoo Finance, CoinGecko, etc.) to keep valuations current, and shows portfolio performance over time. Unlike tax tools, it's focused purely on portfolio performance visibility. It supports both a self-hosted Docker deployment and a paid cloud option at ghostfol.io.
+
+**Auth:** Security token. In Ghostfolio, go to **User Account** (top-right avatar) → **Security Token** and copy the token. Paste it into the API key field in Stoa. Stoa exchanges this token for a short-lived JWT on each panel refresh by calling `POST /api/v1/auth/anonymous` — the JWT is used for all subsequent API calls and is not stored.
+
+**URL:** Your Ghostfolio base URL, e.g. `http://ghostfolio:3333` or `https://app.ghostfol.io` (cloud). Do not include trailing slashes or paths.
+
+**TLS:** Enable "Skip TLS verify" if Ghostfolio is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 5 minutes.
+
+**What the panel shows:**
+
+- **Net worth:** Current total portfolio value in your Ghostfolio base currency (fetched from the `max` range performance endpoint, which always reflects current prices).
+- **Today's change:** Net performance for the current day in both % and currency amount. Positive = green, negative = red.
+- **1-year return:** Net performance percentage over the trailing 12 months.
+- **All-time return:** Net performance since the first tracked transaction, in both % and total currency gain/loss.
+- **Total invested:** The sum of all buy transactions (cost basis), shown for context alongside the all-time return.
+- **Holdings donut (4× only):** Multi-segment ring showing each holding's share of total portfolio value. Top 9 are labeled individually; the remainder are grouped as "Other."
+- **Holdings list:** All positions sorted by current value descending, each showing the asset name, quantity, market price, current value in base currency, and individual net performance %.
+
+**Note on currency:** All values are shown in your Ghostfolio base currency (set in Ghostfolio → User Settings → Base Currency). If your base currency is EUR, values appear in EUR. The `Intl.NumberFormat` locale formatter is used for display — the currency symbol matches your base currency code.
 
 ---
 
