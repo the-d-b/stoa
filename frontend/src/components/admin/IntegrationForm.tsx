@@ -29,7 +29,8 @@ export const INTEGRATION_TYPES = [
   { id: 'prowlarr',    label: 'Prowlarr',    desc: 'Indexer manager — URL is http://prowlarr:9696. API key found in Prowlarr → Settings → General → API Key.', category: 'Media Management' },
   { id: 'autobrr',     label: 'autobrr',     desc: 'Torrent autodl — URL is http://autobrr:7474. API key found in autobrr → Settings → API.', category: 'Media Management' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media Management' },
-  { id: 'tdarr',     label: 'Tdarr',        desc: 'Media transcoding automation — URL is http://tdarr:8265. API key: token from Tdarr → Tools → API Keys (leave blank for unauthenticated local instances). Use username:password for Basic Auth via a reverse proxy.', category: 'Media Management' },
+  { id: 'tdarr',        label: 'Tdarr',        desc: 'Media transcoding automation — URL is http://tdarr:8265. API key: token from Tdarr → Tools → API Keys (leave blank for unauthenticated local instances). Use username:password for Basic Auth via a reverse proxy.', category: 'Media Management' },
+  { id: 'maintainerr', label: 'Maintainerr',  desc: 'Media library cleanup — URL is http://maintainerr:6246. Runs unauthenticated by default; leave API key blank. For reverse-proxy Basic Auth use username:password; for Bearer use a bare token.', category: 'Media Management' },
   // Photos & Libraries
   { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                         category: 'Photos & Libraries' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Photos & Libraries' },

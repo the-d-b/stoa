@@ -32,7 +32,8 @@ export const PANEL_TYPES: {
   { id: 'prowlarr',    label: 'Prowlarr',    desc: 'Indexer manager — indexer health (ok/degraded/blocked), protocol & privacy breakdown, per-indexer grab counts & response times, connected *arr apps', needsIntegration: true, category: 'Media Management' },
   { id: 'autobrr',     label: 'autobrr',     desc: 'Torrent autodl — IRC connection health, grab/reject/error stats, and a live activity feed showing what was grabbed, filtered, or rejected and why', needsIntegration: true, category: 'Media Management' },
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats',               needsIntegration: true,  category: 'Media Management' },
-  { id: 'tdarr',     label: 'Tdarr',            desc: 'Media transcoding — worker status with per-worker type badges (T-CPU/T-GPU/HC-CPU/HC-GPU), progress bars, ETA, and aggregate library stats (files processed, space saved)', needsIntegration: true, category: 'Media Management' },
+  { id: 'tdarr',       label: 'Tdarr',       desc: 'Media transcoding — worker status with per-worker type badges (T-CPU/T-GPU/HC-CPU/HC-GPU), progress bars, ETA, and aggregate library stats (files processed, space saved)', needsIntegration: true, category: 'Media Management' },
+  { id: 'maintainerr', label: 'Maintainerr', desc: 'Media library cleanup — rule roster with type badges (movies/shows/seasons), item counts queued per collection, action labels, reclaimable storage size, and historical cleanup totals', needsIntegration: true, category: 'Media Management' },
   // Photos & Libraries
   { id: 'immich',       label: 'Immich',       desc: 'Photo library stats & preview carousel',          needsIntegration: true,  category: 'Photos & Libraries' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Photos & Libraries' },
@@ -133,7 +134,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
