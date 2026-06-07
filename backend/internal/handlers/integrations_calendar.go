@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 )
 
@@ -362,6 +363,68 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 					"color":   "#f97316",
 					"league":  g.League,
 				})
+			}
+
+		case "lubelogger":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			_ = uiURL
+			if err != nil {
+				log.Printf("[CAL] lubelogger resolveIntegration error: %v", err)
+				continue
+			}
+			vBody, err := lubeGet(apiURL, apiKey, "/api/vehicles", skipTLS)
+			if err != nil {
+				log.Printf("[CAL] lubelogger vehicles error: %v", err)
+				continue
+			}
+			var vehicles []struct {
+				ID    int             `json:"id"`
+				Year  json.RawMessage `json:"year"`
+				Make  string          `json:"make"`
+				Model string          `json:"model"`
+			}
+			if err := json.Unmarshal(vBody, &vehicles); err != nil {
+				log.Printf("[CAL] lubelogger vehicles parse error: %v", err)
+				continue
+			}
+			urgencyColor := map[string]string{
+				"past due":    "#ef4444",
+				"very urgent": "#f97316",
+				"urgent":      "#f59e0b",
+				"not urgent":  "#6366f1",
+			}
+			for _, vehicle := range vehicles {
+				year := strings.Trim(string(vehicle.Year), `"`)
+				vehicleName := strings.TrimSpace(year + " " + vehicle.Make + " " + vehicle.Model)
+				rBody, _ := lubeGet(apiURL, apiKey, fmt.Sprintf("/api/vehicle/reminders?vehicleId=%d", vehicle.ID), skipTLS)
+				if rBody == nil {
+					continue
+				}
+				var reminders []struct {
+					Description string `json:"description"`
+					Urgency     string `json:"urgency"`
+					DueDate     string `json:"dueDate"`
+				}
+				if json.Unmarshal(rBody, &reminders) != nil {
+					continue
+				}
+				for _, r := range reminders {
+					if r.DueDate == "" {
+						continue // mileage-only reminders have no calendar date
+					}
+					u := strings.ToLower(r.Urgency)
+					color := urgencyColor[u]
+					if color == "" {
+						color = "#6366f1"
+					}
+					events = append(events, map[string]interface{}{
+						"source": "lubelogger",
+						"date":   r.DueDate,
+						"title":  fmt.Sprintf("%s — %s", vehicleName, r.Description),
+						"color":  color,
+						"uiUrl":  uiURL,
+					})
+				}
 			}
 
 		}

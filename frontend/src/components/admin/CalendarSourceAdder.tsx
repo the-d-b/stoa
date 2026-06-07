@@ -30,7 +30,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
 
   // Integrations eligible as calendar sources
   const calIntegrations = integrations.filter((i: any) =>
-    ['sonarr','radarr','readarr','lidarr','weather','sports'].includes(i.type)
+    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger'].includes(i.type)
   )
 
   useEffect(() => {
@@ -107,6 +107,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     if (src.type === 'checklist') return `☑ ${src.label || 'Checklist'}`
     if (src.type === 'weather') return `🌤 ${src.label || ig?.name || 'Weather'}`
     if (src.type === 'sports') return `🏒 ${src.label || ig?.name || 'Sports'}`
+    if (src.type === 'lubelogger') return `🔧 ${src.label || ig?.name || 'LubeLogger'}`
     return ig?.name ?? src.label ?? src.type
   }
 

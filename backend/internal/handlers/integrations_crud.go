@@ -292,6 +292,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testNZBGetConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tandoor":
 			err = testTandoorConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "lubelogger":
+			err = testLubeLoggerConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -430,6 +432,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testNZBGetConnection(req.APIURL, apiKey, true)
 						case "tandoor":
 							retryErr = testTandoorConnection(req.APIURL, apiKey, true)
+						case "lubelogger":
+							retryErr = testLubeLoggerConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -722,7 +726,7 @@ func defaultRefreshSecs(igType string) int {
 		return 300
 	case "sabnzbd", "nzbget":
 		return 15
-	case "tandoor":
+	case "tandoor", "lubelogger":
 		return 900
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30

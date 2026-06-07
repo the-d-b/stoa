@@ -487,6 +487,17 @@ Household management panel — food expiry tracker with urgency color coding, ov
 
 **Polling:** Every 5 minutes — stock expiry and task state change frequently.
 
+### LubeLogger
+Vehicle maintenance panel — urgency-color-coded reminder list per vehicle, odometer readings, and service history log. Also works as a calendar source for date-bound reminders. See [integrations.md](integrations.md#lubelogger).
+
+**Height:** 1× = fleet count + overdue/urgent chips; 2–3× = chips + per-vehicle reminder lists; 4×+ = left column (all vehicles with full reminder lists) + right column (combined service history across all vehicles).
+
+**Urgency colors:** Red left border = Past Due, orange = Very Urgent, amber = Urgent, indigo = Not Urgent. Past Due rows also get a faint red background.
+
+**Calendar:** Add LubeLogger as a calendar source to see date-bound reminders as calendar events, colored by urgency.
+
+**Polling:** Every 15 minutes.
+
 ### Tandoor
 Recipe manager panel — total recipe count, weekly meal plan calendar, unchecked shopping list, and recent recipes with ratings, cook times, and keyword tags. See [integrations.md](integrations.md#tandoor).
 

@@ -86,6 +86,7 @@ export const INTEGRATION_TYPES = [
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
   { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
+  { id: 'lubelogger',  label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — URL is http://lubelogger:8080. API key field: x-api-key from LubeLogger → Profile → API Keys. Alternatively, use username:password for Basic Auth. Also works as a calendar source for date-bound reminders.', category: 'Infrastructure' },
   { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },

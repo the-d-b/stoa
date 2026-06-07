@@ -988,6 +988,32 @@ Once running, confirm it's working by visiting `http://your-host:5007/api-docs/`
 
 ---
 
+## LubeLogger
+
+**What it shows:** Per-vehicle urgency-colored reminder list (past due/urgent/not urgent), last known odometer reading, and a service history log with dates, descriptions, and costs. Works both as a standalone dashboard panel and as a **calendar source** for date-bound reminders.
+
+**What is LubeLogger?** LubeLogger is a self-hosted, open-source vehicle maintenance and fuel log tracker. It tracks oil changes, tire rotations, repairs, and any other service you perform on your vehicles. It supports multiple vehicles, recurring reminders (by date and/or mileage), and generates urgency levels based on how overdue something is.
+
+**Auth:** Stoa supports two auth methods:
+- **API key** (recommended): Generate a key in LubeLogger → Profile → API Keys. Paste the bare key into the API key field. Stoa sends it as the `x-api-key` request header.
+- **Basic Auth**: Enter `username:password` in the API key field. Stoa detects the colon and sends Basic Auth credentials.
+
+**URL:** Your LubeLogger base URL, e.g. `http://lubelogger:8080` or `https://lubelogger.example.com`. No trailing slash or paths.
+
+**Polling:** Every 15 minutes.
+
+**What the panel shows:**
+
+- **Fleet summary:** Vehicle count, overdue reminder count (red), urgent reminder count (amber), or "All good ✓" if nothing is urgent.
+- **Per-vehicle section:** Year/Make/Model + last known odometer. Each reminder is shown as a row with a colored left border matching its urgency: red (Past Due), orange (Very Urgent), amber (Urgent), indigo (Not Urgent). For date-bound reminders, the "Xd overdue" or "in Xd" label is computed from today. For mileage-only reminders, the target mileage is shown.
+- **Service history (4× only):** The most recent service records across all vehicles, sorted newest-first. Each shows date, odometer, description, and cost (if recorded). When multiple vehicles are configured, the vehicle name appears on each entry.
+
+**Urgency levels:** LubeLogger computes urgency automatically — "Past Due" means the threshold has been passed, "Very Urgent" and "Urgent" indicate it's approaching, and "Not Urgent" means there's plenty of time.
+
+**Calendar source:** When added as a calendar source, LubeLogger emits one event per date-bound reminder (reminders with a due date, not mileage-only). The event title is "Year Make Model — Reminder Name" and the color matches urgency. Mileage-only reminders are not emitted since they have no calendar date. Past-due reminder events appear on their original due date.
+
+---
+
 ## Tandoor
 
 **What it shows:** Total recipe count, this week's meal plan displayed as a day-by-day calendar, an unchecked shopping list, and the 8 most recently added recipes with star ratings, cook time, and keyword tags.

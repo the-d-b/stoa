@@ -90,6 +90,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"sabnzbd":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSABnzbdPanelData(db, cfg) },
 	"nzbget":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNZBGetPanelData(db, cfg) },
 	"tandoor":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTandoorPanelData(db, cfg) },
+	"lubelogger":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLubeLoggerPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
