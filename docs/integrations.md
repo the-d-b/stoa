@@ -34,6 +34,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Personal Access Token | Netbird | PAT from Netbird → Settings → Personal Access Tokens. Sent as `Authorization: Token <PAT>`. |
 | Personal Access Token | Firefly III | PAT from Firefly III → Profile → OAuth → Personal Access Tokens. Sent as `Authorization: Bearer <token>`. |
 | API key | Actual Budget | API key set via `API_KEY` env var on the `actual-http-api` sidecar. Sent as `x-api-key` request header. |
+| None | Scrutiny | No authentication required. Scrutiny runs unauthenticated by default. Leave the API key field blank. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -713,6 +714,34 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 - **Currency:** Values use the currency symbol and decimal format returned by Firefly's API. Multi-currency setups will show each currency separately in the summary.
 
 **Note:** The summary endpoint returns separate entries per currency (e.g. `earned-in-EUR`, `earned-in-USD`). Stoa strips the currency suffix for display keys and groups by the clean key name (e.g. `earned`). If you use multiple currencies, you may see multiple rows for the same category.
+
+---
+
+## Scrutiny
+
+**What it shows:** Fleet-wide hard drive health summary (passed/warning/failed counts, average and max temperature) and a per-drive breakdown showing model name, drive type (HDD/SSD/NVMe), storage capacity, temperature, power-on hours, reallocated sector count, and pending sector count.
+
+**What is Scrutiny?** Scrutiny is a WebUI for hard drive SMART monitoring. It wraps `smartmontools`, polls drives on a schedule, stores historical SMART data, and applies configurable failure thresholds that are stricter than SMART's own defaults. It can alert you to drives that are deteriorating before SMART officially declares them failed.
+
+**Auth:** None required — leave the API key field blank. Scrutiny has no built-in authentication. If you place it behind a reverse proxy with HTTP basic auth, Stoa does not currently support that; run it on an internal-only port instead.
+
+**URL:** `http://scrutiny:8080` — the default port is 8080. Do not include trailing slashes or paths.
+
+**TLS:** Enable "Skip TLS verify" if Scrutiny is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 5 minutes.
+
+**What the panel shows:**
+
+- **Fleet health donut (4×):** A multi-segment ring showing the proportion of drives that passed, warned, or failed. Green = passed, amber = warning, red = failed. The center shows total drive count.
+- **Status:** Scrutiny distinguishes two failure modes — "failed" means SMART's own threshold was exceeded (critical); "warning" means Scrutiny's stricter threshold was exceeded but SMART still reports the drive as healthy (investigate).
+- **Temperature bar:** Mini horizontal bar per drive. Green < 40°C, amber 40–49°C, red ≥ 50°C. Bars are normalized to a 60°C maximum.
+- **Reallocated sectors (attr 5):** Any non-zero count shows an amber badge. Even one reallocated sector on a spinning disk is a sign of surface damage — drives rarely recover from this.
+- **Pending sectors (attr 197):** Sectors the drive is waiting to reallocate. Also shown as an amber badge if non-zero.
+- **Power-on hours:** Formatted as years, months, or days. Useful context alongside manufacturer MTBF specs (typically 5–7 years for consumer drives, 7–10 for NAS/enterprise).
+- **Drive type:** SSD (rotational speed = 0), NVMe (protocol = NVMe), or HDD (rotational speed > 0) detected automatically from SMART data.
+
+**Sort order:** Failed drives appear first, then warning, then passed, then unknown — so the most urgent items are always at the top.
 
 ---
 

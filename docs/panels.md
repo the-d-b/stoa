@@ -48,6 +48,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Netbird | Yes |
 | Firefly III | Yes |
 | Actual Budget | Yes |
+| Scrutiny | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -380,6 +381,25 @@ Envelope budgeting panel — monthly income, spending, and available balance wit
 **Amounts:** All amounts are in cents internally. Stoa divides by 100 and formats with `$` prefix and two decimal places. For non-USD budgets, the dollar sign is a display artifact — the numeric values are correct.
 
 **Budget discovery:** If you have a single budget in Actual, no panel configuration is needed. If you have multiple budgets, set `budgetId` in the panel config JSON to your budget's sync ID (visible in the Actual Budget URL or via the actual-http-api `/v1/budgets` endpoint).
+
+**Polling:** Every 5 minutes.
+
+### Scrutiny
+Hard drive SMART health panel — fleet health donut showing passed/warning/failed drive counts, per-drive temperature bars, power-on hours, and reallocated/pending sector warnings. See [integrations.md](integrations.md#scrutiny).
+
+**Height:** 1× = stat chips (healthy, warning, failed counts, avg/max temperature); 2–3× = summary chips + per-drive list with status dot, type badge, and temperature bar; 4×+ = multi-segment fleet health donut + summary (passed/warning/failed counts, avg/max temp) | full drive detail list with model, capacity, temperature bar, hours, sector warnings.
+
+**Fleet health donut:** Multi-segment ring showing the proportion of drives in each state — green (passed), amber (warning), red (failed). The center shows the total drive count.
+
+**Temperature bars:** Each drive shows a mini horizontal bar colored green (<40°C), amber (40–49°C), or red (≥50°C). The bar is normalized to a 60°C maximum.
+
+**Status levels:** Scrutiny uses two failure thresholds — SMART's own threshold (hard failure) and Scrutiny's configurable threshold (softer warning). A drive that passes SMART's check but exceeds Scrutiny's threshold shows as "warning" (amber). A drive that fails SMART's own threshold shows as "failed" (red).
+
+**Reallocated sectors:** Any drive with a non-zero reallocated or pending sector count shows an amber badge. Even a single reallocated sector on a mechanical drive is a sign of impending failure.
+
+**Power-on hours:** Shown as years, months, or days. A 5-year-old drive heading toward typical 5–7 year MTBF is a contextual warning.
+
+**Auth:** None required. Scrutiny runs unauthenticated by default — leave the API key field blank.
 
 **Polling:** Every 5 minutes.
 
