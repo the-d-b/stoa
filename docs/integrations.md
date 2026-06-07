@@ -778,6 +778,33 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 
 ---
 
+## Coinbase
+
+**What it shows:** Total portfolio value in USD, per-asset allocation donut with crypto brand colors, and a full account list showing each currency's balance (crypto quantity and USD equivalent) with proportional allocation bars.
+
+**What is Coinbase?** Coinbase is the largest US-based cryptocurrency exchange. It holds assets in named wallets (Bitcoin Wallet, Ethereum Wallet, etc.) plus any USD or stablecoin cash balances. The Stoa integration uses Coinbase's v2 REST API with a read-only API key — it can only read balance data and cannot initiate any transactions.
+
+**Auth:** API key + secret in `apiKey:apiSecret` format (colon-separated). Create a read-only key in **Coinbase → Settings → API → New API Key**. Under permissions, select only "View" — do not grant trade or transfer permissions. Paste the key and secret into the API key field separated by a colon: `yourApiKey:yourApiSecret`.
+
+**Security:** A read-only Coinbase API key cannot initiate transfers, trades, or withdrawals. The worst-case exposure from a compromised key is a read of your balance data, not loss of funds.
+
+**URL:** Leave as `https://api.coinbase.com` (the default). Coinbase's API is always HTTPS — no self-hosted option exists.
+
+**Polling:** Every 5 minutes.
+
+**What the panel shows:**
+
+- **Total value:** Sum of all non-zero account native balances in USD.
+- **Allocation donut (4× only):** Multi-segment ring using each cryptocurrency's official brand color (BTC orange, ETH blue, SOL purple, USDC blue-grey, etc.). Top 9 assets shown individually; remainder grouped as "Other."
+- **Account list:** All Coinbase wallets with a non-zero balance, sorted by USD value descending. Each row shows the currency code, crypto quantity (for non-fiat assets), and USD value. The 4× layout adds a proportional allocation bar per row.
+- **Stacked bar (2–3×):** A thin horizontal bar showing the relative allocation of all assets using their brand colors, with a legend below.
+
+**Fiat accounts:** USD, USDC, USDT, DAI, and other stablecoin/fiat accounts are treated the same as crypto — their native balance is already in USD so no conversion is needed.
+
+**Pagination:** Coinbase paginates accounts in pages of up to 100. Stoa fetches all pages automatically so all wallets appear regardless of how many accounts you have.
+
+---
+
 ## Actual Budget
 
 **What it shows:** Monthly income, total spending, and available balance for the current month; spending vs. budgeted progress bars per category group; full per-category breakdown; account balances for all open accounts (on-budget and off-budget); and a net worth total.

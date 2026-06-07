@@ -284,6 +284,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testGrocyConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "ghostfolio":
 			err = testGhostfolioConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "coinbase":
+			err = testCoinbaseConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -414,6 +416,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testGrocyConnection(req.APIURL, apiKey, true)
 						case "ghostfolio":
 							retryErr = testGhostfolioConnection(req.APIURL, apiKey, true)
+						case "coinbase":
+							retryErr = testCoinbaseConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -701,6 +705,8 @@ func defaultRefreshSecs(igType string) int {
 	case "grocy":
 		return 300
 	case "ghostfolio":
+		return 300
+	case "coinbase":
 		return 300
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
