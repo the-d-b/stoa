@@ -45,14 +45,6 @@ function fmtMB(mb: number): string {
   return `${mb.toFixed(0)} MB`
 }
 
-function groupStatusColor(s: string, paused: boolean): string {
-  if (paused) return 'var(--amber)'
-  const l = s.toUpperCase()
-  if (l === 'DOWNLOADING') return 'var(--accent)'
-  if (l === 'QUEUED') return 'var(--text-muted)'
-  return 'var(--text-dim)'
-}
-
 function histIcon(s: string): { icon: string; color: string } {
   const l = s.toUpperCase()
   if (l === 'SUCCESS') return { icon: '✓', color: 'var(--green)' }

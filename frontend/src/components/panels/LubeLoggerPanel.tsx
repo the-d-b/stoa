@@ -46,10 +46,6 @@ function urgencyColor(u: string): string {
   return '#6366f1'
 }
 
-function urgencyTextColor(u: string): string {
-  return urgencyColor(u)
-}
-
 function daysLabel(dateStr: string): string {
   if (!dateStr) return ''
   const diff = Math.round((new Date(dateStr).getTime() - new Date(TODAY).getTime()) / 86400000)
