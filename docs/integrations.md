@@ -36,6 +36,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | API key | Actual Budget | API key set via `API_KEY` env var on the `actual-http-api` sidecar. Sent as `x-api-key` request header. |
 | None | Scrutiny | No authentication required. Scrutiny runs unauthenticated by default. Leave the API key field blank. |
 | API token | Paperless-ngx | Token generated in Paperless-ngx → Settings → API → Generate Token. Stoa sends it as `Authorization: Token <token>`. |
+| API token (Bearer) | Mealie | Long-lived API token from Mealie → User Settings → API Tokens. Stoa sends it as `Authorization: Bearer <token>`. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -827,6 +828,33 @@ Once running, confirm it's working by visiting `http://your-host:5007/api-docs/`
 **Tag colors:** Tags in Paperless have user-assigned colors. Stoa uses these colors directly for the tag swatches and bars. Tags with no color or a pure-black color (`#000000`) fall back to indigo.
 
 **Pagination:** Stoa fetches up to 100 tags, correspondents, and document types per panel refresh. If you have more than 100 of any of these, the excess won't appear. This limit is sufficient for all realistic Paperless installations.
+
+---
+
+## Mealie
+
+**What it shows:** Total recipe count, this week's meal plan displayed day-by-day with meal type icons, the first active shopping list with checked/unchecked items, and the 8 most recently added recipes with ratings and cook times.
+
+**What is Mealie?** Mealie is a self-hosted recipe manager and meal planner. It stores recipes (with instructions, ingredients, nutrition, images, and cook times), lets you plan meals week-by-week, and generates shopping lists from your meal plan. It has OCR-based recipe import from URLs and images, plus HACS integration for Home Assistant.
+
+**Auth:** Long-lived API token. In Mealie, go to **User Settings → API Tokens** and click "Create Token". Paste the token into the API key field in Stoa. Stoa sends it as `Authorization: Bearer <token>`.
+
+**URL:** Your Mealie base URL, e.g. `http://mealie:9000` or `https://mealie.example.com`. Default port is 9000 for Docker deployments. Do not include trailing slashes or paths.
+
+**TLS:** Enable "Skip TLS verify" if Mealie is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 15 minutes — recipes and meal plans change infrequently.
+
+**What the panel shows:**
+
+- **Total recipes:** Pulled from the recipes endpoint with `perPage=1` to get just the total count.
+- **This week's meal plan:** Monday through Sunday of the current calendar week. Each day lists its meals in order (breakfast → lunch → dinner → sides). Today's date is highlighted in indigo with a "Today" badge. Recipe names link directly to the recipe detail page in Mealie. Custom meal titles (not linked to a recipe) are shown as plain text.
+- **Shopping list:** The first active shopping list. Unchecked items appear prominently; checked items appear dimmed at the bottom (max 3 shown). Each item shows the food name and quantity/unit from Mealie's structured ingredient data.
+- **Recent recipes:** The 8 most recently added recipes sorted by `dateAdded` descending. Each shows the recipe name, star rating (1–5), and total cook time. Each links to the recipe in Mealie.
+
+**Meal types:** Mealie supports four entry types: `breakfast`, `lunch`, `dinner`, and `side`. Stoa displays them in that order within each day using icons (🌅 breakfast, ☀️ lunch, 🌙 dinner, 🍽️ other).
+
+**Shopping lists:** Stoa fetches all shopping lists and displays the first one. If you have multiple lists, only the first is shown. You cannot currently select which list appears in the panel — items from other lists are not shown.
 
 ---
 

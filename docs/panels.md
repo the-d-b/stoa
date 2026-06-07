@@ -50,6 +50,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Actual Budget | Yes |
 | Scrutiny | Yes |
 | Paperless-ngx | Yes |
+| Mealie | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -420,6 +421,19 @@ Document management panel — total document count, inbox document count, docume
 **Recent document links:** Each document in the recent list links directly to that document in the Paperless web UI. Requires the UI URL to be set in the integration settings (auto-populated from API URL if not set separately).
 
 **Polling:** Every 5 minutes.
+
+### Mealie
+Recipe manager and meal planner panel — weekly meal plan displayed day-by-day with meal type icons (breakfast/lunch/dinner), shopping list with checked/unchecked items, recent recipe list with ratings and cook time, and a total recipe count. See [integrations.md](integrations.md#mealie).
+
+**Height:** 1× = stat chips (total recipes, this week's meal count, shopping list item count); 2–3× = stat chips + this week's meal plan by day; 4×+ = left column (stats, week meal plan, shopping list) + right column (recent recipes with ratings).
+
+**Meal plan:** Shows Monday through Sunday of the current week. Each day lists its meals in order (breakfast → lunch → dinner → sides). Today's date is highlighted in indigo with a "Today" badge. Recipe names link directly to the recipe in Mealie. Custom meal titles (not linked to a recipe) are shown as plain text.
+
+**Shopping list:** Displays the first active shopping list. Unchecked items are shown prominently; checked items are shown dimmed at the bottom (max 3 visible). Each item shows the food name and quantity/unit.
+
+**Recent recipes:** The 8 most recently added recipes with star rating and cook time. Each recipe links directly to its detail page in Mealie.
+
+**Polling:** Every 15 minutes — meal plans and recipes change infrequently.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

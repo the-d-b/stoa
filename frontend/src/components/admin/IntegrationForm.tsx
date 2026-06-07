@@ -78,6 +78,8 @@ export const INTEGRATION_TYPES = [
   { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)', category: 'Finance' },
   // Documents
   { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — URL is http://paperless:8000 (or your public URL). API key field: token generated in Paperless-ngx → Settings → API → Generate Token.', category: 'Documents' },
+  // Food & Home
+  { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
