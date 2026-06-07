@@ -805,6 +805,30 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 
 ---
 
+## NZBGet
+
+**What it shows:** Current download speed, queue status, per-download progress bars with category badges and size remaining, today's total downloaded, free disk space, and a recent history list.
+
+**What is NZBGet?** NZBGet is a lightweight, efficient Usenet downloader that uses the JSON-RPC protocol for its API. It processes NZB files for automatic downloading, repair, and extraction.
+
+**Auth:** Username and password in `username:password` format in the API key field. Use your NZBGet control username and password from **NZBGet → Settings → Security → ControlUsername / ControlPassword**.
+
+**URL:** Your NZBGet base URL, e.g. `http://nzbget:6789` (default port is 6789).
+
+**Polling:** Every 15 seconds.
+
+**What the panel shows:**
+
+- **Download speed:** Current throughput formatted as KB/s or MB/s (from the JSON-RPC `status` method).
+- **Status chip:** Green for downloading, amber for paused, gray for idle.
+- **Queue count + remaining:** Number of items queued and total MB/GB left.
+- **Today's downloaded:** Total MB/GB downloaded in the current session.
+- **Free disk:** Available disk space on the destination drive.
+- **Queue slots:** Per-download progress bars with NZB name, category badge, completion percentage, and MB remaining.
+- **History:** 10 most recent completions — SUCCESS (✓), FAILURE (✗), DELETED (✗) — with file sizes.
+
+---
+
 ## SABnzbd
 
 **What it shows:** Current download speed, queue status (Downloading/Paused/Idle), per-slot progress bars with percentage and time remaining, and a recent completion history list.
@@ -961,6 +985,31 @@ Once running, confirm it's working by visiting `http://your-host:5007/api-docs/`
 - **Shopping list:** Undone items from the shopping list. Product names are resolved from Grocy's product catalog. Items linked to a product show the product name; items with only a note (custom entries) show the note text.
 
 **Product name resolution:** Grocy's shopping list and stock entries use product IDs, not names. Stoa fetches the full product catalog first and builds a lookup table — product names are resolved from this table. If a product is deleted from Grocy but still appears on the shopping list, its ID will be shown instead of a name.
+
+---
+
+## Tandoor
+
+**What it shows:** Total recipe count, this week's meal plan displayed as a day-by-day calendar, an unchecked shopping list, and the 8 most recently added recipes with star ratings, cook time, and keyword tags.
+
+**What is Tandoor?** Tandoor is a self-hosted recipe manager with a full REST API. It supports recipe import from URLs, nutritional information, meal planning (per meal type per day), and shared shopping lists. It is commonly deployed via Docker.
+
+**Auth:** API token. In Tandoor, open the **User Menu → API Token** (or `/accounts/token/`). Copy the token and paste it into the API key field in Stoa. Stoa sends it as `Authorization: Bearer <token>`.
+
+**URL:** Your Tandoor base URL, e.g. `http://tandoor:8080` or `https://recipes.example.com`. The default Docker port is 8080. Do not include trailing slashes or `/api` paths.
+
+**TLS:** Enable "Skip TLS verify" if Tandoor is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 15 minutes — recipes and meal plans change infrequently.
+
+**What the panel shows:**
+
+- **Recipe count:** Total recipes in your Tandoor instance (from the paginated recipe endpoint's `count` field).
+- **This week's meals (Mon–Sun):** All meal plan entries for the current ISO calendar week. Each day shows its entries in order (breakfast → lunch → dinner → snack), with the entry's title or linked recipe name. Today's row is highlighted in indigo.
+- **Shopping list:** Up to 12 unchecked items from `/api/shopping-list-entry/`. Each item shows the food name, quantity, and unit.
+- **Recent recipes:** The 8 most recently added recipes. Each row shows the recipe name (linked to the recipe page), star rating (★ out of 5), cook time in minutes, and up to 4 keyword tags as colored pills.
+
+**Meal types:** Tandoor meal types are user-defined. Stoa sorts them by name within each day using a built-in order for common names (breakfast < lunch < dinner < snack); custom meal type names fall at the end.
 
 ---
 

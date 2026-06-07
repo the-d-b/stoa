@@ -409,6 +409,13 @@ Coinbase account panel — total portfolio value in USD, per-asset allocation do
 
 **Polling:** Every 5 minutes.
 
+### NZBGet
+NZBGet Usenet downloader panel — live download speed, queue with per-group progress bars, free disk space, and recent history. See [integrations.md](integrations.md#nzbget).
+
+**Height:** 1× = speed + status chip + queue count; 2–3× = speed header + full queue list with progress bars; 4×+ = left column (speed, stats: today's downloaded, free disk, history) + right column (queue slots).
+
+**Polling:** Every 15 seconds.
+
 ### SABnzbd
 SABnzbd Usenet downloader panel — live download speed, queue with per-slot progress bars, and recent history. See [integrations.md](integrations.md#sabnzbd).
 
@@ -479,6 +486,17 @@ Household management panel — food expiry tracker with urgency color coding, ov
 **Shopping list:** Shows undone items from the shopping list. Product names are resolved from Grocy's product database; items with only a note (no linked product) use the note text.
 
 **Polling:** Every 5 minutes — stock expiry and task state change frequently.
+
+### Tandoor
+Recipe manager panel — total recipe count, weekly meal plan calendar, unchecked shopping list, and recent recipes with ratings, cook times, and keyword tags. See [integrations.md](integrations.md#tandoor).
+
+**Height:** 1× = stat chips (recipe count, this week's meal count, shopping items, today's meals); 2–3× = stat chips + this week's meal plan calendar; 4×+ = left column (stats, meal plan, shopping list) + right column (recent recipes with keywords).
+
+**Meal plan:** Shows Monday through Sunday of the current week. Each day lists entries in order (breakfast → lunch → dinner → snack). Today's row is highlighted in indigo.
+
+**Recent recipes:** Name linked to the recipe in Tandoor, star rating (★ out of 5), cook time in minutes, and up to 4 keyword tag pills.
+
+**Polling:** Every 15 minutes.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

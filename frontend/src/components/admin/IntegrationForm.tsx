@@ -71,6 +71,7 @@ export const INTEGRATION_TYPES = [
   { id: 'deluge',      label: 'Deluge',       desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',                        category: 'Infrastructure' },
   { id: 'sabnzbd',    label: 'SABnzbd',      desc: 'Usenet downloader — URL is http://sabnzbd:8080. API key found in SABnzbd → Config → General → API Key.',  category: 'Infrastructure' },
+  { id: 'nzbget',    label: 'NZBGet',       desc: 'Usenet downloader — URL is http://nzbget:6789. API key field: username:password (your NZBGet control credentials from Settings → Security).',  category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   // Finance
@@ -84,6 +85,7 @@ export const INTEGRATION_TYPES = [
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
+  { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
   { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
