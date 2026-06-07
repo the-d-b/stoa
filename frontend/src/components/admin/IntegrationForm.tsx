@@ -72,6 +72,7 @@ export const INTEGRATION_TYPES = [
   { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',                        category: 'Infrastructure' },
   { id: 'sabnzbd',    label: 'SABnzbd',      desc: 'Usenet downloader — URL is http://sabnzbd:8080. API key found in SABnzbd → Config → General → API Key.',  category: 'Infrastructure' },
   { id: 'nzbget',    label: 'NZBGet',       desc: 'Usenet downloader — URL is http://nzbget:6789. API key field: username:password (your NZBGet control credentials from Settings → Security).',  category: 'Infrastructure' },
+  { id: 'tdarr',     label: 'Tdarr',        desc: 'Media transcoding automation — URL is http://tdarr:8265. API key: token from Tdarr → Tools → API Keys (leave blank for unauthenticated local instances). Use username:password for Basic Auth via a reverse proxy.', category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   // Finance
