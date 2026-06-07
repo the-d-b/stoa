@@ -47,6 +47,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Nextcloud | Yes |
 | Netbird | Yes |
 | Firefly III | Yes |
+| Actual Budget | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -368,6 +369,19 @@ Personal finance panel — monthly summary figures (earned, spent, net worth, bi
 **Date range:** Summary figures always cover the current calendar month (first of month to today).
 
 **Polling:** Every 60 minutes — financial data changes infrequently.
+
+### Actual Budget
+Envelope budgeting panel — monthly income, spending, and available balance with per-category-group progress bars, account balances split into on-budget and off-budget, and a prominent net worth figure. Requires the `actual-http-api` sidecar. See [integrations.md](integrations.md#actual-budget).
+
+**Height:** 1× = summary chips (income, spent, balance, net worth); 2–3× = summary chips + category group spending bars + account balances; 4×+ = net worth header + three-column layout (accounts & month summary | budget group bars | full category breakdown).
+
+**Spending bars:** Each category group shows a progress bar of spent vs. budgeted. Green < 85%, amber 85–100%, red = over budget.
+
+**Amounts:** All amounts are in cents internally. Stoa divides by 100 and formats with `$` prefix and two decimal places. For non-USD budgets, the dollar sign is a display artifact — the numeric values are correct.
+
+**Budget discovery:** If you have a single budget in Actual, no panel configuration is needed. If you have multiple budgets, set `budgetId` in the panel config JSON to your budget's sync ID (visible in the Actual Budget URL or via the actual-http-api `/v1/budgets` endpoint).
+
+**Polling:** Every 5 minutes.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

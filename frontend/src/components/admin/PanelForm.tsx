@@ -76,6 +76,7 @@ export const PANEL_TYPES: {
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   // Finance
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance — monthly summary (earned, spent, net-worth, left-to-spend), asset account balances', needsIntegration: true, category: 'Finance' },
+  { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — monthly income/spent/balance, spending progress by category group, account balances, net worth. Requires the actual-http-api sidecar.', needsIntegration: true, category: 'Finance' },
   { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparklines', needsIntegration: true, category: 'Finance' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
@@ -107,7 +108,7 @@ const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird',
-  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr','fireflyiii',
+  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr','fireflyiii','actualbudget',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 

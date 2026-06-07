@@ -272,6 +272,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testFireflyConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "netbird":
 			err = testNetbirdConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "actualbudget":
+			err = testActualBudgetConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -390,6 +392,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testFireflyConnection(req.APIURL, apiKey, true)
 						case "netbird":
 							retryErr = testNetbirdConnection(req.APIURL, apiKey, true)
+						case "actualbudget":
+							retryErr = testActualBudgetConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -666,6 +670,8 @@ func defaultRefreshSecs(igType string) int {
 		return 3600
 	case "netbird":
 		return 60
+	case "actualbudget":
+		return 300
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

@@ -80,6 +80,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"nextcloud":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNextcloudPanelData(db, cfg) },
 	"fireflyiii":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchFireflyPanelData(db, cfg) },
 	"netbird":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNetbirdPanelData(db, cfg) },
+	"actualbudget":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchActualBudgetPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

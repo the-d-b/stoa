@@ -33,6 +33,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | `username:password` | Nextcloud | Nextcloud account credentials — use an app password from Nextcloud → Settings → Security → App passwords. Sent as HTTP Basic Auth with `OCS-APIRequest: true` header. |
 | Personal Access Token | Netbird | PAT from Netbird → Settings → Personal Access Tokens. Sent as `Authorization: Token <PAT>`. |
 | Personal Access Token | Firefly III | PAT from Firefly III → Profile → OAuth → Personal Access Tokens. Sent as `Authorization: Bearer <token>`. |
+| API key | Actual Budget | API key set via `API_KEY` env var on the `actual-http-api` sidecar. Sent as `x-api-key` request header. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -712,6 +713,59 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 - **Currency:** Values use the currency symbol and decimal format returned by Firefly's API. Multi-currency setups will show each currency separately in the summary.
 
 **Note:** The summary endpoint returns separate entries per currency (e.g. `earned-in-EUR`, `earned-in-USD`). Stoa strips the currency suffix for display keys and groups by the clean key name (e.g. `earned`). If you use multiple currencies, you may see multiple rows for the same category.
+
+---
+
+## Actual Budget
+
+**What it shows:** Monthly income, total spending, and available balance for the current month; spending vs. budgeted progress bars per category group; full per-category breakdown; account balances for all open accounts (on-budget and off-budget); and a net worth total.
+
+**What is Actual Budget?** Actual Budget is an open-source envelope budgeting app (similar to YNAB). It is local-first — your data lives on your machine in an encrypted SQLite file. It has a sync server (`actual-server`) for multi-device access and a companion web UI. Because there is no native HTTP API for querying budget data, Stoa connects via `actual-http-api`, a community-maintained REST wrapper.
+
+**Sidecar requirement:** Stoa does **not** connect directly to `actual-server`. You must also run `actual-http-api` as a separate container. It acts as a REST bridge between Stoa and your Actual data. See setup below.
+
+**Auth:** An API key that you configure on `actual-http-api`. Stoa sends it as the `x-api-key` request header.
+
+**URL:** The URL of your `actual-http-api` instance, e.g. `http://actual-http-api:5007`. Do **not** point this at your `actual-server` directly.
+
+**TLS:** Enable "Skip TLS verify" if `actual-http-api` is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 5 minutes.
+
+**Setup — running actual-http-api:**
+
+Add the `actual-http-api` container to your Docker Compose stack:
+
+```yaml
+actual-http-api:
+  image: jhonderson/actual-http-api:latest
+  environment:
+    API_KEY: "your-chosen-api-key"               # set this — use in Stoa's API key field
+    ACTUAL_SERVER_URL: "http://actual-server:5006"
+    ACTUAL_SERVER_PASSWORD: "your-actual-password"
+  ports:
+    - "5007:5007"
+```
+
+- `API_KEY` — choose any secret string; this is what you paste into Stoa's API key field
+- `ACTUAL_SERVER_URL` — the URL of your existing `actual-server` container
+- `ACTUAL_SERVER_PASSWORD` — your Actual login password (the one you use at the web UI)
+
+Once running, confirm it's working by visiting `http://your-host:5007/api-docs/` — the Swagger UI should load.
+
+**Budget sync ID:** If you have a single budget, Stoa auto-discovers it — no extra config needed. If you have multiple budgets, find your budget's sync ID by calling `http://actual-http-api:5007/v1/budgets` and add `budgetId` to the panel config JSON.
+
+**End-to-end encryption:** If your Actual budget has end-to-end encryption enabled, actual-http-api requires the budget encryption password as a query parameter on each request. This is not currently supported by Stoa — configure your budget without E2EE, or set `ACTUAL_BUDGET_ENCRYPTION_PASSWORD` as an environment variable directly on the `actual-http-api` container if the project supports it.
+
+**What the panel shows:**
+
+- **Net worth:** Sum of all open account balances.
+- **Monthly summary:** Income received, total spending, and available balance for the current calendar month. Income is positive/green; spending is shown as an absolute value in red.
+- **Category group bars:** Each non-hidden category group shown as a spending progress bar (spent / budgeted). Green = < 85%, amber = 85–100%, red = over budget.
+- **Category detail (4× only):** Full per-category breakdown within each group, with individual spent/budgeted figures and mini progress bars.
+- **Accounts:** On-budget accounts (checking, savings, cash, credit) and off-budget accounts (investments, mortgages) listed separately with current balances.
+
+**Amounts:** Actual stores amounts as integers in cents. Stoa divides by 100 and formats with `$` prefix. If you use a non-USD currency, the numbers are correct but the `$` symbol is a display artifact.
 
 ---
 
