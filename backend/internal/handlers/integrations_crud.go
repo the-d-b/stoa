@@ -296,6 +296,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testLubeLoggerConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "tdarr":
 			err = testTdarrConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "docspell":
+			err = testDocspellConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -438,6 +440,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testLubeLoggerConnection(req.APIURL, apiKey, true)
 						case "tdarr":
 							retryErr = testTdarrConnection(req.APIURL, apiKey, true)
+						case "docspell":
+							retryErr = testDocspellConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -732,7 +736,7 @@ func defaultRefreshSecs(igType string) int {
 		return 15
 	case "tdarr":
 		return 30
-	case "tandoor", "lubelogger":
+	case "tandoor", "lubelogger", "docspell":
 		return 900
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30

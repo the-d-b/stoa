@@ -68,6 +68,7 @@ import NZBGetPanel from '../components/panels/NZBGetPanel'
 import TandoorPanel from '../components/panels/TandoorPanel'
 import LubeLoggerPanel from '../components/panels/LubeLoggerPanel'
 import TdarrPanel from '../components/panels/TdarrPanel'
+import DocspellPanel from '../components/panels/DocspellPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1114,6 +1115,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'tandoor' && <TandoorPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'lubelogger' && <LubeLoggerPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'tdarr' && <TdarrPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'docspell' && <DocspellPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}
