@@ -86,6 +86,7 @@ export const PANEL_TYPES: {
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — total recipe count, this week\'s meal plan day-by-day, shopping list with checked items, recent recipe list with ratings and cook time', needsIntegration: true, category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — food expiry with urgency color coding (expired/expiring), overdue chores, pending tasks with due dates, shopping list', needsIntegration: true, category: 'Food & Home' },
+  { id: 'sabnzbd',    label: 'SABnzbd',         desc: 'Usenet downloader — download speed, queue progress bars with per-slot percentage and time left, category badges, and recent completion history', needsIntegration: true, category: 'Infrastructure' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
@@ -116,7 +117,7 @@ const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
-  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','mealie','grocy',
+  'transmission','qbittorrent','deluge','rutorrent','sabnzbd','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','mealie','grocy',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 

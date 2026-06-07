@@ -63,6 +63,7 @@ import MealiePanel from '../components/panels/MealiePanel'
 import GrocyPanel from '../components/panels/GrocyPanel'
 import GhostfolioPanel from '../components/panels/GhostfolioPanel'
 import CoinbasePanel from '../components/panels/CoinbasePanel'
+import SABnzbdPanel from '../components/panels/SABnzbdPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1104,6 +1105,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'grocy' && <GrocyPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'ghostfolio' && <GhostfolioPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'coinbase' && <CoinbasePanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'sabnzbd' && <SABnzbdPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

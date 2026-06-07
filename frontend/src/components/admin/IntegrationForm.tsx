@@ -70,6 +70,7 @@ export const INTEGRATION_TYPES = [
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   { id: 'deluge',      label: 'Deluge',       desc: 'BitTorrent client',                                           category: 'Infrastructure' },
   { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',                        category: 'Infrastructure' },
+  { id: 'sabnzbd',    label: 'SABnzbd',      desc: 'Usenet downloader — URL is http://sabnzbd:8080. API key found in SABnzbd → Config → General → API Key.',  category: 'Infrastructure' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   // Finance

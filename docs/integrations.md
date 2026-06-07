@@ -805,6 +805,29 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 
 ---
 
+## SABnzbd
+
+**What it shows:** Current download speed, queue status (Downloading/Paused/Idle), per-slot progress bars with percentage and time remaining, and a recent completion history list.
+
+**What is SABnzbd?** SABnzbd is a popular open-source Usenet binary newsreader and downloader. It downloads NZB files automatically, handles multi-part posts, repairs with PAR2, and unpacks archives. It is commonly used alongside Sonarr/Radarr via the SABnzbd download client integration.
+
+**Auth:** Bare API key in the API key field. Find it in **SABnzbd → Config → General → API Key**. Stoa passes it as a `?apikey=` query parameter — no header is used.
+
+**URL:** Your SABnzbd base URL, e.g. `http://sabnzbd:8080` or `http://192.168.1.x:8080`. No trailing slash needed.
+
+**Polling:** Every 15 seconds (queue data changes rapidly during active downloads).
+
+**What the panel shows:**
+
+- **Download speed:** Current throughput displayed prominently, formatted as KB/s or MB/s.
+- **Status chip:** Color-coded indicator — green for Downloading, amber for Paused, gray for Idle.
+- **Queued count:** Number of items in the current queue.
+- **Remaining:** Total MB/GB left across all queued items, plus estimated time to completion.
+- **Queue slots:** Per-download progress bars showing filename, category badge (tv, movies, music, etc.), completion percentage, MB remaining, and individual time left.
+- **History:** Recent completed (✓), failed (✗), and incomplete (↻) downloads with file size.
+
+---
+
 ## Actual Budget
 
 **What it shows:** Monthly income, total spending, and available balance for the current month; spending vs. budgeted progress bars per category group; full per-category breakdown; account balances for all open accounts (on-budget and off-budget); and a net worth total.

@@ -409,6 +409,13 @@ Coinbase account panel — total portfolio value in USD, per-asset allocation do
 
 **Polling:** Every 5 minutes.
 
+### SABnzbd
+SABnzbd Usenet downloader panel — live download speed, queue with per-slot progress bars, and recent history. See [integrations.md](integrations.md#sabnzbd).
+
+**Height:** 1× = speed + status chip + queue count; 2–3× = speed header + full queue list with progress bars; 4×+ = left column (speed, stats, history) + right column (queue slots).
+
+**Polling:** Every 15 seconds.
+
 ### Scrutiny
 Hard drive SMART health panel — fleet health donut showing passed/warning/failed drive counts, per-drive temperature bars, power-on hours, and reallocated/pending sector warnings. See [integrations.md](integrations.md#scrutiny).
 
