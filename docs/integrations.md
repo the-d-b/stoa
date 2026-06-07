@@ -28,6 +28,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Plain API key | autobrr | API key from autobrr → Settings → API. Sent as `X-API-Token` header on every request. |
 | Plain API key | Bazarr | API key from Bazarr → Settings → General → Security. Sent as `X-API-KEY` header on every request. |
 | Plain API key | Prowlarr | API key from Prowlarr → Settings → General → Security. Sent as `X-Api-Key` header on every request. |
+| Bearer token or none | Frigate | Optional — leave blank for unauthenticated local instances. For authenticated instances, Bearer token from Frigate → Settings → Users. Sent as `Authorization: Bearer`. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -568,6 +569,34 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 - **Version:** From `/api/v1/system/status`.
 
 **Indexer auto-blocking:** When an indexer fails repeatedly, Prowlarr sets a `disabledTill` timestamp and stops querying it temporarily. Stoa reads this field and marks the indexer as "blocked" with the timestamp. Once the block expires and Prowlarr retries, the status returns to `ok` or `degraded`.
+
+---
+
+## Frigate
+
+**What it shows:** Camera roster with per-camera detection FPS and skipped-frame stats, zone configuration per camera with object-type filters, recent detection events by label and confidence score, and detector inference speed (CPU / Coral TPU / GPU).
+
+**What is Frigate?** Frigate is an open-source NVR (network video recorder) built around real-time AI object detection. It ingests RTSP streams from IP cameras, runs detection on every frame using a configurable detector (CPU, Google Coral TPU, NVIDIA/AMD GPU, or Intel OpenVINO), and records video clips and snapshots of detected objects. Cameras are grouped into zones — named regions within the camera's field of view — that can filter by object type (person, car, dog, etc.) and trigger recording, snapshots, or automations independently.
+
+**Auth:** Optional. Many local Frigate instances run without authentication on port 5000 — leave the API key field blank in that case. If Frigate's built-in authentication is enabled (port 8971), generate a Bearer token in **Frigate → Settings → Users** and paste it into the API key field in Stoa. Stoa sends it as `Authorization: Bearer <token>`.
+
+**URL:** Your Frigate base URL including the port:
+- Unauthenticated: `http://192.168.1.10:5000`
+- Authenticated: `http://192.168.1.10:8971`
+
+**TLS:** Enable "Skip TLS verify" if Frigate is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 15 seconds — Frigate events update frequently and detection stats change per-cycle.
+
+**What the panel shows:**
+
+- **Cameras:** Each camera's detection FPS, process FPS, and skipped FPS. Detection FPS is the rate at which the detector processes frames from that camera. Skipped FPS is how many frames per second the detector is dropping because it can't keep up — a high skipped ratio (> 25%) indicates the detector is undersized for the camera count or resolution.
+- **Zones:** Named regions within each camera's field of view, with the object types configured to trigger detection in that zone. Zones with no object filter detect all object types.
+- **Events:** The 10 most recent detection events across all cameras — label (person, car, dog, etc.), camera, zone (if any), time ago, and confidence score. High-confidence detections (≥ 85%) are shown in green.
+- **Detectors:** Inference speed in milliseconds for each configured detector. < 10ms = green (fast hardware acceleration); 10–30ms = amber; > 30ms = red. A Coral TPU typically achieves 5–15ms; CPU typically 100–500ms.
+- **Version and uptime:** From `/api/stats`.
+
+**Live video:** The Frigate panel does not display live video — it focuses on detection data, zone configuration, and events. To display live camera streams, use a **Text/HTML** panel with an MJPEG `<img>` tag pointing to `http://frigate-host:5000/api/<camera_name>/stream`. See [panels.md](panels.md#texthtml) for examples.
 
 ---
 

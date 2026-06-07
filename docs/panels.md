@@ -42,6 +42,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | autobrr | Yes |
 | Prowlarr | Yes |
 | Bazarr | Yes |
+| Frigate | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -295,6 +296,25 @@ Subtitle management status — missing subtitle counts for TV and movies, per-pr
 
 **Polling:** Every 60 seconds.
 
+### Frigate
+NVR camera panel — camera roster with detection FPS, zone configuration with object filters, recent detection events by label and score, and detector inference speed. See [integrations.md](integrations.md#frigate).
+
+**Height:** 1× = stat chips (cameras, zones, detector inference speed, event count, version); 2–3× = stat chips + camera list with detection FPS + recent events feed; 4×+ = three-column layout (cameras with FPS detail and detector info | zone breakdown per camera | events feed).
+
+**Camera list:** Each row shows a health dot, detection FPS, and zone count badge. Green dot = detection enabled and running normally; amber = high skipped-frame ratio (> 25% of camera FPS skipped, indicating the detector is falling behind); grey = detection disabled.
+
+**Skipped FPS:** Shown in amber in 4× detail view. Frigate skips frames when the detector can't keep up with the camera feed — this is a signal that detection hardware may be undersized or the camera FPS is too high.
+
+**Zone breakdown:** Each camera's zones with the object types they watch (person, car, dog, etc.), color-coded by label type. Zones with no object filter show all detections.
+
+**Events feed:** Shows the 10 most recent detection events across all cameras — label (colored by type), camera name, zone (if triggered), time ago, and confidence score. Score ≥ 85% = green; 70–84% = amber; < 70% = grey.
+
+**Detector inference speed:** The time in milliseconds Frigate's detector (CPU, Coral TPU, GPU) takes per inference pass. < 10ms = green; 10–30ms = amber; > 30ms = red.
+
+**Auth:** Optional. Leave the API key blank for unauthenticated local instances (common on port 5000). For instances with built-in Frigate authentication enabled, generate a Bearer token in Frigate → Settings → Users.
+
+**Polling:** Every 15 seconds.
+
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
 
@@ -398,6 +418,28 @@ Useful for static content, custom layouts, or embedding images from a direct URL
 ```
 
 `object-fit: contain` scales the image down to fit the panel while preserving its aspect ratio. Use `object-fit: cover` instead to fill the panel completely, cropping the edges.
+
+**Frigate live camera streams:** Frigate exposes an MJPEG stream per camera that browsers can display natively in an `<img>` tag — no video libraries needed. Replace `frigate-host` with your Frigate URL and `camera_name` with the camera name from your Frigate config:
+
+```html
+<img src="http://frigate-host:5000/api/camera_name/stream"
+     style="width:100%;height:100%;object-fit:cover;display:block;">
+```
+
+For multiple cameras in a grid, use a CSS grid wrapper:
+
+```html
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;height:100%">
+  <img src="http://frigate-host:5000/api/front_door/stream" style="width:100%;height:100%;object-fit:cover;">
+  <img src="http://frigate-host:5000/api/backyard/stream"   style="width:100%;height:100%;object-fit:cover;">
+  <img src="http://frigate-host:5000/api/driveway/stream"   style="width:100%;height:100%;object-fit:cover;">
+  <img src="http://frigate-host:5000/api/garage/stream"     style="width:100%;height:100%;object-fit:cover;">
+</div>
+```
+
+**Port note:** Port 5000 is Frigate's internal HTTP port and does not enforce authentication, making it suitable for local network access. If Frigate is exposed only on port 8971 (the authenticated port), the stream URL will require the session cookie from a Frigate login — in that case the Frigate web UI embed via a **Web Embed** panel is simpler.
+
+**Network access:** Your browser makes a direct connection to Frigate's port when loading the MJPEG stream — the Stoa backend is not involved. If Stoa is accessed remotely but Frigate is LAN-only, the stream will fail to load. Use a VPN or expose Frigate externally to make it reachable from wherever you access Stoa.
 
 ### Web Embed
 Renders any URL inside an iframe that fills the panel. Useful for embedding web pages, dashboards, or other live content.

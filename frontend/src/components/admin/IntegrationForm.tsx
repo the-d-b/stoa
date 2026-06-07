@@ -57,6 +57,7 @@ export const INTEGRATION_TYPES = [
   { id: 'autobrr',     label: 'autobrr',     desc: 'Torrent autodl — URL is http://autobrr:7474. API key found in autobrr → Settings → API.', category: 'Infrastructure' },
   { id: 'bazarr',      label: 'Bazarr',      desc: 'Subtitle manager — URL is http://bazarr:6767. API key found in Bazarr → Settings → General → Security → API Key.', category: 'Infrastructure' },
   { id: 'prowlarr',    label: 'Prowlarr',    desc: 'Indexer manager — URL is http://prowlarr:9696. API key found in Prowlarr → Settings → General → API Key.', category: 'Infrastructure' },
+  { id: 'frigate',     label: 'Frigate',     desc: 'NVR (network video recorder) — URL is http://frigate:8971. Leave API key blank for unauthenticated local instances (port 5000). For authenticated instances, generate a Bearer token in Frigate → Settings → Users.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
