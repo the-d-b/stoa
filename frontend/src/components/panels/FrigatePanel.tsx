@@ -134,30 +134,6 @@ function StatChip({ label, value, color }: { label: string; value: string | numb
   )
 }
 
-function CameraDonut({ active, total, size = 80 }: { active: number; total: number; size?: number }) {
-  const cx = size / 2, cy = size / 2, r = size * 0.36
-  const circ = 2 * Math.PI * r
-  const pct = total > 0 ? active / total : 1
-  const filled = circ * pct
-  const color = pct === 1 ? '#4ade80' : pct >= 0.5 ? '#f59e0b' : '#e53e3e'
-  return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={size * 0.13}
-        strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
-        transform={`rotate(-90 ${cx} ${cy})`} />
-      <text x={cx} y={cy - size * 0.05} textAnchor="middle" dominantBaseline="middle"
-        fill="var(--text)" style={{ fontSize: size * 0.24, fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
-        {active}
-      </text>
-      <text x={cx} y={cy + size * 0.2} textAnchor="middle"
-        fill="var(--text-dim)" style={{ fontSize: size * 0.12 }}>
-        of {total}
-      </text>
-    </svg>
-  )
-}
-
 function CameraRow({ cam, showFps }: { cam: FrigateCamera; showFps?: boolean }) {
   const dotColor = cameraHealthColor(cam)
   const skippedHigh = cam.cameraFps > 0 && cam.skippedFps / cam.cameraFps > 0.25
