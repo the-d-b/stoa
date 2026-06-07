@@ -77,6 +77,9 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"prowlarr":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchProwlarrPanelData(db, cfg) },
 	"frigate":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchFrigatePanelData(db, cfg) },
 	"blueiris":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchBlueIrisPanelData(db, cfg) },
+	"nextcloud":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNextcloudPanelData(db, cfg) },
+	"fireflyiii":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchFireflyPanelData(db, cfg) },
+	"netbird":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNetbirdPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

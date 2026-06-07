@@ -44,6 +44,9 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Bazarr | Yes |
 | Frigate | Yes |
 | Blue Iris | Yes |
+| Nextcloud | Yes |
+| Netbird | Yes |
+| Firefly III | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -332,6 +335,39 @@ Windows NVR panel — system signal light (green/yellow/red stoplight), camera r
 **Live camera streams:** Blue Iris streams are available at `http://host:port/mjpg/<camera_shortname>?user=<username>&pw=<password>`. Use a **Text/HTML** panel to embed these directly — see the stream embed note in the Text/HTML section below.
 
 **Polling:** Every 30 seconds.
+
+### Nextcloud
+File cloud panel — active users in the last 5m/1h/24h, storage free space, share counts broken down by type (user, group, public link), app update warnings, and server info (PHP version, database type/version, webserver, memory usage). See [integrations.md](integrations.md#nextcloud).
+
+**Height:** 1× = stat chips (users, active, files, free space, app updates, version); 2–3× = stat chips + active user bars + share breakdown; 4×+ = three-column layout (server info | users & activity with RAM donut | shares and storage).
+
+**Memory donut:** Server RAM usage as a percentage. Green < 75%, amber < 90%, red ≥ 90%. Only shown when the Nextcloud server reports memory data (requires the serverinfo app).
+
+**App updates:** A prominent amber badge appears when Nextcloud apps have updates available. Stoa fetches full app info via `skipApps=false` and falls back to a simpler request if the serverinfo app doesn't support that flag.
+
+**Auth:** `username:password` in the API key field. Use an app password generated in **Nextcloud → Settings → Security → App passwords** rather than your main account password.
+
+**Polling:** Every 5 minutes.
+
+### Netbird
+WireGuard mesh VPN panel — peer roster with online/offline/expired status, last-seen time, OS, IP address, SSH status, group membership, and policy list. See [integrations.md](integrations.md#netbird).
+
+**Height:** 1× = stat chips (online, offline, expired, groups, active/total policies); 2–3× = chips + peer list with IPs + group list; 4×+ = two-column layout (full peer detail with OS, last-seen, SSH/expired badges | groups with peer counts + policy list).
+
+**Peer status:** Green dot = connected; grey = offline; amber = login expired. Expired peers have let their WireGuard key registration lapse and won't connect until they re-authenticate.
+
+**Polling:** Every 60 seconds.
+
+### Firefly III
+Personal finance panel — monthly summary figures (earned, spent, net worth, bills paid/unpaid, left to spend, net savings) and asset account balances. See [integrations.md](integrations.md#firefly-iii).
+
+**Height:** 1× = summary chips for the top 4 items (net worth, earned, spent, left to spend); 2–3× = summary chips + full monthly summary + account list; 4×+ = large net-worth header + monthly summary column + account balances column.
+
+**Color coding:** Positive balances for income/net-worth/savings show green; negative show red. Spent/bills-unpaid are inverted (negative is red as expected). Values use the currency symbol and decimal format from Firefly's API.
+
+**Date range:** Summary figures always cover the current calendar month (first of month to today).
+
+**Polling:** Every 60 minutes — financial data changes infrequently.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

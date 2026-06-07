@@ -62,6 +62,8 @@ export const PANEL_TYPES: {
   { id: 'prowlarr',    label: 'Prowlarr',    desc: 'Indexer manager — indexer health (ok/degraded/blocked), protocol & privacy breakdown, per-indexer grab counts & response times, connected *arr apps', needsIntegration: true, category: 'Infrastructure' },
   { id: 'frigate',     label: 'Frigate',     desc: 'NVR — camera roster with detection fps, zone configuration per camera with object filters, recent detection events by label and score, detector inference speed', needsIntegration: true, category: 'Infrastructure' },
   { id: 'blueiris',   label: 'Blue Iris',   desc: 'NVR — system signal (green/yellow/red), camera roster with recording/motion/alert/PTZ status, active profile, recent alerts with AI memo, trigger and clip counts per camera', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'nextcloud',  label: 'Nextcloud',   desc: 'File cloud — active users, storage, shares, app updates, server info (PHP, DB, webserver, memory)', needsIntegration: true, category: 'Infrastructure' },
+  { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — peer roster with online/offline/expired status, IP, OS, groups, and policy list', needsIntegration: true, category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Infrastructure' },
@@ -73,6 +75,7 @@ export const PANEL_TYPES: {
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   // Finance
+  { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance — monthly summary (earned, spent, net-worth, left-to-spend), asset account balances', needsIntegration: true, category: 'Finance' },
   { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparklines', needsIntegration: true, category: 'Finance' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
@@ -103,8 +106,8 @@ const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
-  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris',
-  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr',
+  'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird',
+  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr','fireflyiii',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 

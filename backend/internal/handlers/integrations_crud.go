@@ -266,6 +266,12 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testFrigateConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "blueiris":
 			err = testBlueIrisConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "nextcloud":
+			err = testNextcloudConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "fireflyiii":
+			err = testFireflyConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "netbird":
+			err = testNetbirdConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -378,6 +384,12 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testFrigateConnection(req.APIURL, apiKey, true)
 						case "blueiris":
 							retryErr = testBlueIrisConnection(req.APIURL, apiKey, true)
+						case "nextcloud":
+							retryErr = testNextcloudConnection(req.APIURL, apiKey, true)
+						case "fireflyiii":
+							retryErr = testFireflyConnection(req.APIURL, apiKey, true)
+						case "netbird":
+							retryErr = testNetbirdConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -648,6 +660,12 @@ func defaultRefreshSecs(igType string) int {
 		return 15
 	case "blueiris":
 		return 30
+	case "nextcloud":
+		return 300
+	case "fireflyiii":
+		return 3600
+	case "netbird":
+		return 60
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

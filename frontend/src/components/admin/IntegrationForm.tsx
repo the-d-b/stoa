@@ -59,6 +59,8 @@ export const INTEGRATION_TYPES = [
   { id: 'prowlarr',    label: 'Prowlarr',    desc: 'Indexer manager — URL is http://prowlarr:9696. API key found in Prowlarr → Settings → General → API Key.', category: 'Infrastructure' },
   { id: 'frigate',     label: 'Frigate',     desc: 'NVR (network video recorder) — URL is http://frigate:8971. Leave API key blank for unauthenticated local instances (port 5000). For authenticated instances, generate a Bearer token in Frigate → Settings → Users.', category: 'Infrastructure' },
   { id: 'blueiris',   label: 'Blue Iris',   desc: 'Windows NVR — URL is http://192.168.1.x:81 (default port 81, configurable). API key field: username:password of a Blue Iris user account. Enable the web server in Blue Iris → Settings → Web server.', category: 'Infrastructure' },
+  { id: 'nextcloud',  label: 'Nextcloud',   desc: 'File cloud — URL is https://cloud.example.com. API key field: username:password (use an app password from Nextcloud → Settings → Security → App passwords).', category: 'Infrastructure' },
+  { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — URL is https://api.netbird.io (cloud) or http://netbird:80 (self-hosted). API key field: Personal Access Token from Netbird → Settings → Personal Access Tokens.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },
@@ -70,6 +72,7 @@ export const INTEGRATION_TYPES = [
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   // Finance
+  { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance manager — URL is http://firefly:8080. API key field: Personal Access Token from Firefly III → Profile → OAuth → Personal Access Tokens.', category: 'Finance' },
   { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)', category: 'Finance' },
   { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
   // Content

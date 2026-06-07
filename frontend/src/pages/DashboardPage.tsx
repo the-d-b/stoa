@@ -53,6 +53,9 @@ import BazarrPanel from '../components/panels/BazarrPanel'
 import ProwlarrPanel from '../components/panels/ProwlarrPanel'
 import FrigatePanel from '../components/panels/FrigatePanel'
 import BlueIrisPanel from '../components/panels/BlueIrisPanel'
+import NextcloudPanel from '../components/panels/NextcloudPanel'
+import FireflyPanel from '../components/panels/FireflyPanel'
+import NetbirdPanel from '../components/panels/NetbirdPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1084,6 +1087,9 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'prowlarr' && <ProwlarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'frigate' && <FrigatePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'blueiris' && <BlueIrisPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'nextcloud' && <NextcloudPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'fireflyiii' && <FireflyPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'netbird' && <NetbirdPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

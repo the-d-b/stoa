@@ -30,6 +30,9 @@ Different services use different authentication schemes. Stoa normalises these b
 | Plain API key | Prowlarr | API key from Prowlarr → Settings → General → Security. Sent as `X-Api-Key` header on every request. |
 | Bearer token or none | Frigate | Optional — leave blank for unauthenticated local instances. For authenticated instances, Bearer token from Frigate → Settings → Users. Sent as `Authorization: Bearer`. |
 | `username:password` | Blue Iris | Blue Iris user account credentials. Stoa computes `MD5(username:session:password)` per the Blue Iris JSON API session protocol. |
+| `username:password` | Nextcloud | Nextcloud account credentials — use an app password from Nextcloud → Settings → Security → App passwords. Sent as HTTP Basic Auth with `OCS-APIRequest: true` header. |
+| Personal Access Token | Netbird | PAT from Netbird → Settings → Personal Access Tokens. Sent as `Authorization: Token <PAT>`. |
+| Personal Access Token | Firefly III | PAT from Firefly III → Profile → OAuth → Personal Access Tokens. Sent as `Authorization: Bearer <token>`. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -632,7 +635,83 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 
 ---
 
-## Bazarr — it focuses on detection data, zone configuration, and events. To display live camera streams, use a **Text/HTML** panel with an MJPEG `<img>` tag pointing to `http://frigate-host:5000/api/<camera_name>/stream`. See [panels.md](panels.md#texthtml) for examples.
+## Nextcloud
+
+**What it shows:** Active users in the last 5 minutes, 1 hour, and 24 hours; total users vs. enabled users; free storage space; number of files; share counts broken down by user shares, group shares, and public links; app update count; server info (PHP version, database type and version, webserver, and RAM usage).
+
+**What is Nextcloud?** Nextcloud is an open-source self-hosted file sync and collaboration platform. It provides file storage, sharing, calendar, contacts, and a large app ecosystem. It is one of the most widely deployed self-hosted applications in the homelab community.
+
+**Auth:** `username:password` in the API key field. Use an **app password** generated in **Nextcloud → Settings → Security → App passwords** — this is safer than using your main account password and can be revoked independently.
+
+**URL:** Your Nextcloud base URL, e.g. `https://cloud.example.com`. Do not include trailing slashes or paths.
+
+**TLS:** Enable "Skip TLS verify" if Nextcloud is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 5 minutes.
+
+**Requires:** The **Server Info** app must be installed and enabled in Nextcloud (it ships with Nextcloud and is enabled by default in most installations). Go to **Apps → Your apps** and confirm "Server Info" is enabled. Without it, the API endpoint returns a 404 and the panel will show an error.
+
+**What the panel shows:**
+
+- **Active users:** Users who have accessed Nextcloud in the last 5 minutes, 1 hour, and 24 hours (from `/activeUsers`). Shown as horizontal activity bars relative to total user count.
+- **Storage:** Free space in human-readable format (bytes → KB → MB → GB → TB) and total number of files.
+- **Shares:** Total shares, broken down by user-to-user, user-to-group, and public link shares.
+- **Users:** Total users and disabled users. The "Users" chip shows `active/total` format.
+- **App updates:** Highlighted amber badge if any installed apps have updates available.
+- **Server info (4× only):** PHP version, database type and version, webserver name, and RAM used/total.
+- **Memory donut (4× only):** Visual ring showing server RAM usage percentage. Green < 75%, amber < 90%, red ≥ 90%.
+
+---
+
+## Netbird
+
+**What it shows:** Peer roster with online/offline/expired status, WireGuard IP address, operating system, last-seen time (for offline peers), SSH status, group membership, and the full list of access control policies.
+
+**What is Netbird?** Netbird is an open-source WireGuard-based overlay network (similar to Tailscale). It creates a mesh VPN between your devices using WireGuard, with a management plane that handles peer discovery, key distribution, and access policies. It can be used fully self-hosted or with the Netbird cloud.
+
+**Auth:** Personal Access Token (PAT) in the API key field. Generate one in **Netbird → Settings → Personal Access Tokens**. Stoa sends it as `Authorization: Token <PAT>`.
+
+**URL:**
+- **Netbird cloud:** `https://api.netbird.io`
+- **Self-hosted:** `http://netbird-management:80` or your management server URL
+
+**TLS:** Enable "Skip TLS verify" if using a self-hosted Netbird with a self-signed certificate.
+
+**Polling:** Every 60 seconds.
+
+**What the panel shows:**
+
+- **Peers:** Full peer list with name, WireGuard IP, OS, and connection status. Online peers show a glowing green dot; offline peers show grey with time-since-last-seen; expired peers (login expired) show amber.
+- **Status badges:** `EXPIRED` (amber) = peer's WireGuard key registration has lapsed; `SSH` (blue) = SSH is enabled on the peer.
+- **Groups:** All peer groups with their member counts, sorted alphabetically.
+- **Policies:** All access control policies with enabled/disabled status.
+- **Summary chips:** Total peers, online count, offline count, expired count, group count, active/total policies.
+
+---
+
+## Firefly III
+
+**What it shows:** Monthly financial summary (earned, spent, net worth, bills paid, bills unpaid, left to spend, net savings) and current balances for all active asset accounts.
+
+**What is Firefly III?** Firefly III is an open-source personal finance manager. It tracks income, expenses, budgets, bills, and account balances. It supports multiple currencies and provides a detailed transaction ledger with tagging, categories, and recurring transactions.
+
+**Auth:** Personal Access Token (PAT) in the API key field. Generate one in **Firefly III → Profile → OAuth → Personal Access Tokens** (click "Create new token"). Stoa sends it as `Authorization: Bearer <token>`.
+
+**URL:** Your Firefly III base URL, e.g. `http://firefly:8080` or `https://firefly.example.com`. Do not include trailing slashes or paths.
+
+**TLS:** Enable "Skip TLS verify" if Firefly III is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 60 minutes — financial summary data changes infrequently.
+
+**What the panel shows:**
+
+- **Net worth:** Shown prominently at 4× height as a large number. Positive = green, negative = red.
+- **Monthly summary:** Figures from Firefly's `/api/v1/summary/basic` endpoint for the current calendar month (first of month to today). Includes: earned, spent, bills paid, bills unpaid, left to spend, and net savings. Display order follows Firefly's built-in priority ranking.
+- **Asset accounts:** All active asset accounts (checking, savings, cash) with their current balances. Inactive accounts are filtered out.
+- **Color coding:** Green for positive values on income/net-worth items; red for negative. Spent and bills-unpaid are shown in red when non-zero (as expected for outflows).
+- **Currency:** Values use the currency symbol and decimal format returned by Firefly's API. Multi-currency setups will show each currency separately in the summary.
+
+**Note:** The summary endpoint returns separate entries per currency (e.g. `earned-in-EUR`, `earned-in-USD`). Stoa strips the currency suffix for display keys and groups by the clean key name (e.g. `earned`). If you use multiple currencies, you may see multiple rows for the same category.
 
 ---
 
