@@ -58,6 +58,7 @@ import FireflyPanel from '../components/panels/FireflyPanel'
 import NetbirdPanel from '../components/panels/NetbirdPanel'
 import ActualBudgetPanel from '../components/panels/ActualBudgetPanel'
 import ScrutinyPanel from '../components/panels/ScrutinyPanel'
+import PaperlessPanel from '../components/panels/PaperlessPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1094,6 +1095,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'netbird' && <NetbirdPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'actualbudget' && <ActualBudgetPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'scrutiny' && <ScrutinyPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'paperless' && <PaperlessPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

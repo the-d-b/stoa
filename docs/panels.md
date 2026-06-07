@@ -49,6 +49,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Firefly III | Yes |
 | Actual Budget | Yes |
 | Scrutiny | Yes |
+| Paperless-ngx | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -400,6 +401,23 @@ Hard drive SMART health panel — fleet health donut showing passed/warning/fail
 **Power-on hours:** Shown as years, months, or days. A 5-year-old drive heading toward typical 5–7 year MTBF is a contextual warning.
 
 **Auth:** None required. Scrutiny runs unauthenticated by default — leave the API key field blank.
+
+**Polling:** Every 5 minutes.
+
+### Paperless-ngx
+Document management panel — total document count, inbox document count, document type breakdown (donut chart), tag proportional bars rendered in each tag's own Paperless color, correspondent breakdown with ranked bars, and a recent document list with direct links into the Paperless UI. See [integrations.md](integrations.md#paperless-ngx).
+
+**Height:** 1× = stat chips (total documents, inbox count, correspondent count, tag count, document type count); 2–3× = stat chips + recent document list; 4×+ = left column (stats, document type donut, tag bars, correspondent bars) + right column (recent document list with title, date, correspondent, and type).
+
+**Inbox count:** Documents in your Paperless inbox are shown in amber — these are documents that haven't been tagged or processed yet. If you have an inbox tag configured in Paperless (`is_inbox_tag = true`), its document count is used; otherwise the untagged document count is used.
+
+**Tag bars:** Each tag is displayed as a proportional bar using the actual color assigned to it in Paperless. Tags marked as the inbox tag are excluded from the bar chart (they're shown via the inbox counter instead). The bar width is proportional to document count relative to the most-used tag.
+
+**Document type donut:** Shows the proportional share of documents for each document type as a multi-segment ring. Useful for seeing what proportion of your archive is invoices vs. statements vs. contracts, etc.
+
+**Correspondent bars:** Top correspondents ranked by document count with proportional horizontal bars. Useful for seeing who sends you the most mail or generates the most documents.
+
+**Recent document links:** Each document in the recent list links directly to that document in the Paperless web UI. Requires the UI URL to be set in the integration settings (auto-populated from API URL if not set separately).
 
 **Polling:** Every 5 minutes.
 

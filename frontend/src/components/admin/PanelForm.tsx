@@ -79,6 +79,8 @@ export const PANEL_TYPES: {
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance — monthly summary (earned, spent, net-worth, left-to-spend), asset account balances', needsIntegration: true, category: 'Finance' },
   { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — monthly income/spent/balance, spending progress by category group, account balances, net worth. Requires the actual-http-api sidecar.', needsIntegration: true, category: 'Finance' },
   { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparklines', needsIntegration: true, category: 'Finance' },
+  // Documents
+  { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — total docs, inbox count, document type donut, tag proportional bars with Paperless colors, correspondent breakdown, recent document list with links', needsIntegration: true, category: 'Documents' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
@@ -109,7 +111,7 @@ const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
-  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr','fireflyiii','actualbudget',
+  'transmission','qbittorrent','deluge','rutorrent','photoprism','authentik','overseerr','fireflyiii','actualbudget','paperless',
   'weather','steam','rss','sports','stocks','crypto',
 ]
 

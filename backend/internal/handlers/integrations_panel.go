@@ -82,6 +82,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"netbird":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchNetbirdPanelData(db, cfg) },
 	"actualbudget":   func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchActualBudgetPanelData(db, cfg) },
 	"scrutiny":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchScrutinyPanelData(db, cfg) },
+	"paperless":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPaperlessPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

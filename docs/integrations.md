@@ -35,6 +35,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Personal Access Token | Firefly III | PAT from Firefly III → Profile → OAuth → Personal Access Tokens. Sent as `Authorization: Bearer <token>`. |
 | API key | Actual Budget | API key set via `API_KEY` env var on the `actual-http-api` sidecar. Sent as `x-api-key` request header. |
 | None | Scrutiny | No authentication required. Scrutiny runs unauthenticated by default. Leave the API key field blank. |
+| API token | Paperless-ngx | Token generated in Paperless-ngx → Settings → API → Generate Token. Stoa sends it as `Authorization: Token <token>`. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -795,6 +796,37 @@ Once running, confirm it's working by visiting `http://your-host:5007/api-docs/`
 - **Accounts:** On-budget accounts (checking, savings, cash, credit) and off-budget accounts (investments, mortgages) listed separately with current balances.
 
 **Amounts:** Actual stores amounts as integers in cents. Stoa divides by 100 and formats with `$` prefix. If you use a non-USD currency, the numbers are correct but the `$` symbol is a display artifact.
+
+---
+
+## Paperless-ngx
+
+**What it shows:** Total document count, inbox count, document type breakdown as a donut chart, tag usage as proportional bars in each tag's own color, correspondent ranking with bars, and the 10 most recently added documents with direct links into the Paperless web UI.
+
+**What is Paperless-ngx?** Paperless-ngx is an open-source document management system. It scans, OCRs, and organizes physical and digital documents. Documents are tagged, assigned a correspondent (who sent them), a document type (invoice, statement, contract, etc.), and a creation date. It replaces folders full of scanned PDFs with a searchable, tagged archive.
+
+**Auth:** API token. In Paperless-ngx, go to **Settings → API** and click "Generate Token". Paste the token into the API key field in Stoa. Stoa sends it as `Authorization: Token <token>` (note: "Token", not "Bearer").
+
+**URL:** Your Paperless-ngx base URL, e.g. `http://paperless:8000` or `https://paperless.example.com`. Do not include trailing slashes or paths.
+
+**UI URL:** Optional. If your Paperless-ngx API URL and web UI URL differ (e.g. API is internal, UI is external), set the UI URL separately in the integration settings. Recent document links in the panel use the UI URL. If not set, falls back to the API URL.
+
+**TLS:** Enable "Skip TLS verify" if Paperless-ngx is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 5 minutes.
+
+**What the panel shows:**
+
+- **Total documents:** Total document count from the Paperless archive.
+- **Inbox count:** Documents waiting to be processed. If you have configured an inbox tag in Paperless (`is_inbox_tag = true`), its document count is used. If not, Stoa falls back to the count of completely untagged documents. Either way, a non-zero inbox count shows in amber as an action item.
+- **Document type donut (4× only):** Multi-segment ring showing the proportional split across document types (invoices, statements, receipts, etc.). Each segment uses a distinct color; the legend lists type name and document count.
+- **Tag bars:** Each tag is shown as a horizontal proportional bar in its own Paperless color. The bar width represents the tag's document count relative to the most-used tag. The inbox tag (if any) is excluded — it appears in the inbox counter instead. Sorted by document count descending; top 8 shown.
+- **Correspondent bars:** Top 6 correspondents sorted by document count, each with a proportional bar. Useful for seeing at a glance who your heaviest senders are.
+- **Recent documents:** The 10 most recently added documents, each with title, creation date, correspondent, and document type. Each row links directly to that document in the Paperless web UI.
+
+**Tag colors:** Tags in Paperless have user-assigned colors. Stoa uses these colors directly for the tag swatches and bars. Tags with no color or a pure-black color (`#000000`) fall back to indigo.
+
+**Pagination:** Stoa fetches up to 100 tags, correspondents, and document types per panel refresh. If you have more than 100 of any of these, the excess won't appear. This limit is sufficient for all realistic Paperless installations.
 
 ---
 

@@ -76,6 +76,8 @@ export const INTEGRATION_TYPES = [
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance manager — URL is http://firefly:8080. API key field: Personal Access Token from Firefly III → Profile → OAuth → Personal Access Tokens.', category: 'Finance' },
   { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — requires the actual-http-api sidecar (not your actual-server directly). URL is http://actual-http-api:5007. API key field: the API_KEY you set when deploying actual-http-api.', category: 'Finance' },
   { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)', category: 'Finance' },
+  // Documents
+  { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — URL is http://paperless:8000 (or your public URL). API key field: token generated in Paperless-ngx → Settings → API → Generate Token.', category: 'Documents' },
   { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
   // Content
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },

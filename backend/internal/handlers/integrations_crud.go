@@ -276,6 +276,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testActualBudgetConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "scrutiny":
 			err = testScrutinyConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "paperless":
+			err = testPaperlessConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -398,6 +400,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testActualBudgetConnection(req.APIURL, apiKey, true)
 						case "scrutiny":
 							retryErr = testScrutinyConnection(req.APIURL, apiKey, true)
+						case "paperless":
+							retryErr = testPaperlessConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -677,6 +681,8 @@ func defaultRefreshSecs(igType string) int {
 	case "actualbudget":
 		return 300
 	case "scrutiny":
+		return 300
+	case "paperless":
 		return 300
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
