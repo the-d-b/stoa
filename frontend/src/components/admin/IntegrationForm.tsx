@@ -58,6 +58,7 @@ export const INTEGRATION_TYPES = [
   { id: 'bazarr',      label: 'Bazarr',      desc: 'Subtitle manager — URL is http://bazarr:6767. API key found in Bazarr → Settings → General → Security → API Key.', category: 'Infrastructure' },
   { id: 'prowlarr',    label: 'Prowlarr',    desc: 'Indexer manager — URL is http://prowlarr:9696. API key found in Prowlarr → Settings → General → API Key.', category: 'Infrastructure' },
   { id: 'frigate',     label: 'Frigate',     desc: 'NVR (network video recorder) — URL is http://frigate:8971. Leave API key blank for unauthenticated local instances (port 5000). For authenticated instances, generate a Bearer token in Frigate → Settings → Users.', category: 'Infrastructure' },
+  { id: 'blueiris',   label: 'Blue Iris',   desc: 'Windows NVR — URL is http://192.168.1.x:81 (default port 81, configurable). API key field: username:password of a Blue Iris user account. Enable the web server in Blue Iris → Settings → Web server.', category: 'Infrastructure' },
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Infrastructure' },
   { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Infrastructure' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Infrastructure' },

@@ -264,6 +264,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testProwlarrConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "frigate":
 			err = testFrigateConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "blueiris":
+			err = testBlueIrisConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -374,6 +376,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testProwlarrConnection(req.APIURL, apiKey, true)
 						case "frigate":
 							retryErr = testFrigateConnection(req.APIURL, apiKey, true)
+						case "blueiris":
+							retryErr = testBlueIrisConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -642,6 +646,8 @@ func defaultRefreshSecs(igType string) int {
 		return 60
 	case "frigate":
 		return 15
+	case "blueiris":
+		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
 		return 30
 	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":

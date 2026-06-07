@@ -29,6 +29,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | Plain API key | Bazarr | API key from Bazarr → Settings → General → Security. Sent as `X-API-KEY` header on every request. |
 | Plain API key | Prowlarr | API key from Prowlarr → Settings → General → Security. Sent as `X-Api-Key` header on every request. |
 | Bearer token or none | Frigate | Optional — leave blank for unauthenticated local instances. For authenticated instances, Bearer token from Frigate → Settings → Users. Sent as `Authorization: Bearer`. |
+| `username:password` | Blue Iris | Blue Iris user account credentials. Stoa computes `MD5(username:session:password)` per the Blue Iris JSON API session protocol. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -597,6 +598,41 @@ These expressions work with [node_exporter](https://github.com/prometheus/node_e
 - **Version and uptime:** From `/api/stats`.
 
 **Live video:** The Frigate panel does not display live video — it focuses on detection data, zone configuration, and events. To display live camera streams, use a **Text/HTML** panel with an MJPEG `<img>` tag pointing to `http://frigate-host:5000/api/<camera_name>/stream`. See [panels.md](panels.md#texthtml) for examples.
+
+---
+
+## Blue Iris
+
+**What it shows:** System signal (green/yellow/red), camera roster with per-camera online/recording/motion/alert/paused/PTZ status, active profile, profile list, recent system-wide alerts with AI memo, and per-camera trigger and clip counts.
+
+**What is Blue Iris?** Blue Iris is a commercial Windows NVR (network video recorder) popular in the home security and homelab community. It ingests RTSP streams from IP cameras, records on motion or schedule, supports AI-powered object detection (person, vehicle, animal), and exposes a JSON HTTP API for programmatic control.
+
+**Auth:** `username:password` in the API key field. Stoa uses Blue Iris's two-step session authentication: it first requests a session token from the server, then sends `MD5(username:session:password)` to authenticate. Use a Blue Iris user account — not a Windows account.
+
+**Prerequisites:** Enable the Blue Iris web server before connecting. In Blue Iris, go to **Settings → Web server** and enable it. Note the port (default is 81). Create a user account if you want to restrict access (recommended over using the admin account).
+
+**URL:** `http://192.168.1.x:81` — the IP of your Windows machine and the web server port configured in Blue Iris. Do not include a trailing slash or path.
+
+**TLS:** Enable "Skip TLS verify" if Blue Iris is configured with HTTPS and a self-signed certificate.
+
+**Polling:** Every 30 seconds.
+
+**What the panel shows:**
+
+- **Signal:** Blue Iris's system-wide operational signal — green = ok; yellow = warning; red = problem. This is Blue Iris's own internal assessment, controlled by the user or by Blue Iris rules.
+- **Cameras:** Each camera's online/offline state, recording status, motion and alert indicators, paused state, PTZ capability, and group membership. Sorted: alerting/no-signal first, then online, then offline.
+- **Profile:** Active schedule profile (e.g. "Away", "Home", "Night"). The full profile list is shown in 4× panels with the active one highlighted.
+- **Alerts:** The 10 most recent alerts from `/json` with `cmd: alertlist` and `camera: @Index` (all cameras). Alert time, camera name, and AI memo (if Blue Iris AI recognition is enabled).
+- **Per-camera stats:** Trigger count and clip count per camera (from camlist `nTriggers` and `clipsCreated` fields).
+- **Admin flag:** Whether the authenticated user has admin role — shown as a badge in 4× panels.
+
+**Live streams:** Blue Iris MJPEG streams are available at `http://host:port/mjpg/<camera_shortname>?user=<username>&pw=<password>`. The short name is the internal camera ID (not the display name) shown in the Blue Iris camera list. Use a **Text/HTML** panel to embed these. See [panels.md](panels.md#texthtml) for embed examples.
+
+**Note:** Blue Iris is Windows-only and commercial software (one-time purchase). The JSON API is available in all versions of Blue Iris 5 and later.
+
+---
+
+## Bazarr — it focuses on detection data, zone configuration, and events. To display live camera streams, use a **Text/HTML** panel with an MJPEG `<img>` tag pointing to `http://frigate-host:5000/api/<camera_name>/stream`. See [panels.md](panels.md#texthtml) for examples.
 
 ---
 

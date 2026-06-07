@@ -43,6 +43,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Prowlarr | Yes |
 | Bazarr | Yes |
 | Frigate | Yes |
+| Blue Iris | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -315,6 +316,23 @@ NVR camera panel — camera roster with detection FPS, zone configuration with o
 
 **Polling:** Every 15 seconds.
 
+### Blue Iris
+Windows NVR panel — system signal light (green/yellow/red stoplight), camera roster with per-camera recording/motion/alert/paused/PTZ status, active profile display, recent alert feed with AI memo, and trigger and clip counts. See [integrations.md](integrations.md#blue-iris).
+
+**Height:** 1× = signal chip + cameras online/total + recording count + profile + version; 2–3× = signal + stat chips + camera list with status badges + recent alerts; 4×+ = three-column layout (system name + version + profile list | full camera detail with fps, resolution, trigger/clip counts | alert feed).
+
+**Signal light:** Blue Iris's system-wide operational signal — green = everything ok; yellow = warning condition (e.g. a camera issue or schedule change); red = problem requiring attention. This is Blue Iris's own internal assessment, not derived by Stoa.
+
+**Camera status badges:** Each camera shows inline status badges — `REC` (red) = actively recording; `ALERT` (red) = alerting; `NO SIGNAL` (red) = no video signal from camera; `TRIG` (amber) = triggered by motion; `MOT` (amber) = motion detected; `PAUSED` (grey) = manually paused; `PTZ` (purple) = pan-tilt-zoom capable; `GROUP` (cyan) = virtual group camera.
+
+**Active profile:** Blue Iris uses profiles to switch between recording schedules (e.g. "Away", "Home", "Night"). The active profile is shown next to the signal indicator and highlighted in the profile list (4×).
+
+**Alert feed:** The 10 most recent system-wide alerts from Blue Iris's `alertlist` command. Alert time is shown as "ago" (seconds → minutes → hours). If Blue Iris has AI object recognition enabled, the AI memo (e.g. "Person detected") is shown inline.
+
+**Live camera streams:** Blue Iris streams are available at `http://host:port/mjpg/<camera_shortname>?user=<username>&pw=<password>`. Use a **Text/HTML** panel to embed these directly — see the stream embed note in the Text/HTML section below.
+
+**Polling:** Every 30 seconds.
+
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).
 
@@ -436,6 +454,15 @@ For multiple cameras in a grid, use a CSS grid wrapper:
   <img src="http://frigate-host:5000/api/garage/stream"     style="width:100%;height:100%;object-fit:cover;">
 </div>
 ```
+
+**Blue Iris live streams:** Blue Iris MJPEG streams include credentials in the URL query string:
+
+```html
+<img src="http://192.168.1.x:81/mjpg/frontdoor?user=admin&pw=yourpassword"
+     style="width:100%;height:100%;object-fit:cover;display:block;">
+```
+
+Replace `frontdoor` with the camera's short name (the internal ID shown in Blue Iris, not the display name). The `user` and `pw` parameters authenticate the stream request. A 2×2 grid follows the same pattern as the Frigate example above with four `<img>` tags.
 
 **Port note:** Port 5000 is Frigate's internal HTTP port and does not enforce authentication, making it suitable for local network access. If Frigate is exposed only on port 8971 (the authenticated port), the stream URL will require the session cookie from a Frigate login — in that case the Frigate web UI embed via a **Web Embed** panel is simpler.
 
