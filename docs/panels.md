@@ -51,6 +51,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Scrutiny | Yes |
 | Paperless-ngx | Yes |
 | Mealie | Yes |
+| Grocy | Yes |
 | Uptime Kuma | Yes |
 | Gluetun | Yes |
 | Transmission | Yes |
@@ -434,6 +435,21 @@ Recipe manager and meal planner panel — weekly meal plan displayed day-by-day 
 **Recent recipes:** The 8 most recently added recipes with star rating and cook time. Each recipe links directly to its detail page in Mealie.
 
 **Polling:** Every 15 minutes — meal plans and recipes change infrequently.
+
+### Grocy
+Household management panel — food expiry tracker with urgency color coding, overdue chore list, pending tasks with due dates, and shopping list. See [integrations.md](integrations.md#grocy).
+
+**Height:** 1× = stat chips (expired count, expiring count, overdue chores, pending tasks, shopping items); 2–3× = stat chips + food expiry list + overdue chores list; 4×+ = left column (stats, food expiry, all chores) + right column (tasks + shopping list).
+
+**Food expiry:** Expired items show in red with "Xd ago" label. Items expiring within 2 days show orange. Items within 5 days show amber. Items within the week show yellow. The colored dot and label make it easy to see at a glance what needs immediate attention.
+
+**Chores:** Fetches all chores from Grocy. Overdue chores (past their next estimated execution time) are shown in amber with a "Xd overdue" label. Non-overdue chores are dimmed. Sorted overdue-first, then by next scheduled execution.
+
+**Tasks:** Pending (not-done) tasks sorted by overdue-first, then by due date. Overdue tasks show in red with their due date. Tasks without a due date appear last.
+
+**Shopping list:** Shows undone items from the shopping list. Product names are resolved from Grocy's product database; items with only a note (no linked product) use the note text.
+
+**Polling:** Every 5 minutes — stock expiry and task state change frequently.
 
 ### Uptime Kuma
 Monitor status (up/down/pending), response times, uptime percentages, incident history. See [integrations.md](integrations.md#uptime-kuma).

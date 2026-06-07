@@ -37,6 +37,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | None | Scrutiny | No authentication required. Scrutiny runs unauthenticated by default. Leave the API key field blank. |
 | API token | Paperless-ngx | Token generated in Paperless-ngx → Settings → API → Generate Token. Stoa sends it as `Authorization: Token <token>`. |
 | API token (Bearer) | Mealie | Long-lived API token from Mealie → User Settings → API Tokens. Stoa sends it as `Authorization: Bearer <token>`. |
+| API key | Grocy | API key from Grocy → Manage API Keys (or Settings → User API Keys). Sent as `GROCY-API-KEY` request header on every request. |
 | Password only | Deluge | Deluge Web UI authenticates with just a password (no username). |
 | `key:secret` | OPNsense | OPNsense issues a two-part API credential (key + secret). Stoa joins them with a colon and authenticates via HTTP Digest. |
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
@@ -855,6 +856,31 @@ Once running, confirm it's working by visiting `http://your-host:5007/api-docs/`
 **Meal types:** Mealie supports four entry types: `breakfast`, `lunch`, `dinner`, and `side`. Stoa displays them in that order within each day using icons (🌅 breakfast, ☀️ lunch, 🌙 dinner, 🍽️ other).
 
 **Shopping lists:** Stoa fetches all shopping lists and displays the first one. If you have multiple lists, only the first is shown. You cannot currently select which list appears in the panel — items from other lists are not shown.
+
+---
+
+## Grocy
+
+**What it shows:** Food expiry tracking with urgency color coding (expired/expiring soon), overdue chores, pending tasks with due dates, and the shopping list.
+
+**What is Grocy?** Grocy is a self-hosted grocery and household management system. It tracks what you have in stock, when food expires, recurring household chores, tasks, and shopping lists. It's especially popular for reducing food waste — you can see at a glance what needs to be eaten soon or has already expired.
+
+**Auth:** API key. In Grocy, go to **Manage API Keys** (linked from the top-right menu) or navigate to **Settings → User Management → Your User → API Keys**. Generate a key and paste it into the API key field in Stoa. Stoa sends it as the `GROCY-API-KEY` request header on every call.
+
+**URL:** Your Grocy base URL, e.g. `http://grocy:80` or `https://grocy.example.com`. Default port is 80 for Docker deployments. Do not include trailing slashes or paths.
+
+**TLS:** Enable "Skip TLS verify" if Grocy is behind a reverse proxy with a self-signed certificate.
+
+**Polling:** Every 5 minutes — stock expiry dates and task completion states change frequently.
+
+**What the panel shows:**
+
+- **Food expiry:** Products from Grocy's volatile stock endpoint — items that are due, overdue, or expired. Expired items (past the best-before date) show in red with "Xd ago"; items expiring within 2 days show in orange; items within 5 days show in amber; items within a week show in yellow. Sorted expired-first, then by closest expiry date.
+- **Chores:** All chores from Grocy, sorted overdue-first. Overdue chores (past their next estimated execution time) are highlighted in amber with a "Xd overdue" label. Non-overdue chores are dimmed and show their next scheduled execution.
+- **Tasks:** Pending (incomplete) tasks sorted overdue-first, then by due date. Overdue tasks show in red. Tasks without a due date appear at the bottom.
+- **Shopping list:** Undone items from the shopping list. Product names are resolved from Grocy's product catalog. Items linked to a product show the product name; items with only a note (custom entries) show the note text.
+
+**Product name resolution:** Grocy's shopping list and stock entries use product IDs, not names. Stoa fetches the full product catalog first and builds a lookup table — product names are resolved from this table. If a product is deleted from Grocy but still appears on the shopping list, its ID will be shown instead of a name.
 
 ---
 
