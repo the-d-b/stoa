@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -35,15 +36,37 @@ type KavitaPanelData struct {
 	RecentlyAdded []KavitaSeries  `json:"recentlyAdded"`
 }
 
-// ── HTTP helper ───────────────────────────────────────────────────────────────
+// ── HTTP helpers ──────────────────────────────────────────────────────────────
 
-// kavitaGet sends an authenticated GET using the x-api-key header (Kavita v0.9+).
 func kavitaGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	req, err := http.NewRequest("GET", strings.TrimRight(baseURL, "/")+path, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("x-api-key", apiKey)
+	resp, err := httpClient(skipTLS).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("kavita: HTTP %d", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+// kavitaPost sends an authenticated POST with a JSON body using the x-api-key header.
+func kavitaPost(baseURL, apiKey, path string, body interface{}, skipTLS bool) ([]byte, error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest("POST", strings.TrimRight(baseURL, "/")+path, bytes.NewReader(payload))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClient(skipTLS).Do(req)
 	if err != nil {
 		return nil, err
@@ -84,6 +107,9 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 	get := func(path string) ([]byte, error) {
 		return kavitaGet(apiURL, apiKey, path, skipTLS)
 	}
+	post := func(path string, body interface{}) ([]byte, error) {
+		return kavitaPost(apiURL, apiKey, path, body, skipTLS)
+	}
 
 	// Server stats
 	if statsBody, serr := get("/api/Stats/server/stats"); serr == nil {
@@ -99,8 +125,8 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		log.Printf("[Kavita] stats error: %v", serr)
 	}
 
-	// Libraries
-	if libBody, lerr := get("/api/Library"); lerr == nil {
+	// Libraries — v0.9 path
+	if libBody, lerr := get("/api/Library/libraries"); lerr == nil {
 		var libs []struct {
 			ID   int    `json:"id"`
 			Name string `json:"name"`
@@ -110,10 +136,17 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 				data.Libraries = append(data.Libraries, KavitaLibrary{ID: l.ID, Name: l.Name})
 			}
 		}
+	} else {
+		log.Printf("[Kavita] libraries error: %v", lerr)
 	}
 
-	// Recently added series
-	if recentBody, rerr := get("/api/Series/recently-added?pageNumber=1&pageSize=20"); rerr == nil {
+	// Recently added series — v0.9 uses POST with SeriesFilterV2Dto body
+	filterBody := map[string]interface{}{
+		"statements":  []interface{}{},
+		"combination": 1,
+		"limitTo":     0,
+	}
+	if recentBody, rerr := post("/api/Series/recently-added-v2?pageNumber=1&pageSize=20", filterBody); rerr == nil {
 		var series []struct {
 			ID          int    `json:"id"`
 			Name        string `json:"name"`
@@ -129,9 +162,11 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 					Created:     s.Created,
 				})
 			}
+		} else {
+			log.Printf("[Kavita] recently-added-v2 unmarshal error on body: %s", string(recentBody))
 		}
 	} else {
-		log.Printf("[Kavita] recently-added error: %v", rerr)
+		log.Printf("[Kavita] recently-added-v2 error: %v", rerr)
 	}
 
 	return data, nil
@@ -153,7 +188,7 @@ func ProxyKavitaCover(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		body, err := kavitaGet(apiURL, apiKey, "/api/Image/series-cover?seriesId="+seriesID, skipTLS)
+		body, err := kavitaGet(apiURL, apiKey, "/api/Series/"+seriesID+"/cover", skipTLS)
 		if err != nil {
 			http.Error(w, "cover fetch failed", http.StatusBadGateway)
 			return
