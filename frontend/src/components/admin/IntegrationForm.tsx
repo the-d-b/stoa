@@ -98,8 +98,11 @@ export const INTEGRATION_TYPES = [
   { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — URL is http://paperless:8000 (or your public URL). API key field: token generated in Paperless-ngx → Settings → API → Generate Token.', category: 'Documents' },
   { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — URL is http://docspell:7880. API key field: account:password where account is "collective/user" for multi-user setups or just "user" for a single-collective instance.', category: 'Documents' },
   // Personal
-  { id: 'monica',   label: 'Monica',   desc: 'Personal CRM — URL is http://monica:8080. API key field: bearer token generated in Monica → Settings → API → Create New Token.', category: 'Personal' },
-  { id: 'homebox',  label: 'Homebox',  desc: 'Home inventory — URL is http://homebox:7745. API key field: email:password of your Homebox account.', category: 'Personal' },
+  { id: 'monica',     label: 'Monica',     desc: 'Personal CRM — URL is http://monica:8080. API key field: bearer token generated in Monica → Settings → API → Create New Token.', category: 'Personal' },
+  { id: 'homebox',   label: 'Homebox',   desc: 'Home inventory — URL is http://homebox:7745. API key field: email:password of your Homebox account.', category: 'Personal' },
+  // Health & Fitness
+  { id: 'wger',       label: 'wger',       desc: 'Workout manager — URL is http://wger:80. API key field: permanent API key from wger → Dashboard → API (top-right menu).', category: 'Health & Fitness' },
+  { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — URL is http://fittrackee:5000. API key field: email:password of your Fittrackee account.', category: 'Health & Fitness' },
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },

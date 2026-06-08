@@ -308,6 +308,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testMonicaConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "homebox":
 			err = testHomeboxConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "wger":
+			err = testWgerConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "fittrackee":
+			err = testFittrackeeConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -462,6 +466,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testMonicaConnection(req.APIURL, apiKey, true)
 						case "homebox":
 							retryErr = testHomeboxConnection(req.APIURL, apiKey, true)
+						case "wger":
+							retryErr = testWgerConnection(req.APIURL, apiKey, true)
+						case "fittrackee":
+							retryErr = testFittrackeeConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -760,7 +768,7 @@ func defaultRefreshSecs(igType string) int {
 		return 900
 	case "maintainerr":
 		return 300
-	case "monica", "homebox":
+	case "monica", "homebox", "wger", "fittrackee":
 		return 900
 	case "pterodactyl":
 		return 30

@@ -98,6 +98,8 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"maintainerr":    func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchMaintainerrPanelData(db, cfg) },
 	"monica":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchMonicaPanelData(db, cfg) },
 	"homebox":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchHomeboxPanelData(db, cfg) },
+	"wger":           func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchWgerPanelData(db, cfg) },
+	"fittrackee":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchFittrackeePanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
