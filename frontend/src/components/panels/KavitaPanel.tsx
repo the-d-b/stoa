@@ -5,6 +5,7 @@ import { integrationsApi, Panel } from '../../api'
 interface KavitaSeries {
   id: number
   name: string
+  libraryId: number
   libraryName: string
   created: string
 }
@@ -49,7 +50,7 @@ function StatsRow({ data }: { data: KavitaData }) {
 }
 
 function SeriesRow({ series, uiUrl }: { series: KavitaSeries; uiUrl: string }) {
-  const href = uiUrl ? `${uiUrl}/library/0/series/${series.id}` : undefined
+  const href = uiUrl ? `${uiUrl}/library/${series.libraryId}/series/${series.id}` : undefined
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6,
       padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
@@ -106,7 +107,7 @@ export default function KavitaPanel({ panel, heightUnits }: { panel: Panel; heig
   const coverItems = recent.map(s => ({
     coverUrl: `/api/kavita/${integId}/cover/${s.id}`,
     title: s.name,
-    linkUrl: uiUrl ? `${uiUrl}/library/0/series/${s.id}` : undefined,
+    linkUrl: uiUrl ? `${uiUrl}/library/${s.libraryId}/series/${s.id}` : undefined,
   }))
 
   // ── 1x: icon + stats ──────────────────────────────────────────────────────

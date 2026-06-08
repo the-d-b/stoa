@@ -18,6 +18,7 @@ import (
 type KavitaSeries struct {
 	ID          int    `json:"id"`
 	Name        string `json:"name"`
+	LibraryID   int    `json:"libraryId"`
 	LibraryName string `json:"libraryName"`
 	Created     string `json:"created"`
 }
@@ -150,6 +151,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		var series []struct {
 			ID          int    `json:"id"`
 			Name        string `json:"name"`
+			LibraryID   int    `json:"libraryId"`
 			LibraryName string `json:"libraryName"`
 			Created     string `json:"created"`
 		}
@@ -158,6 +160,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 				data.RecentlyAdded = append(data.RecentlyAdded, KavitaSeries{
 					ID:          s.ID,
 					Name:        s.Name,
+					LibraryID:   s.LibraryID,
 					LibraryName: s.LibraryName,
 					Created:     s.Created,
 				})
