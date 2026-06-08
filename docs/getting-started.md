@@ -106,7 +106,7 @@ Secrets store credentials — API keys, passwords, tokens — encrypted at rest.
 
 **Admin → Secrets → New secret**
 
-Give it a descriptive name (e.g. "Sonarr API Key") and paste your credential in the value field. See [integrations.md](integrations.md#how-credentials-work) for the format expected by each service.
+Give it a descriptive name (e.g. "Sonarr API Key") and paste your credential in the value field. See [Integrations](integrations/) for the format expected by each service.
 
 ---
 
@@ -120,7 +120,7 @@ Integrations connect Stoa to your services. Each integration has:
 
 **Admin → Integrations → New integration**
 
-See [integrations.md](integrations.md) for service-specific setup notes.
+See [Integrations](integrations/) for service-specific setup guides.
 
 ### Express setup
 
