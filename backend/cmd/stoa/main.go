@@ -76,6 +76,7 @@ func main() {
 	// Icon serving (public — icons are not sensitive)
 	api.PathPrefix("/icons/").HandlerFunc(handlers.ServeIcon(iconsDir))
 	api.HandleFunc("/auth/google/callback", handlers.GoogleOAuthCallback(database)).Methods("GET")
+	api.HandleFunc("/spotify/callback", handlers.SpotifyOAuthCallback(database)).Methods("GET")
 
 	// ── Health check (public) ───────────────────────────────
 	api.HandleFunc("/health", handlers.HealthCheck(database)).Methods("GET")
@@ -246,6 +247,13 @@ func main() {
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
 	protected.HandleFunc("/geo", handlers.GeoLookup(database)).Methods("GET")
+
+	// Spotify OAuth + playback
+	protected.HandleFunc("/spotify/auth", handlers.SpotifyOAuthRedirect(database)).Methods("GET")
+	protected.HandleFunc("/spotify/status", handlers.SpotifyGetStatus(database)).Methods("GET")
+	protected.HandleFunc("/spotify/token", handlers.SpotifyGetToken(database)).Methods("GET")
+	protected.HandleFunc("/spotify/disconnect", handlers.SpotifyDisconnect(database)).Methods("DELETE")
+	protected.HandleFunc("/spotify/playback", handlers.SpotifyPlaybackControl(database)).Methods("POST")
 
 	// Google OAuth (non-admin routes)
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")

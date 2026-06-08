@@ -103,6 +103,8 @@ export const INTEGRATION_TYPES = [
   // Health & Fitness
   { id: 'wger',       label: 'wger',       desc: 'Workout manager — URL is http://wger:80. API key field: permanent API key from wger → Dashboard → API (top-right menu).', category: 'Health & Fitness' },
   { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — URL is http://fittrackee:5000. API key field: email:password of your Fittrackee account.', category: 'Health & Fitness' },
+  // Music
+  { id: 'spotify',    label: 'Spotify',    desc: 'Music streaming — no URL needed. API key: clientId:clientSecret from your Spotify Developer Dashboard app. After creating, connect your Spotify account from the integration edit page.', category: 'Music' },
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
@@ -114,7 +116,7 @@ export const INTEGRATION_TYPES = [
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -162,6 +164,20 @@ export default function IntegrationForm({
   const [steamVanity, setSteamVanity] = useState('')
   const [steamResolving, setSteamResolving] = useState(false)
 
+  // ── Spotify OAuth status ───────────────────────────────────────────────────
+  const [spotifyStatus, setSpotifyStatus] = useState<{
+    connected: boolean; displayName?: string; product?: string
+  } | null>(null)
+  const [spotifyDisconnecting, setSpotifyDisconnecting] = useState(false)
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'spotify') return
+    fetch(`/api/spotify/status?integrationId=${integration!.id}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setSpotifyStatus(d))
+      .catch(() => setSpotifyStatus({ connected: false }))
+  }, [isEdit, integration?.id, integration?.type])
+
   // ── Test connection ────────────────────────────────────────────────────────
   const [testResult, setTestResult] = useState<{
     ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean
@@ -184,7 +200,9 @@ export default function IntegrationForm({
   }, [integration?.id])
 
   const handleTypeChange = (t: string) => {
-    setType(t); setApiUrl(''); setTestResult(null)
+    setType(t)
+    setApiUrl(t === 'spotify' ? 'https://api.spotify.com' : '')
+    setTestResult(null)
     setGeoQuery(''); setGeoResults([])
     setSteamVanity('')
   }
@@ -429,6 +447,66 @@ export default function IntegrationForm({
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             API key required above. Find your Steam ID at steamid.io
           </div>
+        </div>
+      ) : activeType === 'spotify' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>clientId:clientSecret</code> from
+            your <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>Spotify Developer Dashboard</a> app.
+            Redirect URI to add in your app: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+              {window.location.origin}/api/spotify/callback</code>
+          </div>
+          {isEdit && integration && (
+            <div style={{ padding: '10px 12px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                Spotify Account
+              </div>
+              {spotifyStatus === null ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+              ) : spotifyStatus.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)' }}>
+                      Connected as <strong>{spotifyStatus.displayName}</strong>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                      {spotifyStatus.product === 'premium' ? '✓ Premium — playback controls enabled' : 'Free plan — info only'}
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, flexShrink: 0 }}
+                    disabled={spotifyDisconnecting}
+                    onClick={async () => {
+                      setSpotifyDisconnecting(true)
+                      try {
+                        await fetch(`/api/spotify/disconnect?integrationId=${integration.id}`, {
+                          method: 'DELETE', credentials: 'include'
+                        })
+                        setSpotifyStatus({ connected: false })
+                      } finally { setSpotifyDisconnecting(false) }
+                    }}>
+                    {spotifyDisconnecting ? '…' : 'Disconnect'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
+                    Not connected — authorize Stoa to access your Spotify account.
+                  </div>
+                  <a href={`/api/spotify/auth?integrationId=${integration.id}`}
+                    className="btn btn-primary" style={{ fontSize: 11, textDecoration: 'none', flexShrink: 0 }}>
+                    Connect Spotify
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to connect your Spotify account via OAuth.
+            </div>
+          )}
         </div>
       ) : activeType === 'rss' ? (
         <div>

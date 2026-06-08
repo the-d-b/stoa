@@ -312,6 +312,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testWgerConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "fittrackee":
 			err = testFittrackeeConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "spotify":
+			err = testSpotifyConnection(apiKey)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -470,6 +472,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testWgerConnection(req.APIURL, apiKey, true)
 						case "fittrackee":
 							retryErr = testFittrackeeConnection(req.APIURL, apiKey, true)
+						case "spotify":
+							retryErr = testSpotifyConnection(apiKey)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -770,6 +774,8 @@ func defaultRefreshSecs(igType string) int {
 		return 300
 	case "monica", "homebox", "wger", "fittrackee":
 		return 900
+	case "spotify":
+		return 30
 	case "pterodactyl":
 		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":

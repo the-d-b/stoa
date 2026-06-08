@@ -113,6 +113,7 @@ export const PANEL_TYPES: {
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Content' },
+  { id: 'spotify',      label: 'Spotify',      desc: 'Now playing + recently played. Premium: progress bar and playback controls.', needsIntegration: true, category: 'Content' },
   // Productivity
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',                      needsIntegration: false, category: 'Productivity' },
   { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',                      needsIntegration: false, category: 'Productivity' },
@@ -140,7 +141,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','spotify',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
