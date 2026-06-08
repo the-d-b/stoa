@@ -105,6 +105,7 @@ export const INTEGRATION_TYPES = [
   { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — URL is http://fittrackee:5000. API key field: email:password of your Fittrackee account.', category: 'Health & Fitness' },
   // Music
   { id: 'spotify',    label: 'Spotify',    desc: 'Music streaming — no URL needed. API key: clientId:clientSecret from your Spotify Developer Dashboard app. After creating, connect your Spotify account from the integration edit page.', category: 'Music' },
+  { id: 'lastfm',     label: 'Last.fm',    desc: 'Music scrobbling tracker — no URL needed. API key: username:apiKey (colon-separated). Get your API key at last.fm/api.', category: 'Music' },
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
@@ -116,7 +117,7 @@ export const INTEGRATION_TYPES = [
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -201,7 +202,11 @@ export default function IntegrationForm({
 
   const handleTypeChange = (t: string) => {
     setType(t)
-    setApiUrl(t === 'spotify' ? 'https://api.spotify.com' : '')
+    setApiUrl(
+      t === 'spotify' ? 'https://api.spotify.com' :
+      t === 'lastfm'  ? 'https://www.last.fm' :
+      ''
+    )
     setTestResult(null)
     setGeoQuery(''); setGeoResults([])
     setSteamVanity('')
@@ -507,6 +512,19 @@ export default function IntegrationForm({
               After creating the integration, open it to connect your Spotify account via OAuth.
             </div>
           )}
+        </div>
+      ) : activeType === 'lastfm' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:apiKey</code> (colon-separated).
+            Get a free API key at{' '}
+            <a href="https://www.last.fm/api/account/create" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>last.fm/api</a>.
+            The username is your Last.fm profile name.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            No URL or OAuth needed — read-only data only (scrobbling requires a separate app like Scrobbler).
+          </div>
         </div>
       ) : activeType === 'rss' ? (
         <div>

@@ -77,6 +77,7 @@ import HomeboxPanel from '../components/panels/HomeboxPanel'
 import WgerPanel from '../components/panels/WgerPanel'
 import FittrackeePanel from '../components/panels/FittrackeePanel'
 import SpotifyPanel from '../components/panels/SpotifyPanel'
+import LastFmPanel from '../components/panels/LastFmPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1132,6 +1133,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'wger' && <WgerPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'fittrackee' && <FittrackeePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'spotify' && <SpotifyPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'lastfm' && <LastFmPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}
