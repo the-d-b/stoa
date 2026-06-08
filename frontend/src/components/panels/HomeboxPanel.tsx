@@ -105,7 +105,7 @@ export default function HomeboxPanel({ panel, heightUnits }: { panel: any; heigh
           </span>
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
-          {locations.map(l => <LocationRow key={l.id} l={l} />)}
+          {locations.map(l => <LocationRow key={l.id} loc={l} />)}
         </div>
       </div>
     )

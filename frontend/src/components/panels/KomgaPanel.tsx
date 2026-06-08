@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import ScrollableCoverStrip from './CoverStrip'
+import AuthCoverStrip from './AuthCoverStrip'
 import { integrationsApi, Panel } from '../../api'
 
 interface KomgaSeries {
@@ -124,7 +124,7 @@ export default function KomgaPanel({ panel, heightUnits }: { panel: Panel; heigh
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      <ScrollableCoverStrip items={coverItems} height={80} />
+      <AuthCoverStrip items={coverItems} height={80} />
     </div>
   )
 
@@ -133,7 +133,7 @@ export default function KomgaPanel({ panel, heightUnits }: { panel: Panel; heigh
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      <ScrollableCoverStrip items={coverItems} height={80} />
+      <AuthCoverStrip items={coverItems} height={80} />
       {recent.length > 0 && (
         <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
