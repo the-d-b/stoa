@@ -267,6 +267,18 @@ func main() {
 	protected.HandleFunc("/twitch/status", handlers.TwitchGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/twitch/disconnect", handlers.TwitchDisconnect(database)).Methods("DELETE")
 
+	// Kanban
+	protected.HandleFunc("/kanban/boards", handlers.KanbanListBoards(database)).Methods("GET")
+	protected.HandleFunc("/kanban/boards", handlers.KanbanCreateBoard(database)).Methods("POST")
+	protected.HandleFunc("/kanban/boards/{id}", handlers.KanbanUpdateBoard(database)).Methods("PUT")
+	protected.HandleFunc("/kanban/boards/{id}", handlers.KanbanDeleteBoard(database)).Methods("DELETE")
+	protected.HandleFunc("/kanban/boards/{boardId}/cards", handlers.KanbanListCards(database)).Methods("GET")
+	protected.HandleFunc("/kanban/boards/{boardId}/cards", handlers.KanbanCreateCard(database)).Methods("POST")
+	protected.HandleFunc("/kanban/boards/{boardId}/cards/reorder", handlers.KanbanReorderCards(database)).Methods("PUT")
+	protected.HandleFunc("/kanban/cards/{id}", handlers.KanbanUpdateCard(database)).Methods("PUT")
+	protected.HandleFunc("/kanban/cards/{id}", handlers.KanbanDeleteCard(database)).Methods("DELETE")
+	protected.HandleFunc("/kanban/search", handlers.KanbanSearch(database)).Methods("GET")
+
 	// Google OAuth (non-admin routes)
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleListTokens(database)).Methods("GET")

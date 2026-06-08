@@ -67,6 +67,8 @@ interface CalendarEvent {
   startDT?: string; endDT?: string
   // Weather
   tagId?: string; icon?: string
+  // Kanban
+  boardId?: string
 }
 
 export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -387,8 +389,16 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
           })()
           const displayTitle = ev.source === 'sonarr' ? (ev.seriesTitle || ev.title) : ev.title
           const displaySub = ev.source === 'sonarr' ? ev.epTitle : null
+          const isKanban = !!ev.boardId
+          const openKanban = isKanban ? () => {
+            window.dispatchEvent(new CustomEvent('stoa-open-kanban-board', {
+              detail: { boardId: ev.boardId, boardName: ev.source?.split(' › ').pop() ?? '', panelTitle: ev.source?.split(' › ')[0] ?? '' }
+            }))
+          } : undefined
           return (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', borderBottom: '1px solid var(--border)',
+              cursor: isKanban ? 'pointer' : 'default' }}
+              onClick={openKanban}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: ev.color, flexShrink: 0 }} />
               <span style={{ fontSize: 12, flex: 1, minWidth: 0,
                 color: (() => { const today = new Date().toISOString().slice(0,10); return ev.date < today ? 'var(--red)' : 'inherit' })() }}>
@@ -406,7 +416,8 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
                       onMouseOut={e => e.currentTarget.style.textDecoration = 'none'}>
                       {displayTitle}
                     </a>
-                  : <span style={{ fontWeight: 500 }}>{displayTitle}</span>
+                  : <span style={{ fontWeight: isKanban ? 600 : 500,
+                      color: isKanban ? ev.color : 'inherit' }}>{displayTitle}</span>
                 }
                 {displaySub && <span style={{ color: 'var(--text-dim)' }}> — {displaySub}</span>}
               </span>

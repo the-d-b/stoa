@@ -127,6 +127,8 @@ export const PANEL_TYPES: {
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',                           needsIntegration: false, category: 'Productivity' },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                         needsIntegration: false, category: 'Productivity' },
   { id: 'search',       label: 'Search',       desc: 'External search engine panel',                  needsIntegration: false, category: 'Productivity' },
+  // Productivity
+  { id: 'kanban',      label: 'Kanban',       desc: 'Task boards — multiple boards per panel, list and status (board) views, drag-to-reorder on desktop, calendar source for due dates, full-text search', needsIntegration: false, category: 'Productivity' },
   // Custom
   { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings',          needsIntegration: false, category: 'Custom' },
   { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',                   needsIntegration: false, category: 'Custom' },

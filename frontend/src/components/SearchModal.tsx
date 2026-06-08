@@ -1,5 +1,5 @@
 import {useEffect, useState, useRef, useCallback } from 'react'
-import { searchApi, notesApi, Panel, BookmarkNode } from '../api'
+import { searchApi, notesApi, kanbanApi, Panel, BookmarkNode } from '../api'
 
 interface SearchResult {
   type: string
@@ -18,12 +18,14 @@ const TYPE_ICON: Record<string, string> = {
   panel:     '▦',
   note:      '📝',
   checklist: '☑',
+  kanban:    '▦',
 }
 const TYPE_LABEL: Record<string, string> = {
   bookmark:  'Bookmark',
   panel:     'Panel',
   note:      'Note',
   checklist: 'Checklist',
+  kanban:    'Kanban',
 }
 
 const MODAL_ENGINES = [
@@ -128,17 +130,30 @@ export default function SearchModal({ panels, subtrees }: Props) {
     setResults(frontendSearch(query))
     setSelected(0)
 
-    // Debounced backend for notes + checklists
+    // Debounced backend for notes + checklists + kanban
     if (debounceRef.current) clearTimeout(debounceRef.current)
     setSearching(true)
     debounceRef.current = setTimeout(async () => {
       try {
-        const r = await searchApi.query(query)
-        // Backend returns notes + checklists — filter out panels/bookmarks already shown
+        const [r, kr] = await Promise.all([
+          searchApi.query(query),
+          kanbanApi.search(query),
+        ])
         const deeper = (r.data || []).filter((x: SearchResult) =>
           x.type === 'note' || x.type === 'checklist'
         )
-        setBackendResults(deeper)
+        const kanbanHits: SearchResult[] = (kr.data || []).map((x: any) => ({
+          type: 'kanban',
+          id: x.id,
+          title: x.title,
+          excerpt: x.notes ? x.notes.slice(0, 80) : (x.boardName + (x.dueDate ? ` · ${x.dueDate}` : '')),
+          panelId: x.boardRefId || x.boardId,
+          path: x.panelTitle + ' › ' + x.boardName,
+          _boardId: x.boardRefId || x.boardId,
+          _boardName: x.boardName,
+          _panelTitle: x.panelTitle,
+        }))
+        setBackendResults([...deeper, ...kanbanHits])
       } catch { setBackendResults([]) }
       finally { setSearching(false) }
     }, 300)
@@ -163,10 +178,18 @@ export default function SearchModal({ panels, subtrees }: Props) {
         window.dispatchEvent(new CustomEvent('stoa-open-note', { detail: { note: res.data } }))
       }).catch(() => {})
     } else if (r.type === 'checklist') {
-      // Scroll to the checklist panel
       if (r.panelId) {
         window.dispatchEvent(new CustomEvent('stoa-navigate-panel', { detail: { panelId: r.panelId } }))
       }
+    } else if (r.type === 'kanban') {
+      const detail = (r as any)
+      window.dispatchEvent(new CustomEvent('stoa-open-kanban-board', {
+        detail: {
+          boardId: detail._boardId || r.panelId,
+          boardName: detail._boardName || '',
+          panelTitle: detail._panelTitle || '',
+        }
+      }))
     } else if (r.type === 'panel') {
       window.dispatchEvent(new CustomEvent('stoa-navigate-panel', { detail: { panelId: r.id } }))
     }
@@ -204,7 +227,7 @@ export default function SearchModal({ panels, subtrees }: Props) {
           <input ref={inputRef} value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Search panels, bookmarks, notes, checklists..."
+            placeholder="Search panels, bookmarks, notes, checklists, kanban..."
             style={{ flex: 1, background: 'none', border: 'none', outline: 'none',
               color: 'var(--text)', fontSize: 16, fontFamily: 'inherit' }} />
           {searching && <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>⟳</span>}

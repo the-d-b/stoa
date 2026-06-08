@@ -100,6 +100,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Sports | No — ESPN public API |
 | Stocks | No — Yahoo Finance public data |
 | Crypto | No — CoinGecko public API (optional API key for higher rate limits) |
+| Kanban | No — local to Stoa |
 | Notes | No — local to Stoa |
 | Checklist | No — local to Stoa |
 | Bookmarks | No — local to Stoa |
@@ -644,6 +645,22 @@ Workout manager panel — total workout count, recent session log (date, impress
 Activity tracker panel — total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity. See [integrations.md](integrations.md#fittrackee).
 
 **Height:** 1× = total workouts + distance + duration; 2–3× = stat chips + recent workout list; 4×+ = stat chips + full workout list with all metrics.
+
+### Kanban
+
+Task tracking panel — multiple named boards per panel. Click any board to open a full-screen overlay with two views:
+
+**List view:** All cards in a flat table with status filter pills (toggle any combination of Not Started / In Progress / On Hold / Completed / Cancelled) and sortable column headers (title, status, due date).
+
+**Board view (Status):** Five swim lanes — Not Started, In Progress, On Hold, Completed, Cancelled. On desktop, drag cards between lanes or reorder within a lane using `@hello-pangea/dnd`. On mobile, one lane is shown at a time with a lane picker; each card has a Move button to change lanes without drag.
+
+**Cards** have: title (required), status, due date (optional), notes (optional).
+
+**Calendar integration:** Add a Kanban panel as a calendar source to show cards with due dates on the calendar. Source labeled as `Panel Name › Board Name`. Cards marked Completed or Cancelled are excluded.
+
+**Search:** Card titles and notes are included in full-text search. Results from any portico open the board overlay directly.
+
+No integration required — all data is stored locally in Stoa's database.
 
 ### Twitch
 Live stream feed panel — shows followed channels currently live with channel name, stream category, viewer count, and uptime. At 4×+, displays a 2-column grid of live stream thumbnail cards (440×248 previews from Twitch CDN) with viewer count and uptime overlaid. Empty state when no followed channels are live. See [integrations.md](integrations.md#twitch).

@@ -430,6 +430,48 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		}
 	}
 
+	// ── Kanban due dates ───────────────────────────────────────────────────
+	for _, src := range sources {
+		source, _ := src.(map[string]interface{})
+		if source == nil || stringVal(source, "type") != "kanban" {
+			continue
+		}
+		panelID := stringVal(source, "panelId")
+		if panelID == "" {
+			continue
+		}
+		var panelTitle string
+		db.QueryRow("SELECT COALESCE(title,'') FROM panels WHERE id=?", panelID).Scan(&panelTitle)
+		rows, err := db.Query(`
+			SELECT kc.title, kc.due_date, kb.id, kb.name
+			FROM kanban_cards kc
+			JOIN kanban_boards kb ON kc.board_id=kb.id
+			WHERE kb.panel_id=?
+			  AND kc.due_date IS NOT NULL AND kc.due_date != ''
+			  AND kc.status NOT IN ('completed','cancelled')
+			ORDER BY kc.due_date ASC
+		`, panelID)
+		if err != nil {
+			continue
+		}
+		for rows.Next() {
+			var title, dueDate, boardID, boardName string
+			rows.Scan(&title, &dueDate, &boardID, &boardName)
+			source := boardName
+			if panelTitle != "" {
+				source = panelTitle + " › " + boardName
+			}
+			events = append(events, map[string]interface{}{
+				"source":  source,
+				"date":    dueDate,
+				"title":   title,
+				"color":   "#8b5cf6",
+				"boardId": boardID,
+			})
+		}
+		rows.Close()
+	}
+
 	// ── Checklist due dates ─────────────────────────────────────────────────
 	// Any checklist source type pulls due-date items from checklist panels
 	for _, src := range sources {

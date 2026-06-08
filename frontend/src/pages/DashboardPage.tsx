@@ -83,6 +83,8 @@ import DuolingoPanel from '../components/panels/DuolingoPanel'
 import GitHubPanel from '../components/panels/GitHubPanel'
 import TraktPanel from '../components/panels/TraktPanel'
 import TwitchPanel from '../components/panels/TwitchPanel'
+import KanbanPanel from '../components/panels/KanbanPanel'
+import KanbanOverlay from '../components/panels/KanbanOverlay'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -571,6 +573,7 @@ export default function DashboardPage() {
       )}
     <SearchModal panels={panels} subtrees={subtrees} />
       <GlobalNoteOverlay />
+      <KanbanOverlay />
     </div>
     </div>
   )
@@ -1144,6 +1147,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'github' && <GitHubPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'trakt' && <TraktPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'twitch' && <TwitchPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'kanban' && <KanbanPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

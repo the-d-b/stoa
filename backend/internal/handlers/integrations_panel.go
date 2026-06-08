@@ -107,6 +107,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"github":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchGitHubPanelData(db, cfg) },
 	"trakt":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTraktPanelData(db, cfg) },
 	"twitch":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTwitchPanelData(db, cfg) },
+	"kanban":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchKanbanPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {
@@ -125,6 +126,8 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		if config == nil {
 			config = map[string]interface{}{}
 		}
+		// Inject panel's own ID so local-data panel types (e.g. kanban) can query by it
+		config["_panelId"] = id
 		// Allow query params to override config values (e.g. ?days=7 for time range)
 		// Track whether any override was applied — overridden requests bypass cache
 		// so filters like 1d/7d/30d always return fresh data, not stale cached data.

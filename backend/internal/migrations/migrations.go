@@ -722,6 +722,32 @@ var migrations = []migration{
 			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 50,
+		name:    "kanban",
+		stmts: []string{
+			`CREATE TABLE IF NOT EXISTS kanban_boards (
+				id         TEXT PRIMARY KEY,
+				panel_id   TEXT NOT NULL,
+				name       TEXT NOT NULL,
+				sort_order INTEGER NOT NULL DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE TABLE IF NOT EXISTS kanban_cards (
+				id         TEXT PRIMARY KEY,
+				board_id   TEXT NOT NULL,
+				title      TEXT NOT NULL,
+				status     TEXT NOT NULL DEFAULT 'not_started',
+				due_date   TEXT,
+				notes      TEXT,
+				sort_order INTEGER NOT NULL DEFAULT 0,
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_kanban_boards_panel ON kanban_boards(panel_id)`,
+			`CREATE INDEX IF NOT EXISTS idx_kanban_cards_board ON kanban_cards(board_id)`,
+		},
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

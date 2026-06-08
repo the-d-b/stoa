@@ -6,6 +6,8 @@
 import { useState, useEffect } from 'react'
 import { panelsApi, myPanelsApi, googleApi, Panel } from '../../api'
 
+// Note: @hello-pangea/dnd acknowledged in panels.md
+
 const DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // Source types where daysAhead controls the fetch window
 const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google'])
@@ -24,6 +26,8 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   const [adding, setAdding] = useState(false)
   const [checklistPanels, setChecklistPanels] = useState<Panel[]>([])
   const [checklistPanelId, setChecklistPanelId] = useState('')
+  const [kanbanPanels, setKanbanPanels] = useState<Panel[]>([])
+  const [kanbanPanelId, setKanbanPanelId] = useState('')
 
   const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
   const sources: any[] = cfg.sources || []
@@ -41,9 +45,11 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
           .catch(() => {})
       }
     }).catch(() => {})
-    myPanelsApi.list().then((r: any) =>
-      setChecklistPanels((r.data || []).filter((p: any) => p.type === 'checklist'))
-    ).catch(() => {})
+    myPanelsApi.list().then((r: any) => {
+      const panels = r.data || []
+      setChecklistPanels(panels.filter((p: any) => p.type === 'checklist'))
+      setKanbanPanels(panels.filter((p: any) => p.type === 'kanban'))
+    }).catch(() => {})
   }, [isSystem])
 
   useEffect(() => {
@@ -89,6 +95,10 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
         if (!checklistPanelId) return
         const cl = checklistPanels.find((p: any) => p.id === checklistPanelId)
         newSource = { type: 'checklist', panelId: checklistPanelId, label: cl?.title || 'Checklist' }
+      } else if (sourceKind === 'kanban') {
+        if (!kanbanPanelId) return
+        const kb = kanbanPanels.find((p: any) => p.id === kanbanPanelId)
+        newSource = { type: 'kanban', panelId: kanbanPanelId, label: kb?.title || 'Kanban' }
       } else if (sourceKind === 'integration') {
         if (!intId) return
         const ig = integrations.find((i: any) => i.id === intId)
@@ -96,7 +106,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
       }
       if (newSource) {
         await updateSources([...sources, newSource])
-        setIntId(''); setGoogleTokenId(''); setChecklistPanelId(''); setSourceKind(''); setDaysAhead(30)
+        setIntId(''); setGoogleTokenId(''); setChecklistPanelId(''); setKanbanPanelId(''); setSourceKind(''); setDaysAhead(30)
       }
     } finally { setAdding(false) }
   }
@@ -105,6 +115,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     const ig = integrations.find((i: any) => i.id === src.integrationId)
     if (src.type === 'google') return `📅 ${src.label || src.integrationId}`
     if (src.type === 'checklist') return `☑ ${src.label || 'Checklist'}`
+    if (src.type === 'kanban') return `▦ ${src.label || 'Kanban'}`
     if (src.type === 'weather') return `🌤 ${src.label || ig?.name || 'Weather'}`
     if (src.type === 'sports') return `🏒 ${src.label || ig?.name || 'Sports'}`
     if (src.type === 'lubelogger') return `🔧 ${src.label || ig?.name || 'LubeLogger'}`
@@ -152,6 +163,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
           {calIntegrations.length > 0 && <option value="integration">Stoa integration</option>}
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
           {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
+          {kanbanPanels.length > 0 && <option value="kanban">Kanban</option>}
         </select>
 
         {sourceKind === 'integration' && (
@@ -209,6 +221,20 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
             </select>
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
               onClick={add} disabled={adding || !checklistPanelId}>
+              {adding ? <span className="spinner" /> : 'Add'}
+            </button>
+          </>
+        )}
+
+        {sourceKind === 'kanban' && (
+          <>
+            <select className="input" value={kanbanPanelId} onChange={e => setKanbanPanelId(e.target.value)}
+              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+              <option value="">— Select kanban panel —</option>
+              {kanbanPanels.map((p: Panel) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            <button className="btn btn-secondary" style={{ fontSize: 12 }}
+              onClick={add} disabled={adding || !kanbanPanelId}>
               {adding ? <span className="spinner" /> : 'Add'}
             </button>
           </>

@@ -655,6 +655,39 @@ export const checklistApi = {
   delete: (id: string) => api.delete(`/checklist/item/${id}`),
 }
 
+export interface KanbanBoard {
+  id: string; panelId: string; name: string; sortOrder: number; createdAt: string
+  cardCount: number; dueSoon: number; overdue: number
+}
+
+export interface KanbanCard {
+  id: string; boardId: string; title: string; status: string
+  dueDate?: string; notes?: string; sortOrder: number; createdAt: string; updatedAt: string
+}
+
+export const kanbanApi = {
+  listBoards: (panelId: string) =>
+    api.get<KanbanBoard[]>(`/kanban/boards?panelId=${panelId}`),
+  createBoard: (panelId: string, name: string) =>
+    api.post<KanbanBoard>('/kanban/boards', { panelId, name }),
+  updateBoard: (id: string, name: string, sortOrder?: number) =>
+    api.put(`/kanban/boards/${id}`, { name, sortOrder }),
+  deleteBoard: (id: string) =>
+    api.delete(`/kanban/boards/${id}`),
+  listCards: (boardId: string) =>
+    api.get<KanbanCard[]>(`/kanban/boards/${boardId}/cards`),
+  createCard: (boardId: string, data: { title: string; status?: string; dueDate?: string; notes?: string }) =>
+    api.post<KanbanCard>(`/kanban/boards/${boardId}/cards`, data),
+  updateCard: (id: string, data: { title: string; status: string; dueDate?: string; notes?: string; sortOrder?: number }) =>
+    api.put(`/kanban/cards/${id}`, data),
+  deleteCard: (id: string) =>
+    api.delete(`/kanban/cards/${id}`),
+  reorderCards: (boardId: string, cards: { id: string; sortOrder: number; status: string }[]) =>
+    api.put(`/kanban/boards/${boardId}/cards/reorder`, { cards }),
+  search: (q: string) =>
+    api.get(`/kanban/search?q=${encodeURIComponent(q)}`),
+}
+
 export const porticoConfigApi = {
   panels: (porticoId: string) =>
     api.get<{ id: string; type: string; title: string; config: string; scope: string; position: number; customColumn: number }[]>(
