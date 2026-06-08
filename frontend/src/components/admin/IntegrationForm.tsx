@@ -35,7 +35,7 @@ export const INTEGRATION_TYPES = [
   { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                         category: 'Photos & Libraries' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Photos & Libraries' },
   { id: 'lychee',       label: 'Lychee',       desc: 'Self-hosted photo gallery (username:password in API key field)', category: 'Photos & Libraries' },
-  { id: 'kavita',       label: 'Kavita',       desc: 'Self-hosted manga, comic & book server',                       category: 'Photos & Libraries' },
+  { id: 'kavita',       label: 'Kavita',       desc: 'Self-hosted manga, comic & book server — API key field: Auth Key from Kavita → (your avatar) → User Settings → Manage Auth Keys.', category: 'Photos & Libraries' },
   { id: 'komga',        label: 'Komga',        desc: 'Self-hosted comic book & manga server',                        category: 'Photos & Libraries' },
   { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook, podcast & ebook server (username:password or bare API key)', category: 'Photos & Libraries' },
   { id: 'navidrome',     label: 'Navidrome',     desc: 'Self-hosted music server / Subsonic API (username:password in API key field)', category: 'Photos & Libraries' },

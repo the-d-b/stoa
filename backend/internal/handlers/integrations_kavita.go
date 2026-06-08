@@ -8,7 +8,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/mux"
 )
@@ -36,75 +35,31 @@ type KavitaPanelData struct {
 	RecentlyAdded []KavitaSeries  `json:"recentlyAdded"`
 }
 
-// ── Token cache ───────────────────────────────────────────────────────────────
+// ── HTTP helper ───────────────────────────────────────────────────────────────
 
-var (
-	kavitaTokens   = map[string]string{}
-	kavitaTokensMu sync.Mutex
-)
-
-func kavitaGetToken(baseURL, apiKey, integID string, skipTLS bool) (string, error) {
-	kavitaTokensMu.Lock()
-	tok := kavitaTokens[integID]
-	kavitaTokensMu.Unlock()
-	if tok != "" {
-		return tok, nil
-	}
-
-	loginBody := fmt.Sprintf(`{"apiKey":%q}`, apiKey)
-	url := strings.TrimRight(baseURL, "/") + "/api/Account/login"
-	req, err := http.NewRequest("POST", url, strings.NewReader(loginBody))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := httpClient(skipTLS).Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("Kavita login failed: HTTP %d", resp.StatusCode)
-	}
-	body, _ := io.ReadAll(resp.Body)
-
-	var result struct {
-		Token string `json:"token"`
-	}
-	if err := json.Unmarshal(body, &result); err != nil || result.Token == "" {
-		return "", fmt.Errorf("no token in Kavita login response")
-	}
-
-	kavitaTokensMu.Lock()
-	kavitaTokens[integID] = result.Token
-	kavitaTokensMu.Unlock()
-	return result.Token, nil
-}
-
-func kavitaClearToken(integID string) {
-	kavitaTokensMu.Lock()
-	delete(kavitaTokens, integID)
-	kavitaTokensMu.Unlock()
-}
-
-func kavitaGet(baseURL, token, path string, skipTLS bool) ([]byte, error) {
+// kavitaGet sends an authenticated GET using the x-api-key header (Kavita v0.9+).
+func kavitaGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	req, err := http.NewRequest("GET", strings.TrimRight(baseURL, "/")+path, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("x-api-key", apiKey)
 	resp, err := httpClient(skipTLS).Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return nil, fmt.Errorf("unauthorized")
-	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d from Kavita", resp.StatusCode)
+		return nil, fmt.Errorf("kavita: HTTP %d", resp.StatusCode)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+// ── Test ──────────────────────────────────────────────────────────────────────
+
+func testKavitaConnection(apiURL, apiKey string, skipTLS bool) error {
+	_, err := kavitaGet(apiURL, apiKey, "/api/Stats/server/stats", skipTLS)
+	return err
 }
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
@@ -118,6 +73,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 	if err != nil {
 		return nil, err
 	}
+
 	data := &KavitaPanelData{
 		UIURL:         uiURL,
 		IntegrationID: integrationID,
@@ -125,23 +81,8 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		RecentlyAdded: []KavitaSeries{},
 	}
 
-	token, err := kavitaGetToken(apiURL, apiKey, integrationID, skipTLS)
-	if err != nil {
-		return nil, fmt.Errorf("Kavita auth failed: %v", err)
-	}
-
-	// Retries once on 401 with a fresh token.
 	get := func(path string) ([]byte, error) {
-		body, gerr := kavitaGet(apiURL, token, path, skipTLS)
-		if gerr != nil && strings.Contains(gerr.Error(), "unauthorized") {
-			kavitaClearToken(integrationID)
-			token, err = kavitaGetToken(apiURL, apiKey, integrationID, skipTLS)
-			if err != nil {
-				return nil, err
-			}
-			return kavitaGet(apiURL, token, path, skipTLS)
-		}
-		return body, gerr
+		return kavitaGet(apiURL, apiKey, path, skipTLS)
 	}
 
 	// Server stats
@@ -212,41 +153,14 @@ func ProxyKavitaCover(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		token, err := kavitaGetToken(apiURL, apiKey, integID, skipTLS)
+		body, err := kavitaGet(apiURL, apiKey, "/api/Image/series-cover?seriesId="+seriesID, skipTLS)
 		if err != nil {
-			http.Error(w, "auth failed", http.StatusBadGateway)
+			http.Error(w, "cover fetch failed", http.StatusBadGateway)
 			return
-		}
-
-		path := "/api/Image/series-cover?seriesId=" + seriesID
-		body, err := kavitaGet(apiURL, token, path, skipTLS)
-		if err != nil {
-			kavitaClearToken(integID)
-			token, err = kavitaGetToken(apiURL, apiKey, integID, skipTLS)
-			if err != nil {
-				http.Error(w, "auth refresh failed", http.StatusBadGateway)
-				return
-			}
-			body, err = kavitaGet(apiURL, token, path, skipTLS)
-			if err != nil {
-				http.Error(w, "cover fetch failed", http.StatusBadGateway)
-				return
-			}
 		}
 
 		w.Header().Set("Content-Type", http.DetectContentType(body))
 		w.Header().Set("Cache-Control", "private, max-age=86400")
 		w.Write(body)
 	}
-}
-
-// ── Test ──────────────────────────────────────────────────────────────────────
-
-func testKavitaConnection(apiURL, apiKey string, skipTLS bool) error {
-	token, err := kavitaGetToken(apiURL, apiKey, "test", skipTLS)
-	if err != nil {
-		return err
-	}
-	_, err = kavitaGet(apiURL, token, "/api/Stats/server/stats", skipTLS)
-	return err
 }
