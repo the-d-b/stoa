@@ -77,6 +77,7 @@ func main() {
 	api.PathPrefix("/icons/").HandlerFunc(handlers.ServeIcon(iconsDir))
 	api.HandleFunc("/auth/google/callback", handlers.GoogleOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/spotify/callback", handlers.SpotifyOAuthCallback(database)).Methods("GET")
+	api.HandleFunc("/strava/callback", handlers.StravaOAuthCallback(database)).Methods("GET")
 
 	// ── Health check (public) ───────────────────────────────
 	api.HandleFunc("/health", handlers.HealthCheck(database)).Methods("GET")
@@ -254,6 +255,11 @@ func main() {
 	protected.HandleFunc("/spotify/token", handlers.SpotifyGetToken(database)).Methods("GET")
 	protected.HandleFunc("/spotify/disconnect", handlers.SpotifyDisconnect(database)).Methods("DELETE")
 	protected.HandleFunc("/spotify/playback", handlers.SpotifyPlaybackControl(database)).Methods("POST")
+
+	// Strava OAuth
+	protected.HandleFunc("/strava/auth", handlers.StravaOAuthRedirect(database)).Methods("GET")
+	protected.HandleFunc("/strava/status", handlers.StravaGetStatus(database)).Methods("GET")
+	protected.HandleFunc("/strava/disconnect", handlers.StravaDisconnect(database)).Methods("DELETE")
 
 	// Google OAuth (non-admin routes)
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")

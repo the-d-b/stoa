@@ -53,6 +53,8 @@ Different services use different authentication schemes. Stoa normalises these b
 | No auth, `username:password`, or bare bearer | Tdarr | Tdarr runs unauthenticated by default (leave blank). API key from Tdarr → Tools → API Keys for single-token auth. `username:password` for a reverse-proxy Basic Auth layer. |
 | `clientId:clientSecret` → OAuth | Spotify | App credentials from Spotify Developer Dashboard. Used to authorize Stoa's OAuth flow — store as `clientId:clientSecret`. Connect your user account from the integration edit page after saving. |
 | `username:apiKey` | Last.fm | Last.fm username and API key, colon-separated. API key from last.fm/api (free, no OAuth required). |
+| `clientId:clientSecret` → OAuth | Strava | App credentials from Strava API settings (`strava.com/settings/api`). Stoa exchanges these for user access and refresh tokens via OAuth 2.0 Authorization Code flow. Connect your account from the integration edit page after saving. |
+| `username:password` | Duolingo | Your Duolingo account login credentials. Stoa uses the unofficial Duolingo API to fetch your stats — credentials are used to obtain a session JWT, which is cached for 12 hours. |
 
 **Why a single field for two values?** Several services require both a username and a password (or key and secret). Rather than two separate secret fields, Stoa uses the convention `username:password` stored as one value. The colon is the separator — Stoa splits on the first colon. This is the same format curl uses with `-u user:pass`.
 
@@ -1609,6 +1611,39 @@ Workarounds:
 **Real-time:** Last.fm's API does not support streaming. Stoa polls every 30 seconds to keep the now-playing state current.
 
 **Height:** 1× = now-playing dot (if active) + track + artist + scrobble count; 2–3× = now-playing section + full recent scrobble list; 4×+ = album art + track/artist/album info + top artists bar chart + top tracks and albums side-by-side; 5×+ also shows recent scrobble history.
+
+---
+
+## Strava
+
+**What it shows:** Running, cycling, and multi-sport activity feed with distance, pace/speed, elevation, and relative timestamps. 4-week sport summaries (run/ride/swim totals). 8-week stacked bar chart of weekly distance. Year-to-date stats at larger panel sizes. Uses the athlete's measurement preference (miles or kilometers) automatically.
+
+**Auth:** OAuth 2.0 Authorization Code flow. Setup is a two-step process:
+
+1. Create a Strava API application at [strava.com/settings/api](https://www.strava.com/settings/api). Set the Authorization Callback Domain to your Stoa hostname. Store `clientId:clientSecret` (colon-separated) in the API key field.
+2. After saving the integration, open it again in edit mode and click **Connect Strava** to authorize. Stoa redirects you through Strava's OAuth flow and stores the access and refresh tokens.
+
+**URL:** Not required — leave empty. Stoa sets this automatically.
+
+**Scopes requested:** `read,activity:read,activity:read_all` — for public and private activities and stats.
+
+**Token refresh:** Strava access tokens expire every 6 hours. Stoa automatically refreshes using the stored refresh token — no re-authorization needed.
+
+**Height:** 1× = last activity emoji + name + distance + time; 2–3× = avatar + location + 4-week sport summaries + recent activity list; 4×+ = YTD stat chips + 4-week summaries + 8-week stacked bar chart + full activity list.
+
+---
+
+## Duolingo
+
+**What it shows:** Daily streak, today's XP vs. daily goal with progress bar, total XP, league tier, active language, all learning courses with level and XP bars, and a 14-day XP bar chart at larger sizes.
+
+**Auth:** `username:password` — your Duolingo login credentials. Stoa uses Duolingo's unofficial API (read-only). Credentials are stored encrypted and used only to obtain a session JWT. The JWT is cached in memory for 12 hours to avoid repeated logins on every 60-second refresh.
+
+**URL:** Not required — leave empty. Stoa always calls `www.duolingo.com`.
+
+**Unofficial API:** Duolingo does not publish an official API. Stoa uses the same endpoints as the Duolingo mobile app. These endpoints work as of mid-2026 but may change without notice if Duolingo alters their app's protocol.
+
+**Height:** 1× = streak + active language + today's XP/goal; 2–3× = streak + goal progress bar + league badge + course XP bars; 4×+ = streak + goal bar + 14-day XP chart + full course list.
 
 ---
 

@@ -103,6 +103,8 @@ export const INTEGRATION_TYPES = [
   // Health & Fitness
   { id: 'wger',       label: 'wger',       desc: 'Workout manager — URL is http://wger:80. API key field: permanent API key from wger → Dashboard → API (top-right menu).', category: 'Health & Fitness' },
   { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — URL is http://fittrackee:5000. API key field: email:password of your Fittrackee account.', category: 'Health & Fitness' },
+  { id: 'strava',    label: 'Strava',    desc: 'Running & cycling tracker — no URL needed. API key: clientId:clientSecret from your Strava Developer Portal app. After creating, connect your Strava account from the integration edit page.', category: 'Health & Fitness' },
+  { id: 'duolingo',  label: 'Duolingo',  desc: 'Language learning — no URL needed. API key: username:password of your Duolingo account (unofficial read-only API).', category: 'Health & Fitness' },
   // Music
   { id: 'spotify',    label: 'Spotify',    desc: 'Music streaming — no URL needed. API key: clientId:clientSecret from your Spotify Developer Dashboard app. After creating, connect your Spotify account from the integration edit page.', category: 'Music' },
   { id: 'lastfm',     label: 'Last.fm',    desc: 'Music scrobbling tracker — no URL needed. API key: username:apiKey (colon-separated). Get your API key at last.fm/api.', category: 'Music' },
@@ -117,7 +119,7 @@ export const INTEGRATION_TYPES = [
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -179,6 +181,20 @@ export default function IntegrationForm({
       .catch(() => setSpotifyStatus({ connected: false }))
   }, [isEdit, integration?.id, integration?.type])
 
+  // ── Strava OAuth status ────────────────────────────────────────────────────
+  const [stravaStatus, setStravaStatus] = useState<{
+    connected: boolean; athleteName?: string
+  } | null>(null)
+  const [stravaDisconnecting, setStravaDisconnecting] = useState(false)
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'strava') return
+    fetch(`/api/strava/status?integrationId=${integration!.id}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setStravaStatus(d))
+      .catch(() => setStravaStatus({ connected: false }))
+  }, [isEdit, integration?.id, integration?.type])
+
   // ── Test connection ────────────────────────────────────────────────────────
   const [testResult, setTestResult] = useState<{
     ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean
@@ -203,8 +219,10 @@ export default function IntegrationForm({
   const handleTypeChange = (t: string) => {
     setType(t)
     setApiUrl(
-      t === 'spotify' ? 'https://api.spotify.com' :
-      t === 'lastfm'  ? 'https://www.last.fm' :
+      t === 'spotify'   ? 'https://api.spotify.com' :
+      t === 'lastfm'    ? 'https://www.last.fm' :
+      t === 'strava'    ? 'https://www.strava.com' :
+      t === 'duolingo'  ? 'https://www.duolingo.com' :
       ''
     )
     setTestResult(null)
@@ -524,6 +542,77 @@ export default function IntegrationForm({
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             No URL or OAuth needed — read-only data only (scrobbling requires a separate app like Scrobbler).
+          </div>
+        </div>
+      ) : activeType === 'strava' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>clientId:clientSecret</code> from your{' '}
+            <a href="https://www.strava.com/settings/api" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>Strava API settings</a>.
+            Redirect URI to add in your app: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+              {window.location.origin}/api/strava/callback</code>
+          </div>
+          {isEdit && integration && (
+            <div style={{ padding: '10px 12px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                Strava Account
+              </div>
+              {stravaStatus === null ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+              ) : stravaStatus.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)' }}>
+                      Connected as <strong>{stravaStatus.athleteName}</strong>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                      Activities and stats will sync automatically.
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, flexShrink: 0 }}
+                    disabled={stravaDisconnecting}
+                    onClick={async () => {
+                      setStravaDisconnecting(true)
+                      try {
+                        await fetch(`/api/strava/disconnect?integrationId=${integration.id}`, {
+                          method: 'DELETE', credentials: 'include'
+                        })
+                        setStravaStatus({ connected: false })
+                      } finally { setStravaDisconnecting(false) }
+                    }}>
+                    {stravaDisconnecting ? '…' : 'Disconnect'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
+                    Not connected — authorize Stoa to access your Strava data.
+                  </div>
+                  <a href={`/api/strava/auth?integrationId=${integration.id}`}
+                    className="btn btn-primary" style={{ fontSize: 11, textDecoration: 'none', flexShrink: 0,
+                      background: '#FC4C02', borderColor: '#FC4C02' }}>
+                    Connect Strava
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to connect your Strava account via OAuth.
+            </div>
+          )}
+        </div>
+      ) : activeType === 'duolingo' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code> — your Duolingo login credentials.
+            Uses Duolingo's unofficial API (read-only). Your credentials are stored encrypted and only used to fetch a session token.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            No URL or OAuth needed. Session tokens are cached for 12 hours to avoid repeated logins.
           </div>
         </div>
       ) : activeType === 'rss' ? (

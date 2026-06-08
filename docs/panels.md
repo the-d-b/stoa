@@ -84,6 +84,8 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Homebox | Yes |
 | wger | Yes |
 | Fittrackee | Yes |
+| Strava | Yes |
+| Duolingo | Yes |
 | Spotify | Yes |
 | Last.fm | Yes |
 | Calendar | Yes (one or more — Sonarr/Radarr/Lidarr/Readarr/Google Calendar) |
@@ -639,6 +641,16 @@ Workout manager panel — total workout count, recent session log (date, impress
 Activity tracker panel — total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity. See [integrations.md](integrations.md#fittrackee).
 
 **Height:** 1× = total workouts + distance + duration; 2–3× = stat chips + recent workout list; 4×+ = stat chips + full workout list with all metrics.
+
+### Strava
+Running and cycling activity panel — recent activities with sport emoji, name, distance, pace/speed, elevation, and relative timestamps. 4-week totals per sport (run, ride, swim) with colored left-border bars. At tall heights, an 8-week stacked bar chart shows weekly distance broken down by sport. Distances displayed in miles or kilometers based on the athlete's Strava measurement preference. See [integrations.md](integrations.md#strava).
+
+**Height:** 1× = last activity emoji + name + distance + duration; 2–3× = athlete avatar + location + 4-week sport summaries + 8 recent activities; 4×+ = YTD stat chips + 4-week summaries + 8-week stacked bar chart + full activity list.
+
+### Duolingo
+Language learning panel — current streak with fire emoji, daily XP goal progress bar, league tier badge, and a list of all learning courses with language flag emoji, level, total XP, and proportional XP bar. At tall heights, a 14-day XP bar chart shows practice history, with today's bar highlighted in Duolingo green. See [integrations.md](integrations.md#duolingo).
+
+**Height:** 1× = streak + active language + today's XP/goal; 2–3× = streak + goal bar + league badge + course list; 4×+ = streak + goal bar + 14-day XP chart + full course list.
 
 ### Spotify
 Now-playing panel — current or most recently played track with album art, progress bar, and playback controls (Premium). Recent play history at taller heights. See [integrations.md](integrations.md#spotify).

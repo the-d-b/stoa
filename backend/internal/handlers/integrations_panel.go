@@ -102,6 +102,8 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"fittrackee":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchFittrackeePanelData(db, cfg) },
 	"spotify":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSpotifyPanelData(db, cfg) },
 	"lastfm":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchLastFmPanelData(db, cfg) },
+	"strava":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchStravaPanelData(db, cfg) },
+	"duolingo":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchDuolingoPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

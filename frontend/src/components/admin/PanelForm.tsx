@@ -105,6 +105,8 @@ export const PANEL_TYPES: {
   // Health & Fitness
   { id: 'wger',       label: 'wger',       desc: 'Workout manager — total session count, weight trend sparkline (last 10 entries), recent session list with impression rating', needsIntegration: true, category: 'Health & Fitness' },
   { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — total workouts, distance, time, ascent; recent workout list with sport emoji, distance, and duration', needsIntegration: true, category: 'Health & Fitness' },
+  { id: 'strava',     label: 'Strava',     desc: 'Running & cycling — recent activities with distance/pace/time, 4-week sport summaries, and 8-week stacked bar chart (Run/Ride/Swim) at larger sizes', needsIntegration: true, category: 'Health & Fitness' },
+  { id: 'duolingo',   label: 'Duolingo',   desc: 'Language learning — streak, daily XP goal progress, course list, league, and 14-day XP bar chart at larger sizes', needsIntegration: true, category: 'Health & Fitness' },
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — total recipe count, this week\'s meal plan day-by-day, shopping list with checked items, recent recipe list with ratings and cook time', needsIntegration: true, category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — food expiry with urgency color coding (expired/expiring), overdue chores, pending tasks with due dates, shopping list', needsIntegration: true, category: 'Food & Home' },
@@ -142,7 +144,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','spotify','lastfm',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','spotify','lastfm',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {

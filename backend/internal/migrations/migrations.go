@@ -694,6 +694,19 @@ var migrations = []migration{
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 48,
+		name:    "strava_tokens",
+		up: `CREATE TABLE IF NOT EXISTS strava_tokens (
+			integration_id TEXT PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+			access_token   TEXT NOT NULL,
+			refresh_token  TEXT NOT NULL,
+			expires_at     DATETIME NOT NULL,
+			athlete_id     INTEGER NOT NULL DEFAULT 0,
+			athlete_name   TEXT NOT NULL DEFAULT '',
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }
