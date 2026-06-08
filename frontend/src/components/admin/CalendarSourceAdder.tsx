@@ -45,7 +45,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
           .catch(() => {})
       }
     }).catch(() => {})
-    myPanelsApi.list().then((r: any) => {
+    panelsApi.list().then((r: any) => {
       const panels = r.data || []
       setChecklistPanels(panels.filter((p: any) => p.type === 'checklist'))
       setKanbanPanels(panels.filter((p: any) => p.type === 'kanban'))

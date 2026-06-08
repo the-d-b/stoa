@@ -230,10 +230,7 @@ func KanbanListCards(db *sql.DB) http.HandlerFunc {
 			       sort_order, created_at, updated_at
 			FROM kanban_cards
 			WHERE board_id=?
-			ORDER BY
-				CASE WHEN due_date IS NULL OR due_date='' THEN 1 ELSE 0 END,
-				due_date ASC,
-				created_at ASC
+			ORDER BY status ASC, sort_order ASC, created_at ASC
 		`, boardID)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())

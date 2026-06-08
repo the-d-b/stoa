@@ -40,6 +40,12 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    const handler = () => load()
+    window.addEventListener('stoa-kanban-changed', handler)
+    return () => window.removeEventListener('stoa-kanban-changed', handler)
+  }, [load])
+
   const openBoard = (board: KanbanBoard) => {
     window.dispatchEvent(new CustomEvent('stoa-open-kanban-board', {
       detail: { boardId: board.id, boardName: board.name, panelTitle: panel.title }

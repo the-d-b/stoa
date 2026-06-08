@@ -283,7 +283,6 @@ function DesktopStatusView({ cards, boardId, onEdit, onCardsChange }: {
     const srcId = source.droppableId
     const dstId = destination.droppableId
 
-    // Build per-status sorted lanes
     const lanes: Record<string, KanbanCard[]> = {}
     for (const s of STATUSES) {
       lanes[s.value] = cards.filter(c => c.status === s.value)
@@ -304,20 +303,25 @@ function DesktopStatusView({ cards, boardId, onEdit, onCardsChange }: {
       lanes[dstId] = dstCards
     }
 
-    // Rebuild flat list with new sort_orders
     const newCards: KanbanCard[] = []
-    const payload: { id: string; sortOrder: number; status: string }[] = []
     for (const [status, laneCards] of Object.entries(lanes)) {
       laneCards.forEach((c, i) => {
-        const updated = { ...c, status, sortOrder: i + 1 }
-        newCards.push(updated)
-        payload.push({ id: c.id, sortOrder: i + 1, status })
+        newCards.push({ ...c, status, sortOrder: i + 1 })
       })
     }
 
     onCardsChange(newCards)
-    kanbanApi.reorderCards(boardId, payload).catch(() => {
-      // Silently ignore - data will refresh on next load
+
+    // Use updateCard for the moved card — same endpoint as modal edits, confirmed
+    // to persist correctly. reorderCards had stale-closure issues when drags
+    // happened in quick succession.
+    kanbanApi.updateCard(updatedCard.id, {
+      title: updatedCard.title,
+      status: dstId,
+      dueDate: updatedCard.dueDate,
+      notes: updatedCard.notes,
+    }).catch(() => {
+      kanbanApi.listCards(boardId).then(r => onCardsChange(r.data || []))
     })
   }
 
@@ -346,8 +350,7 @@ function DesktopStatusView({ cards, boardId, onEdit, onCardsChange }: {
                   <div ref={provided.innerRef} {...provided.droppableProps}
                     style={{ flex: 1, minHeight: 60, padding: '2px 0',
                       background: snapshot.isDraggingOver ? status.color + '08' : 'transparent',
-                      borderRadius: 6, transition: 'background 0.15s',
-                      overflowY: 'auto' }}>
+                      borderRadius: 6, transition: 'background 0.15s' }}>
                     {laneCards.map((card, index) => (
                       <Draggable key={card.id} draggableId={card.id} index={index}>
                         {(prov, snap) => (
@@ -356,7 +359,11 @@ function DesktopStatusView({ cards, boardId, onEdit, onCardsChange }: {
                               marginBottom: 6, padding: '7px 8px', borderRadius: 7,
                               background: 'var(--surface)', border: `1px solid ${snap.isDragging ? status.color + '80' : 'var(--border)'}`,
                               boxShadow: snap.isDragging ? `0 4px 16px rgba(0,0,0,0.2)` : 'none',
-                              cursor: 'grab', transition: snap.isDragging ? 'none' : 'border-color 0.1s' }}
+                              cursor: 'grab',
+                              // During drop animation, don't override transition — the library needs
+                              // its transform transition to play so transitionend fires and onDragEnd is called.
+                              // During active drag, suppress transitions. When idle, animate border-color.
+                              ...(!snap.isDropAnimating && { transition: snap.isDragging ? 'none' : 'border-color 0.1s' }) }}
                             onClick={() => !snap.isDragging && onEdit(card)}
                             onMouseOver={e => { if (!snap.isDragging) (e.currentTarget as HTMLElement).style.borderColor = status.color + '60' }}
                             onMouseOut={e => { if (!snap.isDragging) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
@@ -540,7 +547,11 @@ export default function KanbanOverlay() {
     return () => window.removeEventListener('keydown', h)
   }, [open, addingCard, editingCard])
 
-  const close = () => { setOpen(null); setCards([]) }
+  const close = () => {
+    window.dispatchEvent(new CustomEvent('stoa-kanban-changed'))
+    setOpen(null)
+    setCards([])
+  }
 
 
   const handleAddCard = async (data: { title: string; status: string; dueDate: string; notes: string }) => {
