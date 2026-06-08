@@ -72,6 +72,8 @@ import DocspellPanel from '../components/panels/DocspellPanel'
 import RommPanel from '../components/panels/RommPanel'
 import PterodactylPanel from '../components/panels/PterodactylPanel'
 import MaintainerrPanel from '../components/panels/MaintainerrPanel'
+import MonicaPanel from '../components/panels/MonicaPanel'
+import HomeboxPanel from '../components/panels/HomeboxPanel'
 import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
 import AuthentikPanel from '../components/panels/AuthentikPanel'
 import ChecklistPanel from '../components/panels/ChecklistPanel'
@@ -1122,6 +1124,8 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'romm' && <RommPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'pterodactyl' && <PterodactylPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'maintainerr' && <MaintainerrPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'monica' && <MonicaPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'homebox' && <HomeboxPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'transmission' && <TransmissionPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'qbittorrent' && <QBittorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'deluge' && <DelugePanel panel={panel} heightUnits={heightUnits} />}

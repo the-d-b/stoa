@@ -304,6 +304,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testPterodactylConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "maintainerr":
 			err = testMaintainerrConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "monica":
+			err = testMonicaConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "homebox":
+			err = testHomeboxConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -454,6 +458,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testPterodactylConnection(req.APIURL, apiKey, true)
 						case "maintainerr":
 							retryErr = testMaintainerrConnection(req.APIURL, apiKey, true)
+						case "monica":
+							retryErr = testMonicaConnection(req.APIURL, apiKey, true)
+						case "homebox":
+							retryErr = testHomeboxConnection(req.APIURL, apiKey, true)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -752,6 +760,8 @@ func defaultRefreshSecs(igType string) int {
 		return 900
 	case "maintainerr":
 		return 300
+	case "monica", "homebox":
+		return 900
 	case "pterodactyl":
 		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":

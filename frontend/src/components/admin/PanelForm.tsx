@@ -99,6 +99,9 @@ export const PANEL_TYPES: {
   // Documents
   { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — total docs, inbox count, document type donut, tag proportional bars with Paperless colors, correspondent breakdown, recent document list with links', needsIntegration: true, category: 'Documents' },
   { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — total document count, storage used, tag count, and recent document list with correspondent, folder, and tag chips', needsIntegration: true, category: 'Documents' },
+  // Personal
+  { id: 'monica',   label: 'Monica',   desc: 'Personal CRM — contact count, upcoming birthdays and reminders with countdown (days until), color-coded by urgency (today/this week/later)', needsIntegration: true, category: 'Personal' },
+  { id: 'homebox',  label: 'Homebox',  desc: 'Home inventory — total item count, location count, total value, warranted-item count, and a location breakdown with proportional bars', needsIntegration: true, category: 'Personal' },
   // Food & Home
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — total recipe count, this week\'s meal plan day-by-day, shopping list with checked items, recent recipe list with ratings and cook time', needsIntegration: true, category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — food expiry with urgency color coding (expired/expiring), overdue chores, pending tasks with due dates, shopping list', needsIntegration: true, category: 'Food & Home' },
@@ -134,7 +137,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
