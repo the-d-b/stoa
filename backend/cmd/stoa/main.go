@@ -393,6 +393,11 @@ func main() {
 	protected.HandleFunc("/panels/{id}/tags/{tagId}", handlers.RemoveTagFromPanel(database)).Methods("DELETE")
 
 	// Config
+	api.HandleFunc("/config/app-icon", handlers.GetAppIcon(database)).Methods("GET")
+	admin.HandleFunc("/config/app-icon", handlers.UploadAppIcon(database, iconsDir)).Methods("POST")
+	admin.HandleFunc("/config/app-icon", handlers.DeleteAppIcon(database, iconsDir)).Methods("DELETE")
+	protected.HandleFunc("/profile/app-icon", handlers.ProfileUploadAppIcon(database, iconsDir)).Methods("POST")
+	protected.HandleFunc("/profile/app-icon", handlers.ProfileDeleteAppIcon(database, iconsDir)).Methods("DELETE")
 	admin.HandleFunc("/config/oauth", handlers.GetOAuthConfig(database)).Methods("GET")
 	admin.HandleFunc("/config/mode", handlers.SetUserMode(database)).Methods("PUT")
 	protected.HandleFunc("/css", handlers.ListCSSSheets(database)).Methods("GET")

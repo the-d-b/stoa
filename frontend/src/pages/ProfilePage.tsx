@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import SectionHelp from '../components/admin/SectionHelp'
 import MailConfigPanel from '../components/admin/MailConfigPanel'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -7,7 +7,7 @@ import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
-import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, porticoConfigApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
+import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, porticoConfigApi, appIconApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import PanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/PanelForm'
 import CalendarSourceAdder from '../components/admin/CalendarSourceAdder'
 import IntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/IntegrationForm'
@@ -158,6 +158,7 @@ export default function ProfilePage() {
 
 function OverviewTab() {
   const { user, setUser } = useAuth()
+  const userMode = useUserMode()
   const [email, setEmail] = useState(user?.email || '')
   const [editingEmail, setEditingEmail] = useState(false)
   const [savingEmail, setSavingEmail] = useState(false)
@@ -169,6 +170,11 @@ function OverviewTab() {
   const [avatarUrl, setAvatarUrl] = useState('')
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  const [appIconUrl, setAppIconUrl] = useState<string | null>(null)
+  const [uploadingAppIcon, setUploadingAppIcon] = useState(false)
+  const [appIconError, setAppIconError] = useState('')
+  const [appIconSaved, setAppIconSaved] = useState(false)
+  const appIconInputRef = useRef<HTMLInputElement>(null)
   // Password change (local users only)
   const [currentPw, setCurrentPw] = useState('')
   const [newPw, setNewPw] = useState('')
@@ -184,7 +190,10 @@ function OverviewTab() {
       setUsername(r.data.username || user?.username || '')
       setAvatarUrl(r.data.avatarUrl || '')
     }).catch(() => {})
-  }, [])
+    if (userMode === 'single') {
+      appIconApi.get().then(r => setAppIconUrl(r.data?.url ?? null)).catch(() => {})
+    }
+  }, [userMode])
 
   const saveEmail = async () => {
     setSavingEmail(true)
@@ -226,6 +235,30 @@ function OverviewTab() {
     finally { setUploadingAvatar(false) }
   }
 
+  const handleAppIconChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) { setAppIconError('Image must be under 2 MB'); return }
+    setAppIconError(''); setUploadingAppIcon(true)
+    try {
+      const res = await appIconApi.uploadProfile(file)
+      const freshUrl = res.data.url + '?t=' + Date.now()
+      setAppIconUrl(freshUrl)
+      const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+      if (link) link.href = freshUrl
+      setAppIconSaved(true)
+      setTimeout(() => setAppIconSaved(false), 2000)
+    } catch { setAppIconError('Upload failed') }
+    finally { setUploadingAppIcon(false); if (appIconInputRef.current) appIconInputRef.current.value = '' }
+  }
+
+  const resetAppIcon = async () => {
+    await appIconApi.removeProfile()
+    setAppIconUrl(null)
+    const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    if (link) link.href = '/favicon.svg'
+  }
+
   const initials = user?.username
     ? user.username.split(' ').map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
     : '?'
@@ -264,6 +297,48 @@ function OverviewTab() {
           </div>
         </div>
       </div>
+
+      {/* App Icon — single-user mode only */}
+      {userMode === 'single' && (
+        <div className="card" style={{ padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>App icon</div>
+          <p style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.6 }}>
+            Replace the Stoa icon shown in browser tabs and bookmarks.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 48, height: 48, borderRadius: 10, border: '1px solid var(--border)',
+              background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden', flexShrink: 0 }}>
+              {appIconUrl
+                ? <img src={appIconUrl} style={{ width: 40, height: 40, objectFit: 'contain' }}
+                    onError={() => setAppIconUrl(null)} />
+                : <span style={{ fontSize: 22 }}>🦉</span>
+              }
+            </div>
+            <div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 6 }}>
+                <label style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  cursor: 'pointer', padding: '6px 14px', borderRadius: 8, fontSize: 12,
+                  background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text)',
+                }}>
+                  {uploadingAppIcon ? <span className="spinner" /> : 'Upload icon'}
+                  <input ref={appIconInputRef} type="file" accept="image/*" style={{ display: 'none' }}
+                    onChange={handleAppIconChange} />
+                </label>
+                {appIconUrl && (
+                  <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={resetAppIcon}>
+                    Reset to default
+                  </button>
+                )}
+                {appIconSaved && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Updated</span>}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>PNG, JPG, SVG, WebP · max 2 MB</div>
+              {appIconError && <div style={{ fontSize: 12, color: 'var(--red)', marginTop: 4 }}>{appIconError}</div>}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Email */}
       <div className="card" style={{ padding: 16 }}>

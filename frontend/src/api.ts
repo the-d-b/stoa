@@ -587,6 +587,22 @@ export const attachmentConfigApi = {
   save: (maxMB: number) => api.put<{ maxMB: number }>('/attachment-config', { maxMB }),
 }
 
+export const appIconApi = {
+  get: () => api.get<{ url: string | null }>('/config/app-icon'),
+  upload: (file: File) => {
+    const form = new FormData()
+    form.append('icon', file)
+    return api.post<{ url: string }>('/config/app-icon', form)
+  },
+  remove: () => api.delete('/config/app-icon'),
+  uploadProfile: (file: File) => {
+    const form = new FormData()
+    form.append('icon', file)
+    return api.post<{ url: string }>('/profile/app-icon', form)
+  },
+  removeProfile: () => api.delete('/profile/app-icon'),
+}
+
 export const sessionsApi = {
   list: (days?: '1'|'7'|'30') =>
     api.get<SessionRow[]>(`/sessions${days ? `?days=${days}` : ''}`),

@@ -116,6 +116,18 @@ export function StoaLogo({ size = 32 }: { size?: number }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    fetch('/api/config/app-icon')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data?.url) {
+          const link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+          if (link) link.href = data.url + '?t=' + Date.now()
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <BrowserRouter>
       <ThemeProvider>
