@@ -748,6 +748,22 @@ var migrations = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_kanban_cards_board ON kanban_cards(board_id)`,
 		},
 	},
+	{
+		version: 51,
+		name:    "youtube_tokens",
+		up: `CREATE TABLE IF NOT EXISTS youtube_tokens (
+			integration_id    TEXT PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+			access_token      TEXT NOT NULL,
+			refresh_token     TEXT NOT NULL,
+			expires_at        DATETIME NOT NULL,
+			channel_id        TEXT NOT NULL DEFAULT '',
+			channel_title     TEXT NOT NULL DEFAULT '',
+			profile_image_url TEXT NOT NULL DEFAULT '',
+			feed_cache        TEXT,
+			feed_cached_at    DATETIME,
+			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

@@ -79,6 +79,7 @@ func main() {
 	api.HandleFunc("/spotify/callback", handlers.SpotifyOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/strava/callback", handlers.StravaOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/twitch/callback", handlers.TwitchOAuthCallback(database)).Methods("GET")
+	api.HandleFunc("/youtube/callback", handlers.YouTubeOAuthCallback(database)).Methods("GET")
 
 	// ── Health check (public) ───────────────────────────────
 	api.HandleFunc("/health", handlers.HealthCheck(database)).Methods("GET")
@@ -266,6 +267,11 @@ func main() {
 	protected.HandleFunc("/twitch/auth", handlers.TwitchOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/twitch/status", handlers.TwitchGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/twitch/disconnect", handlers.TwitchDisconnect(database)).Methods("DELETE")
+
+	// YouTube OAuth
+	protected.HandleFunc("/youtube/auth", handlers.YouTubeOAuthRedirect(database)).Methods("GET")
+	protected.HandleFunc("/youtube/status", handlers.YouTubeGetStatus(database)).Methods("GET")
+	protected.HandleFunc("/youtube/disconnect", handlers.YouTubeDisconnect(database)).Methods("DELETE")
 
 	// Kanban
 	protected.HandleFunc("/kanban/boards", handlers.KanbanListBoards(database)).Methods("GET")

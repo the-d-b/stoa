@@ -115,6 +115,7 @@ export const INTEGRATION_TYPES = [
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
   { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
   // Content
+  { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — recent videos from channels you follow. No URL needed. API key: clientId:clientSecret from Google Cloud Console (YouTube Data API v3). After creating, connect your Google account from the integration edit page.', category: 'Content' },
   { id: 'twitch',       label: 'Twitch',       desc: 'Live stream dashboard — no URL needed. API key: clientId:clientSecret from your Twitch Developer Console app. After creating, connect your Twitch account from the integration edit page.', category: 'Content' },
   { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV watch tracking — no URL needed. API key: clientId:username (colon-separated). Get your Client ID at trakt.tv/oauth/applications. Username is your Trakt profile name. Requires a public Trakt profile.', category: 'Content' },
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
@@ -122,8 +123,8 @@ export const INTEGRATION_TYPES = [
   { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Content' },
 ]
 
-const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch']
+const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -211,6 +212,20 @@ export default function IntegrationForm({
       .then(r => r.json())
       .then(d => setTwitchStatus(d))
       .catch(() => setTwitchStatus({ connected: false }))
+  }, [isEdit, integration?.id, integration?.type])
+
+  // ── YouTube OAuth status ───────────────────────────────────────────────────
+  const [youtubeStatus, setYoutubeStatus] = useState<{
+    connected: boolean; channelTitle?: string; profileImageUrl?: string
+  } | null>(null)
+  const [youtubeDisconnecting, setYoutubeDisconnecting] = useState(false)
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'youtube') return
+    fetch(`/api/youtube/status?integrationId=${integration!.id}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setYoutubeStatus(d))
+      .catch(() => setYoutubeStatus({ connected: false }))
   }, [isEdit, integration?.id, integration?.type])
 
   // ── Test connection ────────────────────────────────────────────────────────
@@ -661,6 +676,75 @@ export default function IntegrationForm({
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             No URL or OAuth needed. Requires a public Trakt profile. Shows watch history, currently watching, and stats.
           </div>
+        </div>
+      ) : activeType === 'youtube' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>clientId:clientSecret</code> from{' '}
+            <a href="https://console.cloud.google.com/apis/dashboard" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>Google Cloud Console</a>{' '}
+            (enable YouTube Data API v3, create OAuth 2.0 credentials).{' '}
+            OAuth redirect URI to add: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+              {window.location.origin}/api/youtube/callback</code>
+          </div>
+          {isEdit && integration && (
+            <div style={{ padding: '10px 12px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                YouTube Account
+              </div>
+              {youtubeStatus === null ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+              ) : youtubeStatus.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
+                    {youtubeStatus.profileImageUrl && (
+                      <img src={youtubeStatus.profileImageUrl} alt=""
+                        style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                    )}
+                    <div>
+                      <div style={{ fontSize: 12, color: 'var(--text)' }}>
+                        Connected as <strong>{youtubeStatus.channelTitle}</strong>
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                        Shows recent videos from your subscribed channels.
+                      </div>
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, flexShrink: 0 }}
+                    disabled={youtubeDisconnecting}
+                    onClick={async () => {
+                      setYoutubeDisconnecting(true)
+                      try {
+                        await fetch(`/api/youtube/disconnect?integrationId=${integration.id}`, {
+                          method: 'DELETE', credentials: 'include'
+                        })
+                        setYoutubeStatus({ connected: false })
+                      } finally { setYoutubeDisconnecting(false) }
+                    }}>
+                    {youtubeDisconnecting ? '…' : 'Disconnect'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
+                    Not connected — authorize Stoa to read your YouTube subscriptions.
+                  </div>
+                  <a href={`/api/youtube/auth?integrationId=${integration.id}`}
+                    className="btn btn-primary"
+                    style={{ fontSize: 11, textDecoration: 'none', flexShrink: 0,
+                      background: '#FF0000', borderColor: '#FF0000' }}>
+                    Connect YouTube
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to connect your Google account via OAuth.
+            </div>
+          )}
         </div>
       ) : activeType === 'twitch' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

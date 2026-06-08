@@ -326,6 +326,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testTraktConnection(apiKey)
 		case "twitch":
 			err = testTwitchConnection(apiKey)
+		case "youtube":
+			err = testYouTubeConnection(apiKey)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -498,6 +500,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testTraktConnection(apiKey)
 						case "twitch":
 							retryErr = testTwitchConnection(apiKey)
+						case "youtube":
+							retryErr = testYouTubeConnection(apiKey)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -808,6 +812,8 @@ func defaultRefreshSecs(igType string) int {
 		return 60
 	case "twitch":
 		return 60
+	case "youtube":
+		return 3600
 	case "pterodactyl":
 		return 30
 	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":

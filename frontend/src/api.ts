@@ -787,7 +787,16 @@ export const expressSetupApi = {
   status: () => api.get<{ existingTypes: string[] }>('/express-setup/status'),
   run: (data: {
     panelHeight: number
-    services: Record<string, { apiKey?: string; apiUrl?: string; uiUrl?: string }>
+    services: {
+      type: string
+      label: string
+      secretName: string
+      apiKey: string
+      apiUrl: string
+      needsKey: boolean
+      needsUrl: boolean
+      createPanel: boolean
+    }[]
   }) => api.post<{ results: { type: string; created: boolean; skipped: boolean; error?: string }[] }>(
     '/express-setup', data
   ),

@@ -13,7 +13,6 @@ import (
 )
 
 // ExpressSetupStatus returns the integration types that are already configured.
-// The wizard uses this to grey-out services that don't need re-configuring.
 func ExpressSetupStatus(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		rows, err := db.Query("SELECT DISTINCT type FROM integrations")
@@ -35,30 +34,14 @@ func ExpressSetupStatus(db *sql.DB) http.HandlerFunc {
 }
 
 type expressServiceInput struct {
-	APIKey string `json:"apiKey"`
-	APIURL string `json:"apiUrl"`
-	UIURL  string `json:"uiUrl"`
-}
-
-type expressSetupMeta struct {
-	Type        string
-	Label       string
-	SecretName  string
-	NeedsKey    bool
-	NeedsURL    bool
-	CreatePanel bool
-}
-
-// expressServices is the ordered list of services the wizard supports.
-var expressServices = []expressSetupMeta{
-	{"sonarr", "Sonarr", "Sonarr API Key", true, true, true},
-	{"radarr", "Radarr", "Radarr API Key", true, true, true},
-	{"lidarr", "Lidarr", "Lidarr API Key", true, true, true},
-	{"readarr", "Readarr", "Readarr API Key", true, true, true},
-	{"plex", "Plex", "Plex Token", true, true, true},
-	{"tautulli", "Tautulli", "Tautulli API Key", true, true, true},
-	{"kuma", "Uptime Kuma", "", false, true, true},
-	{"gemini", "Gemini", "Gemini API Key", true, false, false},
+	Type        string `json:"type"`
+	Label       string `json:"label"`
+	SecretName  string `json:"secretName"`
+	APIKey      string `json:"apiKey"`
+	APIURL      string `json:"apiUrl"`
+	NeedsKey    bool   `json:"needsKey"`
+	NeedsURL    bool   `json:"needsUrl"`
+	CreatePanel bool   `json:"createPanel"`
 }
 
 // ExpressSetupRun bulk-creates secrets, integrations, and panels from wizard input.
@@ -67,8 +50,8 @@ func ExpressSetupRun(db *sql.DB) http.HandlerFunc {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 
 		var req struct {
-			PanelHeight int                            `json:"panelHeight"`
-			Services    map[string]expressServiceInput `json:"services"`
+			PanelHeight int                   `json:"panelHeight"`
+			Services    []expressServiceInput `json:"services"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request")
@@ -105,15 +88,14 @@ func ExpressSetupRun(db *sql.DB) http.HandlerFunc {
 		}
 		results := []resultEntry{}
 
-		for _, svc := range expressServices {
-			input, ok := req.Services[svc.Type]
-			if !ok {
+		for _, svc := range req.Services {
+			if strings.TrimSpace(svc.Type) == "" {
 				continue
 			}
-			if svc.NeedsKey && strings.TrimSpace(input.APIKey) == "" {
+			if svc.NeedsKey && strings.TrimSpace(svc.APIKey) == "" {
 				continue
 			}
-			if svc.NeedsURL && strings.TrimSpace(input.APIURL) == "" {
+			if svc.NeedsURL && strings.TrimSpace(svc.APIURL) == "" {
 				continue
 			}
 			if existing[svc.Type] {
@@ -122,7 +104,7 @@ func ExpressSetupRun(db *sql.DB) http.HandlerFunc {
 			}
 
 			entry := resultEntry{Type: svc.Type}
-			integID, err := createExpressBundle(db, svc, input, req.PanelHeight, ownerID)
+			integID, err := createExpressBundle(db, svc, req.PanelHeight, ownerID)
 			if err != nil {
 				log.Printf("[EXPRESS SETUP] %s error: %v", svc.Type, err)
 				entry.Error = err.Error()
@@ -140,13 +122,13 @@ func ExpressSetupRun(db *sql.DB) http.HandlerFunc {
 }
 
 // createExpressBundle creates a secret + integration + panel for a single service.
-// Returns the integration ID (empty string for key-only services like Gemini).
-func createExpressBundle(db *sql.DB, svc expressSetupMeta, input expressServiceInput, height int, ownerID string) (string, error) {
+// Returns the integration ID (empty for key-only services).
+func createExpressBundle(db *sql.DB, svc expressServiceInput, height int, ownerID string) (string, error) {
 	var secretID interface{}
 
-	// Step 1: create secret (if the service requires an API key)
-	if svc.NeedsKey && strings.TrimSpace(input.APIKey) != "" {
-		enc, err := encryptSecret(strings.TrimSpace(input.APIKey))
+	// Step 1: create secret (if the service has an API key)
+	if strings.TrimSpace(svc.APIKey) != "" {
+		enc, err := encryptSecret(strings.TrimSpace(svc.APIKey))
 		if err != nil {
 			return "", fmt.Errorf("encrypt secret: %w", err)
 		}
@@ -155,32 +137,32 @@ func createExpressBundle(db *sql.DB, svc expressSetupMeta, input expressServiceI
 		if ownerID != "SYSTEM" {
 			scope = "personal"
 		}
+		secretName := svc.SecretName
+		if secretName == "" {
+			secretName = svc.Label + " API Key"
+		}
 		if _, err := db.Exec(
 			`INSERT INTO secrets (id, name, value, scope, created_by) VALUES (?, ?, ?, ?, ?)`,
-			sid, svc.SecretName, enc, scope, ownerID,
+			sid, secretName, enc, scope, ownerID,
 		); err != nil {
 			return "", fmt.Errorf("create secret: %w", err)
 		}
 		secretID = sid
 	}
 
-	// Key-only services (e.g. Gemini) stop here — no integration or panel needed
-	if !svc.NeedsURL {
-		return "", nil
-	}
-
-	apiURL := strings.TrimSpace(input.APIURL)
+	apiURL := strings.TrimSpace(svc.APIURL)
 	if apiURL == "" {
+		// Key-only service (no URL needed) — done after secret creation
 		return "", nil
 	}
 
-	// Step 2: create integration
+	// Step 2: create integration (URL used for both api_url and ui_url)
 	iid := generateID()
 	refresh := defaultRefreshSecs(svc.Type)
 	if _, err := db.Exec(
 		`INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, enabled, skip_tls, refresh_secs, created_by)
 		 VALUES (?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`,
-		iid, svc.Label, svc.Type, apiURL, strings.TrimSpace(input.UIURL),
+		iid, svc.Label, svc.Type, apiURL, apiURL,
 		secretID, refresh, ownerID,
 	); err != nil {
 		return "", fmt.Errorf("create integration: %w", err)

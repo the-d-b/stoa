@@ -52,8 +52,9 @@ Stoa uses a single data directory (`/data`) that you should mount as a persisten
 | `/data/db` | SQLite database — all configuration, users, panels, integrations | **Yes** |
 | `/data/icons` | Custom bookmark icons uploaded by users | Recommended |
 | `/data/css` | Custom CSS sheets uploaded per user for dashboard personalization | Recommended |
+| `/data/attachments` | File attachments (notes, checklists) | Recommended |
 
-If you mount the whole `/data` volume (as in the example above), all three subdirectories are covered automatically.
+If you mount the whole `/data` volume (as in the example above), all four subdirectories are covered automatically.
 
 ### Optional mounts
 
@@ -231,8 +232,7 @@ Admins can send a reset link to any user from Admin → Users → select user �
 
 ## What's next
 
-- [Panels](panels.md) — all panel types and what they show
-- [Integrations](integrations.md) — service-specific setup notes
+- [Integrations](integrations/) — master chart and per-integration setup guides with panel screenshots
 - [Layouts](layouts.md) — Stylos, Seira, Rema, and Custom explained
 - [Concepts](concepts.md) — users, groups, tags, panels, and porticos
 - [CLI reference](cli.md) — administrative tasks from the command line

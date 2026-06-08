@@ -88,6 +88,7 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 | `STOA_PORT` | No | `8080` | Port the backend listens on |
 | `STOA_ICONS_DIR` | No | `/data/icons` | Directory for uploaded bookmark icons |
 | `STOA_CSS_DIR` | No | `/data/css` | Directory for user CSS customization files |
+| `STOA_ATTACHMENTS_DIR` | No | `/data/attachments` | Directory for file attachments (notes, checklists) |
 | `STOA_ALLOWED_ORIGINS` | No | `http://localhost:3000` | Comma-separated allowed CORS origins |
 | `STOA_OAUTH_CLIENT_ID` | No | — | OIDC client ID for SSO |
 | `STOA_OAUTH_CLIENT_SECRET` | No | — | OIDC client secret |
@@ -103,8 +104,7 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 | [Comparison](docs/comparison.md) | How Stoa compares to Homepage, Homarr, Organizr, and others |
 | [Getting started](docs/getting-started.md) | Install, volume mounts, order of operations, express setup |
 | [Concepts](docs/concepts.md) | Users, groups, tags, panels, and porticos |
-| [Integrations](docs/integrations.md) | Service-specific auth and URL notes for all 30+ integrations |
-| [Panels](docs/panels.md) | All panel types, integration requirements, heights |
+| [Integrations](docs/integrations/) | Master chart + per-integration setup guides with panel screenshots |
 | [Layouts](docs/layouts.md) | Stylos, Seira, Rema, and Custom layout modes |
 | [Glyphs & Tickers](docs/glyphs-and-tickers.md) | Header/footer widgets |
 | [Docker control panel](docs/docker-control-panel.md) | Container management setup |

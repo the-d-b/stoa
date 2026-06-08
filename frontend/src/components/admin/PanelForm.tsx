@@ -117,6 +117,7 @@ export const PANEL_TYPES: {
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Content' },
+  { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — thumbnail grid of recent videos from channels you follow; click to play inline with fullscreen support', needsIntegration: true, category: 'Content' },
   { id: 'twitch',       label: 'Twitch',       desc: 'Live stream feed — list of followed channels currently live with viewer count, uptime, category; stream thumbnail cards with title preview at 4x+', needsIntegration: true, category: 'Content' },
   { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV tracking — currently watching indicator, watch history with movie/episode details, stats (movies/episodes watched), and 10-point rating distribution chart at larger sizes', needsIntegration: true, category: 'Content' },
   { id: 'spotify',      label: 'Spotify',      desc: 'Now playing + recently played. Premium: progress bar and playback controls.', needsIntegration: true, category: 'Content' },

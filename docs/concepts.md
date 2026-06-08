@@ -81,3 +81,26 @@ User:
   Creates a Portico tagged "infra" → one-click view of all infra panels
   Reorders panels → their order, doesn't affect others
 ```
+
+---
+
+## Data flow
+
+Understanding how data moves from your services to your dashboard helps explain why panels sometimes show slightly stale data — and why that's intentional.
+
+```
+Your service  →  Stoa backend  →  SQLite cache  →  Frontend panel
+(Sonarr, etc.)   (Go process)     (on disk)        (React UI)
+```
+
+**Backend polling:** When you create an integration, the backend starts polling your service on a configurable interval (e.g. every 30 seconds for OPNsense, every 30 minutes for Sonarr). Each poll fetches fresh data from the service, processes it, and writes the result to the SQLite database. The integration record in the database holds both the connection config and the most recently fetched payload.
+
+**The cache:** The backend stores the last successful response in the database. If your service goes offline briefly, panels continue to show the last known data rather than an error. When the service comes back, the next successful poll updates the cache automatically.
+
+**Frontend panels:** When you open the dashboard, each panel calls `/api/panels/{id}/data` to retrieve the cached payload from the database. The backend decrypts credentials, checks if the cache is fresh enough, re-fetches if needed, and returns the data. The panel renders it immediately — there's no direct connection between your browser and the service being monitored.
+
+**Why this matters:**
+- Panels load fast because they read from a local database, not from your (potentially slow) services on every page load
+- Sensitive credentials (API keys, passwords) stay on the server — they're never sent to the browser
+- Refresh rate is controlled per-integration; a Sonarr queue doesn't need sub-second updates, but a torrent client speed display might want 15-second polling
+- OAuth integrations (Spotify, Twitch, YouTube, Strava) store encrypted access and refresh tokens in the database; the backend refreshes them silently before they expire

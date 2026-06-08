@@ -10,11 +10,16 @@ export interface PickerType {
 
 interface Props {
   types: PickerType[]
-  value: string
-  onChange: (id: string) => void
+  // single-select
+  value?: string
+  onChange?: (id: string) => void
+  // multi-select
+  values?: string[]
+  onChangeMulti?: (ids: string[]) => void
 }
 
-export default function TypeCardPicker({ types, value, onChange }: Props) {
+export default function TypeCardPicker({ types, value, onChange, values, onChangeMulti }: Props) {
+  const isMulti = values !== undefined
   const [filter, setFilter] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
 
@@ -115,12 +120,19 @@ export default function TypeCardPicker({ types, value, onChange }: Props) {
                   gap: 6,
                 }}>
                   {catTypes.map(t => {
-                    const sel = t.id === value
+                    const sel = isMulti ? (values?.includes(t.id) ?? false) : t.id === value
+                    const handleClick = () => {
+                      if (isMulti && onChangeMulti && values !== undefined) {
+                        onChangeMulti(sel ? values.filter(id => id !== t.id) : [...values, t.id])
+                      } else {
+                        onChange?.(t.id)
+                      }
+                    }
                     return (
                       <button
                         key={t.id}
                         type="button"
-                        onClick={() => onChange(t.id)}
+                        onClick={handleClick}
                         style={{
                           padding: '8px 10px',
                           borderRadius: 7,
@@ -131,11 +143,19 @@ export default function TypeCardPicker({ types, value, onChange }: Props) {
                           display: 'flex',
                           flexDirection: 'column',
                           gap: 3,
+                          position: 'relative',
                         }}
                       >
+                        {isMulti && sel && (
+                          <span style={{
+                            position: 'absolute', top: 5, right: 7,
+                            fontSize: 10, color: 'var(--accent)', fontWeight: 700,
+                          }}>✓</span>
+                        )}
                         <span style={{
                           fontSize: 13, fontWeight: 500,
                           color: sel ? 'var(--accent)' : 'var(--text)',
+                          paddingRight: isMulti ? 14 : 0,
                         }}>
                           {t.label}
                           {t.warn && <span style={{ fontSize: 10, color: 'var(--amber)', marginLeft: 4 }}>⚠</span>}
