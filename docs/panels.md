@@ -75,6 +75,17 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Home Assistant | Yes |
 | Overseerr / Jellyseerr | Yes |
 | Steam | Yes |
+| Tdarr | Yes |
+| Maintainerr | Yes |
+| Docspell | Yes |
+| RomM | Yes |
+| Pterodactyl | Yes |
+| Monica | Yes |
+| Homebox | Yes |
+| wger | Yes |
+| Fittrackee | Yes |
+| Spotify | Yes |
+| Last.fm | Yes |
 | Calendar | Yes (one or more — Sonarr/Radarr/Lidarr/Readarr/Google Calendar) |
 | RSS / Atom | Yes |
 | Custom API | Yes |
@@ -583,6 +594,63 @@ Request counts by status, movie vs. TV breakdown, recent pending requests. See [
 
 ### Steam
 Player profile (online state, current game), owned game count and total hours, top games by playtime, recently played, recent achievement unlocks, Steam store sales and new releases. See [integrations.md](integrations.md#steam).
+
+### Tdarr
+Media transcoding automation status — active and idle worker summary, per-worker progress (file, %, ETA), total files in library, files transcoded, files health-checked, and space saved. See [integrations.md](integrations.md#tdarr).
+
+**Height:** 1× = compact bar (active workers, space saved, file counts); 2–3× = worker list with progress and ETA; 4×+ = full worker detail with node and worker-type breakdown.
+
+### Maintainerr
+Media library cleanup — active collections, total media in scope, and per-collection detail (type, delete-after window, arr action, media count). See [integrations.md](integrations.md#maintainerr).
+
+**Height:** 1× = active collections + total media; 2–3× = stat chips + collection list; 4×+ = full collection table with type badges and action detail.
+
+### Docspell
+Document archive stats (item count, storage, tag count) and a recent document list with name, date, correspondent, folder, and tags. See [integrations.md](integrations.md#docspell).
+
+**Height:** 1× = stat chips (items, storage, tags); 2–3× = chips + recent document list; 4×+ = two-column layout with stats and full recent list.
+
+### RomM
+ROM library overview — total platforms, ROMs, and library size, with a per-platform list and a recently-added game cover grid. See [integrations.md](integrations.md#romm).
+
+**Height:** 1× = total ROMs + platforms + size; 2–3× = platform list + cover grid; 4×+ = platform detail + full cover grid.
+
+### Pterodactyl
+Game server panel — all servers accessible to your API key with state (running/starting/stopping/offline), CPU, memory, disk, and uptime. See [integrations.md](integrations.md#pterodactyl).
+
+**Height:** 1× = running/total count; 2–3× = compact server list with state and CPU/RAM; 4×+ = full server cards with resource bars and uptime.
+
+### Monica
+Personal CRM panel — total contact count and upcoming reminders with contact name, date, and days until. Color-coded for reminders due today or within the week. See [integrations.md](integrations.md#monica).
+
+**Height:** 1× = contact count + imminent reminders; 2–3× = reminder list; 4×+ = full reminder list with dates and contact detail.
+
+### Homebox
+Home inventory panel — total items, locations, labels, warranty count, and inventory value. Per-location item counts with proportional bars. See [integrations.md](integrations.md#homebox).
+
+**Height:** 1× = total items + locations + warranties; 2–3× = stat chips + location list; 4×+ = stat chips + location bars + value breakdown.
+
+### wger
+Workout manager panel — total workout count, recent session log (date, impression, notes), and weight history entries. See [integrations.md](integrations.md#wger).
+
+**Height:** 1× = total workouts + last session date; 2–3× = recent session list; 4×+ = session list + weight log chart.
+
+### Fittrackee
+Activity tracker panel — total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity. See [integrations.md](integrations.md#fittrackee).
+
+**Height:** 1× = total workouts + distance + duration; 2–3× = stat chips + recent workout list; 4×+ = stat chips + full workout list with all metrics.
+
+### Spotify
+Now-playing panel — current or most recently played track with album art, progress bar, and playback controls (Premium). Recent play history at taller heights. See [integrations.md](integrations.md#spotify).
+
+**Height:** 1× = now-playing indicator + track + artist; 2–3× = album art + track info + progress bar + controls; 4×+ = all of the above + recent play history.
+
+**Playback controls:** Require Spotify Premium. Controls are proxied through the Stoa backend — your access token never leaves the server.
+
+### Last.fm
+Music scrobbling panel — now playing indicator, current or recent track with artist/album, lifetime scrobble count. Top artists bar chart, top tracks and albums lists (7-day window). See [integrations.md](integrations.md#last.fm).
+
+**Height:** 1× = now-playing dot + track + artist + scrobble count; 2–3× = now-playing section + recent scrobble list; 4×+ = album art + full stats + top artists chart + top tracks and albums side-by-side; 5×+ adds recent scrobble history.
 
 ### Calendar
 Multi-source calendar aggregating upcoming events from any combination of Sonarr, Radarr, Lidarr, Readarr, and Google Calendar.

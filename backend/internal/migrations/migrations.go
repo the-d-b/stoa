@@ -681,6 +681,19 @@ var migrations = []migration{
 			)`,
 		},
 	},
+	{
+		version: 47,
+		name:    "spotify_tokens",
+		up: `CREATE TABLE IF NOT EXISTS spotify_tokens (
+			integration_id TEXT PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+			access_token   TEXT NOT NULL,
+			refresh_token  TEXT NOT NULL,
+			expires_at     DATETIME NOT NULL,
+			display_name   TEXT NOT NULL DEFAULT '',
+			product        TEXT NOT NULL DEFAULT 'free',
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

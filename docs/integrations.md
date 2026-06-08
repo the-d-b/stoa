@@ -45,6 +45,14 @@ Different services use different authentication schemes. Stoa normalises these b
 | `user@realm!tokenid:secret` | Proxmox | Proxmox API token format — the full token string goes in the Authorization header |
 | Token (query param) | Plex | Plex appends `X-Plex-Token` to every request URL |
 | API key (query param) | Tautulli | Tautulli appends `apikey` to every request URL |
+| Bearer token | Monica, Pterodactyl | Token created in the service's UI and sent as `Authorization: Bearer`. |
+| `email:password` | Homebox, Fittrackee | Stoa logs in via the service's auth endpoint and uses the returned session token. |
+| Plain API key (`Token` header) | wger | Permanent API key from wger Dashboard → API. Stoa sends it as `Authorization: Token <key>`. |
+| `account:password` | Docspell | Account is `collective/user` for multi-collective setups, or just `user` for single-collective. Stoa exchanges credentials for a session token. |
+| `username:password` or bare bearer | RomM, Maintainerr | If the value contains a colon, Stoa uses Basic Auth. If no colon, it's sent as `Authorization: Bearer`. |
+| No auth, `username:password`, or bare bearer | Tdarr | Tdarr runs unauthenticated by default (leave blank). API key from Tdarr → Tools → API Keys for single-token auth. `username:password` for a reverse-proxy Basic Auth layer. |
+| `clientId:clientSecret` → OAuth | Spotify | App credentials from Spotify Developer Dashboard. Used to authorize Stoa's OAuth flow — store as `clientId:clientSecret`. Connect your user account from the integration edit page after saving. |
+| `username:apiKey` | Last.fm | Last.fm username and API key, colon-separated. API key from last.fm/api (free, no OAuth required). |
 
 **Why a single field for two values?** Several services require both a username and a password (or key and secret). Rather than two separate secret fields, Stoa uses the convention `username:password` stored as one value. The colon is the separator — Stoa splits on the first colon. This is the same format curl uses with `-u user:pass`.
 
@@ -1458,6 +1466,149 @@ Workarounds:
 - **Use your router's DNS override** to make a real domain (e.g. `stoa.yourdomain.com`) resolve to your local IP, then register that URL as the redirect URI.
 - **Use a local IP address** as the authorized redirect URI (e.g. `http://192.168.1.10:8080/api/google/callback`). Google accepts IP addresses for development credentials.
 - **Use an SSH tunnel or VPN** to expose Stoa temporarily during the OAuth authorization step, then remove the tunnel afterward — the refresh token persists.
+
+---
+
+## Tdarr
+
+**What it shows:** Media transcoding automation status — active and idle worker counts, per-worker detail (node name, worker type, current file, progress %, ETA), total library file count, files transcoded, files health-checked, and cumulative space saved in GB.
+
+**Auth:** Optional. Leave blank for unauthenticated local instances. For API key auth: bare token from Tdarr → Tools → API Keys. For a Basic Auth reverse-proxy layer: `username:password`.
+
+**URL:** Your Tdarr server URL, e.g. `http://192.168.1.10:8265`
+
+**Height:** 1× = compact bar (active workers, space saved, file counts); 2–3× = worker list with progress and ETA; 4×+ = full worker detail + library stats.
+
+---
+
+## Maintainerr
+
+**What it shows:** Media library cleanup collection overview — active collection count, total media in collections, items handled to date. Collection list with type (movies, shows, seasons, episodes), delete-after window, arr action (delete / unmonitor+delete / unmonitor), and current media count per collection.
+
+**Auth:** Optional. Maintainerr runs unauthenticated by default — leave blank. For a reverse-proxy Basic Auth layer: `username:password`. For Bearer: bare token.
+
+**URL:** Your Maintainerr base URL, e.g. `http://192.168.1.10:6246`
+
+**Height:** 1× = active collections count + total media; 2–3× = stat chips + collection list; 4×+ = full collection table with delete window and action detail.
+
+---
+
+## Docspell
+
+**What it shows:** Document archive stats — total item count, storage usage, tag count — and a scrollable list of recently added documents with name, date, correspondent, folder, and tags.
+
+**Auth:** `account:password`. For multi-collective Docspell instances, use `collective/user:password`. For a single-collective instance, just `user:password`. Stoa exchanges credentials for a session token.
+
+**URL:** Your Docspell base URL, e.g. `http://192.168.1.10:7880`
+
+**Height:** 1× = stat chips (items, storage, tags); 2–3× = chips + recent document list; 4×+ = two-column layout (stats + tags | full recent document list with correspondent and folder).
+
+---
+
+## RomM
+
+**What it shows:** ROM library overview — total platform count, total ROM count, library size. Per-platform list with ROM counts and platform logos. Recently added games with cover art.
+
+**Auth:** Two options:
+- `username:password` — standard RomM credentials (Basic Auth)
+- Bare `rmm_` bearer token — from RomM → Settings → API Keys
+
+**URL:** Your RomM base URL, e.g. `http://192.168.1.10:8080`
+
+**Height:** 1× = total ROMs + platforms + library size; 2–3× = stat chips + platform list with counts + cover grid; 4×+ = platform detail + full cover grid.
+
+---
+
+## Pterodactyl
+
+**What it shows:** Game server panel — list of all servers accessible to your API key with state (running/starting/stopping/offline), CPU usage percentage, memory usage and limit, disk usage and limit, and uptime. Running/total server summary counts.
+
+**Auth:** Client API key (`ptlc_…`) from Pterodactyl → Account → API Credentials. Sent as `Authorization: Bearer`. Note: this is the *client* API key, not the application API key — it shows servers your account can access.
+
+**URL:** Your Pterodactyl panel base URL, e.g. `http://192.168.1.10`
+
+**Height:** 1× = running/total server count; 2–3× = compact server list with state and CPU/RAM; 4×+ = full server cards with CPU, RAM, disk usage bars, and uptime.
+
+---
+
+## Monica
+
+**What it shows:** Total contact count and upcoming reminders — title, contact name, next expected date, and days until. Reminders due today or within 7 days are color-highlighted.
+
+**Auth:** Bearer token. Generate one in Monica → Settings → API → Create New Token.
+
+**URL:** Your Monica base URL, e.g. `http://192.168.1.10:8080`
+
+**Height:** 1× = contact count + imminent reminder count; 2–3× = stat chip + reminder list; 4×+ = reminder list with full detail.
+
+---
+
+## Homebox
+
+**What it shows:** Home inventory summary — total item count, location count, label count, items with active warranties, and total inventory value (when purchase prices are set). Per-location item counts with proportional bars.
+
+**Auth:** `email:password` of your Homebox account. Stoa logs in via the Homebox API and uses the returned session token.
+
+**URL:** Your Homebox base URL, e.g. `http://192.168.1.10:7745`
+
+**Height:** 1× = total items + locations + warranty count; 2–3× = stat chips + location list; 4×+ = stat chips + location bars + inventory value breakdown.
+
+---
+
+## wger
+
+**What it shows:** Workout manager panel — total workout count, recent workout sessions (date, impression rating, notes), and weight tracking history (recent weight log entries with date and value).
+
+**Auth:** Permanent API key from wger → Dashboard → API (top-right menu) or Profile → API Key. Stoa sends it as `Authorization: Token <key>`.
+
+**URL:** Your wger base URL, e.g. `http://192.168.1.10:80`
+
+**Height:** 1× = total workouts + most recent session date; 2–3× = stat chips + recent session list; 4×+ = session list + weight log chart.
+
+---
+
+## Fittrackee
+
+**What it shows:** Activity tracker panel — total workout count, number of sports, total distance, total duration, total ascent, and a recent workout list (sport type with emoji, title, date, distance, duration, average speed, ascent).
+
+**Auth:** `email:password` of your Fittrackee account. Stoa logs in via the Fittrackee API and uses the returned JWT token.
+
+**URL:** Your Fittrackee base URL, e.g. `http://192.168.1.10:5000`
+
+**Height:** 1× = total workouts + distance + duration; 2–3× = stat chips + recent workout list; 4×+ = stat chips + full workout list with all metrics.
+
+---
+
+## Spotify
+
+**What it shows:** Currently playing track (or most recently played), album art, track name, artist, album, playback progress bar with live tick, and recent play history. Playback controls (play/pause, previous, next) are available for Spotify Premium accounts.
+
+**Auth:** OAuth. Setup is a two-step process:
+
+1. Create a Spotify app at [developer.spotify.com](https://developer.spotify.com) → Dashboard → Create App. Set the Redirect URI to `https://your-stoa-url/api/spotify/callback`. Store `clientId:clientSecret` (colon-separated) in the API key field.
+2. After saving the integration, open it again in edit mode and click **Connect Spotify Account** to authorize. Stoa redirects you through Spotify's OAuth flow and stores the access and refresh tokens.
+
+**URL:** Not required — leave empty. Stoa sets this automatically.
+
+**Playback controls:** Proxied through the Stoa backend — your access token never leaves the server. Requires Spotify Premium for `play`, `pause`, `next`, and `previous` to work. Controls are shown at 2× and above; clicking them sends the command instantly and refreshes the panel after 800ms.
+
+**Token refresh:** Access tokens expire every hour. Stoa automatically refreshes using the stored refresh token — no re-authorization needed.
+
+**Height:** 1× = now-playing indicator + track + artist; 2–3× = album art + track info + progress bar + controls; 4×+ = all of the above + recent play history.
+
+---
+
+## Last.fm
+
+**What it shows:** Music scrobbling panel — now playing indicator (animated red pulsing dot), currently or recently scrobbled track with artist and album, total lifetime scrobble count, and member since year. Top artists for the past 7 days as a proportional bar chart. Top tracks and top albums for the past 7 days. Recent scrobble history at tall heights.
+
+**Auth:** `username:apiKey` (colon-separated). Get a free API key at [last.fm/api](https://www.last.fm/api). No OAuth or account linking required — just your Last.fm username and the API key.
+
+**URL:** Not required — data is fetched directly from the Last.fm public API.
+
+**Real-time:** Last.fm's API does not support streaming. Stoa polls every 30 seconds to keep the now-playing state current.
+
+**Height:** 1× = now-playing dot (if active) + track + artist + scrobble count; 2–3× = now-playing section + full recent scrobble list; 4×+ = album art + track/artist/album info + top artists bar chart + top tracks and albums side-by-side; 5×+ also shows recent scrobble history.
 
 ---
 
