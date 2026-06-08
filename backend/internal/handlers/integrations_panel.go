@@ -106,6 +106,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"duolingo":       func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchDuolingoPanelData(db, cfg) },
 	"github":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchGitHubPanelData(db, cfg) },
 	"trakt":          func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTraktPanelData(db, cfg) },
+	"twitch":         func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTwitchPanelData(db, cfg) },
 }
 
 func GetPanelData(db *sql.DB) http.HandlerFunc {

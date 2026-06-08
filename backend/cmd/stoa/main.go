@@ -78,6 +78,7 @@ func main() {
 	api.HandleFunc("/auth/google/callback", handlers.GoogleOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/spotify/callback", handlers.SpotifyOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/strava/callback", handlers.StravaOAuthCallback(database)).Methods("GET")
+	api.HandleFunc("/twitch/callback", handlers.TwitchOAuthCallback(database)).Methods("GET")
 
 	// ── Health check (public) ───────────────────────────────
 	api.HandleFunc("/health", handlers.HealthCheck(database)).Methods("GET")
@@ -260,6 +261,11 @@ func main() {
 	protected.HandleFunc("/strava/auth", handlers.StravaOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/strava/status", handlers.StravaGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/strava/disconnect", handlers.StravaDisconnect(database)).Methods("DELETE")
+
+	// Twitch OAuth
+	protected.HandleFunc("/twitch/auth", handlers.TwitchOAuthRedirect(database)).Methods("GET")
+	protected.HandleFunc("/twitch/status", handlers.TwitchGetStatus(database)).Methods("GET")
+	protected.HandleFunc("/twitch/disconnect", handlers.TwitchDisconnect(database)).Methods("DELETE")
 
 	// Google OAuth (non-admin routes)
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")

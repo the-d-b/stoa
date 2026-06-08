@@ -57,6 +57,7 @@ Different services use different authentication schemes. Stoa normalises these b
 | `username:password` | Duolingo | Your Duolingo account login credentials. Stoa uses the unofficial Duolingo API to fetch your stats — credentials are used to obtain a session JWT, which is cached for 12 hours. |
 | Personal Access Token | GitHub | Classic or fine-grained PAT from GitHub → Settings → Developer settings. Sent as `Authorization: Bearer`. Scopes needed: `read:user` and `public_repo`. |
 | `clientId:username` | Trakt | Client ID from your Trakt API application (`trakt.tv/oauth/applications`), colon-separated with your Trakt username. Sent as `trakt-api-key` header. Requires a public Trakt profile. |
+| `clientId:clientSecret` → OAuth | Twitch | App credentials from the Twitch Developer Console (`dev.twitch.tv/console`). Used to authorize Stoa via OAuth 2.0 with `user:read:follows` scope. Connect your account from the integration edit page after saving. |
 
 **Why a single field for two values?** Several services require both a username and a password (or key and secret). Rather than two separate secret fields, Stoa uses the convention `username:password` stored as one value. The colon is the separator — Stoa splits on the first colon. This is the same format curl uses with `-u user:pass`.
 
@@ -1613,6 +1614,25 @@ Workarounds:
 **Real-time:** Last.fm's API does not support streaming. Stoa polls every 30 seconds to keep the now-playing state current.
 
 **Height:** 1× = now-playing dot (if active) + track + artist + scrobble count; 2–3× = now-playing section + full recent scrobble list; 4×+ = album art + track/artist/album info + top artists bar chart + top tracks and albums side-by-side; 5×+ also shows recent scrobble history.
+
+---
+
+## Twitch
+
+**What it shows:** Live stream feed for channels you follow — currently live channel list with channel name, stream category (game), viewer count, and stream uptime. At 4×+, displays a 2-column thumbnail grid showing live preview images directly from Twitch CDN, with viewer count and uptime overlaid on each thumbnail.
+
+**Auth:** OAuth 2.0 Authorization Code flow. Setup is a two-step process:
+
+1. Create a Twitch application at [dev.twitch.tv/console](https://dev.twitch.tv/console/apps). Set the OAuth Redirect URL to `https://your-stoa-url/api/twitch/callback`. Store `clientId:clientSecret` (colon-separated) in the API key field.
+2. After saving the integration, open it again in edit mode and click **Connect Twitch** to authorize. Stoa requests the `user:read:follows` scope and stores the access and refresh tokens.
+
+**URL:** Not required — Stoa always calls `api.twitch.tv`.
+
+**Thumbnails:** Live stream preview images are fetched from Twitch's CDN (`static-cdn.jtvnw.net`) and displayed directly in the browser — no proxy needed. Images update approximately every 5 minutes on Twitch's end.
+
+**Token refresh:** Twitch access tokens are refreshed automatically using the stored refresh token when they expire.
+
+**Height:** 1× = live count + top streamer name/game; 2–3× = profile header + live stream list with viewer count and uptime; 4×+ = profile header + 2-column thumbnail grid with overlaid viewer/uptime badges.
 
 ---
 

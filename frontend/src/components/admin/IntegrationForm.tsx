@@ -115,6 +115,7 @@ export const INTEGRATION_TYPES = [
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
   { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
   // Content
+  { id: 'twitch',       label: 'Twitch',       desc: 'Live stream dashboard — no URL needed. API key: clientId:clientSecret from your Twitch Developer Console app. After creating, connect your Twitch account from the integration edit page.', category: 'Content' },
   { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV watch tracking — no URL needed. API key: clientId:username (colon-separated). Get your Client ID at trakt.tv/oauth/applications. Username is your Trakt profile name. Requires a public Trakt profile.', category: 'Content' },
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)', category: 'Content' },
@@ -122,7 +123,7 @@ export const INTEGRATION_TYPES = [
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -198,6 +199,20 @@ export default function IntegrationForm({
       .catch(() => setStravaStatus({ connected: false }))
   }, [isEdit, integration?.id, integration?.type])
 
+  // ── Twitch OAuth status ────────────────────────────────────────────────────
+  const [twitchStatus, setTwitchStatus] = useState<{
+    connected: boolean; userLogin?: string; userName?: string
+  } | null>(null)
+  const [twitchDisconnecting, setTwitchDisconnecting] = useState(false)
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'twitch') return
+    fetch(`/api/twitch/status?integrationId=${integration!.id}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(d => setTwitchStatus(d))
+      .catch(() => setTwitchStatus({ connected: false }))
+  }, [isEdit, integration?.id, integration?.type])
+
   // ── Test connection ────────────────────────────────────────────────────────
   const [testResult, setTestResult] = useState<{
     ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean
@@ -228,6 +243,7 @@ export default function IntegrationForm({
       t === 'duolingo'  ? 'https://www.duolingo.com' :
       t === 'github'    ? 'https://api.github.com' :
       t === 'trakt'     ? 'https://api.trakt.tv' :
+      t === 'twitch'    ? 'https://api.twitch.tv' :
       ''
     )
     setTestResult(null)
@@ -645,6 +661,70 @@ export default function IntegrationForm({
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             No URL or OAuth needed. Requires a public Trakt profile. Shows watch history, currently watching, and stats.
           </div>
+        </div>
+      ) : activeType === 'twitch' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>clientId:clientSecret</code> from your{' '}
+            <a href="https://dev.twitch.tv/console/apps" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>Twitch Developer Console</a> app.
+            OAuth redirect URI to add: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+              {window.location.origin}/api/twitch/callback</code>
+          </div>
+          {isEdit && integration && (
+            <div style={{ padding: '10px 12px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                Twitch Account
+              </div>
+              {twitchStatus === null ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+              ) : twitchStatus.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text)' }}>
+                      Connected as <strong>{twitchStatus.userName}</strong>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 6 }}>
+                        @{twitchStatus.userLogin}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                      Shows live streams from channels you follow.
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, flexShrink: 0 }}
+                    disabled={twitchDisconnecting}
+                    onClick={async () => {
+                      setTwitchDisconnecting(true)
+                      try {
+                        await fetch(`/api/twitch/disconnect?integrationId=${integration.id}`, {
+                          method: 'DELETE', credentials: 'include'
+                        })
+                        setTwitchStatus({ connected: false })
+                      } finally { setTwitchDisconnecting(false) }
+                    }}>
+                    {twitchDisconnecting ? '…' : 'Disconnect'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
+                    Not connected — authorize Stoa to read your followed streams.
+                  </div>
+                  <a href={`/api/twitch/auth?integrationId=${integration.id}`}
+                    className="btn btn-primary" style={{ fontSize: 11, textDecoration: 'none',
+                      flexShrink: 0, background: '#9146FF', borderColor: '#9146FF' }}>
+                    Connect Twitch
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to connect your Twitch account via OAuth.
+            </div>
+          )}
         </div>
       ) : activeType === 'rss' ? (
         <div>

@@ -707,6 +707,21 @@ var migrations = []migration{
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 49,
+		name:    "twitch_tokens",
+		up: `CREATE TABLE IF NOT EXISTS twitch_tokens (
+			integration_id    TEXT PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+			access_token      TEXT NOT NULL,
+			refresh_token     TEXT NOT NULL,
+			expires_at        DATETIME NOT NULL,
+			user_id           TEXT NOT NULL DEFAULT '',
+			user_login        TEXT NOT NULL DEFAULT '',
+			user_name         TEXT NOT NULL DEFAULT '',
+			profile_image_url TEXT NOT NULL DEFAULT '',
+			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

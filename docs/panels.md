@@ -84,6 +84,7 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Homebox | Yes |
 | wger | Yes |
 | Fittrackee | Yes |
+| Twitch | Yes |
 | GitHub | Yes |
 | Trakt | Yes |
 | Strava | Yes |
@@ -643,6 +644,11 @@ Workout manager panel — total workout count, recent session log (date, impress
 Activity tracker panel — total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity. See [integrations.md](integrations.md#fittrackee).
 
 **Height:** 1× = total workouts + distance + duration; 2–3× = stat chips + recent workout list; 4×+ = stat chips + full workout list with all metrics.
+
+### Twitch
+Live stream feed panel — shows followed channels currently live with channel name, stream category, viewer count, and uptime. At 4×+, displays a 2-column grid of live stream thumbnail cards (440×248 previews from Twitch CDN) with viewer count and uptime overlaid. Empty state when no followed channels are live. See [integrations.md](integrations.md#twitch).
+
+**Height:** 1× = live count badge + top channel name/game; 2–3× = profile header + compact stream list; 4×+ = profile header + 2-column thumbnail grid.
 
 ### GitHub
 Developer activity panel — GitHub profile with avatar, bio, location, follower/following counts, and public repo count. Top repos by stars with language color dot, star count, and last-push timestamp. 30-day event activity bar chart showing daily commit/PR/issue activity. Recent event feed with type icon, repository, and detail (commit message, PR title, issue title). See [integrations.md](integrations.md#github).
