@@ -83,6 +83,8 @@ export const INTEGRATION_TYPES = [
   { id: 'frigate',     label: 'Frigate',     desc: 'NVR (network video recorder) — URL is http://frigate:8971. Leave API key blank for unauthenticated local instances (port 5000). For authenticated instances, generate a Bearer token in Frigate → Settings → Users.', category: 'Smart Home' },
   { id: 'blueiris',   label: 'Blue Iris',   desc: 'Windows NVR — URL is http://192.168.1.x:81 (default port 81, configurable). API key field: username:password of a Blue Iris user account. Enable the web server in Blue Iris → Settings → Web server.', category: 'Smart Home' },
   { id: 'lubelogger',  label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — URL is http://lubelogger:8080. API key field: x-api-key from LubeLogger → Profile → API Keys. Alternatively, use username:password for Basic Auth. Also works as a calendar source for date-bound reminders.', category: 'Smart Home' },
+  // Development
+  { id: 'github',      label: 'GitHub',      desc: 'GitHub activity — no URL needed. API key: Personal Access Token from GitHub → Settings → Developer settings → Personal access tokens. Token needs "public_repo" read scope minimum; "read:user" for profile.', category: 'Development' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   { id: 'romm',         label: 'RomM',         desc: 'Self-hosted ROM manager — URL is http://romm:8080. API key field: username:password for Basic Auth, or an rmm_ bearer token from RomM → Settings → API Keys.', category: 'Gaming' },
@@ -113,13 +115,14 @@ export const INTEGRATION_TYPES = [
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
   { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
   // Content
+  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV watch tracking — no URL needed. API key: clientId:username (colon-separated). Get your Client ID at trakt.tv/oauth/applications. Username is your Trakt profile name. Requires a public Trakt profile.', category: 'Content' },
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)', category: 'Content' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Content' },
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -223,6 +226,8 @@ export default function IntegrationForm({
       t === 'lastfm'    ? 'https://www.last.fm' :
       t === 'strava'    ? 'https://www.strava.com' :
       t === 'duolingo'  ? 'https://www.duolingo.com' :
+      t === 'github'    ? 'https://api.github.com' :
+      t === 'trakt'     ? 'https://api.trakt.tv' :
       ''
     )
     setTestResult(null)
@@ -613,6 +618,32 @@ export default function IntegrationForm({
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             No URL or OAuth needed. Session tokens are cached for 12 hours to avoid repeated logins.
+          </div>
+        </div>
+      ) : activeType === 'github' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: Personal Access Token (classic or fine-grained) from{' '}
+            <a href="https://github.com/settings/tokens" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>GitHub → Settings → Developer settings → Personal access tokens</a>.
+            Scopes needed: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>read:user</code> and{' '}
+            <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>public_repo</code>.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            No URL needed — Stoa always calls api.github.com. Shows your authenticated user profile, top repos by stars, and recent activity.
+          </div>
+        </div>
+      ) : activeType === 'trakt' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>clientId:username</code> (colon-separated).
+            Get your Client ID at{' '}
+            <a href="https://trakt.tv/oauth/applications" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>trakt.tv/oauth/applications</a> — create an app and copy the Client ID.
+            Username is your Trakt profile name.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            No URL or OAuth needed. Requires a public Trakt profile. Shows watch history, currently watching, and stats.
           </div>
         </div>
       ) : activeType === 'rss' ? (

@@ -84,6 +84,8 @@ A few panel types are **standalone**: they don't require a backend integration b
 | Homebox | Yes |
 | wger | Yes |
 | Fittrackee | Yes |
+| GitHub | Yes |
+| Trakt | Yes |
 | Strava | Yes |
 | Duolingo | Yes |
 | Spotify | Yes |
@@ -641,6 +643,16 @@ Workout manager panel — total workout count, recent session log (date, impress
 Activity tracker panel — total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity. See [integrations.md](integrations.md#fittrackee).
 
 **Height:** 1× = total workouts + distance + duration; 2–3× = stat chips + recent workout list; 4×+ = stat chips + full workout list with all metrics.
+
+### GitHub
+Developer activity panel — GitHub profile with avatar, bio, location, follower/following counts, and public repo count. Top repos by stars with language color dot, star count, and last-push timestamp. 30-day event activity bar chart showing daily commit/PR/issue activity. Recent event feed with type icon, repository, and detail (commit message, PR title, issue title). See [integrations.md](integrations.md#github).
+
+**Height:** 1× = avatar + name + repo/follower counts + last event; 2–3× = avatar + bio/location + stats + event feed; 4×+ = full profile + 30-day activity chart + top repos + event feed.
+
+### Trakt
+Movie and TV watch tracking panel — currently playing indicator with pulsing red dot when actively scrobbling, all-time movie and episode watch counts, recent watch history with type emoji (🎬/📺), show/episode detail, and relative timestamps. At 4×+, a 10-point rating distribution bar chart (red for low, amber for mid, blue/green for high) adds visual depth. See [integrations.md](integrations.md#trakt).
+
+**Height:** 1× = watching indicator (if active) or last watched item + type emoji; 2–3× = watching badge + stats chips + watch history; 4×+ = watching badge + stats + rating distribution chart + full history.
 
 ### Strava
 Running and cycling activity panel — recent activities with sport emoji, name, distance, pace/speed, elevation, and relative timestamps. 4-week totals per sport (run, ride, swim) with colored left-border bars. At tall heights, an 8-week stacked bar chart shows weekly distance broken down by sport. Distances displayed in miles or kilometers based on the athlete's Strava measurement preference. See [integrations.md](integrations.md#strava).

@@ -320,6 +320,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testStravaConnection(apiKey)
 		case "duolingo":
 			err = testDuolingoConnection(apiKey)
+		case "github":
+			err = testGitHubConnection(apiKey)
+		case "trakt":
+			err = testTraktConnection(apiKey)
 		case "transmission":
 			err = testTransmissionConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "qbittorrent":
@@ -486,6 +490,10 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testStravaConnection(apiKey)
 						case "duolingo":
 							retryErr = testDuolingoConnection(apiKey)
+						case "github":
+							retryErr = testGitHubConnection(apiKey)
+						case "trakt":
+							retryErr = testTraktConnection(apiKey)
 						case "transmission":
 							retryErr = testTransmissionConnection(req.APIURL, apiKey, true)
 						case "qbittorrent":
@@ -789,6 +797,10 @@ func defaultRefreshSecs(igType string) int {
 	case "spotify", "lastfm":
 		return 30
 	case "strava", "duolingo":
+		return 60
+	case "github":
+		return 120
+	case "trakt":
 		return 60
 	case "pterodactyl":
 		return 30

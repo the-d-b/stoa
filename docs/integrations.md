@@ -55,6 +55,8 @@ Different services use different authentication schemes. Stoa normalises these b
 | `username:apiKey` | Last.fm | Last.fm username and API key, colon-separated. API key from last.fm/api (free, no OAuth required). |
 | `clientId:clientSecret` → OAuth | Strava | App credentials from Strava API settings (`strava.com/settings/api`). Stoa exchanges these for user access and refresh tokens via OAuth 2.0 Authorization Code flow. Connect your account from the integration edit page after saving. |
 | `username:password` | Duolingo | Your Duolingo account login credentials. Stoa uses the unofficial Duolingo API to fetch your stats — credentials are used to obtain a session JWT, which is cached for 12 hours. |
+| Personal Access Token | GitHub | Classic or fine-grained PAT from GitHub → Settings → Developer settings. Sent as `Authorization: Bearer`. Scopes needed: `read:user` and `public_repo`. |
+| `clientId:username` | Trakt | Client ID from your Trakt API application (`trakt.tv/oauth/applications`), colon-separated with your Trakt username. Sent as `trakt-api-key` header. Requires a public Trakt profile. |
 
 **Why a single field for two values?** Several services require both a username and a password (or key and secret). Rather than two separate secret fields, Stoa uses the convention `username:password` stored as one value. The colon is the separator — Stoa splits on the first colon. This is the same format curl uses with `-u user:pass`.
 
@@ -1611,6 +1613,36 @@ Workarounds:
 **Real-time:** Last.fm's API does not support streaming. Stoa polls every 30 seconds to keep the now-playing state current.
 
 **Height:** 1× = now-playing dot (if active) + track + artist + scrobble count; 2–3× = now-playing section + full recent scrobble list; 4×+ = album art + track/artist/album info + top artists bar chart + top tracks and albums side-by-side; 5×+ also shows recent scrobble history.
+
+---
+
+## GitHub
+
+**What it shows:** Developer profile — avatar, name, bio, location, public repo count, followers/following. Top repos by stars with language color indicator. 30-day event activity bar chart. Recent event feed (push, pull requests, issues, creates, releases, forks, stars).
+
+**Auth:** Personal Access Token (PAT). Create one at [github.com/settings/tokens](https://github.com/settings/tokens). Classic PAT scopes needed: `read:user` (profile) and `public_repo` (repositories and events). Fine-grained tokens: enable `Repository contents: Read` and `Account permissions: Profile: Read`.
+
+**URL:** Not required — Stoa always calls `api.github.com`.
+
+**Rate limit:** Authenticated requests allow 5,000 requests per hour — far more than needed for a 120-second polling panel. Unauthenticated requests are 60/hour, so a token is required.
+
+**Height:** 1× = avatar + name + repo/follower counts + last event; 2–3× = avatar + bio + stats + recent event feed; 4×+ = full profile + 30-day activity chart + top repos by stars + event feed.
+
+---
+
+## Trakt
+
+**What it shows:** Movie and TV watch tracking — currently playing indicator (with pulsing red dot if something is active), recent watch history (movies and episodes with season/episode details), all-time stats (movies watched, episodes watched), and a 10-point rating distribution bar chart at larger panel sizes.
+
+**Auth:** `clientId:username` (colon-separated). Create a Trakt API application at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) to get a Client ID. The username is your Trakt profile name (visible in your Trakt profile URL).
+
+**URL:** Not required — Stoa always calls `api.trakt.tv`.
+
+**Public profile required:** Trakt user data is accessible without OAuth only for public profiles. If your Trakt profile is private, the connection test will return a 423 error. To make your profile public: Trakt → Profile → Settings → Privacy → Public.
+
+**Currently watching:** Trakt's `/users/{username}/watching` endpoint reflects what you're actively scrobbling. This updates in near-real-time if you use a Trakt scrobbling client (Plex plugin, Infuse, Kodi, etc.).
+
+**Height:** 1× = watching badge (if active) or last watched + type; 2–3× = watching badge + stats chips + watch history; 4×+ = watching badge + stats + rating distribution chart + full history.
 
 ---
 

@@ -86,6 +86,8 @@ export const PANEL_TYPES: {
   { id: 'frigate',     label: 'Frigate',     desc: 'NVR — camera roster with detection fps, zone configuration per camera with object filters, recent detection events by label and score, detector inference speed', needsIntegration: true, category: 'Smart Home' },
   { id: 'blueiris',   label: 'Blue Iris',   desc: 'NVR — system signal (green/yellow/red), camera roster with recording/motion/alert/PTZ status, active profile, recent alerts with AI memo, trigger and clip counts per camera', needsIntegration: true, category: 'Smart Home' },
   { id: 'lubelogger', label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — urgency-color-coded reminder list per vehicle (past due/urgent/not urgent), odometer readings, and service history with cost. Also works as a calendar source for date-bound reminders.', needsIntegration: true, category: 'Smart Home' },
+  // Development
+  { id: 'github',      label: 'GitHub',      desc: 'Developer activity — profile with avatar, bio, and follower stats; top repos by stars with language color dots; 30-day event activity chart; recent events feed (push, PR, issue, release, fork, star)', needsIntegration: true, category: 'Development' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   { id: 'romm',         label: 'RomM',         desc: 'ROM manager — total platform & ROM count, library size, cover art grid of recently added games, platform list with logos and ROM counts', needsIntegration: true, category: 'Gaming' },
@@ -115,6 +117,7 @@ export const PANEL_TYPES: {
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Content' },
+  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV tracking — currently watching indicator, watch history with movie/episode details, stats (movies/episodes watched), and 10-point rating distribution chart at larger sizes', needsIntegration: true, category: 'Content' },
   { id: 'spotify',      label: 'Spotify',      desc: 'Now playing + recently played. Premium: progress bar and playback controls.', needsIntegration: true, category: 'Content' },
   { id: 'lastfm',       label: 'Last.fm',      desc: 'Scrobble history — now playing, recent tracks, 7-day top artists (bar chart), top tracks & albums', needsIntegration: true, category: 'Content' },
   // Productivity
@@ -144,7 +147,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','lychee','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','spotify','lastfm',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','trakt','spotify','lastfm',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
