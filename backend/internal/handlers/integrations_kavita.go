@@ -188,7 +188,7 @@ func ProxyKavitaCover(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		body, err := kavitaGet(apiURL, apiKey, "/api/Series/"+seriesID+"/cover", skipTLS)
+		body, err := kavitaGet(apiURL, apiKey, "/api/Image/series-cover?seriesId="+seriesID+"&apiKey="+apiKey, skipTLS)
 		if err != nil {
 			http.Error(w, "cover fetch failed", http.StatusBadGateway)
 			return
