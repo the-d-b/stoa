@@ -73,6 +73,7 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
       {/* Editor */}
       <div
         ref={ref}
+        className="stoa-note-editor"
         contentEditable={!readOnly}
         suppressContentEditableWarning
         onInput={handleInput}
@@ -85,11 +86,12 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
         }}
       />
       <style>{`
-        [contenteditable] h3 { font-size: 15px; font-weight: 600; margin: 8px 0 4px; }
-        [contenteditable] ul, [contenteditable] ol { padding-left: 20px; margin: 4px 0; }
-        [contenteditable] li { margin: 2px 0; }
-        [contenteditable] p { margin: 4px 0; }
-        [contenteditable]:empty:before { content: 'Start writing...'; color: var(--text-dim); }
+        .stoa-note-editor, .stoa-note-editor * { color: ${editorColor} !important; }
+        .stoa-note-editor h3 { font-size: 15px; font-weight: 600; margin: 8px 0 4px; }
+        .stoa-note-editor ul, .stoa-note-editor ol { padding-left: 20px; margin: 4px 0; }
+        .stoa-note-editor li { margin: 2px 0; }
+        .stoa-note-editor p { margin: 4px 0; }
+        .stoa-note-editor:empty:before { content: 'Start writing...'; color: ${themeDef.vars['--text-dim']}; }
       `}</style>
     </div>
   )
