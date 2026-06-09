@@ -50,6 +50,16 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 ---
 
+## Comics & Manga
+
+| Integration | Status | Secret | URL | Polling | Page |
+|---|---|---|---|---|---|
+| Mylar3 | 🔶 Need Testing | Plain API key — Mylar3 → Settings → Web Interface → API Key | Required | 30 min | [mylar3/](mylar3/) |
+| Kapowarr | 🔶 Need Testing | Plain API key — Kapowarr → Settings → API Key | Required | 30 min | [kapowarr/](kapowarr/) |
+| Tranga | 🔶 Need Testing | Blank (no auth required by default) | Required | 30 min | [tranga/](tranga/) |
+
+---
+
 ## Storage
 
 | Integration | Status | Secret | URL | Polling | Page |
