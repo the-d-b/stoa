@@ -10,7 +10,7 @@ import { panelsApi, myPanelsApi, googleApi, Panel } from '../../api'
 
 const DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // Source types where daysAhead controls the fetch window
-const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google'])
+const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical'])
 
 export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
   panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
@@ -28,6 +28,8 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
   const [checklistPanelId, setChecklistPanelId] = useState('')
   const [kanbanPanels, setKanbanPanels] = useState<Panel[]>([])
   const [kanbanPanelId, setKanbanPanelId] = useState('')
+  const [icsUrl, setIcsUrl] = useState('')
+  const [icsLabel, setIcsLabel] = useState('')
 
   const cfg = (() => { try { return JSON.parse(panelConfig || '{}') } catch { return {} } })()
   const sources: any[] = cfg.sources || []
@@ -99,6 +101,13 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
         if (!kanbanPanelId) return
         const kb = kanbanPanels.find((p: any) => p.id === kanbanPanelId)
         newSource = { type: 'kanban', panelId: kanbanPanelId, label: kb?.title || 'Kanban' }
+      } else if (sourceKind === 'ical') {
+        if (!icsUrl.trim()) return
+        newSource = {
+          type: 'ical', icsUrl: icsUrl.trim(),
+          label: icsLabel.trim() || 'Work Calendar',
+          color: '#0078d4', daysAhead,
+        }
       } else if (sourceKind === 'integration') {
         if (!intId) return
         const ig = integrations.find((i: any) => i.id === intId)
@@ -106,7 +115,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
       }
       if (newSource) {
         await updateSources([...sources, newSource])
-        setIntId(''); setGoogleTokenId(''); setChecklistPanelId(''); setKanbanPanelId(''); setSourceKind(''); setDaysAhead(30)
+        setIntId(''); setGoogleTokenId(''); setChecklistPanelId(''); setKanbanPanelId(''); setIcsUrl(''); setIcsLabel(''); setSourceKind(''); setDaysAhead(30)
       }
     } finally { setAdding(false) }
   }
@@ -116,6 +125,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     if (src.type === 'google') return `📅 ${src.label || src.integrationId}`
     if (src.type === 'checklist') return `☑ ${src.label || 'Checklist'}`
     if (src.type === 'kanban') return `▦ ${src.label || 'Kanban'}`
+    if (src.type === 'ical') return `📆 ${src.label || 'Calendar'}`
     if (src.type === 'weather') return `🌤 ${src.label || ig?.name || 'Weather'}`
     if (src.type === 'sports') return `🏒 ${src.label || ig?.name || 'Sports'}`
     if (src.type === 'lubelogger') return `🔧 ${src.label || ig?.name || 'LubeLogger'}`
@@ -157,11 +167,12 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
       {/* Add source row */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         <select className="input" value={sourceKind}
-          onChange={e => { setSourceKind(e.target.value); setIntId(''); setGoogleTokenId(''); setChecklistPanelId(''); setDaysAhead(30) }}
+          onChange={e => { setSourceKind(e.target.value); setIntId(''); setGoogleTokenId(''); setChecklistPanelId(''); setIcsUrl(''); setIcsLabel(''); setDaysAhead(30) }}
           style={{ cursor: 'pointer', minWidth: 160, fontSize: 12 }}>
           <option value="">+ Add source...</option>
           {calIntegrations.length > 0 && <option value="integration">Stoa integration</option>}
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
+          <option value="ical">ICS / Outlook Calendar</option>
           {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
           {kanbanPanels.length > 0 && <option value="kanban">Kanban</option>}
         </select>
@@ -238,6 +249,31 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
               {adding ? <span className="spinner" /> : 'Add'}
             </button>
           </>
+        )}
+
+        {sourceKind === 'ical' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+              In Outlook web: <strong>Settings → Calendar → Shared calendars → Publish a calendar</strong>.
+              Select your calendar, set visibility to "Can view all details", then copy the ICS link.
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input className="input" value={icsUrl} onChange={e => setIcsUrl(e.target.value)}
+                placeholder="https://outlook.office365.com/owa/calendar/…/calendar.ics"
+                style={{ flex: 2, minWidth: 260, fontSize: 12 }} />
+              <input className="input" value={icsLabel} onChange={e => setIcsLabel(e.target.value)}
+                placeholder="Label (e.g. Work Calendar)"
+                style={{ flex: 1, minWidth: 140, fontSize: 12 }} />
+              <select className="input" value={daysAhead} onChange={e => setDaysAhead(Number(e.target.value))}
+                style={{ cursor: 'pointer', width: 100, fontSize: 12 }}>
+                {DAYS_OPTIONS.map(d => <option key={d} value={d}>{d} days</option>)}
+              </select>
+              <button className="btn btn-secondary" style={{ fontSize: 12 }}
+                onClick={add} disabled={adding || !icsUrl.trim()}>
+                {adding ? <span className="spinner" /> : 'Add'}
+              </button>
+            </div>
+          </div>
         )}
       </div>
     </div>

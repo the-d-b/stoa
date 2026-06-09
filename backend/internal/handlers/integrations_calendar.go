@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -39,7 +41,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		integrationID := stringVal(source, "integrationId")
 
 		log.Printf("[CAL] source: type=%q integrationId=%q", srcType, integrationID)
-		if integrationID == "" { continue }
+		if integrationID == "" && srcType != "ical" { continue }
 
 		daysAhead := 30
 		if v, ok := source["daysAhead"].(float64); ok {
@@ -365,6 +367,53 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				})
 			}
 
+		case "ical":
+			icsURL := stringVal(source, "icsUrl")
+			if icsURL == "" {
+				log.Printf("[CAL] ical: no icsUrl in source config")
+				continue
+			}
+			label := stringVal(source, "label")
+			if label == "" { label = "Calendar" }
+			color := stringVal(source, "color")
+			if color == "" { color = "#0078d4" }
+
+			cacheKey := "ical:" + icsURL
+			var rawEvents []icsEvent
+			if cached, ok := cacheGet(cacheKey); ok {
+				if ev, ok2 := cached.([]icsEvent); ok2 {
+					rawEvents = ev
+				}
+			}
+			if rawEvents == nil {
+				client := &http.Client{Timeout: 15 * time.Second}
+				resp, err := client.Get(icsURL)
+				if err != nil {
+					log.Printf("[CAL] ical: fetch error: %v", err)
+					continue
+				}
+				body, _ := io.ReadAll(resp.Body)
+				resp.Body.Close()
+				rawEvents = parseICSEvents(body)
+				cacheSet(cacheKey, rawEvents)
+				log.Printf("[CAL] ical: fetched %d events from %s", len(rawEvents), icsURL)
+			}
+
+			today := timeNow().Format("2006-01-02")
+			endDate := timeNow().AddDate(0, 0, daysAhead).Format("2006-01-02")
+			for _, ev := range rawEvents {
+				if ev.Date < today || ev.Date > endDate { continue }
+				e := map[string]interface{}{
+					"source": label,
+					"date":   ev.Date,
+					"title":  ev.Summary,
+					"color":  color,
+				}
+				if ev.StartDT != "" { e["startDT"] = ev.StartDT }
+				if ev.EndDT != ""   { e["endDT"]   = ev.EndDT }
+				events = append(events, e)
+			}
+
 		case "lubelogger":
 			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 			_ = uiURL
@@ -503,4 +552,132 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 
 	log.Printf("[CAL] fetchCalendarData: returning %d total events", len(events))
 	return map[string]interface{}{"events": events}, nil
+}
+
+// ── iCal / ICS parser ─────────────────────────────────────────────────────────
+
+type icsEvent struct {
+	Summary string
+	Date    string // YYYY-MM-DD
+	StartDT string // RFC3339, empty for all-day events
+	EndDT   string // RFC3339, empty for all-day events
+}
+
+// parseICSEvents parses a raw ICS feed and returns a flat list of VEVENT entries.
+// Handles line folding (RFC 5545 §3.1), date-only and datetime DTSTART/DTEND,
+// UTC "Z" suffix, and TZID parameters for localised datetimes.
+// Recurring events (RRULE) are not expanded — only the base instance is included.
+func parseICSEvents(data []byte) []icsEvent {
+	unfolded := icsUnfold(data)
+	var events []icsEvent
+	var inEvent bool
+	var cur icsEvent
+
+	for _, line := range strings.Split(unfolded, "\n") {
+		line = strings.TrimRight(line, "\r")
+		switch line {
+		case "BEGIN:VEVENT":
+			inEvent = true
+			cur = icsEvent{}
+		case "END:VEVENT":
+			if inEvent && cur.Date != "" && cur.Summary != "" {
+				events = append(events, cur)
+			}
+			inEvent = false
+		default:
+			if !inEvent { continue }
+			colonIdx := strings.IndexByte(line, ':')
+			if colonIdx < 0 { continue }
+			propFull, value := line[:colonIdx], line[colonIdx+1:]
+			parts := strings.SplitN(propFull, ";", 2)
+			propName := strings.ToUpper(parts[0])
+			params := ""
+			if len(parts) > 1 { params = parts[1] }
+
+			switch propName {
+			case "SUMMARY":
+				cur.Summary = icsUnescape(value)
+			case "DTSTART":
+				cur.Date, cur.StartDT = icsParseDT(value, params)
+			case "DTEND":
+				_, cur.EndDT = icsParseDT(value, params)
+			}
+		}
+	}
+	return events
+}
+
+// icsUnfold joins continuation lines (lines beginning with space/tab).
+func icsUnfold(data []byte) string {
+	s := strings.ReplaceAll(string(data), "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	var sb strings.Builder
+	for _, line := range strings.Split(s, "\n") {
+		if len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+			sb.WriteString(line[1:])
+		} else {
+			if sb.Len() > 0 { sb.WriteByte('\n') }
+			sb.WriteString(line)
+		}
+	}
+	return sb.String()
+}
+
+// icsParseDT parses an iCal date/datetime value and returns (YYYY-MM-DD, RFC3339).
+// RFC3339 is empty for all-day (date-only) events.
+func icsParseDT(value, params string) (date, rfc3339 string) {
+	value = strings.TrimSpace(value)
+	if value == "" { return "", "" }
+
+	isDateOnly := strings.Contains(params, "VALUE=DATE") ||
+		(len(value) == 8 && !strings.Contains(value, "T"))
+
+	if isDateOnly && len(value) >= 8 {
+		return value[:4] + "-" + value[4:6] + "-" + value[6:8], ""
+	}
+
+	// Expect YYYYMMDDTHHmmss[Z]
+	if len(value) < 15 { return "", "" }
+	dateStr := value[:4] + "-" + value[4:6] + "-" + value[6:8]
+	timeStr := value[9:11] + ":" + value[11:13] + ":" + value[13:15]
+	stamp := dateStr + "T" + timeStr
+
+	var t time.Time
+	var err error
+
+	if strings.HasSuffix(value, "Z") {
+		t, err = time.Parse("2006-01-02T15:04:05Z", stamp+"Z")
+	} else {
+		tzID := ""
+		for _, p := range strings.Split(params, ";") {
+			if strings.HasPrefix(p, "TZID=") {
+				tzID = strings.TrimPrefix(p, "TZID=")
+				// Strip any surrounding quotes Outlook sometimes adds
+				tzID = strings.Trim(tzID, `"'`)
+			}
+		}
+		if tzID != "" {
+			if loc, lerr := time.LoadLocation(tzID); lerr == nil {
+				t, err = time.ParseInLocation("2006-01-02T15:04:05", stamp, loc)
+			} else {
+				// Unknown TZID — treat as UTC
+				t, err = time.Parse("2006-01-02T15:04:05Z", stamp+"Z")
+			}
+		} else {
+			// Floating time — use server local timezone
+			t, err = time.ParseInLocation("2006-01-02T15:04:05", stamp, time.Local)
+		}
+	}
+	if err != nil { return dateStr, "" }
+	return t.Local().Format("2006-01-02"), t.UTC().Format(time.RFC3339)
+}
+
+// icsUnescape unescapes iCal text values per RFC 5545 §3.3.11.
+func icsUnescape(s string) string {
+	s = strings.ReplaceAll(s, `\n`, "\n")
+	s = strings.ReplaceAll(s, `\N`, "\n")
+	s = strings.ReplaceAll(s, `\,`, ",")
+	s = strings.ReplaceAll(s, `\;`, ";")
+	s = strings.ReplaceAll(s, `\\`, `\`)
+	return s
 }
