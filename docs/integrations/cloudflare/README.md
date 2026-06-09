@@ -1,6 +1,6 @@
-﻿# Cloudflare
+# Cloudflare
 
-**Category:** DNS & Proxy | **Status:** Tested | **Polling:** 5 min
+**Category:** DNS & Proxy | **Status:** Need Testing | **Polling:** 5 min
 
 ---
 

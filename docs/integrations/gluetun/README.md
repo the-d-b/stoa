@@ -1,6 +1,6 @@
-﻿# Gluetun
+# Gluetun
 
-**Category:** VPN & Security | **Status:** Need Testing | **Polling:** 60 s
+**Category:** VPN & Security | **Status:** Tested | **Polling:** 60 s
 
 ---
 

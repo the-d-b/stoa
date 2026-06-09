@@ -1,6 +1,6 @@
-﻿# Pi-hole
+# Pi-hole
 
-**Category:** DNS & Proxy | **Status:** Tested | **Polling:** 30 s
+**Category:** DNS & Proxy | **Status:** Need Testing | **Polling:** 30 s
 
 ---
 

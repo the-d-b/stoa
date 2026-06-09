@@ -1,6 +1,6 @@
-﻿# GitHub
+# GitHub
 
-**Category:** Development | **Status:** Tested | **Polling:** 2 min
+**Category:** Development | **Status:** Need Testing | **Polling:** 2 min
 
 ---
 

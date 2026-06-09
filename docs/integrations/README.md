@@ -41,9 +41,9 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
 | Immich | 🔶 Need Testing | Plain API key — Immich → Account → API Keys | Required | 30 min | [immich/](immich/) |
-| PhotoPrism | 🔶 Need Testing | `username:password` — your PhotoPrism login | Required | 30 min | [photoprism/](photoprism/) |
+| PhotoPrism | ✅ Tested | `username:password` — your PhotoPrism login | Required | 30 min | [photoprism/](photoprism/) |
 | Lychee | 🔶 Need Testing | `username:password` — your Lychee login | Required | 30 min | [lychee/](lychee/) |
-| Kavita | 🔶 Need Testing | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
+| Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
 | Komga | 🔶 Need Testing | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
 | Audiobookshelf | 🔶 Need Testing | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
 | Navidrome | 🔶 Need Testing | `username:password` — your Navidrome login | Required | 30 s | [navidrome/](navidrome/) |
@@ -59,7 +59,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | OpenMediaVault | 🔶 Need Testing | `username:password` — your OMV login | Required | 30 s | [omv/](omv/) |
 | Synology DSM | 🔶 Need Testing | `username:password` — your Synology login | Required | 30 s | [synology/](synology/) |
 | QNAP QTS | 🔶 Need Testing | `username:password` — your QNAP login | Required | 30 s | [qnap/](qnap/) |
-| Proxmox | 🔶 Need Testing | `user@realm!tokenid:secret` — Proxmox API token (full string) | Required | 30 s | [proxmox/](proxmox/) |
+| Proxmox | ✅ Tested | `user@realm!tokenid:secret` — Proxmox API token (full string) | Required | 30 s | [proxmox/](proxmox/) |
 | Nextcloud | 🔶 Need Testing | `username:password` — use an app password from Settings → Security | Required | 5 min | [nextcloud/](nextcloud/) |
 | Scrutiny | 🔶 Need Testing | Blank — no authentication required | Required | 5 min | [scrutiny/](scrutiny/) |
 
@@ -83,8 +83,8 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|---|---|
 | Traefik | 🔶 Need Testing | Blank (open) **or** `username:password` (Basic Auth) **or** Bearer `token` | Required | 30 s | [traefik/](traefik/) |
 | Nginx Proxy Manager | 🔶 Need Testing | `email:password` — your NPM login | Required | 60 s | [nginxpm/](nginxpm/) |
-| Cloudflare | ✅ Tested | Scoped API `token` **or** `email:globalApiKey` (legacy) | None (cloud) | 5 min | [cloudflare/](cloudflare/) |
-| Pi-hole | ✅ Tested | API `token` (v5) **or** web `password` (v6) | Required | 30 s | [pihole/](pihole/) |
+| Cloudflare | 🔶 Need Testing | Scoped API `token` **or** `email:globalApiKey` (legacy) | None (cloud) | 5 min | [cloudflare/](cloudflare/) |
+| Pi-hole | 🔶 Need Testing | API `token` (v5) **or** web `password` (v6) | Required | 30 s | [pihole/](pihole/) |
 | AdGuard Home | 🔶 Need Testing | `username:password` — your AdGuard Home login | Required | 30 s | [adguard/](adguard/) |
 | NextDNS | 🔶 Need Testing | Plain API key — NextDNS → Account → API Key | None (cloud) | 30 s | [nextdns/](nextdns/) |
 
@@ -94,11 +94,11 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Gluetun | 🔶 Need Testing | Blank (no auth by default) | Required | 60 s | [gluetun/](gluetun/) |
+| Gluetun | ✅ Tested | Blank (no auth by default) | Required | 60 s | [gluetun/](gluetun/) |
 | wg-easy | 🔶 Need Testing | Bare `password` — your wg-easy web UI password | Required | 30 s | [wgeasy/](wgeasy/) |
 | Tailscale | 🔶 Need Testing | API token — `tskey-api-...` from Tailscale admin console | None (cloud) | 60 s | [tailscale/](tailscale/) |
 | Netbird | 🔶 Need Testing | Personal Access Token — Netbird → Settings → PATs | URL or cloud | 60 s | [netbird/](netbird/) |
-| Authentik | 🔶 Need Testing | Plain API token — Authentik → Admin → System → API Tokens | Required | 5 min | [authentik/](authentik/) |
+| Authentik | ✅ Tested | Plain API token — Authentik → Admin → System → API Tokens | Required | 5 min | [authentik/](authentik/) |
 
 ---
 
@@ -117,7 +117,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
 | Transmission | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [transmission/](transmission/) |
-| qBittorrent | ✅ Tested | `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
+| qBittorrent | 🔶 Need Testing | `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
 | Deluge | 🔶 Need Testing | Bare `password` — Deluge Web UI password (no username) | Required | 30 s | [deluge/](deluge/) |
 | ruTorrent | 🔶 Need Testing | `username:password` **or** blank (if auth disabled) | Required | 30 s | [rutorrent/](rutorrent/) |
 | SABnzbd | 🔶 Need Testing | Plain API key — SABnzbd → Config → General → API Key | Required | 15 s | [sabnzbd/](sabnzbd/) |
@@ -129,7 +129,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Home Assistant | ✅ Tested | Long-lived access token — HA → Profile → Long-Lived Access Tokens | Required | 60 s | [homeassistant/](homeassistant/) |
+| Home Assistant | 🔶 Need Testing | Long-lived access token — HA → Profile → Long-Lived Access Tokens | Required | 60 s | [homeassistant/](homeassistant/) |
 | Frigate | 🔶 Need Testing | Blank (unauthenticated) **or** Bearer `token` from Frigate → Settings → Users | Required | 15 s | [frigate/](frigate/) |
 | Blue Iris | 🔶 Need Testing | `username:password` — Blue Iris user account | Required | 30 s | [blueiris/](blueiris/) |
 | LubeLogger | 🔶 Need Testing | `username:password` **or** Bearer `token` | Required | 15 min | [lubelogger/](lubelogger/) |
@@ -140,7 +140,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| GitHub | ✅ Tested | Classic or fine-grained PAT — GitHub → Settings → Developer Settings; scopes: `read:user`, `public_repo` | None (GitHub API) | 2 min | [github/](github/) |
+| GitHub | 🔶 Need Testing | Classic or fine-grained PAT — GitHub → Settings → Developer Settings; scopes: `read:user`, `public_repo` | None (GitHub API) | 2 min | [github/](github/) |
 
 ---
 
@@ -148,7 +148,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Steam | 🔶 Need Testing | Steam Web API key — `steamcommunity.com/dev/apikey` | None (Steam API) | 5 min | [steam/](steam/) |
+| Steam | ✅ Tested | Steam Web API key — `steamcommunity.com/dev/apikey` | None (Steam API) | 5 min | [steam/](steam/) |
 | RomM | 🔶 Need Testing | `username:password` **or** Bearer `token` | Required | 15 min | [romm/](romm/) |
 | Pterodactyl | 🔶 Need Testing | Client API key — Pterodactyl → Account → API Credentials | Required | 60 s | [pterodactyl/](pterodactyl/) |
 
@@ -200,8 +200,8 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Spotify | ✅ Tested | `clientId:clientSecret` — Spotify Developer Dashboard; connect account after saving | None (OAuth) | 30 s | [spotify/](spotify/) |
-| Last.fm | ✅ Tested | `username:apiKey` — username + API key from last.fm/api | None (Last.fm API) | 30 s | [lastfm/](lastfm/) |
+| Spotify | 🔶 Need Testing | `clientId:clientSecret` — Spotify Developer Dashboard; connect account after saving | None (OAuth) | 30 s | [spotify/](spotify/) |
+| Last.fm | 🔶 Need Testing | `username:apiKey` — username + API key from last.fm/api | None (Last.fm API) | 30 s | [lastfm/](lastfm/) |
 
 ---
 

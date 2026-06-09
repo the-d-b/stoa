@@ -1,6 +1,6 @@
-﻿# Proxmox
+# Proxmox
 
-**Category:** Storage | **Status:** Need Testing | **Polling:** 30 s
+**Category:** Storage | **Status:** Tested | **Polling:** 30 s
 
 ---
 

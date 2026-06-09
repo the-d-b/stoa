@@ -1,6 +1,6 @@
-﻿# Home Assistant
+# Home Assistant
 
-**Category:** Smart Home | **Status:** Tested | **Polling:** 60 s
+**Category:** Smart Home | **Status:** Need Testing | **Polling:** 60 s
 
 ---
 

@@ -1,6 +1,6 @@
-﻿# qBittorrent
+# qBittorrent
 
-**Category:** Downloads | **Status:** Tested | **Polling:** 30 s
+**Category:** Downloads | **Status:** Need Testing | **Polling:** 30 s
 
 ---
 

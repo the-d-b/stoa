@@ -1,6 +1,6 @@
-﻿# Steam
+# Steam
 
-**Category:** Gaming | **Status:** Need Testing | **Polling:** 5 min
+**Category:** Gaming | **Status:** Tested | **Polling:** 5 min
 
 ---
 

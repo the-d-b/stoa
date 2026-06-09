@@ -1,6 +1,6 @@
-﻿# Authentik
+# Authentik
 
-**Category:** VPN & Security | **Status:** Need Testing | **Polling:** 5 min
+**Category:** VPN & Security | **Status:** Tested | **Polling:** 5 min
 
 ---
 

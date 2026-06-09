@@ -1,6 +1,6 @@
-﻿# Spotify
+# Spotify
 
-**Category:** Music | **Status:** Tested | **Polling:** 30 s
+**Category:** Music | **Status:** Need Testing | **Polling:** 30 s
 
 ---
 
