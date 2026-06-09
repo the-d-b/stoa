@@ -89,18 +89,20 @@ User:
 Understanding how data moves from your services to your dashboard helps explain why panels sometimes show slightly stale data — and why that's intentional.
 
 ```
-Your service  →  Stoa backend  →  SQLite cache  →  Frontend panel
-(Sonarr, etc.)   (Go process)     (on disk)        (React UI)
+Your service  →  Stoa backend  →  In-memory cache  →  Frontend panel
+(Sonarr, etc.)   (Go process)     (backend process)    (React UI)
 ```
 
-**Backend polling:** When you create an integration, the backend starts polling your service on a configurable interval (e.g. every 30 seconds for OPNsense, every 30 minutes for Sonarr). Each poll fetches fresh data from the service, processes it, and writes the result to the SQLite database. The integration record in the database holds both the connection config and the most recently fetched payload.
+**Backend polling:** When you create an integration, the backend starts a polling goroutine that fetches fresh data from your service on a configurable interval (e.g. every 30 seconds for OPNsense, every 30 minutes for Sonarr). Each successful poll processes the response and stores the result in the backend's in-memory cache.
 
-**The cache:** The backend stores the last successful response in the database. If your service goes offline briefly, panels continue to show the last known data rather than an error. When the service comes back, the next successful poll updates the cache automatically.
+**The cache:** Ephemeral panel data — queue items, CPU stats, stream counts, torrent speeds, and so on — lives entirely in memory in the backend process. Nothing is written to SQLite. If your service goes offline briefly, panels continue to show the last known data. If the backend restarts, the cache is empty until the next poll cycle completes.
 
-**Frontend panels:** When you open the dashboard, each panel calls `/api/panels/{id}/data` to retrieve the cached payload from the database. The backend decrypts credentials, checks if the cache is fresh enough, re-fetches if needed, and returns the data. The panel renders it immediately — there's no direct connection between your browser and the service being monitored.
+**What does live in SQLite:** Configuration and permanent user data — integration records, encrypted credentials, OAuth tokens, panel definitions, users, groups, tags, kanban cards, notes, checklists, bookmarks. Some external lookups (like geo-location results for IP addresses) are also cached in SQLite to avoid repeating the same outbound request. But live service payloads are not persisted.
+
+**Frontend panels:** When you open the dashboard, each panel calls `/api/panels/{id}/data`. The backend looks up the cached payload for that integration and returns it immediately — no database read, no call to your service. The panel renders it as-is. There's no direct connection between your browser and the service being monitored.
 
 **Why this matters:**
-- Panels load fast because they read from a local database, not from your (potentially slow) services on every page load
+- Panels load fast because data is already in memory, ready to serve
 - Sensitive credentials (API keys, passwords) stay on the server — they're never sent to the browser
-- Refresh rate is controlled per-integration; a Sonarr queue doesn't need sub-second updates, but a torrent client speed display might want 15-second polling
-- OAuth integrations (Spotify, Twitch, YouTube, Strava) store encrypted access and refresh tokens in the database; the backend refreshes them silently before they expire
+- Refresh rate is controlled per-integration; a Sonarr queue doesn't need sub-second updates, but a torrent client speed display might poll every 15 seconds
+- OAuth integrations (Spotify, Twitch, YouTube, Strava) store encrypted access and refresh tokens in SQLite; the backend refreshes them silently before they expire
