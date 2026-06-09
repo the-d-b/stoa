@@ -867,6 +867,20 @@ export interface AIAuditUser {
   lastMessageAt: string | null
 }
 
+export interface AdminIntegrationRow {
+  id: string
+  name: string
+  type: string
+  enabled: boolean
+  scope: 'shared' | 'personal'
+  ownerName: string
+  createdAt: string
+}
+
+export const adminIntegrationsApi = {
+  listAll: () => api.get<AdminIntegrationRow[]>('/integrations/all'),
+}
+
 export const chatAuditApi = {
   dmConversations: () =>
     api.get<DMAuditConversation[]>('/audit/dm/conversations'),

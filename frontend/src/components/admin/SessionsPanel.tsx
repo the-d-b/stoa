@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { sessionsApi, sessionConfigApi, SessionRow, integrationHealthApi, IntegrationHealthItem, auditApi, AuditEntry, chatAuditApi, DMAuditConversation, AIAuditUser } from '../../api'
+import { sessionsApi, sessionConfigApi, SessionRow, integrationHealthApi, IntegrationHealthItem, auditApi, AuditEntry, chatAuditApi, DMAuditConversation, AIAuditUser, adminIntegrationsApi, AdminIntegrationRow } from '../../api'
 
 function timeAgo(iso: string | null) {
   if (!iso) return 'never'
@@ -546,9 +546,90 @@ function ChatTranscriptsSection() {
   )
 }
 
+// ── All Integrations (admin) ──────────────────────────────────────────────────
+
+function AllIntegrationsSection() {
+  const [rows, setRows] = useState<AdminIntegrationRow[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    adminIntegrationsApi.listAll()
+      .then(r => setRows(r.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const th: React.CSSProperties = {
+    textAlign: 'left', padding: '6px 12px 8px',
+    fontSize: 11, fontWeight: 600, color: 'var(--text-dim)',
+    textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+  }
+
+  if (loading) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+  if (rows.length === 0) return <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integrations found.</div>
+
+  const shared   = rows.filter(r => r.scope === 'shared')
+  const personal = rows.filter(r => r.scope === 'personal')
+
+  const renderTable = (list: AdminIntegrationRow[]) => (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+        <thead>
+          <tr style={{ borderBottom: '2px solid var(--border)' }}>
+            {['Name', 'Type', 'Owner', 'Status'].map(h => <th key={h} style={th}>{h}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {list.map(row => (
+            <tr key={row.id} style={{ borderBottom: '1px solid var(--border)', opacity: row.enabled ? 1 : 0.5 }}>
+              <td style={{ padding: '7px 12px', fontWeight: 500 }}>{row.name}</td>
+              <td style={{ padding: '7px 12px', fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--text-muted)' }}>
+                {row.type}
+              </td>
+              <td style={{ padding: '7px 12px', color: 'var(--text-muted)' }}>
+                {row.scope === 'shared'
+                  ? <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 5,
+                      background: 'var(--accent-bg)', color: 'var(--accent2)',
+                      border: '1px solid var(--accent)', fontWeight: 600 }}>system</span>
+                  : row.ownerName}
+              </td>
+              <td style={{ padding: '7px 12px' }}>
+                {row.enabled
+                  ? <span style={{ fontSize: 11, color: 'var(--green)' }}>Enabled</span>
+                  : <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Disabled</span>}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+          Shared integrations <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>({shared.length})</span>
+        </div>
+        {shared.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None.</div>
+          : renderTable(shared)}
+      </div>
+      {personal.length > 0 && (
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>
+            Personal integrations <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>({personal.length})</span>
+          </div>
+          {renderTable(personal)}
+        </div>
+      )}
+    </div>
+  )
+}
+
 type TimeFilter = '1' | '7' | '30' | 'all'
 
-type MainTab = 'sessions' | 'audit' | 'transcripts'
+type MainTab = 'sessions' | 'audit' | 'transcripts' | 'integrations'
 
 export default function SessionsPanel() {
   const [activeTab, setActiveTab] = useState<MainTab>('sessions')
@@ -595,6 +676,7 @@ export default function SessionsPanel() {
     { id: 'sessions', label: 'Sessions' },
     { id: 'audit', label: 'Audit Log' },
     { id: 'transcripts', label: 'Transcripts' },
+    { id: 'integrations', label: 'All Integrations' },
   ]
 
   return (
@@ -622,6 +704,7 @@ export default function SessionsPanel() {
 
       {activeTab === 'audit' && <AuditLogSection />}
       {activeTab === 'transcripts' && <ChatTranscriptsSection />}
+      {activeTab === 'integrations' && <AllIntegrationsSection />}
 
       {activeTab === 'sessions' && <>
       {/* Integration health */}

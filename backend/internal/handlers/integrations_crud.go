@@ -84,6 +84,50 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// GetAllIntegrationsAdmin returns every integration across all users, with owner name.
+// Admin-only — enforced by the admin subrouter.
+func GetAllIntegrationsAdmin(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rows, err := db.Query(`
+			SELECT
+				i.id, i.name, i.type, i.enabled,
+				CASE WHEN i.created_by = 'SYSTEM' THEN 'shared' ELSE 'personal' END,
+				CASE WHEN i.created_by = 'SYSTEM' THEN 'system'
+				     ELSE COALESCE(u.username, i.created_by) END,
+				i.created_at
+			FROM integrations i
+			LEFT JOIN users u ON u.id = i.created_by
+			ORDER BY CASE WHEN i.created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, i.name ASC
+		`)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "query failed")
+			return
+		}
+		defer rows.Close()
+
+		type row struct {
+			ID        string `json:"id"`
+			Name      string `json:"name"`
+			Type      string `json:"type"`
+			Enabled   bool   `json:"enabled"`
+			Scope     string `json:"scope"`
+			OwnerName string `json:"ownerName"`
+			CreatedAt string `json:"createdAt"`
+		}
+		list := []row{}
+		for rows.Next() {
+			var r row
+			var enabled int
+			var createdAt string
+			rows.Scan(&r.ID, &r.Name, &r.Type, &enabled, &r.Scope, &r.OwnerName, &createdAt)
+			r.Enabled = enabled == 1
+			r.CreatedAt = createdAt
+			list = append(list, r)
+		}
+		writeJSON(w, http.StatusOK, list)
+	}
+}
+
 func CreateIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
