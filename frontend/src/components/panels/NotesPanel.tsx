@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { notesApi, Note, NoteActivityUser, Panel } from '../../api'
+import { useTheme } from '../../context/ThemeContext'
 
 function timeAgo(iso: string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000
@@ -11,6 +12,9 @@ function timeAgo(iso: string) {
 }
 
 function RichEditor({ value, onChange, readOnly = false }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) {
+  const { themeDef } = useTheme()
+  const editorColor  = themeDef.vars['--text']
+  const editorBg     = themeDef.vars['--surface']
   const ref = useRef<HTMLDivElement>(null)
   const lastVal = useRef(value)
 
@@ -74,7 +78,9 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
         onInput={handleInput}
         style={{
           flex: 1, overflowY: 'auto', padding: '12px 4px', outline: 'none',
-          fontSize: 13, lineHeight: 1.6, color: 'var(--text)', background: 'transparent',
+          fontSize: 13, lineHeight: 1.6,
+          color: editorColor, background: editorBg,
+          colorScheme: themeDef.dark ? 'dark' : 'light',
           minHeight: 200,
         }}
       />
@@ -93,6 +99,8 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
   note: Note; onClose: (updated: Note) => void; onDelete: (id: string) => void
   initialLockedBy?: string | null
 }) {
+  const { themeDef } = useTheme()
+  const textColor = themeDef.vars['--text']
   const [title, setTitle] = useState(note.title || '')
   const [body, setBody] = useState(note.body || '')
   const [saved, setSaved] = useState(true)
@@ -184,7 +192,7 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
         width: 'min(820px, 94vw)', height: 'min(680px, 90vh)',
         display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
-        padding: '20px 24px', color: 'var(--text)',
+        padding: '20px 24px', color: textColor,
       }}>
         {/* Lock banner */}
         {lockedBy === 'pending' && (
@@ -211,7 +219,7 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
             onChange={e => { if (!readOnly) { setTitle(e.target.value); schedSave(e.target.value, latestBody.current) } }}
             placeholder="Note title"
             style={{ flex: 1, fontSize: 18, fontWeight: 600, border: 'none',
-              background: 'transparent', color: 'var(--text)', padding: '4px 0', outline: 'none',
+              background: 'transparent', color: textColor, padding: '4px 0', outline: 'none',
               borderBottom: '1px solid var(--border)',
               opacity: readOnly ? 0.7 : 1, cursor: readOnly ? 'default' : 'text' }}
           />
