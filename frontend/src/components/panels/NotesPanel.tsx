@@ -74,7 +74,7 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
         onInput={handleInput}
         style={{
           flex: 1, overflowY: 'auto', padding: '12px 4px', outline: 'none',
-          fontSize: 13, lineHeight: 1.6, color: 'var(--text)',
+          fontSize: 13, lineHeight: 1.6, color: 'var(--text)', background: 'transparent',
           minHeight: 200,
         }}
       />
@@ -184,7 +184,7 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
         background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14,
         width: 'min(820px, 94vw)', height: 'min(680px, 90vh)',
         display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.35)',
-        padding: '20px 24px',
+        padding: '20px 24px', color: 'var(--text)',
       }}>
         {/* Lock banner */}
         {lockedBy === 'pending' && (
@@ -211,7 +211,7 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
             onChange={e => { if (!readOnly) { setTitle(e.target.value); schedSave(e.target.value, latestBody.current) } }}
             placeholder="Note title"
             style={{ flex: 1, fontSize: 18, fontWeight: 600, border: 'none',
-              background: 'transparent', padding: '4px 0', outline: 'none',
+              background: 'transparent', color: 'var(--text)', padding: '4px 0', outline: 'none',
               borderBottom: '1px solid var(--border)',
               opacity: readOnly ? 0.7 : 1, cursor: readOnly ? 'default' : 'text' }}
           />
@@ -363,24 +363,6 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '8px 12px' }}>
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
-        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search notes..." style={{ flex: 1, fontSize: 12 }} />
-        <button onClick={toggleSort} title={`Sort: ${sort === 'desc' ? 'newest first' : 'oldest first'}`}
-          style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
-            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
-            flexShrink: 0 }}>
-          {sort === 'desc' ? '↓ newest' : '↑ oldest'}
-        </button>
-        <button onClick={handleCreate}
-          style={{ fontSize: 18, width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
-            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          +
-        </button>
-      </div>
-
       {/* Note list */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {filtered.length === 0 && (
@@ -424,6 +406,25 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Toolbar */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, paddingTop: 8,
+        borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Search notes..." style={{ flex: 1, fontSize: 12 }} />
+        <button onClick={toggleSort} title={`Sort: ${sort === 'desc' ? 'newest first' : 'oldest first'}`}
+          style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
+            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
+            flexShrink: 0 }}>
+          {sort === 'desc' ? '↓ newest' : '↑ oldest'}
+        </button>
+        <button onClick={handleCreate}
+          style={{ fontSize: 18, width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
+            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          +
+        </button>
       </div>
 
       {/* Note overlay */}

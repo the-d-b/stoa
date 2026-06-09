@@ -3,6 +3,9 @@ name: Build and Push
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
   release:
     types: [published]
 

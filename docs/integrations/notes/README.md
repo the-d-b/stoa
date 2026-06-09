@@ -10,11 +10,11 @@ Shared markdown-capable note panel. Multi-user locking - only one user can edit 
 
 ### Height behavior
 
+All panel heights show the same layout: a scrollable note list with search, sort, and new note button pinned to the bottom.
+
 | Height | What you see |
 |---|---|
-| 1x | Note title + first line preview |
-| 2-3x | Rendered markdown content |
-| 4x+ | Full rendered note with scroll |
+| All heights | Scrollable note list; search, sort, and new note button at bottom |
 
 ### Screenshots
 
@@ -23,6 +23,16 @@ Shared markdown-capable note panel. Multi-user locking - only one user can edit 
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
+### Functional overlay
+
+Clicking any note opens the full-screen editor overlay. The overlay includes a rich text toolbar (bold, italic, lists, headings), a title field, auto-save indicator, per-user activity avatars showing who last read or edited, and a lock banner when another user is currently editing.
+
+| Editor overlay |
+|---|
+| ![overlay](./screenshots/overlay.png) |
+
+*Screenshot pending - add as screenshots/overlay.png.*
 ---
 
 ## Notes

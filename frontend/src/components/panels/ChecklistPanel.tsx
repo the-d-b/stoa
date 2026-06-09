@@ -123,52 +123,6 @@ export default function ChecklistPanel({ panel }: { panel: Panel }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '8px 12px', gap: 0 }}>
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 8, flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {completed.length > 0 && (
-            <button onClick={() => setShowCompleted(v => !v)} style={{
-              fontSize: 10, padding: '2px 8px', borderRadius: 8, cursor: 'pointer',
-              background: showCompleted ? 'var(--accent-bg)' : 'var(--surface2)',
-              color: showCompleted ? 'var(--accent2)' : 'var(--text-dim)',
-              border: `1px solid ${showCompleted ? 'var(--accent)' : 'var(--border)'}`,
-            }}>
-              {showCompleted ? 'Hide' : 'Show'} {completed.length} done
-            </button>
-          )}
-        </div>
-        <button onClick={() => setAdding(v => !v)} style={{
-          fontSize: 18, lineHeight: 1, width: 26, height: 26, borderRadius: 6,
-          cursor: 'pointer', background: adding ? 'var(--accent-bg)' : 'var(--surface2)',
-          color: adding ? 'var(--accent2)' : 'var(--text-dim)',
-          border: `1px solid ${adding ? 'var(--accent)' : 'var(--border)'}`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>+</button>
-      </div>
-
-      {/* Add form */}
-      {adding && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10,
-          padding: '8px', background: 'var(--surface2)', borderRadius: 8,
-          border: '1px solid var(--border)', flexShrink: 0 }}>
-          <input ref={addInputRef} className="input" value={newText}
-            onChange={e => setNewText(e.target.value)}
-            placeholder="Item description..."
-            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }}
-            style={{ fontSize: 12 }} />
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>Due:</span>
-            <input type="date" className="input" value={newDue}
-              onChange={e => setNewDue(e.target.value)}
-              style={{ fontSize: 11, flex: 1 }} />
-            <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={handleAdd}>Add</button>
-            <button className="btn btn-ghost" style={{ fontSize: 11 }}
-              onClick={() => { setAdding(false); setNewText(''); setNewDue('') }}>Cancel</button>
-          </div>
-        </div>
-      )}
-
       {/* Item list */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {visible.length === 0 && (
@@ -249,6 +203,52 @@ export default function ChecklistPanel({ panel }: { panel: Panel }) {
             </div>
           )
         })}
+      </div>
+
+      {/* Add form */}
+      {adding && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 8,
+          padding: '8px', background: 'var(--surface2)', borderRadius: 8,
+          border: '1px solid var(--border)', flexShrink: 0 }}>
+          <input ref={addInputRef} className="input" value={newText}
+            onChange={e => setNewText(e.target.value)}
+            placeholder="Item description..."
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') setAdding(false) }}
+            style={{ fontSize: 12 }} />
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>Due:</span>
+            <input type="date" className="input" value={newDue}
+              onChange={e => setNewDue(e.target.value)}
+              style={{ fontSize: 11, flex: 1 }} />
+            <button className="btn btn-primary" style={{ fontSize: 11 }} onClick={handleAdd}>Add</button>
+            <button className="btn btn-ghost" style={{ fontSize: 11 }}
+              onClick={() => { setAdding(false); setNewText(''); setNewDue('') }}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        paddingTop: 8, marginTop: 4, borderTop: '1px solid var(--border)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {completed.length > 0 && (
+            <button onClick={() => setShowCompleted(v => !v)} style={{
+              fontSize: 10, padding: '2px 8px', borderRadius: 8, cursor: 'pointer',
+              background: showCompleted ? 'var(--accent-bg)' : 'var(--surface2)',
+              color: showCompleted ? 'var(--accent2)' : 'var(--text-dim)',
+              border: `1px solid ${showCompleted ? 'var(--accent)' : 'var(--border)'}`,
+            }}>
+              {showCompleted ? 'Hide' : 'Show'} {completed.length} done
+            </button>
+          )}
+        </div>
+        <button onClick={() => setAdding(v => !v)} style={{
+          fontSize: 18, lineHeight: 1, width: 26, height: 26, borderRadius: 6,
+          cursor: 'pointer', background: adding ? 'var(--accent-bg)' : 'var(--surface2)',
+          color: adding ? 'var(--accent2)' : 'var(--text-dim)',
+          border: `1px solid ${adding ? 'var(--accent)' : 'var(--border)'}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>+</button>
       </div>
     </div>
   )

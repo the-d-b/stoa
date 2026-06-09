@@ -10,11 +10,11 @@ Shared checklist panel. Items can be checked off, added, or removed. State is sh
 
 ### Height behavior
 
+All panel heights show the same layout: a scrollable item list with the add button and show-completed toggle pinned to the bottom.
+
 | Height | What you see |
 |---|---|
-| 1x | Checked/total count + completion bar |
-| 2-3x | Item list with checkboxes |
-| 4x+ | Full item list with add/remove controls |
+| All heights | Scrollable item list; show completed toggle and add button at bottom |
 
 ### Screenshots
 
@@ -23,3 +23,13 @@ Shared checklist panel. Items can be checked off, added, or removed. State is sh
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
+### Functional overlay
+
+Clicking + opens the add form above the footer. Clicking the edit (✎) button on any item opens an inline edit form with a text field and optional due date. Due dates are color-coded: red = overdue, amber = due today, yellow = due within 3 days.
+
+| Add / edit form |
+|---|
+| ![overlay](./screenshots/overlay.png) |
+
+*Screenshot pending - add as screenshots/overlay.png.*
