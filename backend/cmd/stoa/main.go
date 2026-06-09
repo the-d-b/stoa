@@ -301,6 +301,10 @@ func main() {
 	// Sessions — audit trail and presence (admin only, enforced in handler)
 	admin.HandleFunc("/sessions", handlers.ListSessions(database)).Methods("GET")
 	admin.HandleFunc("/audit-log", handlers.GetAuditLog(database)).Methods("GET")
+	admin.HandleFunc("/audit/dm/conversations", handlers.ListDMConversationsAdmin(database)).Methods("GET")
+	admin.HandleFunc("/audit/dm/conversations/{id}/download", handlers.DownloadDMConversation(database)).Methods("GET")
+	admin.HandleFunc("/audit/ai/users", handlers.ListAIUsersAdmin(database)).Methods("GET")
+	admin.HandleFunc("/audit/ai/download", handlers.DownloadAIConversation(database)).Methods("GET")
 	protected.HandleFunc("/sessions/toggle-user", handlers.ToggleUserEnabled(database)).Methods("PUT")
 	admin.Use(authService.AdminMiddleware)
 

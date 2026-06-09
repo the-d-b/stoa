@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { sessionsApi, sessionConfigApi, SessionRow, integrationHealthApi, IntegrationHealthItem, auditApi, AuditEntry } from '../../api'
+import { sessionsApi, sessionConfigApi, SessionRow, integrationHealthApi, IntegrationHealthItem, auditApi, AuditEntry, chatAuditApi, DMAuditConversation, AIAuditUser } from '../../api'
 
 function timeAgo(iso: string | null) {
   if (!iso) return 'never'
@@ -350,9 +350,205 @@ function AuditLogSection() {
   )
 }
 
+// ── Chat Transcripts ──────────────────────────────────────────────────────────
+
+function triggerDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
+function ChatTranscriptsSection() {
+  const [subTab, setSubTab] = useState<'dm' | 'ai'>('dm')
+
+  // DM state
+  const [dmConvs, setDmConvs] = useState<DMAuditConversation[]>([])
+  const [dmLoading, setDmLoading] = useState(true)
+  const [dmDownloading, setDmDownloading] = useState<string | null>(null)
+
+  // AI state
+  const [aiUsers, setAiUsers] = useState<AIAuditUser[]>([])
+  const [aiLoading, setAiLoading] = useState(true)
+  const [aiDownloading, setAiDownloading] = useState<string | null>(null)
+
+  useEffect(() => {
+    chatAuditApi.dmConversations()
+      .then(r => setDmConvs(r.data || []))
+      .catch(() => {})
+      .finally(() => setDmLoading(false))
+    chatAuditApi.aiUsers()
+      .then(r => setAiUsers(r.data || []))
+      .catch(() => {})
+      .finally(() => setAiLoading(false))
+  }, [])
+
+  const downloadDM = async (conv: DMAuditConversation) => {
+    setDmDownloading(conv.id)
+    try {
+      const res = await chatAuditApi.downloadDM(conv.id)
+      triggerDownload(res.data, `dm_${conv.userAUsername}_${conv.userBUsername}.txt`)
+    } catch { /* silently ignore */ }
+    finally { setDmDownloading(null) }
+  }
+
+  const downloadAI = async (u: AIAuditUser) => {
+    const key = u.userId + ':' + u.provider
+    setAiDownloading(key)
+    try {
+      const res = await chatAuditApi.downloadAI(u.userId, u.provider)
+      triggerDownload(res.data, `ai_${u.username}_${u.provider}.txt`)
+    } catch { /* silently ignore */ }
+    finally { setAiDownloading(null) }
+  }
+
+  const subTabStyle = (id: 'dm' | 'ai'): React.CSSProperties => ({
+    padding: '4px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer',
+    background: subTab === id ? 'var(--accent-bg)' : 'var(--surface2)',
+    color: subTab === id ? 'var(--accent2)' : 'var(--text-muted)',
+    border: `1px solid ${subTab === id ? 'var(--accent)' : 'var(--border)'}`,
+    fontWeight: subTab === id ? 600 : 400,
+  })
+
+  const th: React.CSSProperties = {
+    textAlign: 'left', padding: '6px 12px 8px',
+    fontSize: 11, fontWeight: 600, color: 'var(--text-dim)',
+    textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
+  }
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 16, lineHeight: 1.6 }}>
+        Download plain-text transcripts of direct messages and AI conversations for any user.
+        Files can be opened in any text editor and searched with standard tools.
+      </div>
+
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
+        <button style={subTabStyle('dm')} onClick={() => setSubTab('dm')}>Direct Messages</button>
+        <button style={subTabStyle('ai')} onClick={() => setSubTab('ai')}>AI Conversations</button>
+      </div>
+
+      {subTab === 'dm' && (
+        dmLoading ? (
+          <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+        ) : dmConvs.length === 0 ? (
+          <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No direct message conversations yet.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                  {['Participants', 'Messages', 'Last activity', ''].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {dmConvs.map(c => (
+                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>
+                      {c.userAUsername} <span style={{ color: 'var(--text-dim)' }}>↔</span> {c.userBUsername}
+                    </td>
+                    <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+                      {c.messageCount}
+                    </td>
+                    <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace', whiteSpace: 'nowrap' }}>
+                      {c.lastMessageAt ? timeAgo(c.lastMessageAt) : '—'}
+                    </td>
+                    <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => downloadDM(c)}
+                        disabled={dmDownloading === c.id}
+                        style={{
+                          padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                          background: 'var(--surface2)', color: 'var(--text-muted)',
+                          border: '1px solid var(--border)', whiteSpace: 'nowrap',
+                          opacity: dmDownloading === c.id ? 0.5 : 1,
+                        }}
+                      >
+                        {dmDownloading === c.id ? 'Downloading…' : '↓ Download'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+
+      {subTab === 'ai' && (
+        aiLoading ? (
+          <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading...</div>
+        ) : aiUsers.length === 0 ? (
+          <div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No AI chat history yet.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                  {['User', 'Provider', 'Messages', 'Last activity', ''].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {aiUsers.map(u => {
+                  const key = u.userId + ':' + u.provider
+                  return (
+                    <tr key={key} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '8px 12px', fontWeight: 500 }}>{u.username}</td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <span style={{
+                          fontSize: 11, padding: '2px 7px', borderRadius: 5,
+                          background: u.provider === 'claude' ? 'rgba(140,120,255,0.12)' : 'rgba(60,180,100,0.12)',
+                          color: u.provider === 'claude' ? '#a594ff' : '#4ade80',
+                          border: `1px solid ${u.provider === 'claude' ? 'rgba(140,120,255,0.3)' : 'rgba(60,180,100,0.3)'}`,
+                          fontWeight: 600, fontFamily: 'DM Mono, monospace',
+                        }}>
+                          {u.provider}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+                        {u.messageCount}
+                      </td>
+                      <td style={{ padding: '8px 12px', color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace', whiteSpace: 'nowrap' }}>
+                        {u.lastMessageAt ? timeAgo(u.lastMessageAt) : '—'}
+                      </td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right' }}>
+                        <button
+                          onClick={() => downloadAI(u)}
+                          disabled={aiDownloading === key}
+                          style={{
+                            padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer',
+                            background: 'var(--surface2)', color: 'var(--text-muted)',
+                            border: '1px solid var(--border)', whiteSpace: 'nowrap',
+                            opacity: aiDownloading === key ? 0.5 : 1,
+                          }}
+                        >
+                          {aiDownloading === key ? 'Downloading…' : '↓ Download'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )
+      )}
+    </div>
+  )
+}
+
 type TimeFilter = '1' | '7' | '30' | 'all'
 
-type MainTab = 'sessions' | 'audit'
+type MainTab = 'sessions' | 'audit' | 'transcripts'
 
 export default function SessionsPanel() {
   const [activeTab, setActiveTab] = useState<MainTab>('sessions')
@@ -398,6 +594,7 @@ export default function SessionsPanel() {
   const TAB_LABELS: { id: MainTab; label: string }[] = [
     { id: 'sessions', label: 'Sessions' },
     { id: 'audit', label: 'Audit Log' },
+    { id: 'transcripts', label: 'Transcripts' },
   ]
 
   return (
@@ -424,6 +621,7 @@ export default function SessionsPanel() {
       </div>
 
       {activeTab === 'audit' && <AuditLogSection />}
+      {activeTab === 'transcripts' && <ChatTranscriptsSection />}
 
       {activeTab === 'sessions' && <>
       {/* Integration health */}

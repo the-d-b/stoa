@@ -846,6 +846,38 @@ export const auditApi = {
     api.get<AuditEntry[]>(`/audit-log${action ? `?action=${encodeURIComponent(action)}` : ''}`),
 }
 
+// ── Chat Audit (admin) ────────────────────────────────────────────────────────
+
+export interface DMAuditConversation {
+  id: string
+  userAId: string
+  userAUsername: string
+  userBId: string
+  userBUsername: string
+  messageCount: number
+  lastMessageAt: string | null
+  createdAt: string
+}
+
+export interface AIAuditUser {
+  userId: string
+  username: string
+  provider: string
+  messageCount: number
+  lastMessageAt: string | null
+}
+
+export const chatAuditApi = {
+  dmConversations: () =>
+    api.get<DMAuditConversation[]>('/audit/dm/conversations'),
+  downloadDM: (id: string) =>
+    api.get<Blob>(`/audit/dm/conversations/${id}/download`, { responseType: 'blob' }),
+  aiUsers: () =>
+    api.get<AIAuditUser[]>('/audit/ai/users'),
+  downloadAI: (userId: string, provider: string) =>
+    api.get<Blob>(`/audit/ai/download?userId=${encodeURIComponent(userId)}&provider=${encodeURIComponent(provider)}`, { responseType: 'blob' }),
+}
+
 // ── Docker ────────────────────────────────────────────────────────────────────
 
 export interface DockerHostRow {
