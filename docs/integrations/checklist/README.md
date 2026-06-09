@@ -6,7 +6,7 @@
 
 ## Panel
 
-Shared checklist panel. Items can be checked off, added, or removed. State is shared - when one user checks an item, it is checked for everyone who can see the panel.
+Checklist panels. Items can be checked off, added, or removed. State may be personal or shared.  For a shared panel, when one user checks an item, it is checked for everyone who can see the panel.
 
 ### Height behavior
 
@@ -22,14 +22,8 @@ All panel heights show the same layout: a scrollable item list with the add butt
 |---|---|---|
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
-*Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
-
 ### Functional overlay
 
 Clicking + opens the add form above the footer. Clicking the edit (✎) button on any item opens an inline edit form with a text field and optional due date. Due dates are color-coded: red = overdue, amber = due today, yellow = due within 3 days.
 
 | Add / edit form |
-|---|
-| ![overlay](./screenshots/overlay.png) |
-
-*Screenshot pending - add as screenshots/overlay.png.*

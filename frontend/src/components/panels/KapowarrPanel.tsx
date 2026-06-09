@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import AuthCoverStrip from './AuthCoverStrip'
+import PanelError from './PanelError'
 import { integrationsApi, Panel } from '../../api'
 
 interface KapowarrVolume {
@@ -116,7 +117,7 @@ export default function KapowarrPanel({ panel, heightUnits }: { panel: Panel; he
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
-  if (error)   return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>📥 {error}</div>
+  if (error)   return <PanelError icon="📥" error={error} onRetry={load} />
   if (!data)   return null
 
   const integId = data.integrationId

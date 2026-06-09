@@ -52,23 +52,22 @@ func fetchTrangaPanelData(db *sql.DB, config map[string]interface{}) (*TrangaPan
 		ActiveJobs:    []TrangaJob{},
 	}
 
-	// ── All manga ─────────────────────────────────────────────────────────────
+	// ── All manga — primary data; error means service is unreachable/misconfigured ──
 	body, err := arrGet(apiURL, apiKey, "/v2/Manga", skipTLS)
 	if err != nil {
-		log.Printf("[TRANGA] Manga error: %v", err)
-	} else {
-		var arr []map[string]interface{}
-		if json.Unmarshal(body, &arr) == nil {
-			data.MangaCount = len(arr)
-			for _, m := range arr {
-				mg := TrangaManga{
-					Name:   trangaString(m, "name", "Name"),
-					Status: trangaString(m, "status", "Status"),
-					MangaId: trangaString(m, "mangaId", "MangaId"),
-				}
-				if mg.Name != "" {
-					data.MangaList = append(data.MangaList, mg)
-				}
+		return nil, err
+	}
+	var mangaArr []map[string]interface{}
+	if json.Unmarshal(body, &mangaArr) == nil {
+		data.MangaCount = len(mangaArr)
+		for _, m := range mangaArr {
+			mg := TrangaManga{
+				Name:    trangaString(m, "name", "Name"),
+				Status:  trangaString(m, "status", "Status"),
+				MangaId: trangaString(m, "mangaId", "MangaId"),
+			}
+			if mg.Name != "" {
+				data.MangaList = append(data.MangaList, mg)
 			}
 		}
 	}

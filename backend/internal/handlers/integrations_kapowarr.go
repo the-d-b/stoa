@@ -78,23 +78,21 @@ func fetchKapowarrPanelData(db *sql.DB, config map[string]interface{}) (*Kapowar
 		Queue:         []KapowarrQueItem{},
 	}
 
-	// ── Stats ─────────────────────────────────────────────────────────────────
+	// ── Stats — primary data; error means service is unreachable/misconfigured ──
 	body, err := kapowarrGet(apiURL, apiKey, "/volumes/stats", skipTLS)
 	if err != nil {
-		log.Printf("[KAPOWARR] stats error: %v", err)
-	} else {
-		var raw map[string]interface{}
-		if json.Unmarshal(body, &raw) == nil {
-			// Handle both {"result": {...}} wrapper and flat response
-			stats := raw
-			if res, ok := raw["result"].(map[string]interface{}); ok {
-				stats = res
-			}
-			data.Volumes = kapowarrInt(stats, "volumes", "total_volume_count")
-			data.Issues = kapowarrInt(stats, "issues", "total_issue_count")
-			data.Downloaded = kapowarrInt(stats, "downloaded_issues", "downloaded_issue_count")
-			data.Monitored = kapowarrInt(stats, "monitored", "monitored_volume_count")
+		return nil, err
+	}
+	var statsRaw map[string]interface{}
+	if json.Unmarshal(body, &statsRaw) == nil {
+		stats := statsRaw
+		if res, ok := statsRaw["result"].(map[string]interface{}); ok {
+			stats = res
 		}
+		data.Volumes = kapowarrInt(stats, "volumes", "total_volume_count")
+		data.Issues = kapowarrInt(stats, "issues", "total_issue_count")
+		data.Downloaded = kapowarrInt(stats, "downloaded_issues", "downloaded_issue_count")
+		data.Monitored = kapowarrInt(stats, "monitored", "monitored_volume_count")
 	}
 
 	// ── Volumes list ──────────────────────────────────────────────────────────

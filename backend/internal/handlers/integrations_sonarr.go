@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"fmt"
-	"log"
 )
 
 type SonarrPanelData struct {
@@ -195,34 +194,31 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		}
 	}
 
-	// Library stats via cache
+	// Library stats — primary data; error here means integration is unreachable/misconfigured
 	seriesRaw, seriesErr := arrGet(apiURL, apiKey, "/api/v3/series", skipTLS)
-	var seriesList []map[string]interface{}
-	if seriesErr == nil {
-		json.Unmarshal(seriesRaw, &seriesList)
-	}
 	if seriesErr != nil {
-		log.Printf("[SONARR] series fetch error: %v", seriesErr)
-	} else {
-		data.SeriesCount = len(seriesList)
-		for _, s := range seriesList {
-			statistics, _ := s["statistics"].(map[string]interface{})
-			episodeFileCount := 0
-			if statistics != nil {
-				if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
-				if v, ok := statistics["episodeCount"].(float64); ok { data.EpisodeCount += int(v) }
-				data.OnDiskCount += episodeFileCount
-			}
-			if episodeFileCount == 0 {
-				ss := SonarrSeries{}
-				ss.Title, _ = s["title"].(string)
-				if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
-				if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
-				if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
-				ss.Certification, _ = s["certification"].(string)
-				if sonarrRatingAllowed(ss.Certification, sonarrAllowedRatings(config)) {
-					data.ZeroByte = append(data.ZeroByte, ss)
-				}
+		return nil, seriesErr
+	}
+	var seriesList []map[string]interface{}
+	json.Unmarshal(seriesRaw, &seriesList)
+	data.SeriesCount = len(seriesList)
+	for _, s := range seriesList {
+		statistics, _ := s["statistics"].(map[string]interface{})
+		episodeFileCount := 0
+		if statistics != nil {
+			if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
+			if v, ok := statistics["episodeCount"].(float64); ok { data.EpisodeCount += int(v) }
+			data.OnDiskCount += episodeFileCount
+		}
+		if episodeFileCount == 0 {
+			ss := SonarrSeries{}
+			ss.Title, _ = s["title"].(string)
+			if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
+			if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
+			if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
+			ss.Certification, _ = s["certification"].(string)
+			if sonarrRatingAllowed(ss.Certification, sonarrAllowedRatings(config)) {
+				data.ZeroByte = append(data.ZeroByte, ss)
 			}
 		}
 	}

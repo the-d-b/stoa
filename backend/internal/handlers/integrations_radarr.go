@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"strings"
 	"fmt"
-	"log"
 )
 
 type RadarrPanelData struct {
@@ -63,26 +62,22 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 		}
 	}
 
-	// Library stats via cache
+	// Library stats — primary data; error here means integration is unreachable/misconfigured
 	movieRaw, err := arrGet(apiURL, apiKey, "/api/v3/movie", skipTLS)
-	var movieList []map[string]interface{}
-	if err == nil {
-		json.Unmarshal(movieRaw, &movieList)
-	}
 	if err != nil {
-		log.Printf("[RADARR] movie fetch error: %v", err)
-	} else {
-		data.MovieCount = len(movieList)
-		ratingsFilter2 := allowedRatings(config)
-		for _, m := range movieList {
-			mv := radarrMovieFromMap(m)
-			if m["hasFile"] == true {
-				data.OnDiskCount++
-			} else if ratingAllowed(mv.Certification, ratingsFilter2) {
-				data.Missing = append(data.Missing, mv)
-			}
+		return nil, err
+	}
+	var movieList []map[string]interface{}
+	json.Unmarshal(movieRaw, &movieList)
+	data.MovieCount = len(movieList)
+	ratingsFilter2 := allowedRatings(config)
+	for _, m := range movieList {
+		mv := radarrMovieFromMap(m)
+		if m["hasFile"] == true {
+			data.OnDiskCount++
+		} else if ratingAllowed(mv.Certification, ratingsFilter2) {
+			data.Missing = append(data.Missing, mv)
 		}
-
 	}
 	data.MissingCount = len(data.Missing)
 	return data, nil

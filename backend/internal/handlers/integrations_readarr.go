@@ -96,12 +96,12 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 	// ── Book library — all books, monitored and unmonitored ─────────────────
 	bookRaw, err := arrGet(apiURL, apiKey, "/api/v1/book", skipTLS)
 	if err != nil {
-		log.Printf("[READARR] book fetch error: %v", err)
-	} else {
-		var bookList []map[string]interface{}
-		json.Unmarshal(bookRaw, &bookList)
-		data.BookCount = len(bookList)
-		for _, b := range bookList {
+		return nil, err
+	}
+	var bookList []map[string]interface{}
+	json.Unmarshal(bookRaw, &bookList)
+	data.BookCount = len(bookList)
+	for _, b := range bookList {
 			bk := readarrBookFromMap(b)
 			// Use statistics.bookFileCount to determine if file exists
 			hasFile := false
@@ -123,7 +123,6 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 				data.Missing = append(data.Missing, bk)
 			}
 		}
-	}
 	data.MissingCount = len(data.Missing)
 
 	// ── Author count ──────────────────────────────────────────────────────────

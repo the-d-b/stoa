@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import AuthCoverStrip from './AuthCoverStrip'
+import PanelError from './PanelError'
 import { integrationsApi, Panel } from '../../api'
 
 interface TrangaManga {
@@ -100,7 +101,7 @@ export default function TrangaPanel({ panel, heightUnits }: { panel: Panel; heig
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
-  if (error)   return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>📖 {error}</div>
+  if (error)   return <PanelError icon="📖" error={error} onRetry={load} />
   if (!data)   return null
 
   const integId = data.integrationId

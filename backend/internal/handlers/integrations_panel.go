@@ -204,7 +204,7 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// Cache miss (or plex filtered — always live) — fetch and optionally store
 		data, err := fetcher(db, config)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, err.Error())
+			writeError(w, http.StatusInternalServerError, friendlyPanelError(err))
 			return
 		}
 		if cacheKey != "" && !plexFiltered {

@@ -22,17 +22,14 @@ All panel heights show the same layout: a scrollable note list with search, sort
 |---|---|---|
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
-*Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
-
 ### Functional overlay
 
-Clicking any note opens the full-screen editor overlay. The overlay includes a rich text toolbar (bold, italic, lists, headings), a title field, auto-save indicator, per-user activity avatars showing who last read or edited, and a lock banner when another user is currently editing.
+Clicking any note opens the full-screen editor overlay. The overlay includes a rich text toolbar (bold, italic, lists, headings), a title field, auto-save indicator, per-user activity avatars showing who last read or edited, and a lock banner when another user is currently editing.  This panel is one of very few panels that do not require a backend data integration for full functionality.  You may create a notes panel out of the box with no additional configuration.  Data is stored in SQL.
 
 | Editor overlay |
 |---|
 | ![overlay](./screenshots/overlay.png) |
 
-*Screenshot pending - add as screenshots/overlay.png.*
 ---
 
 ## Notes

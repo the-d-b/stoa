@@ -82,25 +82,24 @@ func fetchMylar3PanelData(db *sql.DB, config map[string]interface{}) (*Mylar3Pan
 		Upcoming:      []Mylar3Issue{},
 	}
 
-	// ── getIndex — all series ─────────────────────────────────────────────────
+	// ── getIndex — primary data; error means service is unreachable/misconfigured ──
 	body, err := mylar3Get(apiURL, apiKey, "getIndex", nil, skipTLS)
 	if err != nil {
-		log.Printf("[MYLAR3] getIndex error: %v", err)
-	} else {
-		var resp map[string]interface{}
-		if json.Unmarshal(body, &resp) == nil {
-			if arr, ok := resp["data"].([]interface{}); ok {
-				data.SeriesCount = len(arr)
-				for _, item := range arr {
-					m, ok := item.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					id, _ := m["ComicID"].(string)
-					name, _ := m["ComicName"].(string)
-					if id != "" && name != "" {
-						data.Series = append(data.Series, Mylar3Series{ComicID: id, Name: name})
-					}
+		return nil, err
+	}
+	var indexResp map[string]interface{}
+	if json.Unmarshal(body, &indexResp) == nil {
+		if arr, ok := indexResp["data"].([]interface{}); ok {
+			data.SeriesCount = len(arr)
+			for _, item := range arr {
+				m, ok := item.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				id, _ := m["ComicID"].(string)
+				name, _ := m["ComicName"].(string)
+				if id != "" && name != "" {
+					data.Series = append(data.Series, Mylar3Series{ComicID: id, Name: name})
 				}
 			}
 		}
