@@ -273,7 +273,7 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
   )
 }
 
-export default function NotesPanel({ panel }: { panel: Panel }) {
+export default function NotesPanel({ panel, heightUnits = 2 }: { panel: Panel; heightUnits?: number }) {
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
@@ -361,8 +361,37 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
     <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 12 }}>Loading...</div>
   )
 
+  const showControls = heightUnits >= 2
+  const controlsOnTop = heightUnits >= 4
+
+  const toolbar = (
+    <div style={{
+      display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0,
+      ...(controlsOnTop
+        ? { marginBottom: 8, paddingBottom: 8, borderBottom: '1px solid var(--border)' }
+        : { marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }),
+    }}>
+      <input className="input" value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="Search notes..." style={{ flex: 1, fontSize: 12 }} />
+      <button onClick={toggleSort} title={`Sort: ${sort === 'desc' ? 'newest first' : 'oldest first'}`}
+        style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
+          background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
+          flexShrink: 0 }}>
+        {sort === 'desc' ? '↓ newest' : '↑ oldest'}
+      </button>
+      <button onClick={handleCreate}
+        style={{ fontSize: 18, width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
+          background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        +
+      </button>
+    </div>
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '8px 12px' }}>
+      {showControls && controlsOnTop && toolbar}
+
       {/* Note list */}
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
         {filtered.length === 0 && (
@@ -408,24 +437,7 @@ export default function NotesPanel({ panel }: { panel: Panel }) {
         ))}
       </div>
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8, paddingTop: 8,
-        borderTop: '1px solid var(--border)', flexShrink: 0 }}>
-        <input className="input" value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search notes..." style={{ flex: 1, fontSize: 12 }} />
-        <button onClick={toggleSort} title={`Sort: ${sort === 'desc' ? 'newest first' : 'oldest first'}`}
-          style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, cursor: 'pointer',
-            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
-            flexShrink: 0 }}>
-          {sort === 'desc' ? '↓ newest' : '↑ oldest'}
-        </button>
-        <button onClick={handleCreate}
-          style={{ fontSize: 18, width: 28, height: 28, borderRadius: 6, cursor: 'pointer',
-            background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text-dim)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          +
-        </button>
-      </div>
+      {showControls && !controlsOnTop && toolbar}
 
       {/* Note overlay */}
       {openNote && (

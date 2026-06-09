@@ -1156,8 +1156,8 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'rutorrent' && <RTorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'photoprism' && <PhotoPrismPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'authentik' && <AuthentikPanel panel={panel} heightUnits={heightUnits} />}
-          {panel.type === 'checklist' && <ChecklistPanel panel={panel} />}
-          {panel.type === 'notes' && <NotesPanel panel={panel} />}
+          {panel.type === 'checklist' && <ChecklistPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'notes' && <NotesPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'rss' && <RSSPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'weather' && <WeatherPanel panel={panel} heightUnits={heightUnits} />}
