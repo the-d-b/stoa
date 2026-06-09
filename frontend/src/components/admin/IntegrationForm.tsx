@@ -114,6 +114,10 @@ export const INTEGRATION_TYPES = [
   { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
   { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
   { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
+  // Comics & Manga
+  { id: 'mylar3',    label: 'Mylar3',    desc: 'Comics/manga manager — URL is http://mylar3:8090. API key found in Mylar3 → Settings → Web Interface → API Key.', category: 'Comics & Manga' },
+  { id: 'kapowarr',  label: 'Kapowarr',  desc: 'Western comics manager — URL is http://kapowarr:5656. API key found in Kapowarr → Settings → API Key.', category: 'Comics & Manga' },
+  { id: 'tranga',    label: 'Tranga',    desc: 'Manga downloader — URL is http://tranga:9898. No API key required by default.', category: 'Comics & Manga' },
   // Content
   { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — recent videos from channels you follow. No URL needed. API key: clientId:clientSecret from Google Cloud Console (YouTube Data API v3). After creating, connect your Google account from the integration edit page.', category: 'Content' },
   { id: 'twitch',       label: 'Twitch',       desc: 'Live stream dashboard — no URL needed. API key: clientId:clientSecret from your Twitch Developer Console app. After creating, connect your Twitch account from the integration edit page.', category: 'Content' },
