@@ -1,6 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
+
+const TIME_RANGES = [
+  { label: '1d', value: 1 },
+  { label: '7d', value: 7 },
+  { label: '30d', value: 30 },
+  { label: '∞', value: 0 },
+]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -168,20 +175,31 @@ interface Props { panel: Panel; heightUnits: number }
 export default function AdGuardPanel({ panel, heightUnits }: Props) {
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
+  const [days, setDays] = useState<number>(1)
   const [data, setData] = useState<AdGuardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!integrationId) return
-    integrationsApi.getPanelData(panel.id)
-      .then(res => { setData(res.data); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [panel.id, integrationId])
+    try {
+      const res = await integrationsApi.getPanelData(panel.id, { days })
+      setData(res.data)
+      setLoading(false)
+      setError('')
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Failed to load')
+      setLoading(false)
+    }
+  }, [panel.id, integrationId, days])
 
-  const sseData = useSSE<AdGuardData>(integrationId)
-  useEffect(() => {
-    if (sseData) { setData(sseData); setLoading(false) }
-  }, [sseData])
+  const loadRef = useRef(load)
+  loadRef.current = load
+
+  useEffect(() => { load() }, [load])
+
+  const sseSignal = useSSE<AdGuardData>(integrationId)
+  useEffect(() => { if (sseSignal) loadRef.current() }, [sseSignal])
 
   const root: React.CSSProperties = {
     height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column',
@@ -194,6 +212,9 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
   if (loading) {
     return <div style={root}><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Loading…</span></div>
   }
+  if (error) {
+    return <div style={root}><span style={{ fontSize: 11, color: 'var(--red, #e53e3e)' }}>{error}</span></div>
+  }
   if (!data) {
     return <div style={root}><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>No data.</span></div>
   }
@@ -201,14 +222,11 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
   const uiHref      = data.uiUrl || '#'
   const statusColor = data.protectionEnabled ? 'var(--green)' : 'var(--red, #e53e3e)'
   const statusLabel = data.protectionEnabled ? 'active' : 'paused'
-  const topBlocked  = data.topBlocked  || []
-  const topClients  = data.topClients  || []
-  const topQueried  = data.topQueried  || []
-  const filters     = data.filters     || []
-  const upstreams   = data.upstreams   || []
+  const topBlocked      = data.topBlocked      || []
+  const topClients      = data.topClients      || []
+  const filters         = data.filters         || []
   const overTimeTotal   = data.overTimeTotal   || []
   const overTimeBlocked = data.overTimeBlocked || []
-  const totalProtected  = data.blockedQueries + data.safeBrowsing + data.safeSearch + data.parental
 
   // ── 1× compact bar ───────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -260,35 +278,17 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
           )}
         </div>
 
-        {/* Arc gauge + stat chips */}
-        <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
+        {/* Arc gauge centered */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8, flexShrink: 0 }}>
           <ArcGauge percent={data.percentBlocked} size={70} />
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
-            <StatChip label="Queries"   value={fmtNum(data.totalQueries)} />
-            <StatChip label="Blocked"   value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
-            {data.safeBrowsing > 0 && (
-              <StatChip label="Safe Browse" value={fmtNum(data.safeBrowsing)} color="#f97316" />
-            )}
-            {data.safeSearch > 0 && (
-              <StatChip label="Safe Search" value={fmtNum(data.safeSearch)} color="#a855f7" />
-            )}
-            {data.avgProcessingMs > 0 && (
-              <StatChip label="Avg Latency" value={fmtMs(data.avgProcessingMs)} />
-            )}
-          </div>
         </div>
 
-        {/* 24h sparkline */}
-        {overTimeTotal.length > 0 && (
-          <div style={{ flex: 1, minHeight: 0 }}>
-            <div style={{ fontSize: 8, color: 'var(--text-dim)', marginBottom: 3,
-              textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              24h queries&nbsp;
-              <span style={{ color: 'var(--red, #e53e3e)' }}>■</span>&nbsp;blocked
-            </div>
-            <Sparkline total={overTimeTotal} blocked={overTimeBlocked} />
-          </div>
-        )}
+        {/* Stat chips — centered horizontal row */}
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexShrink: 0 }}>
+          <StatChip label="Queries"     value={fmtNum(data.totalQueries)} />
+          <StatChip label="Blocked"     value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
+          <StatChip label="Avg Latency" value={data.avgProcessingMs > 0 ? fmtMs(data.avgProcessingMs) : '—'} />
+        </div>
       </div>
     )
   }
@@ -310,10 +310,10 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
         )}
       </div>
 
-      {/* Arc gauge + stat chips */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
+      {/* Arc gauge centered, stat chips below */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 8, flexShrink: 0 }}>
         <ArcGauge percent={data.percentBlocked} size={90} />
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
           <StatChip label="Queries"    value={fmtNum(data.totalQueries)} />
           <StatChip label="Blocked"    value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
           {data.safeBrowsing > 0 && (
@@ -331,173 +331,120 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
         </div>
       </div>
 
-      {/* 24h sparkline */}
+      {/* Time range pills */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 8, flexShrink: 0 }}>
+        {TIME_RANGES.map(tr => (
+          <button key={tr.value} onClick={() => setDays(tr.value)}
+            style={{
+              padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+              cursor: 'pointer', border: 'none', transition: 'all 0.12s',
+              background: days === tr.value ? 'var(--accent)' : 'var(--border)',
+              color: days === tr.value ? 'white' : 'var(--text-dim)',
+            }}>
+            {tr.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Sparkline — period-aware */}
       {overTimeTotal.length > 0 && (
         <div style={{ marginBottom: 8, flexShrink: 0 }}>
           <div style={{ fontSize: 8, color: 'var(--text-dim)', marginBottom: 3,
             textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            24h traffic&nbsp;
+            {days === 0 ? 'all-time' : days === 1 ? '24h' : `${days}d`} traffic&nbsp;
             <span style={{ color: 'var(--red, #e53e3e)' }}>■</span>&nbsp;blocked
           </div>
           <Sparkline total={overTimeTotal} blocked={overTimeBlocked} />
         </div>
       )}
 
-      {/* Lower detail: three columns */}
-      <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      {/* Stacked detail sections */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
 
-        {/* Top blocked domains */}
+        {/* Top Blocked (top 5) */}
         {topBlocked.length > 0 && (
-          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+          <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
               letterSpacing: '0.06em', marginBottom: 5 }}>
               Top blocked
             </div>
-            {topBlocked.slice(0, 10).map((d, i) => (
+            {topBlocked.slice(0, 5).map((d, i) => (
               <BarRow key={i}
                 label={d.name}
                 barPct={(d.count / (topBlocked[0]?.count || 1)) * 100}
                 display={fmtNum(d.count)}
                 color="var(--red, #e53e3e)" />
             ))}
-            {/* Top queried as secondary list */}
-            {topQueried.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
-                  letterSpacing: '0.06em', marginBottom: 5 }}>
-                  Top queried
-                </div>
-                {topQueried.slice(0, 5).map((d, i) => (
-                  <BarRow key={i}
-                    label={d.name}
-                    barPct={(d.count / (topQueried[0]?.count || 1)) * 100}
-                    display={fmtNum(d.count)}
-                    color="var(--accent)" />
-                ))}
-              </div>
-            )}
           </div>
         )}
 
-        {/* Top clients */}
+        {/* Top Clients (top 5) */}
         {topClients.length > 0 && (
-          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
+          <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
               letterSpacing: '0.06em', marginBottom: 5 }}>
               Top clients
             </div>
-            {topClients.slice(0, 10).map((c, i) => (
+            {topClients.slice(0, 5).map((c, i) => (
               <BarRow key={i}
                 label={c.name}
                 barPct={(c.count / (topClients[0]?.count || 1)) * 100}
                 display={fmtNum(c.count)}
                 color="var(--accent)" />
             ))}
-
-            {/* DNS upstreams with response time */}
-            {upstreams.length > 0 && (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
-                  letterSpacing: '0.06em', marginBottom: 5 }}>
-                  Upstreams
-                </div>
-                {upstreams.slice(0, 5).map((u, i) => (
-                  <BarRow key={i}
-                    label={u.name}
-                    barPct={upstreams[0]?.queries > 0 ? (u.queries / upstreams[0].queries) * 100 : 0}
-                    display={u.avgMs > 0 ? fmtMs(u.avgMs) : fmtNum(u.queries)}
-                    color="var(--accent)" />
-                ))}
-              </div>
-            )}
           </div>
         )}
 
-        {/* Blocklists + summary */}
-        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>
-          {filters.length > 0 && (
-            <>
-              <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
-                letterSpacing: '0.06em', marginBottom: 5 }}>
-                Blocklists ({data.activeFilters} active)
-              </div>
-              {filters.map((f, i) => (
-                <div key={i} style={{ marginBottom: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between',
-                    alignItems: 'center', fontSize: 9, marginBottom: 2 }}>
-                    <span style={{
-                      color: f.enabled ? 'var(--text)' : 'var(--text-dim)',
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      flex: 1, marginRight: 6,
-                      textDecoration: f.enabled ? 'none' : 'line-through',
-                    }}>{f.name}</span>
-                    <span style={{
-                      color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0,
-                    }}>{fmtNum(f.rulesCount)}</span>
-                  </div>
-                  <div style={{ height: 2, background: 'var(--border)', borderRadius: 1 }}>
-                    <div style={{
-                      height: '100%',
-                      width: f.enabled ? `${Math.min(100, (f.rulesCount / (data.totalFilterRules || 1)) * 100)}%` : '0%',
-                      background: 'var(--accent)', borderRadius: 1,
-                    }} />
-                  </div>
-                </div>
-              ))}
-              {/* Total rules chip */}
-              <div style={{
-                marginTop: 8, padding: '4px 8px', background: 'var(--bg-surface)',
-                borderRadius: 6, border: '1px solid var(--border)',
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <span style={{ fontSize: 8, color: 'var(--text-dim)', textTransform: 'uppercase',
-                  letterSpacing: '0.05em' }}>Total rules</span>
-                <span style={{ fontSize: 12, fontWeight: 700,
-                  fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>
-                  {fmtNum(data.totalFilterRules)}
-                </span>
-              </div>
-            </>
-          )}
-
-          {/* Extra security stats */}
-          {(data.safeBrowsing > 0 || data.safeSearch > 0 || data.parental > 0) && (
-            <div style={{ marginTop: 10 }}>
-              <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
-                letterSpacing: '0.06em', marginBottom: 5 }}>
-                Protection breakdown
-              </div>
-              {totalProtected > 0 && (
-                <>
-                  {data.blockedQueries > 0 && (
-                    <BarRow label="Blocklist"
-                      barPct={(data.blockedQueries / totalProtected) * 100}
-                      display={fmtNum(data.blockedQueries)}
-                      color="var(--red, #e53e3e)" />
-                  )}
-                  {data.safeBrowsing > 0 && (
-                    <BarRow label="Safe Browse"
-                      barPct={(data.safeBrowsing / totalProtected) * 100}
-                      display={fmtNum(data.safeBrowsing)}
-                      color="#f97316" />
-                  )}
-                  {data.safeSearch > 0 && (
-                    <BarRow label="Safe Search"
-                      barPct={(data.safeSearch / totalProtected) * 100}
-                      display={fmtNum(data.safeSearch)}
-                      color="#a855f7" />
-                  )}
-                  {data.parental > 0 && (
-                    <BarRow label="Parental"
-                      barPct={(data.parental / totalProtected) * 100}
-                      display={fmtNum(data.parental)}
-                      color="#ec4899" />
-                  )}
-                </>
-              )}
+        {/* Blocklists (top 5) */}
+        {filters.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
+              letterSpacing: '0.06em', marginBottom: 5 }}>
+              Blocklists ({data.activeFilters} active)
             </div>
-          )}
-        </div>
+            {filters.slice(0, 5).map((f, i) => (
+              <div key={i} style={{ marginBottom: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between',
+                  alignItems: 'center', fontSize: 9, marginBottom: 2 }}>
+                  <span style={{
+                    color: f.enabled ? 'var(--text)' : 'var(--text-dim)',
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    flex: 1, marginRight: 6,
+                    textDecoration: f.enabled ? 'none' : 'line-through',
+                  }}>{f.name}</span>
+                  <span style={{
+                    color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0,
+                  }}>{fmtNum(f.rulesCount)}</span>
+                </div>
+                <div style={{ height: 2, background: 'var(--border)', borderRadius: 1 }}>
+                  <div style={{
+                    height: '100%',
+                    width: f.enabled
+                      ? `${Math.min(100, (f.rulesCount / (data.totalFilterRules || 1)) * 100)}%`
+                      : '0%',
+                    background: 'var(--accent)', borderRadius: 1,
+                  }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Total rules chip */}
+        {data.totalFilterRules > 0 && (
+          <div style={{
+            padding: '4px 8px', background: 'var(--bg-surface)',
+            borderRadius: 6, border: '1px solid var(--border)',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+          }}>
+            <span style={{ fontSize: 8, color: 'var(--text-dim)', textTransform: 'uppercase',
+              letterSpacing: '0.05em' }}>Total rules</span>
+            <span style={{ fontSize: 12, fontWeight: 700,
+              fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>
+              {fmtNum(data.totalFilterRules)}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

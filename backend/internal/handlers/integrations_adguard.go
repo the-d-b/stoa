@@ -185,7 +185,12 @@ func fetchAdGuardPanelData(db *sql.DB, config map[string]interface{}) (*AdGuardP
 	json.Unmarshal(statusBody, &status)
 
 	// GET /control/stats — all query statistics + time series + top lists
-	statsBody, err := agGet(apiURL, apiKey, "/control/stats", skipTLS)
+	// Optional days param → time_delta in seconds (0 = use AdGuard's configured retention)
+	statsPath := "/control/stats"
+	if days, ok := config["days"].(float64); ok && days > 0 {
+		statsPath = fmt.Sprintf("/control/stats?time_delta=%d", int(days*86400))
+	}
+	statsBody, err := agGet(apiURL, apiKey, statsPath, skipTLS)
 	if err != nil {
 		return nil, fmt.Errorf("stats: %w", err)
 	}

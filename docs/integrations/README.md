@@ -95,7 +95,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Nginx Proxy Manager | 🔶 Need Testing | `email:password` — your NPM login | Required | 60 s | [nginxpm/](nginxpm/) |
 | Cloudflare | 🔶 Need Testing | Scoped API `token` **or** `email:globalApiKey` (legacy) | None (cloud) | 5 min | [cloudflare/](cloudflare/) |
 | Pi-hole | 🔶 Need Testing | API `token` (v5) **or** web `password` (v6) | Required | 30 s | [pihole/](pihole/) |
-| AdGuard Home | 🔶 Need Testing | `username:password` — your AdGuard Home login | Required | 30 s | [adguard/](adguard/) |
+| AdGuard Home | ✅ Tested | `username:password` — your AdGuard Home login | Required | 30 s | [adguard/](adguard/) |
 | NextDNS | 🔶 Need Testing | Plain API key — NextDNS → Account → API Key | None (cloud) | 30 s | [nextdns/](nextdns/) |
 
 ---
