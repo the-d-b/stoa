@@ -126,29 +126,6 @@ function SpendBar({ group }: { group: ABCategoryGroup }) {
   )
 }
 
-function CategoryRow({ cat }: { cat: ABCategory }) {
-  const pct = cat.budgeted > 0 ? Math.min(Math.abs(cat.spent) / cat.budgeted, 1) : 0
-  const over = cat.budgeted > 0 && Math.abs(cat.spent) > cat.budgeted
-  return (
-    <div style={{ paddingLeft: 8, paddingTop: 2, paddingBottom: 2, borderLeft: '2px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, minWidth: 0 }}>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {cat.name}
-        </span>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', color: 'var(--text-dim)' }}>{fmtMoney(Math.abs(cat.spent))}</span>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>/</span>
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', color: 'var(--text-dim)' }}>{fmtMoney(cat.budgeted)}</span>
-        </div>
-      </div>
-      {cat.budgeted > 0 && (
-        <div style={{ height: 2, background: 'var(--surface2)', borderRadius: 1, marginTop: 2 }}>
-          <div style={{ width: `${pct * 100}%`, height: '100%', borderRadius: 1, background: over ? '#e53e3e' : pct > 0.85 ? '#f59e0b' : '#38bdf8' }} />
-        </div>
-      )}
-    </div>
-  )
-}
 
 function AccountRow({ account }: { account: ABAccount }) {
   return (
@@ -249,13 +226,10 @@ export default function ActualBudgetPanel({ panel, heightUnits }: { panel: Panel
   const sseData = useSSE<ABData>(integrationId)
   useEffect(() => {
     if (!sseData) return
-    setData(prev => {
-      // Preserve selectedId if that budget still exists in the new data
-      if (!sseData.budgets.some(b => b.budgetId === selectedId)) {
-        setSelectedId(sseData.budgets[0]?.budgetId ?? '')
-      }
-      return sseData
-    })
+    if (!sseData.budgets.some(b => b.budgetId === selectedId)) {
+      setSelectedId(sseData.budgets[0]?.budgetId ?? '')
+    }
+    setData(sseData)
     setLoading(false)
   }, [sseData])
 
