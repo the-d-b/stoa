@@ -240,6 +240,9 @@ export default function PanelForm({
   const [haEntityIds, setHaEntityIds] = useState(cfg.entityIds ?? '')
   const [haDomains, setHaDomains] = useState(cfg.domains ?? '')
 
+  // ── Actual Budget budget filter ────────────────────────────────────────────
+  const [abBudgetId, setAbBudgetId] = useState(cfg.budgetId ?? '')
+
   // ── Prometheus custom metrics ──────────────────────────────────────────────
   type PromMetric = { label: string; query: string; unit: string }
   const [promMetrics, setPromMetrics] = useState<PromMetric[]>(
@@ -308,6 +311,7 @@ export default function PanelForm({
     setAllowedRatings(c.allowedRatings ?? '')
     setHaEntityIds(c.entityIds ?? '')
     setHaDomains(c.domains ?? '')
+    setAbBudgetId(c.budgetId ?? '')
     setBookmarkRootId(c.rootNodeId ?? '')
     setIframeUrl(c.url ?? '')
     setCustomHtml(c.html ?? '')
@@ -326,7 +330,7 @@ export default function PanelForm({
 
   const handleTypeChange = (t: string) => {
     setType(t); setIntegrationId(''); setAllowedRatings('')
-    setHaEntityIds(''); setHaDomains('')
+    setHaEntityIds(''); setHaDomains(''); setAbBudgetId('')
     setShowInlineCreate(false)
     setInlineName(''); setInlineUrl(''); setInlineSecretId('')
     setInlineTestResult(null); setInlineGeoQuery(''); setInlineGeoResults([])
@@ -437,6 +441,9 @@ export default function PanelForm({
       if (type === 'homeassistant') {
         if (haEntityIds.trim()) base.entityIds = haEntityIds.trim()
         if (haDomains.trim()) base.domains = haDomains.trim()
+      }
+      if (type === 'actualbudget') {
+        if (abBudgetId.trim()) base.budgetId = abBudgetId.trim()
       }
       if (RATINGS_TYPES.includes(type) && allowedRatings.trim()) {
         base.allowedRatings = allowedRatings.trim()
@@ -935,6 +942,23 @@ export default function PanelForm({
             Leave both blank to show all entities. Domains: <code>light</code>, <code>switch</code>,{' '}
             <code>sensor</code>, <code>binary_sensor</code>, <code>climate</code>, <code>lock</code>,{' '}
             <code>cover</code>, <code>media_player</code>, <code>fan</code>, and more.
+          </div>
+        </div>
+      )}
+
+      {/* Actual Budget budget filter */}
+      {type === 'actualbudget' && (
+        <div>
+          <label className="label">
+            Default Budget{' '}
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional)</span>
+          </label>
+          <input className="input" value={abBudgetId}
+            onChange={e => setAbBudgetId(e.target.value)}
+            placeholder="e.g. My Finances" />
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            Name or Sync ID of the budget to pre-select on load. Leave blank to default to the first budget.
+            All budgets are always available via the pill selector on the panel.
           </div>
         </div>
       )}

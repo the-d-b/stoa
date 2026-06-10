@@ -186,7 +186,6 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// with no panel-level filter). Each panel request applies its own entity/domain
 		// filter at serve time so multiple HA panels can share a single cache entry.
 		haPanel := panelType == "homeassistant"
-
 		if cacheKey != "" && !hasOverride && !plexFiltered {
 			if cached, ok := cacheGet(cacheKey); ok {
 				log.Printf("[CACHE] panel hit %s (%s)", cacheKey, panelType)
