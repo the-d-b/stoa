@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
@@ -25,6 +25,55 @@ const DAY_OPTIONS = [
   { label: '∞',   days: 36500 },
 ]
 
+function Donut({ logins, failures }: { logins: number; failures: number }) {
+  const total = logins + failures
+  if (total === 0) return null
+
+  const r = 38
+  const cx = 56
+  const cy = 56
+  const strokeW = 16
+  const C = 2 * Math.PI * r
+  const successLen = (logins / total) * C
+  const failLen    = (failures / total) * C
+  const failPct    = Math.round((failures / total) * 100)
+
+  return (
+    <svg width={112} height={112} viewBox="0 0 112 112" style={{ flexShrink: 0 }}>
+      {/* Track */}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={strokeW} />
+      {/* Success arc — starts at 12 o'clock via rotate(-90) */}
+      <circle cx={cx} cy={cy} r={r} fill="none"
+        stroke="var(--green)" strokeWidth={strokeW}
+        strokeDasharray={`${successLen} ${C - successLen}`}
+        strokeDashoffset={0}
+        transform={`rotate(-90, ${cx}, ${cy})`} />
+      {/* Failure arc — offset by successLen so it begins right after */}
+      {failLen > 0 && (
+        <circle cx={cx} cy={cy} r={r} fill="none"
+          stroke="var(--red)" strokeWidth={strokeW}
+          strokeDasharray={`${failLen} ${C - failLen}`}
+          strokeDashoffset={-successLen}
+          transform={`rotate(-90, ${cx}, ${cy})`} />
+      )}
+      {/* Centre: total */}
+      <text x={cx} y={cy - 5} textAnchor="middle" dominantBaseline="middle"
+        fontSize={17} fontWeight={700} fill="var(--text)"
+        fontFamily="DM Mono, monospace">{total.toLocaleString()}</text>
+      <text x={cx} y={cy + 11} textAnchor="middle"
+        fontSize={9} fill="var(--text-dim)">total logins</text>
+      {failures > 0 && (
+        <text x={cx} y={cy + 24} textAnchor="middle"
+          fontSize={9} fontWeight={600} fill="var(--red)">{failPct}% failed</text>
+      )}
+      {failures === 0 && (
+        <text x={cx} y={cy + 24} textAnchor="middle"
+          fontSize={9} fill="var(--green)">all ok</text>
+      )}
+    </svg>
+  )
+}
+
 export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<AuthentikData | null>(null)
   const [error, setError] = useState('')
@@ -34,18 +83,26 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   const integrationId = config.integrationId as string | undefined
   const [days, setDays] = useState<number>(config.days || 7)
 
+  const loadSeqRef = useRef(0)
   const load = useCallback(async () => {
+    const seq = ++loadSeqRef.current
     setLoading(true)
     try {
       const res = await integrationsApi.getPanelData(panel.id, { days })
+      if (seq !== loadSeqRef.current) return  // stale — a newer load superseded this one
       setData(res.data); setError('')
     } catch (e: any) {
+      if (seq !== loadSeqRef.current) return
       setError(e.response?.data?.error || 'Failed to load')
-    } finally { setLoading(false) }
+    } finally {
+      if (seq === loadSeqRef.current) setLoading(false)
+    }
   }, [panel.id, days])
 
-  // SSE signal: re-fetch with current days filter when worker pushes new data
-  const sseSignal = useSSE<any>(integrationId)
+  // SSE signal: re-fetch when the worker pushes fresh data.
+  // The cascade that caused flickering is fixed on the backend — override requests
+  // no longer call cacheSet, so this load() won't trigger another SSE broadcast.
+  const sseSignal = useSSE<AuthentikData>(integrationId)
   useEffect(() => {
     if (sseSignal !== null) load()
   }, [sseSignal, load])
@@ -61,7 +118,7 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
   const alerting = data.failures > 10
 
   if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center' }}>
         <a href={uiUrl ? `${uiUrl}/if/admin/#/events/list?action=login` : '#'}
           target="_blank" rel="noopener noreferrer"
@@ -101,7 +158,14 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
 
   return (
     <div style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-      {/* Time range pills — inlined to avoid remount-on-render from inner component definition */}
+      {/* Donut chart — 4x+ only */}
+      {heightUnits >= 4 && (
+        <div style={{ marginBottom: 8 }}>
+          <Donut logins={data.logins ?? 0} failures={data.failures ?? 0} />
+        </div>
+      )}
+
+      {/* Time range pills */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 8, alignItems: 'center' }}>
         {DAY_OPTIONS.map(opt => (
           <button key={opt.days} onClick={() => setDays(opt.days)}
@@ -113,9 +177,6 @@ export default function AuthentikPanel({ panel, heightUnits }: { panel: Panel; h
             {opt.label}
           </button>
         ))}
-        {/* Fixed-width placeholder keeps row stable while loading */}
-        <span style={{ width: 14, textAlign: 'center', fontSize: 10, color: 'var(--text-dim)',
-          visibility: loading ? 'visible' : 'hidden' }}>…</span>
       </div>
 
       {/* Summary */}

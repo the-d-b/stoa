@@ -206,7 +206,12 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, friendlyPanelError(err))
 			return
 		}
-		if cacheKey != "" && !plexFiltered {
+		// Only cache when there are no query-param overrides.
+		// Override requests (days, timeRange, etc.) must not overwrite the worker's
+		// cached entry — doing so triggers an SSE broadcast that causes the frontend
+		// to re-fetch, which triggers another broadcast, creating a cascade loop.
+		// The worker owns the cache; panel endpoint reads from it or fetches live.
+		if cacheKey != "" && !plexFiltered && !hasOverride {
 			cacheSet(cacheKey, data)
 		}
 		// For HA: cache holds the full entity list; serve the filtered view to the client.
