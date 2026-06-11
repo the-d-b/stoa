@@ -3201,6 +3201,7 @@ function MyPanelsTab() {
                     integrations={integrations}
                     tags={myTags}
                     onSaved={async () => { setExpandedPanelId(null); await load() }}
+                    onTagChanged={async () => { await load() }}
                     onCancel={() => setExpandedPanelId(null)}
                     onDeleted={async () => { setExpandedPanelId(null); await load() }}
                   >

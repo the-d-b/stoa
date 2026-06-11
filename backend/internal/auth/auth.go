@@ -170,6 +170,31 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// FlexMiddleware accepts the token from the Authorization header OR a ?token= query
+// parameter. Used for media proxy routes (audio/video stream, cover art) where the
+// browser sets the src directly and cannot attach custom headers.
+func (s *Service) FlexMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var tokenStr string
+		if h := r.Header.Get("Authorization"); strings.HasPrefix(h, "Bearer ") {
+			tokenStr = strings.TrimPrefix(h, "Bearer ")
+		} else if q := r.URL.Query().Get("token"); q != "" {
+			tokenStr = q
+		}
+		if tokenStr == "" {
+			http.Error(w, `{"error":"unauthorized"}`, http.StatusUnauthorized)
+			return
+		}
+		claims, err := s.ValidateToken(tokenStr)
+		if err != nil {
+			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+			return
+		}
+		ctx := context.WithValue(r.Context(), UserContextKey, claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 func (s *Service) AdminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		claims, ok := r.Context().Value(UserContextKey).(*models.Claims)

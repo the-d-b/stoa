@@ -45,7 +45,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Lychee | 🔶 Need Testing | `username:password` — your Lychee login | Required | 30 min | [lychee/](lychee/) |
 | Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
 | Komga | 🔶 Need Testing | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
-| Audiobookshelf | 🔶 Need Testing | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
+| Audiobookshelf | ✅ Tested | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
 | Navidrome | 🔶 Need Testing | `username:password` — your Navidrome login | Required | 30 s | [navidrome/](navidrome/) |
 
 ---
