@@ -93,7 +93,7 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 	out := &AutobrrPanelData{UIURL: uiURL, IntegrationID: integrationID}
 
 	// ── Release stats ─────────────────────────────────────────────────────────
-	if body, err := autobrrGet(baseURL, apiKey, "/api/releases/stats", skipTLS); err != nil {
+	if body, err := autobrrGet(baseURL, apiKey, "/api/release/stats", skipTLS); err != nil {
 		return nil, fmt.Errorf("stats: %w", err)
 	} else {
 		var r struct {
@@ -175,11 +175,11 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 	}
 
 	// ── Recent releases ───────────────────────────────────────────────────────
-	if body, err := autobrrGet(baseURL, apiKey, "/api/releases?limit=50", skipTLS); err == nil {
+	if body, err := autobrrGet(baseURL, apiKey, "/api/release?limit=50", skipTLS); err == nil {
 		// autobrr may return {"data":[...],"count":N} or a bare array
 		type rawRelease struct {
 			ID           int             `json:"id"`
-			TorrentName  string          `json:"torrent_name"`
+			TorrentName  string          `json:"name"`
 			FilterStatus string          `json:"filter_status"`
 			Rejections   []string        `json:"rejections"`
 			Indexer      json.RawMessage `json:"indexer"`
@@ -269,7 +269,7 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 // ── Connection test ───────────────────────────────────────────────────────────
 
 func testAutobrrrConnection(baseURL, apiKey string, skipTLS bool) error {
-	body, err := autobrrGet(baseURL, apiKey, "/api/releases/stats", skipTLS)
+	body, err := autobrrGet(baseURL, apiKey, "/api/release/stats", skipTLS)
 	if err != nil {
 		return err
 	}

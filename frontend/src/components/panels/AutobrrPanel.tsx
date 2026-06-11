@@ -77,19 +77,19 @@ function fmtCount(n: number): string {
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function StatChip({ label, value, color, bg }: {
-  label: string; value: string | number; color?: string; bg?: string
+function StatChip({ label, value, color, bg, small }: {
+  label: string; value: string | number; color?: string; bg?: string; small?: boolean
 }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '5px 10px', borderRadius: 8,
-      background: bg || 'var(--surface2)', border: '1px solid var(--border)', minWidth: 60,
+      padding: small ? '3px 8px' : '5px 10px', borderRadius: 8,
+      background: bg || 'var(--surface2)', border: '1px solid var(--border)', minWidth: small ? 48 : 60,
     }}>
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
+      <div style={{ fontSize: small ? 9 : 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
         {label}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'DM Mono, monospace', color: color || 'var(--text)' }}>
+      <div style={{ fontSize: small ? 11 : 13, fontWeight: 600, fontFamily: 'DM Mono, monospace', color: color || 'var(--text)' }}>
         {value}
       </div>
     </div>
@@ -294,25 +294,16 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
   // ── 2–3× medium ─────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Donut + stat chips */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <GrabDonut grabbed={grabbedCount} total={totalCount} size={80} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="#4ade80" />
-            <StatChip label="Total" value={fmtCount(totalCount)} />
-            {rejectedCount > 0 && <StatChip label="Rejected" value={fmtCount(rejectedCount)} color="var(--text-dim)" />}
-            {pushErrorCount > 0 && <StatChip label="Errors" value={pushErrorCount} color="#e53e3e" bg="#e53e3e18" />}
-            {totalNetworks > 0 && (
-              <StatChip
-                label="IRC"
-                value={`${connectedNetworks}/${totalNetworks}`}
-                color={ircColor}
-                bg={ircOk ? undefined : '#e53e3e18'}
-              />
-            )}
-            {activeFilters > 0 && <StatChip label="Filters" value={activeFilters} />}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {/* Smaller stat chips — no donut */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="#4ade80" small />
+          <StatChip label="Total" value={fmtCount(totalCount)} small />
+          {totalNetworks > 0 && (
+            <StatChip label="IRC" value={`${connectedNetworks}/${totalNetworks}`}
+              color={ircColor} bg={ircOk ? undefined : '#e53e3e18'} small />
+          )}
+          {activeFilters > 0 && <StatChip label="Filters" value={activeFilters} small />}
         </div>
 
         {/* IRC networks */}
@@ -324,73 +315,67 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
             </div>
           </div>
         )}
-
-        {/* Recent grabs */}
-        {recentGrabs.length > 0 && (
-          <div>
-            <ColHeader>Recent Grabs</ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {recentGrabs.slice(0, 5).map((r, i) => <ReleaseRow key={i} release={r} />)}
-            </div>
-          </div>
-        )}
       </div>
     )
   }
 
-  // ── 4×+ full layout ──────────────────────────────────────────────────────────
+  // ── 4×+ full layout — vertical stack ────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Donut + chips */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <GrabDonut grabbed={grabbedCount} total={totalCount} size={80} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="#4ade80" />
-          <StatChip label="Total seen" value={fmtCount(totalCount)} />
-          {filteredCount > 0 && <StatChip label="Filtered" value={fmtCount(filteredCount)} />}
-          {rejectedCount > 0 && <StatChip label="Rejected" value={fmtCount(rejectedCount)} color="var(--text-dim)" />}
-          {pushErrorCount > 0 && <StatChip label="Errors" value={pushErrorCount} color="#e53e3e" bg="#e53e3e18" />}
-          {totalNetworks > 0 && (
-            <StatChip
-              label="IRC"
-              value={`${connectedNetworks}/${totalNetworks}`}
-              color={ircColor}
-              bg={ircOk ? undefined : '#e53e3e18'}
-            />
-          )}
-          {activeFilters > 0 && <StatChip label="Filters" value={activeFilters} />}
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto', height: '100%' }}>
+      {/* Donut — centered, larger */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        <GrabDonut grabbed={grabbedCount} total={totalCount} size={120} />
       </div>
 
-      {/* Three-column: IRC | recent activity | grabs only */}
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr 1fr', gap: 12 }}>
+      {/* Stat chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+        <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="#4ade80" />
+        <StatChip label="Total seen" value={fmtCount(totalCount)} />
+        {filteredCount > 0 && <StatChip label="Filtered" value={fmtCount(filteredCount)} />}
+        {rejectedCount > 0 && <StatChip label="Rejected" value={fmtCount(rejectedCount)} color="var(--text-dim)" />}
+        {pushErrorCount > 0 && <StatChip label="Errors" value={pushErrorCount} color="#e53e3e" bg="#e53e3e18" />}
+        {totalNetworks > 0 && (
+          <StatChip label="IRC" value={`${connectedNetworks}/${totalNetworks}`}
+            color={ircColor} bg={ircOk ? undefined : '#e53e3e18'} />
+        )}
+        {activeFilters > 0 && <StatChip label="Filters" value={activeFilters} />}
+      </div>
 
-        {/* Col 1: IRC networks */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
+      {/* IRC networks */}
+      {ircNetworks.length > 0 && (
+        <div>
           <ColHeader>IRC Networks ({totalNetworks})</ColHeader>
-          {ircNetworks.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None configured</div>
-            : ircNetworks.map((n, i) => <IRCNetworkRow key={i} net={n} />)
-          }
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+            {ircNetworks.map((n, i) => <IRCNetworkRow key={i} net={n} />)}
+          </div>
         </div>
+      )}
 
-        {/* Col 2: Full recent activity */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Recent Activity</ColHeader>
-          {releases.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent releases</div>
-            : releases.slice(0, 15).map((r, i) => <ReleaseRow key={i} release={r} />)
-          }
-        </div>
+      {/* Recent activity — filtered/rejected/errored only (not grabs) */}
+      {(() => {
+        const nonGrabs = releases.filter(r => r.status !== 'grabbed')
+        return (
+          <div>
+            <ColHeader>Recent Activity</ColHeader>
+            {nonGrabs.length === 0
+              ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No filtered or rejected releases</div>
+              : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  {nonGrabs.slice(0, 20).map((r, i) => <ReleaseRow key={i} release={r} />)}
+                </div>
+            }
+          </div>
+        )
+      })()}
 
-        {/* Col 3: Grabs only */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Grabs ({recentGrabs.length > 0 ? `${recentGrabs.length} recent` : 'none recent'})</ColHeader>
-          {recentGrabs.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent grabs</div>
-            : recentGrabs.slice(0, 15).map((r, i) => <ReleaseRow key={i} release={r} />)
-          }
-        </div>
+      {/* Recent grabs — always shown */}
+      <div>
+        <ColHeader>Recent Grabs {recentGrabs.length > 0 ? `(${recentGrabs.length})` : ''}</ColHeader>
+        {recentGrabs.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent grabs</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {recentGrabs.slice(0, 20).map((r, i) => <ReleaseRow key={i} release={r} />)}
+            </div>
+        }
       </div>
     </div>
   )
