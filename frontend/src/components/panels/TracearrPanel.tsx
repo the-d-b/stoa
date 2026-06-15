@@ -132,18 +132,6 @@ export default function TracearrPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // Tile helper
-  const tile = (value: React.ReactNode, label: string, opts?: { color?: string; border?: string }) => (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-      borderRadius: 6, background: 'var(--surface2)',
-      border: `1px solid ${opts?.border || 'var(--border)'}`,
-    }}>
-      <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 12, color: opts?.color || 'var(--text)' }}>{value}</span>
-      <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>{label}</span>
-    </div>
-  )
-
   // ── 1x: stat tiles ────────────────────────────────────────────────────────
   const StatTiles = () => (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'center', justifyContent: 'center', height: '100%' }}>

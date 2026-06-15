@@ -38,7 +38,7 @@ const PlexChevron = ({ color, size = 14 }: { color: string; size?: number }) => 
 )
 
 // Full-height scrubber: bar is same height as chevron; played=dark, unplayed=darker, chevron=amber
-const ArrowProgress = ({ pct, isDirect }: { pct: number; isDirect: boolean }) => {
+const ArrowProgress = ({ pct }: { pct: number }) => {
   const color = '#e5a00d'                        // Plex yellow regardless of direct/transcode
   const playedColor = 'rgba(229,160,13,0.28)'   // muted but visible
   const trackColor = 'rgba(255,255,255,0.07)'   // unplayed, subtle
@@ -308,7 +308,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
             </span>
             <span style={{ fontSize: 11, color: accentColor, flexShrink: 0 }}>{isDirect ? '⚡' : '⚙'}</span>
           </div>
-          <ArrowProgress pct={pct} isDirect={isDirect} />
+          <ArrowProgress pct={pct} />
         </div>
       </div>
     )
