@@ -191,9 +191,10 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
 
   const {
     missingEpisodes, missingMovies, healthIssues,
-    providers = [], providersTotal, providersOk, providersIssues,
+    providers: rawProviders, providersTotal, providersOk, providersIssues,
     downloadedSeries, downloadedMovies, version, sonarrLive, radarrLive,
   } = data
+  const providers = rawProviders ?? []
 
   const totalMissing = missingEpisodes + missingMovies
   const providersAllOk = providersTotal > 0 && providersIssues === 0
@@ -235,179 +236,124 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  // ── 2–3× medium ─────────────────────────────────────────────────────────────
+  // ── shared: donut centered + chips centered ──────────────────────────────
+  const DonutAndChips = ({ extended }: { extended?: boolean }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+      <MissingDonut episodes={missingEpisodes} movies={missingMovies} size={80} />
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+        {totalMissing === 0
+          ? <StatChip label="Missing" value="None" color="#4ade80" />
+          : <>
+              {missingEpisodes > 0 && <StatChip label="TV missing" value={missingEpisodes} color="#f59e0b" bg="#f59e0b12" />}
+              {missingMovies > 0 && <StatChip label="Movies missing" value={missingMovies} color="#22d3ee" bg="#22d3ee12" />}
+            </>
+        }
+        {providersIssues > 0 && <StatChip label="Providers down" value={providersIssues} color="#e53e3e" bg="#e53e3e18" />}
+        <StatChip label="Providers" value={`${providersOk}/${providersTotal}`} color={providerColor} />
+        {extended && downloadedSeries > 0 && <StatChip label="TV subs/mo" value={downloadedSeries} />}
+        {extended && downloadedMovies > 0 && <StatChip label="Movie subs/mo" value={downloadedMovies} />}
+        {version && <StatChip label="Version" value={`v${version}`} />}
+      </div>
+    </div>
+  )
+
+  // ── 2–3× ─────────────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Donut + chips */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <MissingDonut episodes={missingEpisodes} movies={missingMovies} size={80} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            {missingEpisodes > 0 && <StatChip label="TV missing" value={missingEpisodes} color="#f59e0b" bg="#f59e0b12" />}
-            {missingMovies > 0 && <StatChip label="Movies missing" value={missingMovies} color="#22d3ee" bg="#22d3ee12" />}
-            {totalMissing === 0 && <StatChip label="Missing" value="None" color="#4ade80" />}
-            {providersIssues > 0 && <StatChip label="Providers down" value={providersIssues} color="#e53e3e" bg="#e53e3e18" />}
-            {providersOk > 0 && <StatChip label="Providers ok" value={`${providersOk}/${providersTotal}`} color="#4ade80" />}
-            {downloadedSeries + downloadedMovies > 0 && (
-              <StatChip label="This month" value={downloadedSeries + downloadedMovies} />
-            )}
-            {version && <StatChip label="Version" value={`v${version}`} />}
-          </div>
-        </div>
-
-        {/* Providers */}
-        {providers.length > 0 && (
-          <div>
-            <ColHeader>
-              Providers ({providersIssues > 0 ? `${providersIssues} issue${providersIssues !== 1 ? 's' : ''}` : `${providersOk} ok`})
-            </ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {providers.map((p, i) => <ProviderRow key={i} provider={p} />)}
-            </div>
-          </div>
-        )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto', height: '100%' }}>
+        <DonutAndChips />
       </div>
     )
   }
 
-  // ── 4×+ full layout ──────────────────────────────────────────────────────────
+  // ── 4×+ ──────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Donut + chips */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <MissingDonut episodes={missingEpisodes} movies={missingMovies} size={80} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {totalMissing === 0
-            ? <StatChip label="Missing" value="None" color="#4ade80" />
-            : <>
-                {missingEpisodes > 0 && <StatChip label="TV missing" value={missingEpisodes} color="#f59e0b" bg="#f59e0b12" />}
-                {missingMovies > 0 && <StatChip label="Movies missing" value={missingMovies} color="#22d3ee" bg="#22d3ee12" />}
-              </>
-          }
-          {providersIssues > 0 && <StatChip label="Providers down" value={providersIssues} color="#e53e3e" bg="#e53e3e18" />}
-          <StatChip label="Providers" value={`${providersOk}/${providersTotal}`} color={providerColor} />
-          {downloadedSeries > 0 && <StatChip label="TV subs/mo" value={downloadedSeries} />}
-          {downloadedMovies > 0 && <StatChip label="Movie subs/mo" value={downloadedMovies} />}
-          {version && <StatChip label="Version" value={`v${version}`} />}
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, overflow: 'auto', height: '100%' }}>
+      <DonutAndChips extended />
+
+      {/* Providers */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <ColHeader>
+          Providers ({providersTotal}){providersIssues > 0 ? ` — ${providersIssues} issue${providersIssues !== 1 ? 's' : ''}` : ''}
+        </ColHeader>
+        {providers.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None configured</div>
+          : providers.map((p, i) => <ProviderRow key={i} provider={p} />)
+        }
       </div>
 
-      {/* Two-column: providers | instance detail */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-
-        {/* Col 1: Providers */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>
-            Providers ({providersTotal}){providersIssues > 0 ? ` — ${providersIssues} issue${providersIssues !== 1 ? 's' : ''}` : ''}
-          </ColHeader>
-          {providers.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None configured</div>
-            : providers.map((p, i) => <ProviderRow key={i} provider={p} />)
-          }
+      {/* Instance info */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <ColHeader>Instance</ColHeader>
+        {version && (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+            Version: v{version}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%',
+              background: sonarrLive ? '#4ade80' : 'var(--text-dim)' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sonarr</span>
+            <span style={{ fontSize: 10, color: sonarrLive ? '#4ade80' : 'var(--text-dim)' }}>
+              {sonarrLive ? 'live' : 'offline'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%',
+              background: radarrLive ? '#4ade80' : 'var(--text-dim)' }} />
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Radarr</span>
+            <span style={{ fontSize: 10, color: radarrLive ? '#4ade80' : 'var(--text-dim)' }}>
+              {radarrLive ? 'live' : 'offline'}
+            </span>
+          </div>
         </div>
-
-        {/* Col 2: Instance info + download breakdown */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Instance</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {version && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
-                Version: v{version}
-              </div>
-            )}
-            {/* Sonarr/Radarr live status */}
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%',
-                  background: sonarrLive ? '#4ade80' : 'var(--text-dim)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sonarr</span>
-                <span style={{ fontSize: 10, color: sonarrLive ? '#4ade80' : 'var(--text-dim)' }}>
-                  {sonarrLive ? 'live' : 'offline'}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%',
-                  background: radarrLive ? '#4ade80' : 'var(--text-dim)' }} />
-                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Radarr</span>
-                <span style={{ fontSize: 10, color: radarrLive ? '#4ade80' : 'var(--text-dim)' }}>
-                  {radarrLive ? 'live' : 'offline'}
-                </span>
-              </div>
+        {healthIssues > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#e53e3e' }} />
+            <span style={{ fontSize: 11, color: '#e53e3e' }}>
+              {healthIssues} health issue{healthIssues !== 1 ? 's' : ''}
+            </span>
+          </div>
+        )}
+        {(downloadedSeries > 0 || downloadedMovies > 0) && (
+          <div style={{ marginTop: 4 }}>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
+              letterSpacing: '0.04em', marginBottom: 4 }}>
+              Downloaded (last 30 days)
             </div>
-            {healthIssues > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#e53e3e' }} />
-                <span style={{ fontSize: 11, color: '#e53e3e' }}>
-                  {healthIssues} health issue{healthIssues !== 1 ? 's' : ''}
+            {downloadedSeries > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50 }}>TV</span>
+                <div style={{ flex: 1, height: 4, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 2, background: '#f59e0b',
+                    width: `${Math.min(100, downloadedSeries / Math.max(downloadedSeries, downloadedMovies) * 100)}%`,
+                  }} />
+                </div>
+                <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace',
+                  color: 'var(--text-muted)', width: 30, textAlign: 'right' }}>
+                  {downloadedSeries}
                 </span>
               </div>
             )}
-            {/* Download breakdown */}
-            {(downloadedSeries > 0 || downloadedMovies > 0) && (
-              <div style={{ marginTop: 4 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-                  letterSpacing: '0.04em', marginBottom: 4 }}>
-                  Downloaded (last 30 days)
+            {downloadedMovies > 0 && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50 }}>Movies</span>
+                <div style={{ flex: 1, height: 4, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: 2, background: '#22d3ee',
+                    width: `${Math.min(100, downloadedMovies / Math.max(downloadedSeries, downloadedMovies) * 100)}%`,
+                  }} />
                 </div>
-                {downloadedSeries > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50 }}>TV</span>
-                    <div style={{ flex: 1, height: 4, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2, background: '#f59e0b',
-                        width: `${Math.min(100, downloadedSeries / Math.max(downloadedSeries, downloadedMovies) * 100)}%`,
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace',
-                      color: 'var(--text-muted)', width: 30, textAlign: 'right' }}>
-                      {downloadedSeries}
-                    </span>
-                  </div>
-                )}
-                {downloadedMovies > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50 }}>Movies</span>
-                    <div style={{ flex: 1, height: 4, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 2, background: '#22d3ee',
-                        width: `${Math.min(100, downloadedMovies / Math.max(downloadedSeries, downloadedMovies) * 100)}%`,
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace',
-                      color: 'var(--text-muted)', width: 30, textAlign: 'right' }}>
-                      {downloadedMovies}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
-            {/* Missing subtitle legend */}
-            {totalMissing > 0 && (
-              <div style={{ marginTop: 4 }}>
-                <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-                  letterSpacing: '0.04em', marginBottom: 4 }}>
-                  Missing subtitles
-                </div>
-                {missingEpisodes > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#f59e0b', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {missingEpisodes} TV episode{missingEpisodes !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
-                {missingMovies > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#22d3ee', flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
-                      {missingMovies} movie{missingMovies !== 1 ? 's' : ''}
-                    </span>
-                  </div>
-                )}
+                <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace',
+                  color: 'var(--text-muted)', width: 30, textAlign: 'right' }}>
+                  {downloadedMovies}
+                </span>
               </div>
             )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

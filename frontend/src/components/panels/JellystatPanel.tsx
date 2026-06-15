@@ -20,6 +20,12 @@ const TIME_RANGES = [
   { label: '∞', value: 0 },
 ]
 
+function rangLabel(v: number) {
+  if (v === 0) return '∞'
+  if (v === 1) return '1d'
+  return `${v}d`
+}
+
 export default function JellystatPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<JellystatData | null>(null)
   const [error, setError] = useState('')
@@ -51,10 +57,7 @@ export default function JellystatPanel({ panel, heightUnits }: { panel: Panel; h
   }
 
   const sseSignal = useSSE<any>(integrationId)
-  useEffect(() => {
-    if (sseSignal !== null) load()
-  }, [sseSignal, load])
-
+  useEffect(() => { if (sseSignal !== null) load() }, [sseSignal, load])
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
@@ -63,6 +66,8 @@ export default function JellystatPanel({ panel, heightUnits }: { panel: Panel; h
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
   const views = data.views || { audio: 0, movie: 0, series: 0, other: 0 }
+  const totalPlays = views.movie + views.series + views.audio + views.other
+  const userCount = (data.topUsers || []).length
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
@@ -90,26 +95,54 @@ export default function JellystatPanel({ panel, heightUnits }: { panel: Panel; h
     </div>
   )
 
-  const ViewsGrid = () => {
+  // ── 1x: stat tiles — same structure as Tracearr/Tautulli ─────────────────
+  const StatTiles = () => (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, alignContent: 'center', justifyContent: 'center', height: '100%' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>{totalPlays}</span>
+        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>plays</span>
+      </div>
+      {userCount > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, fontSize: 12, color: 'var(--text)' }}>{userCount}</span>
+          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>users</span>
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', padding: '3px 6px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+        <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{rangLabel(timeRange)}</span>
+      </div>
+    </div>
+  )
+
+  // ── summary chips for 2x/4x ───────────────────────────────────────────────
+  const ViewsChips = () => {
     const items = [
       { icon: '🎬', label: 'movies', val: views.movie },
       { icon: '📺', label: 'series', val: views.series },
-      { icon: '🎵', label: 'audio',  val: views.audio  },
+      { icon: '🎵', label: 'audio',  val: views.audio },
       ...(views.other > 0 ? [{ icon: '▶', label: 'other', val: views.other }] : []),
     ]
     return (
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+      <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
         {items.map(item => (
-          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5,
-            padding: '3px 8px', borderRadius: 6, background: 'var(--surface2)',
-            border: '1px solid var(--border)', fontSize: 11 }}>
+          <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
             <span style={{ fontSize: 12 }}>{item.icon}</span>
             <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
-            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>
-              {item.val.toLocaleString()}
-            </span>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>{item.val.toLocaleString()}</span>
           </div>
         ))}
+        {totalPlays > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>{totalPlays}</span>
+            <span style={{ color: 'var(--text-dim)' }}>total</span>
+          </div>
+        )}
+        {userCount > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
+            <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)' }}>{userCount}</span>
+            <span style={{ color: 'var(--text-dim)' }}>users</span>
+          </div>
+        )}
       </div>
     )
   }
@@ -122,17 +155,11 @@ export default function JellystatPanel({ panel, heightUnits }: { panel: Panel; h
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
         {users.map((u, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80,
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              flexShrink: 0 }}>{u.name}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', width: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{u.name}</span>
             <div style={{ flex: 1, height: 3, background: 'var(--surface2)', borderRadius: 2 }}>
-              <div style={{ width: `${(u.plays / maxPlays) * 100}%`, height: '100%',
-                background: 'var(--accent)', borderRadius: 2 }} />
+              <div style={{ width: `${(u.plays / maxPlays) * 100}%`, height: '100%', background: 'var(--accent)', borderRadius: 2 }} />
             </div>
-            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-              fontFamily: 'DM Mono, monospace', textAlign: 'right', width: 30 }}>
-              {u.plays}
-            </span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, fontFamily: 'DM Mono, monospace', textAlign: 'right', width: 30 }}>{u.plays}</span>
           </div>
         ))}
       </div>
@@ -145,49 +172,43 @@ export default function JellystatPanel({ panel, heightUnits }: { panel: Panel; h
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         {visible.map((item, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-            padding: '3px 7px', borderRadius: 6,
-            background: 'var(--surface2)', border: '1px solid var(--border)' }}>
-            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={item.name}>{item.name}</span>
-            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600,
-              color: 'var(--text)', flexShrink: 0 }}>{item.plays}</span>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 7px', borderRadius: 6, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-muted)' }} title={item.name}>{item.name}</span>
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', fontWeight: 600, color: 'var(--text)', flexShrink: 0 }}>{item.plays}</span>
           </div>
         ))}
       </div>
     )
   }
 
-  // ── 1x ───────────────────────────────────────────────────────────────────────
+  // ── 1x — stat tiles ───────────────────────────────────────────────────────
   if (heightUnits <= 1) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <ViewsGrid />
+    <div style={{ height: '100%', overflow: 'hidden' }}>
+      <StatTiles />
     </div>
   )
 
-  // ── 2x-3x ────────────────────────────────────────────────────────────────────
+  // ── 2x — range picker + view chips + top viewers ──────────────────────────
   if (heightUnits < 4) return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
-      {sectionTitle('Views')}
-      <ViewsGrid />
+      <ViewsChips />
       {sectionTitle('Top viewers')}
       <TopUsersSection limit={5} />
     </div>
   )
 
-  // ── 4x+ ──────────────────────────────────────────────────────────────────────
+  // ── 4x — range + views + top viewers + top movies + top series ────────────
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <TimeRangePills />
-      {sectionTitle('Views')}
-      <ViewsGrid />
+      <ViewsChips />
       {sectionTitle('Top viewers')}
       <TopUsersSection limit={5} />
       {sectionTitle('Top movies')}
-      <ItemList items={data.topMovies} limit={5} />
+      <ItemList items={data.topMovies} limit={6} />
       {sectionTitle('Top series')}
-      <ItemList items={data.topSeries} limit={5} />
+      <ItemList items={data.topSeries} limit={6} />
     </div>
   )
 }

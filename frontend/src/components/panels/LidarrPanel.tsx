@@ -151,9 +151,20 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
 
   if (heightUnits <= 1) return <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{statsBar}</div>
 
-  // 2x and above — stats + history grouped by artist
-  const allCovers = [...(data.missing || []), ...(data.history || [])]
+  // ── 2x — stats + history, no filmstrip ──────────────────────────────────
+  if (heightUnits < 4) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
+      {sectionTitle('Recently downloaded')}
+      {historyGroups.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
+        : <HistoryGroups groups={historyGroups} uiUrl={uiUrl} />
+      }
+    </div>
+  )
 
+  // ── 4x — filmstrip + stats + history + wanted ─────────────────────────────
+  const allCovers = [...(data.missing || []), ...(data.history || [])]
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <ScrollableCoverStrip items={allCovers.map(a => ({
@@ -167,7 +178,7 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
         ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent downloads</div>
         : <HistoryGroups groups={historyGroups} uiUrl={uiUrl} />
       }
-      {heightUnits >= 4 && (data.missingCount || 0) > 0 && (
+      {(data.missingCount || 0) > 0 && (
         <>
           {sectionTitle(`Wanted — ${data.missingCount} total`)}
           {missingSample.map((a, i) => (

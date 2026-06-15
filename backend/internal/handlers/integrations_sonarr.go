@@ -3,8 +3,9 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"strings"
 	"fmt"
+	"net/url"
+	"strings"
 )
 
 type SonarrPanelData struct {
@@ -99,7 +100,6 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				seriesTitle, _ = series["title"].(string)
 				titleSlug, _ = series["titleSlug"].(string)
 			}
-			// Extract poster from series images
 			posterURL := ""
 			if series != nil {
 				if images, ok := series["images"].([]interface{}); ok {
@@ -107,6 +107,11 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 						if m, ok := img.(map[string]interface{}); ok {
 							if ct, _ := m["coverType"].(string); ct == "poster" {
 								posterURL, _ = m["remoteUrl"].(string)
+								if posterURL == "" {
+									if local, _ := m["url"].(string); local != "" {
+										posterURL = "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(local)
+									}
+								}
 								break
 							}
 						}
@@ -169,6 +174,11 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 							if m, ok := img.(map[string]interface{}); ok {
 								if ct, _ := m["coverType"].(string); ct == "poster" {
 									hPoster, _ = m["remoteUrl"].(string)
+									if hPoster == "" {
+										if local, _ := m["url"].(string); local != "" {
+											hPoster = "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(local)
+										}
+									}
 									break
 								}
 							}
@@ -210,13 +220,29 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 			if v, ok := statistics["episodeCount"].(float64); ok { data.EpisodeCount += int(v) }
 			data.OnDiskCount += episodeFileCount
 		}
+		ss := SonarrSeries{}
+		ss.Title, _ = s["title"].(string)
+		if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
+		if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
+		if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
+		ss.Certification, _ = s["certification"].(string)
+		// Extract poster URL from library
+		if images, ok := s["images"].([]interface{}); ok {
+			for _, img := range images {
+				if m, ok := img.(map[string]interface{}); ok {
+					if ct, _ := m["coverType"].(string); ct == "poster" {
+						ss.PosterURL, _ = m["remoteUrl"].(string)
+						if ss.PosterURL == "" {
+							if local, _ := m["url"].(string); local != "" {
+								ss.PosterURL = "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(local)
+							}
+						}
+						break
+					}
+				}
+			}
+		}
 		if episodeFileCount == 0 {
-			ss := SonarrSeries{}
-			ss.Title, _ = s["title"].(string)
-			if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
-			if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
-			if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
-			ss.Certification, _ = s["certification"].(string)
 			if sonarrRatingAllowed(ss.Certification, sonarrAllowedRatings(config)) {
 				data.ZeroByte = append(data.ZeroByte, ss)
 			}

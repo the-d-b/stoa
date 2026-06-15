@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ type TracearrStream struct {
 	IsTranscode bool   `json:"isTranscode"`
 	Platform    string `json:"platform"`
 	ServerName  string `json:"serverName"`
+	ThumbURL    string `json:"thumbUrl,omitempty"`
 }
 
 type TracearrUser struct {
@@ -57,13 +59,15 @@ type TracearrViolation struct {
 }
 
 type TracearrPanelData struct {
-	UIURL         string                `json:"uiUrl"`
-	Summary       TracearrStreamSummary `json:"summary"`
-	Streams       []TracearrStream      `json:"streams"`
-	TotalPlays    int                   `json:"totalPlays"`
-	TopUsers      []TracearrUser        `json:"topUsers"`
-	RecentHistory []TracearrHistoryItem `json:"recentHistory"`
-	Violations    []TracearrViolation   `json:"violations"`
+	UIURL           string                `json:"uiUrl"`
+	Summary         TracearrStreamSummary `json:"summary"`
+	Streams         []TracearrStream      `json:"streams"`
+	TotalPlays      int                   `json:"totalPlays"`
+	TotalDurationMs int64                 `json:"totalDurationMs"`
+	UniqueUsers     int                   `json:"uniqueUsers"`
+	TopUsers        []TracearrUser        `json:"topUsers"`
+	RecentHistory   []TracearrHistoryItem `json:"recentHistory"`
+	Violations      []TracearrViolation   `json:"violations"`
 }
 
 func tracearrGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
@@ -122,6 +126,7 @@ func fetchTracearrPanelData(db *sql.DB, config map[string]interface{}) (*Tracear
 				IsTranscode bool   `json:"isTranscode"`
 				Platform    string `json:"platform"`
 				ServerName  string `json:"serverName"`
+				PosterUrl   string `json:"posterUrl"`
 			} `json:"data"`
 			Summary struct {
 				Total       int `json:"total"`
@@ -136,6 +141,10 @@ func fetchTracearrPanelData(db *sql.DB, config map[string]interface{}) (*Tracear
 				DirectPlays: resp.Summary.DirectPlays,
 			}
 			for _, s := range resp.Data {
+				thumbURL := ""
+				if s.PosterUrl != "" && integrationID != "" {
+					thumbURL = "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(s.PosterUrl)
+				}
 				data.Streams = append(data.Streams, TracearrStream{
 					Username:    s.Username,
 					MediaTitle:  s.MediaTitle,
@@ -147,6 +156,7 @@ func fetchTracearrPanelData(db *sql.DB, config map[string]interface{}) (*Tracear
 					IsTranscode: s.IsTranscode,
 					Platform:    s.Platform,
 					ServerName:  s.ServerName,
+					ThumbURL:    thumbURL,
 				})
 			}
 		}
@@ -180,11 +190,14 @@ func fetchTracearrPanelData(db *sql.DB, config map[string]interface{}) (*Tracear
 		}
 		if json.Unmarshal(histBody, &resp) == nil {
 			data.TotalPlays = resp.Meta.Total
-			// Aggregate top users from fetched page
 			userPlays := make(map[string]int)
+			var totalDurMs int64
 			for _, h := range resp.Data {
+				totalDurMs += h.DurationMs
 				userPlays[h.User.Username]++
 			}
+			data.TotalDurationMs = totalDurMs
+			data.UniqueUsers = len(userPlays)
 			type userEntry struct{ name string; plays int }
 			var users []userEntry
 			for name, plays := range userPlays {

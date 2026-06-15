@@ -184,9 +184,10 @@ func main() {
 	// stream uses FlexMiddleware so the browser audio element can pass ?token=
 	protected.HandleFunc("/abs/{integrationId}/cover/{itemId}", handlers.ProxyABSCover(database)).Methods("GET")
 	protected.HandleFunc("/abs/{integrationId}/progress/{itemId}", handlers.SyncABSProgress(database)).Methods("POST")
-	absStream := api.PathPrefix("").Subrouter()
-	absStream.Use(authService.FlexMiddleware)
-	absStream.HandleFunc("/abs/{integrationId}/stream/{itemId}", handlers.ProxyABSStream(database)).Methods("GET")
+	flexRoutes := api.PathPrefix("").Subrouter()
+	flexRoutes.Use(authService.FlexMiddleware)
+	flexRoutes.HandleFunc("/abs/{integrationId}/stream/{itemId}", handlers.ProxyABSStream(database)).Methods("GET")
+	flexRoutes.HandleFunc("/images/proxy", handlers.ImageProxy(database)).Methods("GET")
 	// Navidrome proxies (auth-gated)
 	protected.HandleFunc("/navidrome/{integrationId}/cover", handlers.ProxyNavidromeCover(database)).Methods("GET")
 	protected.HandleFunc("/navidrome/{integrationId}/stream", handlers.ProxyNavidromeStream(database)).Methods("GET")

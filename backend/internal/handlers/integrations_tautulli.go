@@ -11,10 +11,13 @@ import (
 // ── Tautulli types ────────────────────────────────────────────────────────────
 
 type TautulliPanelData struct {
-	UIURL       string              `json:"uiUrl"`
-	MostPlayed  []TautulliMediaStat `json:"mostPlayed"`
-	UserStats   []TautulliUserStat  `json:"userStats"`
-	History     []TautulliHistory   `json:"history"`
+	UIURL            string              `json:"uiUrl"`
+	TotalPlays       int                 `json:"totalPlays"`
+	TotalDurationSecs int                `json:"totalDurationSecs"`
+	UniqueUsers      int                 `json:"uniqueUsers"`
+	MostPlayed       []TautulliMediaStat `json:"mostPlayed"`
+	UserStats        []TautulliUserStat  `json:"userStats"`
+	History          []TautulliHistory   `json:"history"`
 }
 
 type TautulliMediaStat struct {
@@ -151,14 +154,15 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		}
 	}
 
-	// Recent history — last 8 plays
+	// Recent history — last 8 plays; also captures total count for the period
 	histBody, err := tautulliGet(apiURL, apiKey, "get_history",
-		"&length=8&order_column=date&order_dir=desc",
+		fmt.Sprintf("&length=8&order_column=date&order_dir=desc&time_range=%d", timeRange),
 		skipTLS)
 	if err == nil {
 		var resp struct {
 			Response struct {
 				Data struct {
+					RecordsFiltered int `json:"records_filtered"`
 					Data []struct {
 						FriendlyName     string  `json:"friendly_name"`
 						Title            string  `json:"title"`
@@ -173,22 +177,29 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 			} `json:"response"`
 		}
 		if json.Unmarshal(histBody, &resp) == nil {
+			data.TotalPlays = resp.Response.Data.RecordsFiltered
 			for _, row := range resp.Response.Data.Data {
-					hrk := ""
-					if row.RatingKey > 0 { hrk = fmt.Sprintf("%d", row.RatingKey) }
-					data.History = append(data.History, TautulliHistory{
-						User:             row.FriendlyName,
-						Title:            row.Title,
-						GrandparentTitle: row.GrandparentTitle,
-						MediaType:        row.MediaType,
-						Date:             row.Date,
-						Duration:         row.Duration,
-						PercentComplete:  row.PercentComplete,
-						RatingKey:        hrk,
-					})
+				hrk := ""
+				if row.RatingKey > 0 { hrk = fmt.Sprintf("%d", row.RatingKey) }
+				data.History = append(data.History, TautulliHistory{
+					User:             row.FriendlyName,
+					Title:            row.Title,
+					GrandparentTitle: row.GrandparentTitle,
+					MediaType:        row.MediaType,
+					Date:             row.Date,
+					Duration:         row.Duration,
+					PercentComplete:  row.PercentComplete,
+					RatingKey:        hrk,
+				})
 			}
 		}
 	}
+
+	// Aggregate total duration and unique users from userStats
+	for _, u := range data.UserStats {
+		data.TotalDurationSecs += u.TotalDuration
+	}
+	data.UniqueUsers = len(data.UserStats)
 
 	return data, nil
 }

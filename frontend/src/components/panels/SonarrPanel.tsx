@@ -13,7 +13,7 @@ interface SonarrHistory {
   date: string; season: number; episode: number
   posterUrl?: string
 }
-interface SonarrSeries { id: number; title: string; titleSlug: string; year: number; certification?: string }
+interface SonarrSeries { id: number; title: string; titleSlug: string; year: number; posterUrl?: string; certification?: string }
 interface SonarrData {
   upcoming: SonarrEpisode[]; history: SonarrHistory[]
   zeroByte: SonarrSeries[]; zeroByteCount: number; uiUrl: string
@@ -199,13 +199,15 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  const allPosters = [...(data.upcoming || []), ...(data.history || [])]
+  const episodePosters = [...(data.upcoming || []), ...(data.history || [])]
+  // Fall back to zero-byte series (wanted, no files) — parallel to missing+history in Radarr/Lidarr
+  const wantedPosters = (data.zeroByte || []).map(s => ({ posterUrl: s.posterUrl, seriesTitle: s.title, titleSlug: s.titleSlug }))
+  const allPosters = episodePosters.length > 0 ? episodePosters : wantedPosters
 
   // ── 2x — stats + recently downloaded ────────────────────────────────────
   if (heightUnits < 3) {
     return (
       <div style={{ height: '100%', overflow: 'auto' }}>
-        <ScrollableCoverStrip items={allPosters.map(p => ({ coverUrl: p.posterUrl, title: p.seriesTitle || '', linkUrl: uiUrl && p.titleSlug ? `${uiUrl}/series/${p.titleSlug}` : uiUrl }))} height={80} />
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>{statsBar}</div>
         {sectionTitle('Recently downloaded')}
         {groupedHistory.length === 0

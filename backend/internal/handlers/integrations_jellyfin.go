@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 )
 
@@ -35,6 +36,7 @@ type JellyfinSession struct {
 	Progress          float64 `json:"progress"`
 	TranscodeDecision string  `json:"transcodeDecision"`
 	Player            string  `json:"player"`
+	ThumbURL          string  `json:"thumbUrl,omitempty"`
 }
 
 // ── Jellyfin JSON response types ──────────────────────────────────────────────
@@ -63,9 +65,11 @@ type jellyfinSessionResponse struct {
 }
 
 type jellyfinNowPlaying struct {
+	Id           string `json:"Id"`
 	Name         string `json:"Name"`
 	Type         string `json:"Type"`
 	SeriesName   string `json:"SeriesName"`
+	SeriesId     string `json:"SeriesId"`
 	RunTimeTicks int64  `json:"RunTimeTicks"`
 }
 
@@ -135,7 +139,7 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 				if s.NowPlayingItem == nil {
 					continue
 				}
-				data.Sessions = append(data.Sessions, jellyfinSessionToPanel(s))
+				data.Sessions = append(data.Sessions, jellyfinSessionToPanel(s, integrationID))
 			}
 		}
 	}
@@ -151,7 +155,7 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 	return data, nil
 }
 
-func jellyfinSessionToPanel(s jellyfinSessionResponse) JellyfinSession {
+func jellyfinSessionToPanel(s jellyfinSessionResponse, integrationID string) JellyfinSession {
 	sess := JellyfinSession{
 		User:   s.UserName,
 		Player: s.Client,
@@ -164,6 +168,14 @@ func jellyfinSessionToPanel(s jellyfinSessionResponse) JellyfinSession {
 		}
 		if s.PlayState != nil && s.NowPlayingItem.RunTimeTicks > 0 {
 			sess.Progress = float64(s.PlayState.PositionTicks) / float64(s.NowPlayingItem.RunTimeTicks) * 100
+		}
+		itemID := s.NowPlayingItem.Id
+		if s.NowPlayingItem.Type == "Episode" && s.NowPlayingItem.SeriesId != "" {
+			itemID = s.NowPlayingItem.SeriesId
+		}
+		if itemID != "" && integrationID != "" {
+			imgPath := fmt.Sprintf("/Items/%s/Images/Primary?maxWidth=200", itemID)
+			sess.ThumbURL = "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(imgPath)
 		}
 	}
 	if s.PlayState != nil {

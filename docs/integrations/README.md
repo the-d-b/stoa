@@ -12,10 +12,10 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|---|---|
 | Plex | ✅ Tested | Plex token (`X-Plex-Token`) — get from your Plex account | Required | 60 s | [plex/](plex/) |
 | Jellyfin | ✅ Tested | Plain API key — Jellyfin → Dashboard → API Keys | Required | 60 s | [jellyfin/](jellyfin/) |
-| Emby | 🔶 Need Testing | Plain API key — Emby → Settings → API Keys | Required | 30 s | [emby/](emby/) |
+| Emby | ✅ Tested | Plain API key — Emby → Settings → API Keys | Required | 30 s | [emby/](emby/) |
 | Tautulli | ✅ Tested | Plain API key — Tautulli → Settings → Web Interface → API Key | Required | 60 s | [tautulli/](tautulli/) |
-| Jellystat | 🔶 Need Testing | Plain API key — Jellystat → Settings → API Key | Required | 60 s | [jellystat/](jellystat/) |
-| Tracearr | 🔶 Need Testing | Plain API key — Tracearr → Settings → API | Required | 60 s | [tracearr/](tracearr/) |
+| Jellystat | ✅ Tested | Plain API key — Jellystat → Settings → API Key | Required | 60 s | [jellystat/](jellystat/) |
+| Tracearr | ✅ Tested | Plain API key — Tracearr → Settings → API | Required | 60 s | [tracearr/](tracearr/) |
 
 ---
 
@@ -27,7 +27,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Radarr | ✅ Tested | Plain API key — Radarr → Settings → General → API Key | Required | 30 min | [radarr/](radarr/) |
 | Lidarr | ✅ Tested | Plain API key — Lidarr → Settings → General → API Key | Required | 30 min | [lidarr/](lidarr/) |
 | Readarr | ✅ Tested | Plain API key — Readarr → Settings → General → API Key | Required | 30 min | [readarr/](readarr/) |
-| Bazarr | 🔶 Need Testing | Plain API key — Bazarr → Settings → General → API Key | Required | 60 s | [bazarr/](bazarr/) |
+| Bazarr | ✅ Tested | Plain API key — Bazarr → Settings → General → API Key | Required | 60 s | [bazarr/](bazarr/) |
 | Prowlarr | 🔶 Need Testing | Plain API key — Prowlarr → Settings → General → API Key | Required | 60 s | [prowlarr/](prowlarr/) |
 | autobrr | ✅ Tested | Plain API key — autobrr → Settings → API | Required | 30 s | [autobrr/](autobrr/) |
 | Overseerr / Jellyseerr | 🔶 Need Testing | Plain API key — Overseerr → Settings → General → API Key | Required | 5 min | [overseerr/](overseerr/) |
