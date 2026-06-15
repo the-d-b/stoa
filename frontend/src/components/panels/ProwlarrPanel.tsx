@@ -311,128 +311,83 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
     )
   }
 
-  // ── 2–3× medium ─────────────────────────────────────────────────────────────
+  // ── 2–3× centered: donut + tiles, no indexer list ───────────────────────────
   if (heightUnits <= 3) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Donut + chips */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <IndexerDonut ok={okIndexers} total={enabledIndexers} size={80} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="#4ade80" />
-            {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="#e53e3e" bg="#e53e3e18" />}
-            {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="#4ade80" />}
-            {usenetIndexers > 0 && <StatChip label="Usenet" value={usenetIndexers} color="#a78bfa" />}
-            {totalGrabs > 0 && <StatChip label="Grabs" value={fmtCount(totalGrabs)} />}
-            {version && <StatChip label="Version" value={`v${version}`} />}
-          </div>
-        </div>
-
-        {/* Health issues */}
-        {healthIssues.length > 0 && (
-          <div>
-            <ColHeader>Issues ({healthIssues.length})</ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {healthIssues.map((h, i) => <HealthIssueRow key={i} issue={h} />)}
-            </div>
-          </div>
-        )}
-
-        {/* Indexer list */}
-        <div>
-          <ColHeader>Indexers</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {indexers.slice(0, 8).map((idx, i) => <IndexerRow key={i} indexer={idx} />)}
-            {indexers.length > 8 && (
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', paddingLeft: 13 }}>
-                +{indexers.length - 8} more
-              </div>
-            )}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+        <IndexerDonut ok={okIndexers} total={enabledIndexers} size={80} />
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
+          <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="#4ade80" />
+          {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="#e53e3e" bg="#e53e3e18" />}
+          {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="#4ade80" />}
+          {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
       </div>
     )
   }
 
-  // ── 4×+ full layout ──────────────────────────────────────────────────────────
+  // ── 4×+ tall: donut + tiles, then stacked sections ──────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Donut + chips */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+      {/* Lines 1–2: same as 2x */}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <IndexerDonut ok={okIndexers} total={enabledIndexers} size={80} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
           <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="#4ade80" />
           {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="#e53e3e" bg="#e53e3e18" />}
           {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="#4ade80" />}
-          {usenetIndexers > 0 && <StatChip label="Usenet" value={usenetIndexers} color="#a78bfa" />}
-          {totalGrabs > 0 && <StatChip label="Total Grabs" value={fmtCount(totalGrabs)} />}
-          {totalQueries > 0 && <StatChip label="Queries" value={fmtCount(totalQueries)} />}
-          {totalFailedQueries > 0 && <StatChip label="Failed" value={fmtCount(totalFailedQueries)} color="#f59e0b" />}
-          {apps.length > 0 && <StatChip label="Apps" value={apps.length} />}
           {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
       </div>
 
-      {/* Three-column: indexers | issues + apps | indexer stats detail */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 180px 1fr', gap: 12 }}>
+      {/* Line 3: Indexers */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <ColHeader>Indexers ({totalIndexers})</ColHeader>
+        {indexers.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No indexers configured</div>
+          : indexers.map((idx, i) => <IndexerRow key={i} indexer={idx} />)
+        }
+      </div>
 
-        {/* Col 1: Full indexer list with basic info */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Indexers ({totalIndexers})</ColHeader>
-          {indexers.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No indexers configured</div>
-            : indexers.map((idx, i) => <IndexerRow key={i} indexer={idx} />)
-          }
-        </div>
+      {/* Line 4: Issues */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <ColHeader>Issues {healthIssues.length > 0 ? `(${healthIssues.length})` : '(none)'}</ColHeader>
+        {healthIssues.length === 0
+          ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
+          : healthIssues.map((h, i) => <HealthIssueRow key={i} issue={h} />)
+        }
+      </div>
 
-        {/* Col 2: Issues + connected apps */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-          <div>
-            <ColHeader>Issues {healthIssues.length > 0 ? `(${healthIssues.length})` : '(none)'}</ColHeader>
-            {healthIssues.length === 0
-              ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
-              : healthIssues.map((h, i) => <HealthIssueRow key={i} issue={h} />)
-            }
-          </div>
-          {apps.length > 0 && (
-            <div>
-              <ColHeader>Apps ({apps.length})</ColHeader>
-              {apps.map((a, i) => <AppRow key={i} app={a} />)}
+      {/* Line 5: Lifetime stats per indexer */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <ColHeader>Stats (lifetime)</ColHeader>
+        {indexers.filter(idx => idx.queries > 0).length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No query history</div>
+          : indexers.filter(idx => idx.queries > 0).map((idx, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+              <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
+                {idx.name}
+              </span>
+              <span style={{ color: '#4ade80', fontFamily: 'DM Mono, monospace', fontSize: 11, flexShrink: 0 }}>
+                {fmtCount(idx.grabs)}↓
+              </span>
+              {idx.avgResponseMs > 0 && (
+                <span style={{
+                  color: idx.avgResponseMs > 3000 ? '#f59e0b' : 'var(--text-dim)',
+                  fontFamily: 'DM Mono, monospace', fontSize: 11, flexShrink: 0,
+                }}>
+                  {fmtMs(idx.avgResponseMs)}
+                </span>
+              )}
+              {idx.failedQueries > 0 && idx.queries > 0 && (
+                <span style={{ color: '#f59e0b', fontSize: 11, flexShrink: 0 }}>
+                  {Math.round(idx.failedQueries / idx.queries * 100)}%✗
+                </span>
+              )}
             </div>
-          )}
-        </div>
-
-        {/* Col 3: Indexer stats (grabs, response time, fail rate) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Stats (lifetime)</ColHeader>
-          {indexers.filter(idx => idx.queries > 0).length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No query history</div>
-            : indexers.filter(idx => idx.queries > 0).map((idx, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, minWidth: 0 }}>
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
-                  {idx.name}
-                </span>
-                <span style={{ color: '#4ade80', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
-                  {fmtCount(idx.grabs)}↓
-                </span>
-                {idx.avgResponseMs > 0 && (
-                  <span style={{
-                    color: idx.avgResponseMs > 3000 ? '#f59e0b' : 'var(--text-dim)',
-                    fontFamily: 'DM Mono, monospace', flexShrink: 0,
-                  }}>
-                    {fmtMs(idx.avgResponseMs)}
-                  </span>
-                )}
-                {idx.failedQueries > 0 && idx.queries > 0 && (
-                  <span style={{ color: '#f59e0b', flexShrink: 0 }}>
-                    {Math.round(idx.failedQueries / idx.queries * 100)}%✗
-                  </span>
-                )}
-              </div>
-            ))
-          }
-        </div>
+          ))
+        }
       </div>
     </div>
   )

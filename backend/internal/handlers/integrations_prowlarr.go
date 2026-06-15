@@ -98,7 +98,13 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 		uiURL = baseURL
 	}
 
-	out := &ProwlarrPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	out := &ProwlarrPanelData{
+		UIURL:         uiURL,
+		IntegrationID: integrationID,
+		Indexers:      []ProwlarrIndexer{},
+		Apps:          []ProwlarrApp{},
+		HealthIssues:  []ProwlarrHealthIssue{},
+	}
 
 	// ── System status ─────────────────────────────────────────────────────────
 	if body, err := prowlarrGet(baseURL, apiKey, "/api/v1/system/status", skipTLS); err == nil {
