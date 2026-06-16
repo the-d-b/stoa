@@ -30,7 +30,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Bazarr | ✅ Tested | Plain API key — Bazarr → Settings → General → API Key | Required | 60 s | [bazarr/](bazarr/) |
 | Prowlarr | ✅ Tested | Plain API key — Prowlarr → Settings → General → API Key | Required | 60 s | [prowlarr/](prowlarr/) |
 | autobrr | ✅ Tested | Plain API key — autobrr → Settings → API | Required | 30 s | [autobrr/](autobrr/) |
-| Overseerr / Jellyseerr | 🔶 Need Testing | Plain API key — Overseerr → Settings → General → API Key | Required | 5 min | [overseerr/](overseerr/) |
+| Overseerr / Jellyseerr | ✅ Tested | Plain API key — Overseerr → Settings → General → API Key | Required | 5 min | [overseerr/](overseerr/) |
 | Tdarr | 🔶 Need Testing | Blank (no auth) **or** `apikey` **or** `username:password` (reverse-proxy) | Required | 30 s | [tdarr/](tdarr/) |
 | Maintainerr | 🔶 Need Testing | Blank (no auth) **or** Bearer `token` | Required | 5 min | [maintainerr/](maintainerr/) |
 

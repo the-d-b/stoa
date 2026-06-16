@@ -17,6 +17,9 @@ type OverseerrPanelData struct {
 	UpdateAvail bool               `json:"updateAvail"`
 	Stats       OverseerrStats     `json:"stats"`
 	Pending     []OverseerrRequest `json:"pending"`
+	Processing  []OverseerrRequest `json:"processing"`
+	Available   []OverseerrRequest `json:"available"`
+	Declined    []OverseerrRequest `json:"declined"`
 }
 
 type OverseerrStats struct {
@@ -73,7 +76,12 @@ type overseerrRequestItemResp struct {
 		Username    string `json:"username"`
 	} `json:"requestedBy"`
 	Media struct {
-		TmdbID int `json:"tmdbId"`
+		TmdbID       int    `json:"tmdbId"`
+		PosterPath   string `json:"posterPath"`
+		Title        string `json:"title"`        // movies
+		Name         string `json:"name"`         // TV
+		ReleaseDate  string `json:"releaseDate"`  // movies
+		FirstAirDate string `json:"firstAirDate"` // TV
 	} `json:"media"`
 }
 
@@ -89,6 +97,53 @@ type overseerrTVDetailsResp struct {
 	PosterPath   string `json:"posterPath"`
 }
 
+// ── Fetch helpers ─────────────────────────────────────────────────────────────
+
+func overseerrFetchRequests(apiURL, apiKey, filter string, take int, skipTLS bool) []OverseerrRequest {
+	path := fmt.Sprintf("/api/v1/request?filter=%s&sort=added&take=%d", filter, take)
+	body, err := overseerrGet(apiURL, apiKey, path, skipTLS)
+	if err != nil {
+		return []OverseerrRequest{}
+	}
+	var list overseerrRequestListResp
+	if json.Unmarshal(body, &list) != nil {
+		return []OverseerrRequest{}
+	}
+	result := make([]OverseerrRequest, 0, len(list.Results))
+	for _, r := range list.Results {
+		req := OverseerrRequest{
+			ID:          r.ID,
+			Type:        r.Type,
+			RequestedBy: r.RequestedBy.DisplayName,
+			RequestedAt: r.CreatedAt,
+			Status:      overseerrStatusLabel(r.Status),
+			TmdbID:      r.Media.TmdbID,
+			Poster:      r.Media.PosterPath,
+		}
+		if req.RequestedBy == "" {
+			req.RequestedBy = r.RequestedBy.Username
+		}
+		// Use title/year from the media object inline when available
+		if r.Media.Title != "" {
+			req.Title = r.Media.Title
+			if len(r.Media.ReleaseDate) >= 4 {
+				req.Year = r.Media.ReleaseDate[:4]
+			}
+		} else if r.Media.Name != "" {
+			req.Title = r.Media.Name
+			if len(r.Media.FirstAirDate) >= 4 {
+				req.Year = r.Media.FirstAirDate[:4]
+			}
+		}
+		// Fall back to per-request enrichment only if still missing data
+		if (req.Title == "" || req.Poster == "") && r.Media.TmdbID > 0 {
+			overseerrEnrich(apiURL, apiKey, skipTLS, &req)
+		}
+		result = append(result, req)
+	}
+	return result
+}
+
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 func fetchOverseerrPanelData(db *sql.DB, config map[string]interface{}) (*OverseerrPanelData, error) {
@@ -100,7 +155,13 @@ func fetchOverseerrPanelData(db *sql.DB, config map[string]interface{}) (*Overse
 	if err != nil {
 		return nil, err
 	}
-	data := &OverseerrPanelData{UIURL: uiURL}
+	data := &OverseerrPanelData{
+		UIURL:      uiURL,
+		Pending:    []OverseerrRequest{},
+		Processing: []OverseerrRequest{},
+		Available:  []OverseerrRequest{},
+		Declined:   []OverseerrRequest{},
+	}
 
 	// Server version + update info
 	if body, err := overseerrGet(apiURL, apiKey, "/api/v1/status", skipTLS); err == nil {
@@ -127,26 +188,25 @@ func fetchOverseerrPanelData(db *sql.DB, config map[string]interface{}) (*Overse
 		}
 	}
 
-	// Pending requests — fetch and enrich with TMDB media details via Overseerr
-	if body, err := overseerrGet(apiURL, apiKey, "/api/v1/request?filter=pending&sort=added&take=12", skipTLS); err == nil {
-		var list overseerrRequestListResp
-		if json.Unmarshal(body, &list) == nil {
-			for _, r := range list.Results {
-				req := OverseerrRequest{
-					ID:          r.ID,
-					Type:        r.Type,
-					RequestedBy: r.RequestedBy.DisplayName,
-					RequestedAt: r.CreatedAt,
-					Status:      overseerrStatusLabel(r.Status),
-					TmdbID:      r.Media.TmdbID,
-				}
-				if req.RequestedBy == "" {
-					req.RequestedBy = r.RequestedBy.Username
-				}
-				if r.Media.TmdbID > 0 {
-					overseerrEnrich(apiURL, apiKey, skipTLS, &req)
-				}
+	// Fetch all requests in one call and bucket by status — avoids filter name
+	// ambiguity ("declined" is not a valid filter value in Overseerr's API).
+	for _, req := range overseerrFetchRequests(apiURL, apiKey, "all", 200, skipTLS) {
+		switch req.Status {
+		case "pending":
+			if len(data.Pending) < 20 {
 				data.Pending = append(data.Pending, req)
+			}
+		case "approved", "processing":
+			if len(data.Processing) < 20 {
+				data.Processing = append(data.Processing, req)
+			}
+		case "available":
+			if len(data.Available) < 20 {
+				data.Available = append(data.Available, req)
+			}
+		case "declined":
+			if len(data.Declined) < 20 {
+				data.Declined = append(data.Declined, req)
 			}
 		}
 	}

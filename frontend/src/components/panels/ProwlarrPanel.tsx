@@ -15,14 +15,6 @@ interface ProwlarrIndexer {
   avgResponseMs: number
 }
 
-interface ProwlarrApp {
-  id: number
-  name: string
-  implementation: string
-  syncLevel: string
-  enable: boolean
-}
-
 interface ProwlarrHealthIssue {
   source: string
   type: string   // "notice", "warning", "error"
@@ -37,12 +29,8 @@ interface ProwlarrData {
   enabledIndexers: number
   failingIndexers: number
   torrentIndexers: number
-  usenetIndexers: number
-  totalQueries: number
   totalGrabs: number
-  totalFailedQueries: number
   indexers: ProwlarrIndexer[]
-  apps: ProwlarrApp[]
   healthIssues: ProwlarrHealthIssue[]
 }
 
@@ -85,13 +73,6 @@ function issueColor(type: string): string {
   }
 }
 
-function syncLabel(level: string): string {
-  switch (level?.toLowerCase()) {
-    case 'fullsync': return 'Full Sync'
-    case 'addonly':  return 'Add Only'
-    default:         return level ?? 'Disabled'
-  }
-}
 
 function fmtMs(ms: number): string {
   if (!ms) return '—'
@@ -215,21 +196,6 @@ function HealthIssueRow({ issue }: { issue: ProwlarrHealthIssue }) {
   )
 }
 
-function AppRow({ app }: { app: ProwlarrApp }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-      <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-        background: app.enable ? '#4ade80' : 'var(--text-dim)' }} />
-      <span style={{ fontSize: 12, color: app.enable ? 'var(--text)' : 'var(--text-dim)',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-        {app.name}
-      </span>
-      <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
-        {syncLabel(app.syncLevel)}
-      </span>
-    </div>
-  )
-}
 
 function ColHeader({ children }: { children: React.ReactNode }) {
   return (
@@ -264,9 +230,9 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
   if (!data) return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No data</div>
 
   const {
-    totalIndexers, enabledIndexers, failingIndexers, torrentIndexers, usenetIndexers,
-    totalQueries, totalGrabs, totalFailedQueries,
-    indexers = [], apps = [], healthIssues = [], version,
+    totalIndexers, enabledIndexers, failingIndexers, torrentIndexers,
+    totalGrabs,
+    indexers = [], healthIssues = [], version,
   } = data
 
   const okIndexers = enabledIndexers - failingIndexers
