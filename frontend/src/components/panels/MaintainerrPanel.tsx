@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
+import ScrollableCoverStrip from './CoverStrip'
 
 interface MaintainerrCollection {
   id: number
   title: string
-  type: number       // 1=movie 2=show 3=season 4=episode
+  type: string       // "movie", "show", "season", "episode"
   isActive: boolean
   deleteAfterDays: number
   arrAction: number  // 0=delete 1=unmonitor+delete 2=unmonitor
   mediaCount: number
+  totalSizeBytes: number
+  posters: string[]  // full image_path URLs from media items
 }
 
 interface MaintainerrData {
@@ -20,12 +23,24 @@ interface MaintainerrData {
   bytesHandled: number
 }
 
-function typeLabel(t: number) {
-  return ['', 'Movies', 'Shows', 'Seasons', 'Episodes'][t] ?? 'Media'
+function typeLabel(t: string) {
+  switch (t) {
+    case 'movie':   return 'Movies'
+    case 'show':    return 'Shows'
+    case 'season':  return 'Seasons'
+    case 'episode': return 'Episodes'
+    default:        return 'Media'
+  }
 }
 
-function typeColor(t: number) {
-  return ['', '#6366f1', '#a855f7', '#f59e0b', '#14b8a6'][t] ?? 'var(--accent)'
+function typeColor(t: string) {
+  switch (t) {
+    case 'movie':   return '#6366f1'
+    case 'show':    return '#a855f7'
+    case 'season':  return '#f59e0b'
+    case 'episode': return '#14b8a6'
+    default:        return 'var(--accent)'
+  }
 }
 
 function actionLabel(a: number) {
@@ -39,7 +54,7 @@ function fmtBytes(b: number) {
   return `${(b / 1024 ** 4).toFixed(1)} TB`
 }
 
-function TypeBadge({ type }: { type: number }) {
+function TypeBadge({ type }: { type: string }) {
   return (
     <span style={{
       fontSize: 9, fontWeight: 700, padding: '2px 5px', borderRadius: 3,
@@ -53,8 +68,8 @@ function TypeBadge({ type }: { type: number }) {
 
 function StatChip({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div style={{ background: 'var(--surface2)', borderRadius: 7, padding: '5px 10px',
-      textAlign: 'center', flex: 1 }}>
+    <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+      borderRadius: 7, padding: '5px 10px', textAlign: 'center', flex: 1 }}>
       <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
       {sub && <div style={{ fontSize: 10, color: 'var(--accent)', fontWeight: 600 }}>{sub}</div>}
       <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{label}</div>
@@ -83,11 +98,13 @@ function CollectionRow({ c }: { c: MaintainerrCollection }) {
 }
 
 function CollectionCard({ c }: { c: MaintainerrCollection }) {
+  const color = typeColor(c.type)
+  const posterItems = c.posters.map(url => ({ coverUrl: url, title: c.title }))
   return (
     <div style={{
       background: 'var(--surface2)', borderRadius: 8, padding: '9px 12px',
-      borderLeft: `3px solid ${c.isActive ? typeColor(c.type) : 'var(--border)'}`,
-      display: 'flex', flexDirection: 'column', gap: 5,
+      borderLeft: `3px solid ${c.isActive ? color : 'var(--border)'}`,
+      display: 'flex', flexDirection: 'column', gap: 6,
       opacity: c.isActive ? 1 : 0.6,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -96,28 +113,27 @@ function CollectionCard({ c }: { c: MaintainerrCollection }) {
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {c.title}
         </span>
-        <span style={{
-          fontSize: 15, fontWeight: 700,
-          color: c.mediaCount > 0 ? typeColor(c.type) : 'var(--text-dim)',
-          flexShrink: 0,
-        }}>
+        <span style={{ fontSize: 15, fontWeight: 700,
+          color: c.mediaCount > 0 ? color : 'var(--text-dim)', flexShrink: 0 }}>
           {c.mediaCount}
         </span>
       </div>
       <div style={{ display: 'flex', gap: 8, fontSize: 10, color: 'var(--text-muted)' }}>
-        {c.deleteAfterDays > 0 && (
-          <span>delete after {c.deleteAfterDays}d</span>
-        )}
+        {c.deleteAfterDays > 0 && <span>delete after {c.deleteAfterDays}d</span>}
         <span>{actionLabel(c.arrAction)}</span>
+        {c.totalSizeBytes > 0 && <span>{fmtBytes(c.totalSizeBytes)}</span>}
         {!c.isActive && <span style={{ color: 'var(--text-dim)' }}>· paused</span>}
       </div>
+      {posterItems.length > 0 && (
+        <ScrollableCoverStrip items={posterItems} height={80} />
+      )}
     </div>
   )
 }
 
 export default function MaintainerrPanel({ panel, heightUnits }: { panel: any; heightUnits: number }) {
   const [data, setData] = useState<MaintainerrData | null>(null)
-  const [err, setErr] = useState('')
+  const [err, setErr]   = useState('')
 
   useEffect(() => {
     integrationsApi.getPanelData(panel.id)
@@ -125,7 +141,7 @@ export default function MaintainerrPanel({ panel, heightUnits }: { panel: any; h
       .catch(() => setErr('Failed to load'))
   }, [panel.id])
 
-  if (err) return <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>{err}</div>
+  if (err)   return <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>{err}</div>
   if (!data) return <div style={{ padding: 16 }}><span className="spinner" /></div>
 
   const collections = data.collections || []
@@ -133,41 +149,58 @@ export default function MaintainerrPanel({ panel, heightUnits }: { panel: any; h
   // ── 1x ──────────────────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px', height: '100%' }}>
-        <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)', flexShrink: 0 }}>Maintainerr</span>
-        <span style={{ fontSize: 12, color: 'var(--text)' }}>
-          <b>{data.activeCount}</b>
-          <span style={{ color: 'var(--text-muted)' }}> active rules</span>
-        </span>
-        <span style={{ fontSize: 12, color: 'var(--text)' }}>
-          <b>{data.totalMediaCount}</b>
-          <span style={{ color: 'var(--text-muted)' }}> queued</span>
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', height: '100%' }}>
+        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+          borderRadius: 6, padding: '3px 10px', textAlign: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{data.activeCount}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> active</span>
+        </div>
+        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+          borderRadius: 6, padding: '3px 10px', textAlign: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{data.totalMediaCount}</span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> queued</span>
+        </div>
         {data.reclaimableBytes > 0 && (
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {fmtBytes(data.reclaimableBytes)} reclaimable
-          </span>
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '3px 10px', textAlign: 'center' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{fmtBytes(data.reclaimableBytes)}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> reclaimable</span>
+          </div>
         )}
         {data.itemsHandled > 0 && (
-          <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-            {data.itemsHandled.toLocaleString()} cleaned up
-          </span>
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '3px 10px', textAlign: 'center', marginLeft: 'auto' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{data.itemsHandled.toLocaleString()}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> cleaned up</span>
+          </div>
         )}
       </div>
     )
   }
 
-  // ── 2-3x ────────────────────────────────────────────────────────────────────
+  // ── 2–3x ────────────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
         padding: '10px 12px', gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>Maintainerr</span>
-          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-            {data.activeCount} active · {data.totalMediaCount} queued
-            {data.reclaimableBytes > 0 ? ` · ${fmtBytes(data.reclaimableBytes)}` : ''}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '3px 10px' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{data.activeCount}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> active</span>
+          </div>
+          <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 6, padding: '3px 10px' }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{data.totalMediaCount}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> queued</span>
+          </div>
+          {data.reclaimableBytes > 0 && (
+            <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 6, padding: '3px 10px' }}>
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{fmtBytes(data.reclaimableBytes)}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> reclaimable</span>
+            </div>
+          )}
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
           {collections.map(c => <CollectionRow key={c.id} c={c} />)}
@@ -180,7 +213,6 @@ export default function MaintainerrPanel({ panel, heightUnits }: { panel: any; h
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden',
       padding: '12px 14px', gap: 10 }}>
-      {/* Stats row */}
       <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
         <StatChip label="Rules" value={collections.length.toString()}
           sub={data.activeCount < collections.length ? `${data.activeCount} active` : undefined} />
@@ -194,8 +226,6 @@ export default function MaintainerrPanel({ panel, heightUnits }: { panel: any; h
             sub={data.bytesHandled > 0 ? fmtBytes(data.bytesHandled) : undefined} />
         )}
       </div>
-
-      {/* Collection cards */}
       <div style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
         {collections.length === 0 && (
           <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '12px 0' }}>

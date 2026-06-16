@@ -13,22 +13,24 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type MaintainerrCollection struct {
-	ID              int    `json:"id"`
-	Title           string `json:"title"`
-	Type            int    `json:"type"` // 1=movie 2=show 3=season 4=episode
-	IsActive        bool   `json:"isActive"`
-	DeleteAfterDays int    `json:"deleteAfterDays"`
-	ArrAction       int    `json:"arrAction"` // 0=delete 1=unmonitor+delete 2=unmonitor
-	MediaCount      int    `json:"mediaCount"`
+	ID              int      `json:"id"`
+	Title           string   `json:"title"`
+	Type            string   `json:"type"` // "movie", "show", "season", "episode"
+	IsActive        bool     `json:"isActive"`
+	DeleteAfterDays int      `json:"deleteAfterDays"`
+	ArrAction       int      `json:"arrAction"` // 0=delete 1=unmonitor+delete 2=unmonitor
+	MediaCount      int      `json:"mediaCount"`
+	TotalSizeBytes  int64    `json:"totalSizeBytes"`
+	Posters         []string `json:"posters"` // image_path values from media items
 }
 
 type MaintainerrPanelData struct {
-	Collections      []MaintainerrCollection `json:"collections"`
-	ActiveCount      int                     `json:"activeCount"`
-	TotalMediaCount  int                     `json:"totalMediaCount"`
-	ReclaimableBytes int64                   `json:"reclaimableBytes"`
-	ItemsHandled     int                     `json:"itemsHandled"`
-	BytesHandled     int64                   `json:"bytesHandled"`
+	Collections     []MaintainerrCollection `json:"collections"`
+	ActiveCount     int                     `json:"activeCount"`
+	TotalMediaCount int                     `json:"totalMediaCount"`
+	ReclaimableBytes int64                  `json:"reclaimableBytes"`
+	ItemsHandled    int                     `json:"itemsHandled"`
+	BytesHandled    int64                   `json:"bytesHandled"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -74,36 +76,60 @@ func testMaintainerrConnection(baseURL, apiKey string, skipTLS bool) error {
 
 // ── Panel data ────────────────────────────────────────────────────────────────
 
-func fetchMaintainerrPanelData(_ *sql.DB, config map[string]interface{}) (*MaintainerrPanelData, error) {
-	baseURL, _ := config["baseURL"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	skipTLS, _ := config["skipTLSVerify"].(bool)
+func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*MaintainerrPanelData, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("maintainerr: no integration configured")
+	}
+	baseURL, _, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 	if baseURL == "" {
 		return nil, fmt.Errorf("maintainerr: baseURL not configured")
 	}
 
 	out := &MaintainerrPanelData{Collections: []MaintainerrCollection{}}
 
-	// Collections — each includes its queued media array
+	// Collections — metadata (counts, sizes, active state)
 	if b, err := maintainerrGet(baseURL, apiKey, "/api/collections", skipTLS); err == nil {
 		var cols []struct {
-			ID              int    `json:"id"`
+			ID              int   `json:"id"`
 			Title           string `json:"title"`
-			Type            int    `json:"type"`
+			Type            string `json:"type"`
 			IsActive        bool   `json:"isActive"`
 			DeleteAfterDays int    `json:"deleteAfterDays"`
 			ArrAction       int    `json:"arrAction"`
-			Media           []struct {
-				ID int `json:"id"`
-			} `json:"media"`
+			MediaCount      int    `json:"mediaCount"`
+			TotalSizeBytes  int64  `json:"totalSizeBytes"`
 		}
 		if json.Unmarshal(b, &cols) == nil {
 			for _, c := range cols {
-				mc := len(c.Media)
-				out.TotalMediaCount += mc
+				out.TotalMediaCount += c.MediaCount
+				out.ReclaimableBytes += c.TotalSizeBytes
 				if c.IsActive {
 					out.ActiveCount++
 				}
+
+				// Fetch posters via content endpoint — image_path is populated here
+				// for all media types (movies and shows), unlike the collections list
+				posters := []string{}
+				path := fmt.Sprintf("/api/collections/media/%d/content/1?size=25&sort=deleteSoonest&sortOrder=asc", c.ID)
+				if cb, cerr := maintainerrGet(baseURL, apiKey, path, skipTLS); cerr == nil {
+					var content struct {
+						Items []struct {
+							ImagePath string `json:"image_path"`
+						} `json:"items"`
+					}
+					if json.Unmarshal(cb, &content) == nil {
+						for _, m := range content.Items {
+							if m.ImagePath != "" {
+								posters = append(posters, m.ImagePath)
+							}
+						}
+					}
+				}
+
 				out.Collections = append(out.Collections, MaintainerrCollection{
 					ID:              c.ID,
 					Title:           c.Title,
@@ -111,33 +137,25 @@ func fetchMaintainerrPanelData(_ *sql.DB, config map[string]interface{}) (*Maint
 					IsActive:        c.IsActive,
 					DeleteAfterDays: c.DeleteAfterDays,
 					ArrAction:       c.ArrAction,
-					MediaCount:      mc,
+					MediaCount:      c.MediaCount,
+					TotalSizeBytes:  c.TotalSizeBytes,
+					Posters:         posters,
 				})
 			}
 		}
 	}
 
-	// Storage metrics — best-effort (added in later Maintainerr versions)
+	// Lifetime cleanup stats — best-effort
 	if b, err := maintainerrGet(baseURL, apiKey, "/api/storage-metrics", skipTLS); err == nil {
 		var sm struct {
 			CleanupTotals struct {
 				ItemsHandled int   `json:"itemsHandled"`
 				BytesHandled int64 `json:"bytesHandled"`
 			} `json:"cleanupTotals"`
-			CollectionSummary struct {
-				MovieSizeBytes  int64 `json:"movieSizeBytes"`
-				ShowSizeBytes   int64 `json:"showSizeBytes"`
-				SeasonSizeBytes int64 `json:"seasonSizeBytes"`
-				EpSizeBytes     int64 `json:"episodeSizeBytes"`
-			} `json:"collectionSummary"`
 		}
 		if json.Unmarshal(b, &sm) == nil {
 			out.ItemsHandled = sm.CleanupTotals.ItemsHandled
 			out.BytesHandled = sm.CleanupTotals.BytesHandled
-			out.ReclaimableBytes = sm.CollectionSummary.MovieSizeBytes +
-				sm.CollectionSummary.ShowSizeBytes +
-				sm.CollectionSummary.SeasonSizeBytes +
-				sm.CollectionSummary.EpSizeBytes
 		}
 	}
 
