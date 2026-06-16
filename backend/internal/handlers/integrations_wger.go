@@ -58,11 +58,15 @@ func testWgerConnection(apiURL, apiKey string, skipTLS bool) error {
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
 
-func fetchWgerPanelData(_ *sql.DB, config map[string]interface{}) (*WgerPanelData, error) {
-	baseURL, _ := config["baseURL"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	uiURL, _ := config["uiUrl"].(string)
-	skipTLS, _ := config["skipTLSVerify"].(bool)
+func fetchWgerPanelData(db *sql.DB, config map[string]interface{}) (*WgerPanelData, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("wger: no integration configured")
+	}
+	baseURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 	if baseURL == "" {
 		return nil, fmt.Errorf("wger: baseURL not configured")
 	}

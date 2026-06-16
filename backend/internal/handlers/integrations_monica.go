@@ -67,10 +67,15 @@ func testMonicaConnection(baseURL, apiKey string, skipTLS bool) error {
 
 // ── Panel data ────────────────────────────────────────────────────────────────
 
-func fetchMonicaPanelData(_ *sql.DB, config map[string]interface{}) (*MonicaPanelData, error) {
-	baseURL, _ := config["baseURL"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	skipTLS, _ := config["skipTLSVerify"].(bool)
+func fetchMonicaPanelData(db *sql.DB, config map[string]interface{}) (*MonicaPanelData, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("monica: no integration configured")
+	}
+	baseURL, _, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 	if baseURL == "" {
 		return nil, fmt.Errorf("monica: baseURL not configured")
 	}

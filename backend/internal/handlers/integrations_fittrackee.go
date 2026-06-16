@@ -95,11 +95,15 @@ func testFittrackeeConnection(apiURL, apiKey string, skipTLS bool) error {
 
 // ── Main fetch ────────────────────────────────────────────────────────────────
 
-func fetchFittrackeePanelData(_ *sql.DB, config map[string]interface{}) (*FittrackeePanelData, error) {
-	baseURL, _ := config["baseURL"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	uiURL, _ := config["uiUrl"].(string)
-	skipTLS, _ := config["skipTLSVerify"].(bool)
+func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*FittrackeePanelData, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("fittrackee: no integration configured")
+	}
+	baseURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 	if baseURL == "" {
 		return nil, fmt.Errorf("fittrackee: baseURL not configured")
 	}

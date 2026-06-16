@@ -24,14 +24,16 @@ type TdarrWorkerInfo struct {
 }
 
 type TdarrPanelData struct {
-	Version       string            `json:"version"`
-	Workers       []TdarrWorkerInfo `json:"workers"`
-	TotalFiles    int               `json:"totalFiles"`
-	Transcoded    int               `json:"transcoded"`
-	HealthChecked int               `json:"healthChecked"`
-	SpaceSavedGB  float64           `json:"spaceSavedGB"`
-	ActiveCount   int               `json:"activeCount"`
-	IdleCount     int               `json:"idleCount"`
+	Version          string            `json:"version"`
+	Workers          []TdarrWorkerInfo `json:"workers"`
+	TotalFiles       int               `json:"totalFiles"`
+	Transcoded       int               `json:"transcoded"`
+	HealthChecked    int               `json:"healthChecked"`
+	SpaceSavedGB     float64           `json:"spaceSavedGB"`
+	ActiveCount      int               `json:"activeCount"`
+	IdleCount        int               `json:"idleCount"`
+	TranscodeQueue   int               `json:"transcodeQueue"`
+	HealthCheckQueue int               `json:"healthCheckQueue"`
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -106,10 +108,15 @@ func testTdarrConnection(baseURL, apiKey string, skipTLS bool) error {
 
 // ── Panel data ────────────────────────────────────────────────────────────────
 
-func fetchTdarrPanelData(_ *sql.DB, config map[string]interface{}) (*TdarrPanelData, error) {
-	baseURL, _ := config["baseURL"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	skipTLS, _ := config["skipTLSVerify"].(bool)
+func fetchTdarrPanelData(db *sql.DB, config map[string]interface{}) (*TdarrPanelData, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("tdarr: no integration configured")
+	}
+	baseURL, _, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 	if baseURL == "" {
 		return nil, fmt.Errorf("tdarr: baseURL not configured")
 	}
@@ -126,7 +133,7 @@ func fetchTdarrPanelData(_ *sql.DB, config map[string]interface{}) (*TdarrPanelD
 		}
 	}
 
-	// Worker nodes — response is a flat map: { nodeId: { nodeName, workers: { workerId: worker } } }
+	// Worker nodes — response is a flat map: { nodeId: { nodeName, workers: { workerId: worker }, queueLengths: {...} } }
 	if b, err := tdarrGet(baseURL, apiKey, "/api/v2/get-nodes", skipTLS); err == nil {
 		var nodes map[string]struct {
 			NodeName string `json:"nodeName"`
@@ -136,13 +143,19 @@ func fetchTdarrPanelData(_ *sql.DB, config map[string]interface{}) (*TdarrPanelD
 				Percentage float64 `json:"percentage"`
 				ETA        string  `json:"ETA"`
 				Idle       bool    `json:"idle"`
-				Job        *struct {
-					Source string `json:"source"`
-				} `json:"job"`
+				File       string  `json:"file"`
 			} `json:"workers"`
+			QueueLengths struct {
+				TranscodeCPU   int `json:"transcodecpu"`
+				TranscodeGPU   int `json:"transcodegpu"`
+				HealthCheckCPU int `json:"healthcheckcpu"`
+				HealthCheckGPU int `json:"healthcheckgpu"`
+			} `json:"queueLengths"`
 		}
 		if json.Unmarshal(b, &nodes) == nil {
 			for _, node := range nodes {
+				out.TranscodeQueue += node.QueueLengths.TranscodeCPU + node.QueueLengths.TranscodeGPU
+				out.HealthCheckQueue += node.QueueLengths.HealthCheckCPU + node.QueueLengths.HealthCheckGPU
 				for _, w := range node.Workers {
 					wi := TdarrWorkerInfo{
 						NodeName:   node.NodeName,
@@ -151,9 +164,7 @@ func fetchTdarrPanelData(_ *sql.DB, config map[string]interface{}) (*TdarrPanelD
 						Percentage: w.Percentage,
 						ETA:        w.ETA,
 						Idle:       w.Idle,
-					}
-					if w.Job != nil && w.Job.Source != "" {
-						wi.FileName = filepath.Base(w.Job.Source)
+						FileName:   filepath.Base(w.File),
 					}
 					if w.Idle {
 						out.IdleCount++

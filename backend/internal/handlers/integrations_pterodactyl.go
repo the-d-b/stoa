@@ -69,10 +69,15 @@ func testPterodactylConnection(baseURL, apiKey string, skipTLS bool) error {
 
 // ── Panel data ────────────────────────────────────────────────────────────────
 
-func fetchPterodactylPanelData(_ *sql.DB, config map[string]interface{}) (*PterodactylPanelData, error) {
-	baseURL, _ := config["baseURL"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	skipTLS, _ := config["skipTLSVerify"].(bool)
+func fetchPterodactylPanelData(db *sql.DB, config map[string]interface{}) (*PterodactylPanelData, error) {
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("pterodactyl: no integration configured")
+	}
+	baseURL, _, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 	if baseURL == "" {
 		return nil, fmt.Errorf("pterodactyl: baseURL not configured")
 	}
