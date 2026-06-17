@@ -28,6 +28,8 @@ type ImmichPanelData struct {
 	Usage         int64         `json:"usage"` // bytes
 	Version       string        `json:"version"`
 	Users         int           `json:"users"`
+	Albums        int           `json:"albums"`
+	People        int           `json:"people"`
 	Preview       []ImmichPhoto `json:"preview,omitempty"`
 }
 
@@ -89,6 +91,24 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 				data.Photos = us.Images
 				data.Videos = us.Videos
 			}
+		}
+	}
+
+	// Albums
+	if albumsBody, aerr := immichGet(apiURL, apiKey, "/api/albums", skipTLS); aerr == nil {
+		var albums []json.RawMessage
+		if json.Unmarshal(albumsBody, &albums) == nil {
+			data.Albums = len(albums)
+		}
+	}
+
+	// People (face recognition groups)
+	if peopleBody, perr := immichGet(apiURL, apiKey, "/api/people", skipTLS); perr == nil {
+		var people struct {
+			Total int `json:"total"`
+		}
+		if json.Unmarshal(peopleBody, &people) == nil && people.Total > 0 {
+			data.People = people.Total
 		}
 	}
 

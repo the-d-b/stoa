@@ -34,7 +34,6 @@ import KomgaPanel from '../components/panels/KomgaPanel'
 import Mylar3Panel from '../components/panels/Mylar3Panel'
 import KapowarrPanel from '../components/panels/KapowarrPanel'
 import TrangaPanel from '../components/panels/TrangaPanel'
-import LycheePanel from '../components/panels/LycheePanel'
 import AudiobookshelfPanel from '../components/panels/AudiobookshelfPanel'
 import NavidromePanel from '../components/panels/NavidromePanel'
 import PfSensePanel from '../components/panels/PfSensePanel'
@@ -1093,7 +1092,6 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'mylar3' && <Mylar3Panel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'kapowarr' && <KapowarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'tranga' && <TrangaPanel panel={panel} heightUnits={heightUnits} />}
-          {panel.type === 'lychee' && <LycheePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'audiobookshelf' && <AudiobookshelfPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'navidrome' && <NavidromePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'truenas' && <TrueNASPanel panel={panel} heightUnits={heightUnits} />}

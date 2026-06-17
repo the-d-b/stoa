@@ -42,11 +42,13 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|---|---|
 | Immich | 🔶 Need Testing | Plain API key — Immich → Account → API Keys | Required | 30 min | [immich/](immich/) |
 | PhotoPrism | ✅ Tested | `username:password` — your PhotoPrism login | Required | 30 min | [photoprism/](photoprism/) |
-| Lychee | 🔶 Need Testing | `username:password` — your Lychee login | Required | 30 min | [lychee/](lychee/) |
+| Lychee | ❌ Abandoned | — | — | — | See note below |
 | Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
 | Komga | 🔶 Need Testing | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
 | Audiobookshelf | ✅ Tested | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
 | Navidrome | 🔶 Need Testing | `username:password` — your Navidrome login | Required | 30 s | [navidrome/](navidrome/) |
+
+> **Lychee — abandoned.** Tested against Lychee v7, the integration failed.  Lychee does not have a modern API.  We are intentionally ommitting this application.  We will reconsider an integration if they modernize their platform with a sane token-based API with documentation. If you need a photo library panel that works, use Immich or PhotoPrism.
 
 ---
 
@@ -263,7 +265,7 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | Format | Example | Used by |
 |---|---|---|
 | Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy |
-| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent, ruTorrent, NZBGet, PhotoPrism, Navidrome, Lychee, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Duolingo, Homebox, Fittrackee |
+| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent, ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Duolingo, Homebox, Fittrackee |
 | Bare password (no username) | `mysecret` | Deluge, wg-easy |
 | `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox |
 | `username:apiKey` | `alice:abc123` | Last.fm |

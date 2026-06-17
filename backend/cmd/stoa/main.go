@@ -178,8 +178,6 @@ func main() {
 	protected.HandleFunc("/mylar3/{integrationId}/cover/{comicId}", handlers.ProxyMylar3Cover(database)).Methods("GET")
 	protected.HandleFunc("/kapowarr/{integrationId}/cover/{volumeId}", handlers.ProxyKapowarrCover(database)).Methods("GET")
 	protected.HandleFunc("/tranga/{integrationId}/cover", handlers.ProxyTrangaCover(database)).Methods("GET")
-	// Lychee thumbnail proxy (auth-gated, browser-cached 24h; src= path param)
-	protected.HandleFunc("/lychee/{integrationId}/thumb", handlers.ProxyLycheeThumbnail(database)).Methods("GET")
 	// Audiobookshelf proxies — cover and progress use standard header auth;
 	// stream uses FlexMiddleware so the browser audio element can pass ?token=
 	protected.HandleFunc("/abs/{integrationId}/cover/{itemId}", handlers.ProxyABSCover(database)).Methods("GET")

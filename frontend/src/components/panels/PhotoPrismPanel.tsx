@@ -217,13 +217,22 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
   const preview = data.preview ?? []
   const hasCarousel = preview.length > 0 && !!data.integrationId
 
-  // ── 1x — photos + videos side by side ────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
-      <Stat label="photos" value={data.photos} icon="📷" href={uiUrl || undefined} grow />
-      <Stat label="videos" value={data.videos} icon="🎬" grow />
-    </div>
-  )
+  // ── 1x — best non-zero stats inline ─────────────────────────────────────
+  if (heightUnits <= 1) {
+    const row1x = [
+      { key: 'photos',  label: 'photos',  value: data.photos,  icon: '📷', href: uiUrl || undefined },
+      { key: 'videos',  label: 'videos',  value: data.videos,  icon: '🎬' },
+      { key: 'albums',  label: 'albums',  value: data.albums,  icon: '🗂️' },
+      { key: 'folders', label: 'folders', value: data.folders, icon: '📁' },
+      { key: 'people',  label: 'people',  value: data.people,  icon: '🫂' },
+      { key: 'labels',  label: 'labels',  value: data.labels,  icon: '🏷️' },
+    ].filter(s => s.value > 0).slice(0, 4)
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {row1x.map(s => <Stat key={s.key} label={s.label} value={s.value} icon={s.icon} href={(s as any).href} grow />)}
+      </div>
+    )
+  }
 
   // ── 2x–3x — extended stats, centered and wrapping ────────────────────────
   if (heightUnits < 4) return (

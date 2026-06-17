@@ -6,6 +6,7 @@ interface ImmichPhoto { id: string; title?: string }
 interface ImmichData {
   uiUrl: string; integrationId: string; version: string
   photos: number; videos: number; usage: number; users: number
+  albums: number; people: number
   preview?: ImmichPhoto[]
 }
 
@@ -27,42 +28,10 @@ function authedFetch(url: string) {
   return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
 }
 
-function AuthenticatedThumb({ src, alt }: { src: string; alt: string }) {
-  const [objectUrl, setObjectUrl] = useState<string | null>(null)
-  const urlRef = useRef<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    authedFetch(src)
-      .then(r => { if (!r.ok) throw new Error(`${r.status}`); return r.blob() })
-      .then(blob => {
-        if (cancelled) return
-        const u = URL.createObjectURL(blob)
-        urlRef.current = u
-        setObjectUrl(u)
-      })
-      .catch(() => {})
-    return () => {
-      cancelled = true
-      if (urlRef.current) { URL.revokeObjectURL(urlRef.current); urlRef.current = null }
-    }
-  }, [src])
-
-  if (!objectUrl) return (
-    <div style={{ width: '100%', height: '100%', background: 'var(--surface2)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</span>
-    </div>
-  )
-
-  return (
-    <img src={objectUrl} alt={alt}
-      style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-  )
-}
-
-function PhotoCarousel({ photos, integrationId, uiUrl }: {
-  photos: ImmichPhoto[]; integrationId: string; uiUrl: string
+function PhotoCarousel({ photos, urlMap, uiUrl }: {
+  photos: ImmichPhoto[]
+  urlMap: Record<string, string>
+  uiUrl: string
 }) {
   const [current, setCurrent] = useState(0)
   const [hovered, setHovered] = useState(false)
@@ -80,8 +49,8 @@ function PhotoCarousel({ photos, integrationId, uiUrl }: {
 
   if (photos.length === 0) return null
 
-  const photo = photos[current]
-  const thumbUrl = `/api/immich/${integrationId}/thumb/${photo.id}`
+  const photo = photos[Math.min(current, photos.length - 1)]
+  const objectUrl = urlMap[photo.id]
 
   return (
     <div
@@ -91,10 +60,17 @@ function PhotoCarousel({ photos, integrationId, uiUrl }: {
     >
       <a href={uiUrl || undefined} target="_blank" rel="noopener noreferrer"
         style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
-        <AuthenticatedThumb src={thumbUrl} alt={photo.title || 'Photo'} key={thumbUrl} />
+        {objectUrl ? (
+          <img src={objectUrl} alt={photo.title || 'Photo'}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'var(--surface2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</span>
+          </div>
+        )}
       </a>
 
-      {/* Bottom gradient + title */}
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
         background: 'linear-gradient(transparent, rgba(0,0,0,0.6))',
@@ -112,7 +88,6 @@ function PhotoCarousel({ photos, integrationId, uiUrl }: {
         )}
       </div>
 
-      {/* Dot nav */}
       {photos.length > 1 && (
         <div style={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 3, zIndex: 2 }}>
           {photos.map((_, i) => (
@@ -163,8 +138,10 @@ function StatGrid({ data, uiUrl }: { data: ImmichData; uiUrl: string }) {
   const stats = [
     { key: 'photos',  label: 'photos',  value: data.photos,  icon: '📷', href: uiUrl || undefined },
     { key: 'videos',  label: 'videos',  value: data.videos,  icon: '🎬' },
-    ...(data.usage > 0   ? [{ key: 'storage', label: 'storage', value: fmtBytes(data.usage), icon: '💾' }] : []),
-    ...(data.users  > 0  ? [{ key: 'users',   label: 'users',   value: data.users,            icon: '👤' }] : []),
+    { key: 'albums',  label: 'albums',  value: data.albums,  icon: '🗂️' },
+    { key: 'people',  label: 'people',  value: data.people,  icon: '🫂' },
+    ...(data.usage > 0  ? [{ key: 'storage', label: 'storage', value: fmtBytes(data.usage), icon: '💾' }] : []),
+    ...(data.users > 0  ? [{ key: 'users',   label: 'users',   value: data.users,            icon: '👤' }] : []),
   ].filter(s => typeof s.value === 'string' ? true : (s.value as number) > 0)
 
   return (
@@ -180,6 +157,8 @@ export default function ImmichPanel({ panel, heightUnits }: { panel: Panel; heig
   const [data, setData] = useState<ImmichData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
+  const revokeListRef = useRef<string[]>([])
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
@@ -197,6 +176,38 @@ export default function ImmichPanel({ panel, heightUnits }: { panel: Panel; heig
   useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
   useEffect(() => { load() }, [load])
 
+  // Pre-fetch all preview thumbnails when the set of photo IDs changes.
+  // Stores blob object URLs so the carousel cycles with zero HTTP calls.
+  const previewKey = (data?.preview ?? []).map(p => p.id).join(',')
+  useEffect(() => {
+    const preview = data?.preview
+    const integId = data?.integrationId
+    if (!preview?.length || !integId) return
+
+    Promise.all(preview.map(async photo => {
+      const url = `/api/immich/${integId}/thumb/${photo.id}`
+      try {
+        const r = await authedFetch(url)
+        if (!r.ok) return null
+        const blob = await r.blob()
+        return { id: photo.id, objUrl: URL.createObjectURL(blob) }
+      } catch { return null }
+    })).then(results => {
+      const map: Record<string, string> = {}
+      const urls: string[] = []
+      results.forEach(r => { if (r) { map[r.id] = r.objUrl; urls.push(r.objUrl) } })
+      revokeListRef.current.forEach(u => URL.revokeObjectURL(u))
+      revokeListRef.current = urls
+      setPhotoUrls(map)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewKey, data?.integrationId])
+
+  // Revoke object URLs on unmount
+  useEffect(() => {
+    return () => { revokeListRef.current.forEach(u => URL.revokeObjectURL(u)) }
+  }, [])
+
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error)   return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
   if (!data)   return null
@@ -205,14 +216,21 @@ export default function ImmichPanel({ panel, heightUnits }: { panel: Panel; heig
   const preview = data.preview ?? []
   const hasCarousel = preview.length > 0 && !!data.integrationId
 
-  // ── 1x — photos + videos + storage inline ────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
-      <Stat label="photos"  value={data.photos} icon="📷" href={uiUrl || undefined} grow />
-      <Stat label="videos"  value={data.videos} icon="🎬" grow />
-      {data.usage > 0 && <Stat label="storage" value={fmtBytes(data.usage)} icon="💾" grow />}
-    </div>
-  )
+  // ── 1x — best non-zero stats inline ─────────────────────────────────────
+  if (heightUnits <= 1) {
+    const row1x = [
+      { key: 'photos',  label: 'photos',  value: data.photos,  icon: '📷', href: uiUrl || undefined },
+      { key: 'videos',  label: 'videos',  value: data.videos,  icon: '🎬' },
+      { key: 'albums',  label: 'albums',  value: data.albums,  icon: '🗂️' },
+      { key: 'people',  label: 'people',  value: data.people,  icon: '🫂' },
+      ...(data.usage > 0 ? [{ key: 'storage', label: 'storage', value: fmtBytes(data.usage), icon: '💾' }] : []),
+    ].filter(s => typeof s.value === 'string' ? true : (s.value as number) > 0).slice(0, 4)
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6 }}>
+        {row1x.map(s => <Stat key={s.key} label={s.label} value={s.value} icon={s.icon} href={(s as any).href} grow />)}
+      </div>
+    )
+  }
 
   // ── 2x–3x — stat grid ────────────────────────────────────────────────────
   if (heightUnits < 4) return (
@@ -226,7 +244,7 @@ export default function ImmichPanel({ panel, heightUnits }: { panel: Panel; heig
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
       {hasCarousel && (
         <div style={{ flex: '0 0 55%', maxHeight: 260, minHeight: 80 }}>
-          <PhotoCarousel photos={preview} integrationId={data.integrationId} uiUrl={uiUrl} />
+          <PhotoCarousel photos={preview} urlMap={photoUrls} uiUrl={uiUrl} />
         </div>
       )}
       <div style={{ flex: 1, minHeight: 0, overflow: 'auto', display: 'flex', alignItems: 'flex-start' }}>

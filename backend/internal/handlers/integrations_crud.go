@@ -392,8 +392,6 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testKavitaConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "komga":
 			err = testKomgaConnection(req.APIURL, apiKey, req.SkipTLS)
-		case "lychee":
-			err = testLycheeConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "audiobookshelf":
 			err = testABSConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "navidrome":
@@ -566,8 +564,6 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testKavitaConnection(req.APIURL, apiKey, true)
 						case "komga":
 							retryErr = testKomgaConnection(req.APIURL, apiKey, true)
-						case "lychee":
-							retryErr = testLycheeConnection(req.APIURL, apiKey, true)
 						case "audiobookshelf":
 							retryErr = testABSConnection(req.APIURL, apiKey, true)
 						case "navidrome":
@@ -868,7 +864,7 @@ func defaultRefreshSecs(igType string) int {
 		return 300
 	case "overseerr":
 		return 120
-	case "sonarr", "radarr", "lidarr", "photoprism", "immich", "kavita", "komga", "lychee":
+	case "sonarr", "radarr", "lidarr", "photoprism", "immich", "kavita", "komga":
 		return 1800
 	case "audiobookshelf", "navidrome":
 		return 60
