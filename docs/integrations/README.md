@@ -40,11 +40,11 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Immich | 🔶 Need Testing | Plain API key — Immich → Account → API Keys | Required | 30 min | [immich/](immich/) |
+| Immich | ✅ Tested | Plain API key — Immich → Account → API Keys | Required | 30 min | [immich/](immich/) |
 | PhotoPrism | ✅ Tested | `username:password` — your PhotoPrism login | Required | 30 min | [photoprism/](photoprism/) |
 | Lychee | ❌ Abandoned | — | — | — | See note below |
 | Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
-| Komga | 🔶 Need Testing | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
+| Komga | ✅ Tested | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
 | Audiobookshelf | ✅ Tested | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
 | Navidrome | 🔶 Need Testing | `username:password` — your Navidrome login | Required | 30 s | [navidrome/](navidrome/) |
 
@@ -56,9 +56,9 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Mylar3 | 🔶 Need Testing | Plain API key — Mylar3 → Settings → Web Interface → API Key | Required | 30 min | [mylar3/](mylar3/) |
-| Kapowarr | 🔶 Need Testing | Plain API key — Kapowarr → Settings → API Key | Required | 30 min | [kapowarr/](kapowarr/) |
-| Tranga | 🔶 Need Testing | Blank (no auth required by default) | Required | 30 min | [tranga/](tranga/) |
+| Mylar3 | ✅ Tested | Plain API key — Mylar3 → Settings → Web Interface → API Key | Required | 30 min | [mylar3/](mylar3/) |
+| Kapowarr | ✅ Tested | Plain API key — Kapowarr → Settings → API Key | Required | 30 min | [kapowarr/](kapowarr/) |
+| Tranga | ✅ Tested | Blank (no auth required by default) | Required | 30 min | [tranga/](tranga/) |
 
 ---
 

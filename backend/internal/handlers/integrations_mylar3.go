@@ -9,11 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-
-	"github.com/gorilla/mux"
 )
 
-// ── Mylar3 types ──────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type Mylar3PanelData struct {
 	UIURL         string         `json:"uiUrl"`
@@ -27,14 +25,20 @@ type Mylar3PanelData struct {
 }
 
 type Mylar3Series struct {
-	ComicID string `json:"comicId"`
-	Name    string `json:"name"`
+	ComicID     string `json:"comicId"`
+	Name        string `json:"name"`
+	ImageURL    string `json:"imageUrl"`
+	Status      string `json:"status"`
+	Publisher   string `json:"publisher"`
+	Year        string `json:"year"`
+	TotalIssues int    `json:"totalIssues"`
 }
 
 type Mylar3Issue struct {
 	ComicID     string `json:"comicId"`
 	ComicName   string `json:"comicName"`
 	IssueNumber string `json:"issueNumber"`
+	IssueName   string `json:"issueName"`
 	Date        string `json:"date,omitempty"`
 }
 
@@ -82,84 +86,84 @@ func fetchMylar3PanelData(db *sql.DB, config map[string]interface{}) (*Mylar3Pan
 		Upcoming:      []Mylar3Issue{},
 	}
 
-	// ── getIndex — primary data; error means service is unreachable/misconfigured ──
+	// ── getIndex — {"success": true, "data": [...]}
+	// Fields: id, name, imageURL, status, publisher, year, totalIssues
 	body, err := mylar3Get(apiURL, apiKey, "getIndex", nil, skipTLS)
 	if err != nil {
 		return nil, err
 	}
-	var indexResp map[string]interface{}
+	var indexResp struct {
+		Data []map[string]interface{} `json:"data"`
+	}
 	if json.Unmarshal(body, &indexResp) == nil {
-		if arr, ok := indexResp["data"].([]interface{}); ok {
-			data.SeriesCount = len(arr)
-			for _, item := range arr {
-				m, ok := item.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				id, _ := m["ComicID"].(string)
-				name, _ := m["ComicName"].(string)
-				if id != "" && name != "" {
-					data.Series = append(data.Series, Mylar3Series{ComicID: id, Name: name})
-				}
+		data.SeriesCount = len(indexResp.Data)
+		for _, m := range indexResp.Data {
+			id := stringVal(m, "id")
+			name := stringVal(m, "name")
+			if id == "" || name == "" {
+				continue
 			}
+			s := Mylar3Series{
+				ComicID:   id,
+				Name:      name,
+				ImageURL:  stringVal(m, "imageURL"),
+				Status:    stringVal(m, "status"),
+				Publisher: stringVal(m, "publisher"),
+				Year:      stringVal(m, "year"),
+			}
+			if n, ok := m["totalIssues"].(float64); ok {
+				s.TotalIssues = int(n)
+			}
+			data.Series = append(data.Series, s)
 		}
 	}
 
-	// ── getWanted — missing issues ────────────────────────────────────────────
+	// ── getWanted — {"issues": [...]} directly, no success/data wrapper
+	// Fields: ComicID, ComicName, Issue_Number, IssueName, ReleaseDate
 	body, err = mylar3Get(apiURL, apiKey, "getWanted", nil, skipTLS)
 	if err != nil {
 		log.Printf("[MYLAR3] getWanted error: %v", err)
 	} else {
-		var resp map[string]interface{}
-		if json.Unmarshal(body, &resp) == nil {
-			// Wanted is nested: data.issues[]
-			if dataObj, ok := resp["data"].(map[string]interface{}); ok {
-				if issues, ok := dataObj["issues"].([]interface{}); ok {
-					for _, item := range issues {
-						m, ok := item.(map[string]interface{})
-						if !ok {
-							continue
-						}
-						issue := Mylar3Issue{
-							ComicName:   stringVal(m, "ComicName"),
-							IssueNumber: mylar3StringOrNum(m, "Issue_Number"),
-						}
-						issue.ComicID, _ = m["ComicID"].(string)
-						if issue.ComicName != "" {
-							data.Wanted = append(data.Wanted, issue)
-						}
-					}
+		var wantedResp struct {
+			Issues []map[string]interface{} `json:"issues"`
+		}
+		if json.Unmarshal(body, &wantedResp) == nil {
+			for _, m := range wantedResp.Issues {
+				issue := Mylar3Issue{
+					ComicID:     stringVal(m, "ComicID"),
+					ComicName:   stringVal(m, "ComicName"),
+					IssueNumber: mylar3StringOrNum(m, "Issue_Number"),
+					IssueName:   stringVal(m, "IssueName"),
+					Date:        stringVal(m, "ReleaseDate"),
+				}
+				if issue.ComicName != "" {
+					data.Wanted = append(data.Wanted, issue)
 				}
 			}
 			data.WantedCount = len(data.Wanted)
 		}
 	}
 
-	// ── getUpcoming — future releases ─────────────────────────────────────────
+	// ── getUpcoming — bare array [], not wrapped in an object
 	body, err = mylar3Get(apiURL, apiKey, "getUpcoming", nil, skipTLS)
 	if err != nil {
 		log.Printf("[MYLAR3] getUpcoming error: %v", err)
 	} else {
-		var resp map[string]interface{}
-		if json.Unmarshal(body, &resp) == nil {
-			if arr, ok := resp["data"].([]interface{}); ok {
-				for _, item := range arr {
-					m, ok := item.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					issue := Mylar3Issue{
-						ComicName:   stringVal(m, "ComicName"),
-						IssueNumber: mylar3StringOrNum(m, "Issue_Number"),
-						Date:        stringVal(m, "ReleaseDate"),
-					}
-					issue.ComicID, _ = m["ComicID"].(string)
-					if issue.ComicName != "" {
-						data.Upcoming = append(data.Upcoming, issue)
-					}
+		var upcomingArr []map[string]interface{}
+		if json.Unmarshal(body, &upcomingArr) == nil {
+			for _, m := range upcomingArr {
+				issue := Mylar3Issue{
+					ComicID:     stringVal(m, "ComicID"),
+					ComicName:   stringVal(m, "ComicName"),
+					IssueNumber: mylar3StringOrNum(m, "Issue_Number"),
+					IssueName:   stringVal(m, "IssueName"),
+					Date:        stringVal(m, "ReleaseDate"),
 				}
-				data.UpcomingCount = len(data.Upcoming)
+				if issue.ComicName != "" {
+					data.Upcoming = append(data.Upcoming, issue)
+				}
 			}
+			data.UpcomingCount = len(data.Upcoming)
 		}
 	}
 
@@ -175,31 +179,4 @@ func mylar3StringOrNum(m map[string]interface{}, key string) string {
 		return fmt.Sprintf("%g", f)
 	}
 	return ""
-}
-
-// ── Cover proxy ───────────────────────────────────────────────────────────────
-
-func ProxyMylar3Cover(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		vars := mux.Vars(r)
-		integID := vars["integrationId"]
-		comicID := vars["comicId"]
-
-		apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, integID)
-		if err != nil {
-			http.Error(w, "integration not found", http.StatusNotFound)
-			return
-		}
-
-		body, err := mylar3Get(apiURL, apiKey, "getArtistArt",
-			map[string]string{"ComicID": comicID}, skipTLS)
-		if err != nil {
-			http.Error(w, "cover fetch failed", http.StatusBadGateway)
-			return
-		}
-
-		w.Header().Set("Content-Type", http.DetectContentType(body))
-		w.Header().Set("Cache-Control", "private, max-age=86400")
-		w.Write(body)
-	}
 }

@@ -63,8 +63,8 @@ func fetchTrangaPanelData(db *sql.DB, config map[string]interface{}) (*TrangaPan
 		for _, m := range mangaArr {
 			mg := TrangaManga{
 				Name:    trangaString(m, "name", "Name"),
-				Status:  trangaString(m, "status", "Status"),
-				MangaId: trangaString(m, "mangaId", "MangaId"),
+				Status:  trangaString(m, "releaseStatus", "status", "Status"),
+				MangaId: trangaString(m, "key", "mangaId", "MangaId"),
 			}
 			if mg.Name != "" {
 				data.MangaList = append(data.MangaList, mg)
@@ -87,7 +87,7 @@ func fetchTrangaPanelData(db *sql.DB, config map[string]interface{}) (*TrangaPan
 			}
 			for _, m := range arr {
 				job := TrangaJob{
-					MangaId: trangaString(m, "mangaId", "MangaId"),
+					MangaId: trangaString(m, "key", "mangaId", "MangaId"),
 					State:   "Downloading",
 				}
 				if n := trangaString(m, "name", "Name"); n != "" {

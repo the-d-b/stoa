@@ -1,6 +1,6 @@
 # Immich
 
-**Category:** Photos & Libraries | **Status:** Need Testing | **Polling:** 30 min
+**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 min
 
 ---
 

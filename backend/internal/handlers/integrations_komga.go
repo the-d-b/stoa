@@ -22,18 +22,26 @@ type KomgaLibrary struct {
 type KomgaSeries struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	LibraryID   string `json:"libraryId"`
 	LibraryName string `json:"libraryName"`
 	BooksCount  int    `json:"booksCount"`
 	Created     string `json:"created"`
 }
 
+type KomgaLibraryStrip struct {
+	LibraryID   string        `json:"libraryId"`
+	LibraryName string        `json:"libraryName"`
+	Series      []KomgaSeries `json:"series"`
+}
+
 type KomgaPanelData struct {
-	UIURL         string         `json:"uiUrl"`
-	IntegrationID string         `json:"integrationId"`
-	SeriesCount   int            `json:"seriesCount"`
-	BookCount     int            `json:"bookCount"`
-	Libraries     []KomgaLibrary `json:"libraries"`
-	RecentlyAdded []KomgaSeries  `json:"recentlyAdded"`
+	UIURL         string              `json:"uiUrl"`
+	IntegrationID string              `json:"integrationId"`
+	SeriesCount   int                 `json:"seriesCount"`
+	BookCount     int                 `json:"bookCount"`
+	Libraries     []KomgaLibrary      `json:"libraries"`
+	RecentlyAdded []KomgaSeries       `json:"recentlyAdded"`
+	LibraryStrips []KomgaLibraryStrip `json:"libraryStrips"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -88,6 +96,7 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 		IntegrationID: integrationID,
 		Libraries:     []KomgaLibrary{},
 		RecentlyAdded: []KomgaSeries{},
+		LibraryStrips: []KomgaLibraryStrip{},
 	}
 
 	// Libraries
@@ -130,7 +139,7 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 	}
 
 	// Recently added series
-	recentBody, rerr := komgaGet(apiURL, apiKey, "/api/v1/series/new?page=0&size=20", skipTLS)
+	recentBody, rerr := komgaGet(apiURL, apiKey, "/api/v1/series/new?page=0&size=30", skipTLS)
 	if rerr == nil {
 		var page struct {
 			Content []struct {
@@ -150,6 +159,7 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 				data.RecentlyAdded = append(data.RecentlyAdded, KomgaSeries{
 					ID:          s.ID,
 					Name:        s.Name,
+					LibraryID:   s.LibraryID,
 					LibraryName: libMap[s.LibraryID],
 					BooksCount:  s.BooksCount,
 					Created:     s.Created,
@@ -158,6 +168,24 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 		}
 	} else {
 		log.Printf("[Komga] recently-added error: %v", rerr)
+	}
+
+	// Group recently added by library for per-library cover strips
+	libStripMap := map[string]*KomgaLibraryStrip{}
+	var libOrder []string
+	for _, s := range data.RecentlyAdded {
+		if _, exists := libStripMap[s.LibraryID]; !exists {
+			libStripMap[s.LibraryID] = &KomgaLibraryStrip{
+				LibraryID:   s.LibraryID,
+				LibraryName: s.LibraryName,
+				Series:      []KomgaSeries{},
+			}
+			libOrder = append(libOrder, s.LibraryID)
+		}
+		libStripMap[s.LibraryID].Series = append(libStripMap[s.LibraryID].Series, s)
+	}
+	for _, id := range libOrder {
+		data.LibraryStrips = append(data.LibraryStrips, *libStripMap[id])
 	}
 
 	return data, nil

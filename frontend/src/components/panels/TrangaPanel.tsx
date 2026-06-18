@@ -36,10 +36,12 @@ function StatsRow({ data }: { data: TrangaData }) {
   return (
     <div style={{ display: 'flex', gap: 14, fontSize: 12, flexShrink: 0, flexWrap: 'wrap' }}>
       <span style={{ color: 'var(--text-dim)' }}>
-        <strong style={{ color: 'var(--text)' }}>{data.mangaCount}</strong> manga
+        <span style={{ fontSize: 11 }}>📚</span>{' '}
+        <strong style={{ color: 'var(--accent)' }}>{data.mangaCount}</strong> manga
       </span>
       {data.downloading > 0 && (
         <span style={{ color: 'var(--text-dim)' }}>
+          <span style={{ fontSize: 11 }}>⬇️</span>{' '}
           <strong style={{ color: 'var(--accent)' }}>{data.downloading}</strong> downloading
         </span>
       )}
@@ -116,57 +118,61 @@ export default function TrangaPanel({ panel, heightUnits }: { panel: Panel; heig
     linkUrl: uiUrl ? `${uiUrl}/manga/${encodeURIComponent(m.mangaId)}` : undefined,
   }))
 
+  const downloadingCoverItems = activeJobs.map(j => ({
+    coverUrl: `/api/tranga/${integId}/cover?id=${encodeURIComponent(j.mangaId)}`,
+    title: j.name,
+    linkUrl: uiUrl ? `${uiUrl}/manga/${encodeURIComponent(j.mangaId)}` : undefined,
+  }))
+
   // ── 1x: icon + stats ──────────────────────────────────────────────────────
   if (heightUnits <= 1) return (
-    <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 12,
+    <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
       height: '100%', overflow: 'hidden' }}>
       <span style={{ fontSize: 18 }}>📖</span>
       <StatsRow data={data} />
     </div>
   )
 
-  // ── 2x: stats + manga list ────────────────────────────────────────────────
+  // ── 2x–3x: stats + cover strip ────────────────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      {activeJobs.length > 0 && (
-        <div style={{ flexShrink: 0 }}>
-          {activeJobs.slice(0, 3).map((j, i) => <JobRow key={i} job={j} />)}
-        </div>
-      )}
-      {mangaList.length > 0 && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {mangaList.slice(0, 20).map((m, i) => (
-            <MangaRow key={i} manga={m} uiUrl={uiUrl} />
-          ))}
-        </div>
-      )}
+      {coverItems.length > 0 && <AuthCoverStrip items={coverItems} height={80} />}
     </div>
   )
 
-  // ── 4x+: cover strip + stats + active downloads + manga list ─────────────
+  // ── 4x+: library strip + downloading strip + lists ───────────────────────
   return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      {coverItems.length > 0 && <AuthCoverStrip items={coverItems} height={90} />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+            letterSpacing: '0.06em', marginBottom: 3 }}>Library</div>
+          <AuthCoverStrip items={coverItems} height={72} />
+        </div>
+        {downloadingCoverItems.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+              letterSpacing: '0.06em', marginBottom: 3 }}>Downloading</div>
+            <AuthCoverStrip items={downloadingCoverItems} height={72} />
+          </div>
+        )}
+      </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 12, overflow: 'hidden' }}>
         <div style={{ flex: 2, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-            letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>
-            Library
-          </div>
+          <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+            letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Library</div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
             {mangaList.map((m, i) => <MangaRow key={i} manga={m} uiUrl={uiUrl} />)}
           </div>
         </div>
         {activeJobs.length > 0 && (
           <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase',
-              letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>
-              Downloading
-            </div>
+            <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+              letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Downloading</div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {activeJobs.map((j, i) => <JobRow key={i} job={j} />)}
             </div>

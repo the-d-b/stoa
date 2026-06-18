@@ -39,6 +39,9 @@ export const PANEL_TYPES: {
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Photos & Libraries' },
   { id: 'kavita',       label: 'Kavita',       desc: 'Manga & comic library stats and recent series',   needsIntegration: true,  category: 'Photos & Libraries' },
   { id: 'komga',        label: 'Komga',        desc: 'Comic & manga server stats and recent series',     needsIntegration: true,  category: 'Photos & Libraries' },
+  { id: 'mylar3',       label: 'Mylar3',       desc: 'Comics manager — series count, wanted & upcoming issues, cover strip', needsIntegration: true, category: 'Photos & Libraries' },
+  { id: 'kapowarr',     label: 'Kapowarr',     desc: 'Western comics downloader — volume counts and download queue',        needsIntegration: true, category: 'Photos & Libraries' },
+  { id: 'tranga',       label: 'Tranga',        desc: 'Manga downloader — job list, chapter progress, source stats',        needsIntegration: true, category: 'Photos & Libraries' },
   { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook/podcast player with in-progress queue', needsIntegration: true, category: 'Photos & Libraries' },
   { id: 'navidrome',     label: 'Navidrome',     desc: 'Music server with playlist player',               needsIntegration: true, category: 'Photos & Libraries' },
   // Storage
@@ -147,7 +150,7 @@ const SEARCH_ENGINE_LIST = [
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
 const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
 const INTEGRATION_TYPES = [
-  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
+  'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','mylar3','kapowarr','tranga','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
   'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','twitch','trakt','spotify','lastfm',

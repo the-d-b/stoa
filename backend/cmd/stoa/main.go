@@ -175,7 +175,6 @@ func main() {
 	// Komga series cover proxy (auth-gated, browser-cached 24h)
 	protected.HandleFunc("/komga/{integrationId}/cover/{seriesId}", handlers.ProxyKomgaCover(database)).Methods("GET")
 	// Comics & manga cover proxies (auth-gated, browser-cached 24h)
-	protected.HandleFunc("/mylar3/{integrationId}/cover/{comicId}", handlers.ProxyMylar3Cover(database)).Methods("GET")
 	protected.HandleFunc("/kapowarr/{integrationId}/cover/{volumeId}", handlers.ProxyKapowarrCover(database)).Methods("GET")
 	protected.HandleFunc("/tranga/{integrationId}/cover", handlers.ProxyTrangaCover(database)).Methods("GET")
 	// Audiobookshelf proxies — cover and progress use standard header auth;

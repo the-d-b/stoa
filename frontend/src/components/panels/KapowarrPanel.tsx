@@ -33,11 +33,13 @@ function StatsRow({ data }: { data: KapowarrData }) {
   return (
     <div style={{ display: 'flex', gap: 14, fontSize: 12, flexShrink: 0, flexWrap: 'wrap' }}>
       <span style={{ color: 'var(--text-dim)' }}>
-        <strong style={{ color: 'var(--text)' }}>{data.volumes}</strong> volumes
+        <span style={{ fontSize: 11 }}>📚</span>{' '}
+        <strong style={{ color: 'var(--accent)' }}>{data.volumes}</strong> volumes
       </span>
       {data.issues > 0 && (
         <span style={{ color: 'var(--text-dim)' }}>
-          <strong style={{ color: 'var(--text)' }}>{data.downloaded}</strong>
+          <span style={{ fontSize: 11 }}>🗞️</span>{' '}
+          <strong style={{ color: 'var(--accent)' }}>{data.downloaded}</strong>
           <span>/{data.issues} issues</span>
           {pct !== null && (
             <span style={{ color: 'var(--accent)', marginLeft: 4 }}>{pct}%</span>
@@ -46,12 +48,14 @@ function StatsRow({ data }: { data: KapowarrData }) {
       )}
       {data.monitored > 0 && (
         <span style={{ color: 'var(--text-dim)' }}>
-          <strong style={{ color: 'var(--text)' }}>{data.monitored}</strong> monitored
+          <span style={{ fontSize: 11 }}>👁️</span>{' '}
+          <strong style={{ color: 'var(--accent)' }}>{data.monitored}</strong> monitored
         </span>
       )}
       {data.queue.length > 0 && (
         <span style={{ color: 'var(--text-dim)' }}>
-          <strong style={{ color: 'var(--yellow, #f5a623)' }}>{data.queue.length}</strong> queued
+          <span style={{ fontSize: 11 }}>⏳</span>{' '}
+          <strong style={{ color: 'var(--amber)' }}>{data.queue.length}</strong> queued
         </span>
       )}
     </div>
@@ -131,58 +135,68 @@ export default function KapowarrPanel({ panel, heightUnits }: { panel: Panel; he
     linkUrl: uiUrl ? `${uiUrl}/volumes/${v.id}` : undefined,
   }))
 
+  const queueCoverItems = queue.map(q => ({
+    coverUrl: `/api/kapowarr/${integId}/cover/${q.volumeId}`,
+    title: q.title,
+    linkUrl: uiUrl ? `${uiUrl}/volumes/${q.volumeId}` : undefined,
+  }))
+
   // ── 1x: icon + stats ──────────────────────────────────────────────────────
   if (heightUnits <= 1) return (
-    <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 12,
+    <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
       height: '100%', overflow: 'hidden' }}>
-      <span style={{ fontSize: 18 }}>📥</span>
+      <span style={{ fontSize: 18 }}>🗞️</span>
       <StatsRow data={data} />
     </div>
   )
 
-  // ── 2x: stats + volume list ────────────────────────────────────────────────
+  // ── 2x–3x: stats + cover strip ────────────────────────────────────────────
   if (heightUnits < 4) return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      {volumes.length > 0 && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {volumes.slice(0, 20).map((v, i) => (
-            <VolumeRow key={i} vol={v} uiUrl={uiUrl} />
-          ))}
-        </div>
-      )}
+      {coverItems.length > 0 && <AuthCoverStrip items={coverItems} height={80} />}
     </div>
   )
 
-  // ── 4x+: cover strip + stats + volumes + queue ────────────────────────────
+  // ── 4x+: library strip + downloading strip + queue list ──────────────────
   return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <StatsRow data={data} />
-      {coverItems.length > 0 && <AuthCoverStrip items={coverItems} height={90} />}
-      <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 12, overflow: 'hidden' }}>
-        {volumes.length > 0 && (
-          <div style={{ flex: 2, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-              letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>
-              Volumes
-            </div>
-            <div style={{ overflowY: 'auto', flex: 1 }}>
-              {volumes.map((v, i) => <VolumeRow key={i} vol={v} uiUrl={uiUrl} />)}
-            </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+        <div>
+          <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+            letterSpacing: '0.06em', marginBottom: 3 }}>Library</div>
+          <AuthCoverStrip items={coverItems} height={72} />
+        </div>
+        {queueCoverItems.length > 0 && (
+          <div>
+            <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+              letterSpacing: '0.06em', marginBottom: 3 }}>Downloading</div>
+            <AuthCoverStrip items={queueCoverItems} height={72} />
           </div>
         )}
-        {queue.length > 0 && (
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ fontSize: 10, color: 'var(--accent)', textTransform: 'uppercase',
+      </div>
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        {queue.length > 0 ? (
+          <>
+            <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
               letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>
-              Downloading
+              Queue ({queue.length})
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
               {queue.map((q, i) => <QueueRow key={i} item={q} />)}
             </div>
-          </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: 10, color: 'var(--amber)', textTransform: 'uppercase',
+              letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Volumes</div>
+            <div style={{ overflowY: 'auto', flex: 1 }}>
+              {volumes.map((v, i) => <VolumeRow key={i} vol={v} uiUrl={uiUrl} />)}
+            </div>
+          </>
         )}
       </div>
     </div>

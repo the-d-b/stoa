@@ -28,13 +28,20 @@ type KavitaLibrary struct {
 	Name string `json:"name"`
 }
 
+type KavitaLibraryStrip struct {
+	LibraryID   int            `json:"libraryId"`
+	LibraryName string         `json:"libraryName"`
+	Series      []KavitaSeries `json:"series"`
+}
+
 type KavitaPanelData struct {
-	UIURL         string          `json:"uiUrl"`
-	IntegrationID string          `json:"integrationId"`
-	SeriesCount   int             `json:"seriesCount"`
-	TotalFiles    int             `json:"totalFiles"`
-	Libraries     []KavitaLibrary `json:"libraries"`
-	RecentlyAdded []KavitaSeries  `json:"recentlyAdded"`
+	UIURL         string               `json:"uiUrl"`
+	IntegrationID string               `json:"integrationId"`
+	SeriesCount   int                  `json:"seriesCount"`
+	TotalFiles    int                  `json:"totalFiles"`
+	Libraries     []KavitaLibrary      `json:"libraries"`
+	RecentlyAdded []KavitaSeries       `json:"recentlyAdded"`
+	LibraryStrips []KavitaLibraryStrip `json:"libraryStrips"`
 }
 
 // ── HTTP helpers ──────────────────────────────────────────────────────────────
@@ -103,6 +110,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		IntegrationID: integrationID,
 		Libraries:     []KavitaLibrary{},
 		RecentlyAdded: []KavitaSeries{},
+		LibraryStrips: []KavitaLibraryStrip{},
 	}
 
 	get := func(path string) ([]byte, error) {
@@ -147,7 +155,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		"combination": 1,
 		"limitTo":     0,
 	}
-	if recentBody, rerr := post("/api/Series/recently-added-v2?pageNumber=1&pageSize=20", filterBody); rerr == nil {
+	if recentBody, rerr := post("/api/Series/recently-added-v2?pageNumber=1&pageSize=30", filterBody); rerr == nil {
 		var series []struct {
 			ID          int    `json:"id"`
 			Name        string `json:"name"`
@@ -170,6 +178,24 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		}
 	} else {
 		log.Printf("[Kavita] recently-added-v2 error: %v", rerr)
+	}
+
+	// Group recently added by library for per-library cover strips
+	libStripMap := map[int]*KavitaLibraryStrip{}
+	var libOrder []int
+	for _, s := range data.RecentlyAdded {
+		if _, exists := libStripMap[s.LibraryID]; !exists {
+			libStripMap[s.LibraryID] = &KavitaLibraryStrip{
+				LibraryID:   s.LibraryID,
+				LibraryName: s.LibraryName,
+				Series:      []KavitaSeries{},
+			}
+			libOrder = append(libOrder, s.LibraryID)
+		}
+		libStripMap[s.LibraryID].Series = append(libStripMap[s.LibraryID].Series, s)
+	}
+	for _, id := range libOrder {
+		data.LibraryStrips = append(data.LibraryStrips, *libStripMap[id])
 	}
 
 	return data, nil
