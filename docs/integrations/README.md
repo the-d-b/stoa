@@ -46,7 +46,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
 | Komga | ✅ Tested | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
 | Audiobookshelf | ✅ Tested | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
-| Navidrome | 🔶 Need Testing | `username:password` — your Navidrome login | Required | 30 s | [navidrome/](navidrome/) |
+| Navidrome | ✅ Tested | `username:password` — local Navidrome credentials (not OIDC) | Required | 30 s | [navidrome/](navidrome/) |
 
 > **Lychee — abandoned.** Tested against Lychee v7, the integration failed.  Lychee does not have a modern API.  We are intentionally ommitting this application.  We will reconsider an integration if they modernize their platform with a sane token-based API with documentation. If you need a photo library panel that works, use Immich or PhotoPrism.
 
