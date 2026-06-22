@@ -129,9 +129,9 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
 | Transmission | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [transmission/](transmission/) |
-| qBittorrent | 🔶 Need Testing | `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
-| Deluge | 🔶 Need Testing | Bare `password` — Deluge Web UI password (no username) | Required | 30 s | [deluge/](deluge/) |
-| ruTorrent | 🔶 Need Testing | `username:password` **or** blank (if auth disabled) | Required | 30 s | [rutorrent/](rutorrent/) |
+| qBittorrent | ✅ Tested | API key `qbt_...` (5.2.0+, recommended) **or** `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
+| Deluge | ✅ Tested | Bare `password` — Deluge Web UI password (no username) | Required | 30 s | [deluge/](deluge/) |
+| ruTorrent | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [rutorrent/](rutorrent/) |
 | SABnzbd | 🔶 Need Testing | Plain API key — SABnzbd → Config → General → API Key | Required | 15 s | [sabnzbd/](sabnzbd/) |
 | NZBGet | 🔶 Need Testing | `username:password` — NZBGet control user credentials | Required | 15 s | [nzbget/](nzbget/) |
 
@@ -265,7 +265,7 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | Format | Example | Used by |
 |---|---|---|
 | Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy |
-| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent, ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Duolingo, Homebox, Fittrackee |
+| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Duolingo, Homebox, Fittrackee |
 | Bare password (no username) | `mysecret` | Deluge, wg-easy |
 | `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox |
 | `username:apiKey` | `alice:abc123` | Last.fm |

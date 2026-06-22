@@ -28,6 +28,7 @@ type QBTPanelData struct {
 	SeedSizeGB    float64      `json:"seedSizeGB"`
 	FreeSpaceGB   float64      `json:"freeSpaceGB"`
 	Active        []QBTTorrent `json:"active"`
+	SeedingList   []QBTTorrent `json:"seedingList"`
 	Trackers      []QBTTracker `json:"trackers"`
 }
 
@@ -99,6 +100,16 @@ func qbtLogin(baseURL, username, password string, skipTLS bool) (string, error) 
 	body, _ := io.ReadAll(resp.Body)
 	bodyStr := strings.TrimSpace(string(body))
 
+	if resp.StatusCode == 403 {
+		return "", fmt.Errorf("qBittorrent: login rejected (HTTP 403) — check that the Stoa server IP is allowed in qBittorrent's WebUI trusted hosts, or that CSRF protection isn't blocking the request")
+	}
+	if resp.StatusCode == 401 {
+		return "", fmt.Errorf("qBittorrent: login rejected (HTTP 401) — invalid credentials or WebUI authentication is disabled")
+	}
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("qBittorrent: login returned HTTP %d: %q", resp.StatusCode, bodyStr)
+	}
+
 	switch {
 	case bodyStr == "Ok.":
 		for _, c := range resp.Cookies() {
@@ -119,15 +130,18 @@ func qbtLogin(baseURL, username, password string, skipTLS bool) (string, error) 
 // ── API helper ────────────────────────────────────────────────────────────────
 
 // qbtGet makes an authenticated GET to a qBittorrent API endpoint.
-// Returns errQBTUnauth on HTTP 403 (session expired or invalid SID).
-func qbtGet(endpoint, baseURL, sid string, skipTLS bool) ([]byte, error) {
+// Pass sid for cookie-based session auth, or authKey for API key auth (Authorization header).
+// Returns errQBTUnauth on HTTP 403 (session expired or invalid SID/key).
+func qbtGet(endpoint, baseURL, sid, authKey string, skipTLS bool) ([]byte, error) {
 	u := strings.TrimRight(baseURL, "/") + endpoint
 	req, err := http.NewRequest("GET", u, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Referer", strings.TrimRight(baseURL, "/")+"/")
-	if sid != "" {
+	if authKey != "" {
+		req.Header.Set("Authorization", "Bearer "+authKey)
+	} else if sid != "" {
 		req.AddCookie(&http.Cookie{Name: "SID", Value: sid})
 	}
 	resp, err := httpClient(skipTLS).Do(req)
@@ -135,7 +149,7 @@ func qbtGet(endpoint, baseURL, sid string, skipTLS bool) ([]byte, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 403 {
+	if resp.StatusCode == 403 || resp.StatusCode == 401 {
 		return nil, errQBTUnauth
 	}
 	if resp.StatusCode >= 400 {
@@ -155,6 +169,12 @@ func fetchQBTPanelData(db *sql.DB, config map[string]interface{}) (*QBTPanelData
 	if err != nil {
 		return nil, err
 	}
+	// API key auth: no colon means it's a raw key, not username:password.
+	// qBittorrent 5.x+ supports passing the key via Authorization header directly.
+	if !strings.Contains(apiKey, ":") {
+		return qbtFetchAll(apiURL, uiURL, "", apiKey, skipTLS)
+	}
+
 	username, password := omvParseCredentials(apiKey)
 
 	for attempt := 0; attempt < 2; attempt++ {
@@ -167,7 +187,7 @@ func fetchQBTPanelData(db *sql.DB, config map[string]interface{}) (*QBTPanelData
 			qbtSetSID(integrationID, sid)
 		}
 
-		data, fetchErr := qbtFetchAll(apiURL, uiURL, sid, skipTLS)
+		data, fetchErr := qbtFetchAll(apiURL, uiURL, sid, "", skipTLS)
 		if fetchErr != nil {
 			if errors.Is(fetchErr, errQBTUnauth) {
 				qbtClearSID(integrationID)
@@ -180,11 +200,11 @@ func fetchQBTPanelData(db *sql.DB, config map[string]interface{}) (*QBTPanelData
 	return nil, fmt.Errorf("qBittorrent: failed to authenticate after retry")
 }
 
-func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error) {
+func qbtFetchAll(apiURL, uiURL, sid, authKey string, skipTLS bool) (*QBTPanelData, error) {
 	data := &QBTPanelData{UIURL: uiURL}
 
 	// ── Torrent list ──────────────────────────────────────────────────────────
-	torrentsBody, err := qbtGet("/api/v2/torrents/info", apiURL, sid, skipTLS)
+	torrentsBody, err := qbtGet("/api/v2/torrents/info", apiURL, sid, authKey, skipTLS)
 	if err != nil {
 		return nil, err
 	}
@@ -206,6 +226,7 @@ func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error)
 
 	trackerCounts := map[string]int{}
 	var totalSeedBytes int64
+	var allSeeding []QBTTorrent
 
 	for _, t := range torrents {
 		switch t.State {
@@ -214,6 +235,14 @@ func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error)
 		case "uploading", "forceUP", "stalledUP", "queuedUP":
 			data.Seeding++
 			totalSeedBytes += t.Size
+			allSeeding = append(allSeeding, QBTTorrent{
+				Name:   t.Name,
+				State:  t.State,
+				Progress: 100,
+				SizeMB: float64(t.Size) / 1048576,
+				UpMbps: float64(t.UpSpeed) / 1000000,
+				Ratio:  t.Ratio,
+			})
 		case "pausedDL", "pausedUP", "stalledDL", "queuedDL", "moving":
 			data.Paused++
 		case "checkingDL", "checkingUP", "checkingResumeData":
@@ -248,6 +277,20 @@ func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error)
 
 	data.SeedSizeGB = float64(totalSeedBytes) / 1073741824
 
+	// Sort seeding list: actively uploading first, then by ratio
+	for i := 0; i < len(allSeeding)-1; i++ {
+		for j := i + 1; j < len(allSeeding); j++ {
+			if allSeeding[j].UpMbps > allSeeding[i].UpMbps ||
+				(allSeeding[j].UpMbps == allSeeding[i].UpMbps && allSeeding[j].Ratio > allSeeding[i].Ratio) {
+				allSeeding[i], allSeeding[j] = allSeeding[j], allSeeding[i]
+			}
+		}
+	}
+	if len(allSeeding) > 20 {
+		allSeeding = allSeeding[:20]
+	}
+	data.SeedingList = allSeeding
+
 	for host, count := range trackerCounts {
 		data.Trackers = append(data.Trackers, QBTTracker{Host: host, Count: count})
 	}
@@ -261,7 +304,7 @@ func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error)
 	}
 
 	// ── Transfer info — aggregate speeds ──────────────────────────────────────
-	if body, err := qbtGet("/api/v2/transfer/info", apiURL, sid, skipTLS); err == nil {
+	if body, err := qbtGet("/api/v2/transfer/info", apiURL, sid, authKey, skipTLS); err == nil {
 		var transfer struct {
 			DlSpeed int64 `json:"dl_info_speed"`
 			UpSpeed int64 `json:"up_info_speed"`
@@ -273,7 +316,7 @@ func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error)
 	}
 
 	// ── Sync/maindata — free space on disk ────────────────────────────────────
-	if body, err := qbtGet("/api/v2/sync/maindata", apiURL, sid, skipTLS); err == nil {
+	if body, err := qbtGet("/api/v2/sync/maindata", apiURL, sid, authKey, skipTLS); err == nil {
 		var maindata struct {
 			ServerState struct {
 				FreeSpace int64 `json:"free_space_on_disk"`
@@ -288,11 +331,15 @@ func qbtFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*QBTPanelData, error)
 }
 
 func testQBTConnection(apiURL, apiKey string, skipTLS bool) error {
+	if !strings.Contains(apiKey, ":") {
+		_, err := qbtGet("/api/v2/app/version", apiURL, "", apiKey, skipTLS)
+		return err
+	}
 	username, password := omvParseCredentials(apiKey)
 	sid, err := qbtLogin(apiURL, username, password, skipTLS)
 	if err != nil {
 		return err
 	}
-	_, err = qbtGet("/api/v2/app/version", apiURL, sid, skipTLS)
+	_, err = qbtGet("/api/v2/app/version", apiURL, sid, "", skipTLS)
 	return err
 }

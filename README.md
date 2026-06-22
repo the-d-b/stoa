@@ -2,7 +2,7 @@
 
 A self-hosted homelab dashboard — multi-user, data-rich, and built to stay out of your way.
 
-Connect Stoa to your services (Sonarr, Radarr, TrueNAS, Proxmox, OPNsense, Plex, and more), pull live data, and present it in a clean, responsive dashboard. Every user gets their own view — panel ordering, layout modes, tag filters, and named porticos — without affecting anyone else.
+Connect Stoa to your services and pull live data into a clean, responsive dashboard. Every user gets their own view — panel ordering, layout modes, tag filters, and named porticos — without affecting anyone else.
 
 ---
 
@@ -19,8 +19,8 @@ Connect Stoa to your services (Sonarr, Radarr, TrueNAS, Proxmox, OPNsense, Plex,
 
 ## Features
 
-- **30+ integrations** — Sonarr, Radarr, Lidarr, Readarr, Plex, Tautulli, Jellyfin, TrueNAS, Proxmox, OPNsense, Home Assistant, Uptime Kuma, Overseerr, Steam, and more
-- **Live data** — TrueNAS and OPNsense push updates every ~1–2 seconds via WebSocket/SSE; other integrations poll on configurable intervals
+- **~90 integrations** — media servers (Plex, Jellyfin, Emby, Tautulli), media management (*arr stack, Overseerr, Tdarr, Maintainerr), photo libraries (Immich, PhotoPrism, Kavita, Komga, Navidrome, Audiobookshelf), storage (TrueNAS, Proxmox, Unraid, Synology, QNAP, OMV), networking (OPNsense, pfSense, OpenWrt, UniFi, Omada), downloads (qBittorrent, Transmission, Deluge, ruTorrent, SABnzbd, NZBGet), smart home, security, finance, gaming, and more — over 50 personally tested and validated
+- **Live data** — OPNsense, TrueNAS, and other fast-polling integrations push updates every 1–30 seconds via SSE; all others poll on configurable intervals
 - **Multi-user** — users, groups, and tag-based access control; each user gets their own layout and panel order
 - **Porticos** — named dashboard views with independent tag filters, layouts, and panel ordering; live scaled preview in profile settings
 - **Layout modes** — Stylos (column-fill), Seira (CSS grid rows), Rema (collapsible rows), Custom (manual column assignment)

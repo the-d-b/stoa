@@ -25,6 +25,7 @@ type TransmissionPanelData struct {
 	FreeSpaceGB   float64              `json:"freeSpaceGB"`
 	Trackers      []TransmissionTracker `json:"trackers"`
 	Active        []TransmissionTorrent `json:"active"`
+	SeedingList   []TransmissionTorrent `json:"seedingList"`
 }
 
 type TransmissionTracker struct {
@@ -33,13 +34,14 @@ type TransmissionTracker struct {
 }
 
 type TransmissionTorrent struct {
-	Name       string  `json:"name"`
-	Status     int     `json:"status"` // 4=downloading, 6=seeding
-	Progress   float64 `json:"progress"`
-	SizeMB     float64 `json:"sizeMb"`
-	DownMbps   float64 `json:"downMbps"`
-	UpMbps     float64 `json:"upMbps"`
-	ETA        int64   `json:"eta"` // seconds, -1 = unknown
+	Name     string  `json:"name"`
+	Status   int     `json:"status"` // 4=downloading, 6=seeding
+	Progress float64 `json:"progress"`
+	SizeMB   float64 `json:"sizeMb"`
+	DownMbps float64 `json:"downMbps"`
+	UpMbps   float64 `json:"upMbps"`
+	ETA      int64   `json:"eta"` // seconds, -1 = unknown
+	Ratio    float64 `json:"ratio"`
 }
 
 // Transmission statuses
@@ -70,7 +72,7 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 			"fields": []string{
 				"id", "name", "status", "percentDone",
 				"totalSize", "rateDownload", "rateUpload",
-				"eta", "trackers", "downloadDir",
+				"eta", "trackers", "downloadDir", "uploadRatio",
 			},
 		},
 	}
@@ -89,6 +91,7 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 				RateDown    int64   `json:"rateDownload"`
 				RateUp      int64   `json:"rateUpload"`
 				ETA         int64   `json:"eta"`
+				UploadRatio float64 `json:"uploadRatio"`
 				DownloadDir string  `json:"downloadDir"`
 				Trackers    []struct {
 					Announce string `json:"announce"`
@@ -102,6 +105,7 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 
 	trackerCounts := map[string]int{}
 	var totalSeedBytes int64
+	var allSeeding []TransmissionTorrent
 
 	for _, t := range result.Arguments.Torrents {
 		switch t.Status {
@@ -110,6 +114,14 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 		case 6:
 			data.Seeding++
 			totalSeedBytes += t.TotalSize
+			allSeeding = append(allSeeding, TransmissionTorrent{
+				Name:   t.Name,
+				Status: 6,
+				Progress: 100,
+				SizeMB: float64(t.TotalSize) / 1048576,
+				UpMbps: float64(t.RateUp) / 1000000,
+				Ratio:  t.UploadRatio,
+			})
 		case 2:
 			data.Checking++
 		case 0, 1, 3, 5:
@@ -124,7 +136,7 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 			host := trackerHost(tr.Announce)
 			if host != "" {
 				trackerCounts[host]++
-				break // one tracker per torrent
+				break
 			}
 		}
 
@@ -138,17 +150,31 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 				DownMbps: float64(t.RateDown) / 1000000,
 				UpMbps:   float64(t.RateUp) / 1000000,
 				ETA:      t.ETA,
+				Ratio:    t.UploadRatio,
 			})
 		}
 	}
 
 	data.SeedSizeGB = float64(totalSeedBytes) / 1073741824
 
+	// Sort seeding list: actively uploading first, then by ratio
+	for i := 0; i < len(allSeeding)-1; i++ {
+		for j := i + 1; j < len(allSeeding); j++ {
+			if allSeeding[j].UpMbps > allSeeding[i].UpMbps ||
+				(allSeeding[j].UpMbps == allSeeding[i].UpMbps && allSeeding[j].Ratio > allSeeding[i].Ratio) {
+				allSeeding[i], allSeeding[j] = allSeeding[j], allSeeding[i]
+			}
+		}
+	}
+	if len(allSeeding) > 20 {
+		allSeeding = allSeeding[:20]
+	}
+	data.SeedingList = allSeeding
+
 	// Build tracker list sorted by count
 	for host, count := range trackerCounts {
 		data.Trackers = append(data.Trackers, TransmissionTracker{Host: host, Count: count})
 	}
-	// Sort descending
 	for i := 0; i < len(data.Trackers)-1; i++ {
 		for j := i + 1; j < len(data.Trackers); j++ {
 			if data.Trackers[j].Count > data.Trackers[i].Count {

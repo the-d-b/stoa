@@ -23,6 +23,7 @@ type RTorrentPanelData struct {
 	SeedSizeGB    float64           `json:"seedSizeGB"`
 	FreeSpaceGB   float64           `json:"freeSpaceGB"`
 	Active        []RTorrentTorrent `json:"active"`
+	SeedingList   []RTorrentTorrent `json:"seedingList"`
 	Trackers      []RTorrentTracker `json:"trackers"`
 }
 
@@ -90,30 +91,34 @@ func rtInt64(fields []interface{}, idx int) int64 {
 	return n
 }
 
-// rtorrentClassify maps rTorrent's composite boolean state fields to a
-// simple state string. Field indices from the httprpc mode=list response:
+// rtorrentClassify maps rTorrent's composite boolean state fields to a simple
+// state string. The httprpc mode=list response places the hash as the JSON map
+// key only — it is NOT element 0 of the field array. Indices are 0-based:
 //
-//	idx 1  d.is_open
-//	idx 2  d.is_hash_checking
-//	idx 4  d.get_state
-//	idx 6  d.get_size_bytes
-//	idx 9  d.bytes_done
-//	idx 24 d.get_hashing
-//	idx 29 d.is_active
+//	idx 0   d.is_open
+//	idx 1   d.is_hash_checking
+//	idx 3   d.get_state
+//	idx 5   d.get_size_bytes
+//	idx 8   d.get_bytes_done
+//	idx 11  d.get_up_rate
+//	idx 12  d.get_down_rate
+//	idx 28  d.is_active
 func rtorrentClassify(fields []interface{}) string {
-	if rtStr(fields, 2) == "1" {
-		return "checking"
-	}
-	if h := rtStr(fields, 24); h != "" && h != "0" {
-		return "checking"
-	}
-	if rtStr(fields, 1) == "0" || rtStr(fields, 4) == "0" {
+	if rtStr(fields, 0) == "0" || rtStr(fields, 3) == "0" {
 		return "paused"
 	}
-	if rtStr(fields, 29) == "1" {
-		if sz := rtInt64(fields, 6); sz > 0 && rtInt64(fields, 9) >= sz {
-			return "seeding"
-		}
+	// Completion takes priority over hash-checking: rTorrent runs a final hash
+	// verification after a download finishes (d.is_hash_checking=1 while
+	// bytes_done==size_bytes). From the user's perspective the torrent is seeding.
+	if sz := rtInt64(fields, 5); sz > 0 && rtInt64(fields, 8) >= sz {
+		return "seeding"
+	}
+	if rtStr(fields, 1) == "1" {
+		return "checking"
+	}
+	// d.is_active alone can be unreliable across httprpc versions; fall back
+	// to live speed as a signal that the torrent is genuinely transferring.
+	if rtStr(fields, 28) == "1" || rtInt64(fields, 12) > 0 || rtInt64(fields, 11) > 0 {
 		return "downloading"
 	}
 	return "paused"
@@ -171,14 +176,15 @@ func fetchRTorrentPanelData(db *sql.DB, config map[string]interface{}) (*RTorren
 	var totalDown, totalUp, seedBytes int64
 	var freeSpaceGB float64
 	freeSet := false
+	var allSeeding []RTorrentTorrent
 
 	for hash, fields := range listResp.Torrents {
 		state := rtorrentClassify(fields)
-		sizeBytes := rtInt64(fields, 6)
-		bytesDone := rtInt64(fields, 9)
-		downRate := rtInt64(fields, 13)
-		upRate := rtInt64(fields, 12)
-		freeSpace := rtInt64(fields, 32)
+		sizeBytes := rtInt64(fields, 5)  // d.get_size_bytes
+		bytesDone := rtInt64(fields, 8)  // d.get_bytes_done
+		downRate := rtInt64(fields, 12)  // d.get_down_rate
+		upRate := rtInt64(fields, 11)    // d.get_up_rate
+		freeSpace := rtInt64(fields, 31) // d.get_free_diskspace
 
 		totalDown += downRate
 		totalUp += upRate
@@ -194,6 +200,14 @@ func fetchRTorrentPanelData(db *sql.DB, config map[string]interface{}) (*RTorren
 		case "seeding":
 			data.Seeding++
 			seedBytes += sizeBytes
+			allSeeding = append(allSeeding, RTorrentTorrent{
+				Name:     rtStr(fields, 4),
+				State:    "seeding",
+				Progress: 100,
+				SizeMB:   float64(sizeBytes) / 1048576,
+				UpMbps:   float64(upRate) / 1000000,
+				Ratio:    float64(rtInt64(fields, 10)) / 1000,
+			})
 		case "checking":
 			data.Checking++
 		case "paused":
@@ -206,7 +220,7 @@ func fetchRTorrentPanelData(db *sql.DB, config map[string]interface{}) (*RTorren
 			}
 		}
 
-		// Active list: all downloading + seeding torrents with live upload traffic
+		// Active list: downloading + seeding torrents with live upload traffic
 		isDownloading := state == "downloading"
 		isActiveSeeding := state == "seeding" && upRate > 0
 		if isDownloading || isActiveSeeding {
@@ -214,23 +228,36 @@ func fetchRTorrentPanelData(db *sql.DB, config map[string]interface{}) (*RTorren
 			if sizeBytes > 0 {
 				progress = float64(bytesDone) / float64(sizeBytes) * 100
 			}
-			// Compute ETA from left_bytes (idx 20) / down_rate
 			eta := int64(0)
-			if leftBytes := rtInt64(fields, 20); downRate > 0 && leftBytes > 0 {
+			if leftBytes := rtInt64(fields, 19); downRate > 0 && leftBytes > 0 { // d.get_left_bytes
 				eta = leftBytes / downRate
 			}
 			data.Active = append(data.Active, RTorrentTorrent{
-				Name:     rtStr(fields, 5),
+				Name:     rtStr(fields, 4),
 				State:    state,
 				Progress: progress,
 				SizeMB:   float64(sizeBytes) / 1048576,
 				DownMbps: float64(downRate) / 1000000,
 				UpMbps:   float64(upRate) / 1000000,
 				ETA:      eta,
-				Ratio:    float64(rtInt64(fields, 11)) / 1000, // ratio stored as integer ×1000
+				Ratio:    float64(rtInt64(fields, 10)) / 1000,
 			})
 		}
 	}
+
+	// Sort seeding list: actively uploading first, then by ratio descending
+	for i := 0; i < len(allSeeding)-1; i++ {
+		for j := i + 1; j < len(allSeeding); j++ {
+			if allSeeding[j].UpMbps > allSeeding[i].UpMbps ||
+				(allSeeding[j].UpMbps == allSeeding[i].UpMbps && allSeeding[j].Ratio > allSeeding[i].Ratio) {
+				allSeeding[i], allSeeding[j] = allSeeding[j], allSeeding[i]
+			}
+		}
+	}
+	if len(allSeeding) > 20 {
+		allSeeding = allSeeding[:20]
+	}
+	data.SeedingList = allSeeding
 
 	data.DownSpeedMbps = float64(totalDown) / 1000000
 	data.UpSpeedMbps = float64(totalUp) / 1000000

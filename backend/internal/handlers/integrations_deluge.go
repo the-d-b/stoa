@@ -28,6 +28,7 @@ type DelugePanelData struct {
 	SeedSizeGB    float64         `json:"seedSizeGB"`
 	FreeSpaceGB   float64         `json:"freeSpaceGB"`
 	Active        []DelugeTorrent `json:"active"`
+	SeedingList   []DelugeTorrent `json:"seedingList"`
 	Trackers      []DelugeTracker `json:"trackers"`
 }
 
@@ -244,33 +245,34 @@ func delugeFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*DelugePanelData, 
 			Name     string  `json:"name"`
 			State    string  `json:"state"`
 			Progress float64 `json:"progress"`
-			Size     int64   `json:"total_size"`
-			DlRate   int64   `json:"download_payload_rate"`
-			UpRate   int64   `json:"upload_payload_rate"`
-			ETA      int64   `json:"eta"`
+			Size     float64 `json:"total_size"`
+			DlRate   float64 `json:"download_payload_rate"`
+			UpRate   float64 `json:"upload_payload_rate"`
+			ETA      float64 `json:"eta"`
 			Tracker  string  `json:"tracker_host"`
 			Ratio    float64 `json:"ratio"`
 		} `json:"torrents"`
 		Stats struct {
-			DlRate    int64 `json:"download_rate"`
-			UpRate    int64 `json:"upload_rate"`
-			FreeSpace int64 `json:"free_space"`
+			DlRate    float64 `json:"download_rate"`
+			UpRate    float64 `json:"upload_rate"`
+			FreeSpace float64 `json:"free_space"`
 		} `json:"stats"`
 	}
 	if err := json.Unmarshal(r.Result, &result); err != nil {
-		return nil, fmt.Errorf("failed to parse Deluge torrent data")
+		return nil, fmt.Errorf("failed to parse Deluge torrent data: %v", err)
 	}
 	if !result.Connected {
 		return nil, fmt.Errorf("Deluge Web UI is not connected to a daemon")
 	}
 
 	data := &DelugePanelData{UIURL: uiURL}
-	data.DownSpeedMbps = float64(result.Stats.DlRate) / 1000000
-	data.UpSpeedMbps = float64(result.Stats.UpRate) / 1000000
-	data.FreeSpaceGB = float64(result.Stats.FreeSpace) / 1073741824
+	data.DownSpeedMbps = result.Stats.DlRate / 1000000
+	data.UpSpeedMbps = result.Stats.UpRate / 1000000
+	data.FreeSpaceGB = result.Stats.FreeSpace / 1073741824
 
 	trackerCounts := map[string]int{}
-	var totalSeedBytes int64
+	var totalSeedBytes float64
+	var allSeeding []DelugeTorrent
 
 	for _, t := range result.Torrents {
 		switch t.State {
@@ -279,6 +281,14 @@ func delugeFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*DelugePanelData, 
 		case "Seeding":
 			data.Seeding++
 			totalSeedBytes += t.Size
+			allSeeding = append(allSeeding, DelugeTorrent{
+				Name:     t.Name,
+				State:    "Seeding",
+				Progress: 100,
+				SizeMB:   t.Size / 1048576,
+				UpMbps:   t.UpRate / 1000000,
+				Ratio:    t.Ratio,
+			})
 		case "Paused", "Queued", "Moving":
 			data.Paused++
 		case "Checking":
@@ -300,16 +310,30 @@ func delugeFetchAll(apiURL, uiURL, sid string, skipTLS bool) (*DelugePanelData, 
 				Name:     t.Name,
 				State:    t.State,
 				Progress: t.Progress,
-				SizeMB:   float64(t.Size) / 1048576,
-				DownMbps: float64(t.DlRate) / 1000000,
-				UpMbps:   float64(t.UpRate) / 1000000,
-				ETA:      t.ETA,
+				SizeMB:   t.Size / 1048576,
+				DownMbps: t.DlRate / 1000000,
+				UpMbps:   t.UpRate / 1000000,
+				ETA:      int64(t.ETA),
 				Ratio:    t.Ratio,
 			})
 		}
 	}
 
-	data.SeedSizeGB = float64(totalSeedBytes) / 1073741824
+	data.SeedSizeGB = totalSeedBytes / 1073741824
+
+	// Sort seeding list: actively uploading first, then by ratio descending
+	for i := 0; i < len(allSeeding)-1; i++ {
+		for j := i + 1; j < len(allSeeding); j++ {
+			if allSeeding[j].UpMbps > allSeeding[i].UpMbps ||
+				(allSeeding[j].UpMbps == allSeeding[i].UpMbps && allSeeding[j].Ratio > allSeeding[i].Ratio) {
+				allSeeding[i], allSeeding[j] = allSeeding[j], allSeeding[i]
+			}
+		}
+	}
+	if len(allSeeding) > 20 {
+		allSeeding = allSeeding[:20]
+	}
+	data.SeedingList = allSeeding
 
 	for host, count := range trackerCounts {
 		data.Trackers = append(data.Trackers, DelugeTracker{Host: host, Count: count})
