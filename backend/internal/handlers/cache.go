@@ -315,6 +315,12 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 		return
 	}
 
+	// SABnzbd and NZBGet use adaptive polling (5 s during downloads, idle otherwise)
+	if ig.igType == "sabnzbd" || ig.igType == "nzbget" {
+		StartNZBWorker(db, ig, stop)
+		return
+	}
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {

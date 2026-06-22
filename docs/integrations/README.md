@@ -132,8 +132,8 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | qBittorrent | ✅ Tested | API key `qbt_...` (5.2.0+, recommended) **or** `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
 | Deluge | ✅ Tested | Bare `password` — Deluge Web UI password (no username) | Required | 30 s | [deluge/](deluge/) |
 | ruTorrent | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [rutorrent/](rutorrent/) |
-| SABnzbd | 🔶 Need Testing | Plain API key — SABnzbd → Config → General → API Key | Required | 15 s | [sabnzbd/](sabnzbd/) |
-| NZBGet | 🔶 Need Testing | `username:password` — NZBGet control user credentials | Required | 15 s | [nzbget/](nzbget/) |
+| SABnzbd | ✅ Tested | Plain API key — SABnzbd → Config → General → API Key | Required | Adaptive 5 s–configured | [sabnzbd/](sabnzbd/) |
+| NZBGet | ✅ Tested | `username:password` — NZBGet control user credentials | Required | Adaptive 5 s–configured | [nzbget/](nzbget/) |
 
 ---
 

@@ -17,6 +17,13 @@ interface NZBGetHistory {
   status: string
   category: string
   sizeMb: number
+  historyTime: number
+}
+
+interface NZBPeriodStats {
+  downloadedGb: number
+  completed: number
+  failed: number
 }
 
 interface NZBGetData {
@@ -28,14 +35,25 @@ interface NZBGetData {
   freeDiskMb: number
   paused: boolean
   queueCount: number
+  downloading: number
+  queued: number
+  pausedCount: number
+  postProc: number
+  failed: number
+  speedHistory: number[]
+  stats1d: NZBPeriodStats
+  stats7d: NZBPeriodStats
+  stats30d: NZBPeriodStats
   groups: NZBGetGroup[]
   history: NZBGetHistory[]
 }
 
+type Period = '1d' | '7d' | '30d'
+
 function fmtBPS(bps: number): string {
-  const mb = bps / 1024 / 1024
+  const mb = bps / 1_000_000
   if (mb >= 1) return `${mb.toFixed(1)} MB/s`
-  const kb = bps / 1024
+  const kb = bps / 1000
   if (kb >= 1) return `${kb.toFixed(0)} KB/s`
   return '0 KB/s'
 }
@@ -45,10 +63,22 @@ function fmtMB(mb: number): string {
   return `${mb.toFixed(0)} MB`
 }
 
+function fmtGB(gb: number): string {
+  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`
+  if (gb >= 1) return `${gb.toFixed(1)} GB`
+  return `${(gb * 1024).toFixed(0)} MB`
+}
+
+function dotColor(paused: boolean, active: boolean): string {
+  if (paused) return 'var(--amber)'
+  if (active) return 'var(--green)'
+  return 'var(--text-dim)'
+}
+
 function histIcon(s: string): { icon: string; color: string } {
-  const l = s.toUpperCase()
-  if (l === 'SUCCESS') return { icon: '✓', color: 'var(--green)' }
-  if (l === 'FAILURE' || l === 'DELETED') return { icon: '✗', color: 'var(--red)' }
+  const u = s.toUpperCase()
+  if (u.startsWith('SUCCESS')) return { icon: '✓', color: 'var(--green)' }
+  if (u.startsWith('FAILURE') || u === 'DELETED') return { icon: '✗', color: 'var(--red)' }
   return { icon: '↻', color: 'var(--amber)' }
 }
 
@@ -56,8 +86,7 @@ function CatBadge({ cat }: { cat: string }) {
   if (!cat) return null
   const colors: Record<string, string> = {
     tv: '#6366f1', movies: '#f59e0b', music: '#22c55e',
-    books: '#14b8a6', software: '#06b6d4', games: '#a855f7',
-    nzb: '#6b7280',
+    books: '#14b8a6', software: '#06b6d4', games: '#a855f7', nzb: '#6b7280',
   }
   const bg = colors[cat.toLowerCase()] ?? '#6b7280'
   return (
@@ -71,14 +100,94 @@ function CatBadge({ cat }: { cat: string }) {
   )
 }
 
+function DonutChart({ downloading, queued, paused, postProc, failed }: {
+  downloading: number; queued: number; paused: number; postProc: number; failed: number
+}) {
+  const total = downloading + queued + paused + postProc + failed
+  const r = 14, cx = 17, cy = 17, circ = 2 * Math.PI * r
+  if (total === 0) {
+    return (
+      <svg width="34" height="34" style={{ flexShrink: 0 }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth="5" />
+      </svg>
+    )
+  }
+  const segs = [
+    { count: downloading, color: 'var(--green)' },
+    { count: queued, color: 'var(--accent)' },
+    { count: paused, color: 'var(--amber)' },
+    { count: postProc, color: '#7c8cff' },
+    { count: failed, color: 'var(--red)' },
+  ]
+  let offset = 0
+  return (
+    <svg width="34" height="34" style={{ flexShrink: 0 }}>
+      <g transform={`rotate(-90 ${cx} ${cy})`}>
+        {segs.map((seg, i) => {
+          if (seg.count === 0) return null
+          const dash = (seg.count / total) * circ
+          const el = (
+            <circle key={i} cx={cx} cy={cy} r={r}
+              fill="none" stroke={seg.color} strokeWidth="5"
+              strokeDasharray={`${dash} ${circ - dash}`}
+              strokeDashoffset={-offset} />
+          )
+          offset += dash
+          return el
+        })}
+      </g>
+    </svg>
+  )
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return null
+  const w = 200, h = 28
+  const max = Math.max(...data, 0.01)
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w
+    const y = h - (v / max) * h * 0.9 - h * 0.05
+    return `${x},${y}`
+  })
+  const line = pts.join(' ')
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
+      style={{ display: 'block', marginTop: 4 }}>
+      <polygon points={`0,${h} ${line} ${w},${h}`} fill="var(--green)" opacity="0.12" />
+      <polyline points={line} fill="none" stroke="var(--green)"
+        strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PeriodPills({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {(['1d', '7d', '30d'] as Period[]).map(p => (
+        <button key={p} onClick={() => onChange(p)} style={{
+          padding: '2px 8px', borderRadius: 4, lineHeight: '16px',
+          border: `1px solid ${value === p ? 'var(--accent)' : 'var(--border)'}`,
+          background: 'var(--surface2)',
+          color: value === p ? 'var(--accent)' : 'var(--text-dim)',
+          fontSize: 10, fontWeight: 700, cursor: 'pointer',
+        }}>
+          {p}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function GroupRow({ g }: { g: NZBGetGroup }) {
   const pct = Math.min(Math.max(g.percentage, 0), 100)
   const barColor = g.paused ? 'var(--amber)'
     : g.status.toUpperCase() === 'DOWNLOADING' ? 'var(--accent)'
-    : 'var(--surface2)'
-
+    : g.status.startsWith('PP') || g.status.startsWith('LOAD') || g.status.startsWith('VER')
+      || g.status.startsWith('REP') || g.status.startsWith('REN') || g.status.startsWith('UNP')
+      || g.status.startsWith('MOV') ? '#7c8cff'
+    : 'var(--text-dim)'
   return (
-    <div style={{ marginBottom: 8 }}>
+    <div style={{ marginBottom: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
         <CatBadge cat={g.category} />
         <span style={{ fontSize: 11, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis',
@@ -128,6 +237,7 @@ export default function NZBGetPanel({ panel, heightUnits }: { panel: Panel; heig
   const [data, setData] = useState<NZBGetData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<Period>('7d')
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
@@ -159,147 +269,143 @@ export default function NZBGetPanel({ panel, heightUnits }: { panel: Panel; heig
   const isActive = data.speedBps > 0
   const groups = data.groups || []
   const history = data.history || []
-
-  const section = (label: string) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
-      textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, marginTop: 10 }}>
-      {label}
-    </div>
-  )
-
+  const speedHistory = data.speedHistory || []
   const statusLabel = data.paused ? 'Paused' : isActive ? 'Downloading' : 'Idle'
-  const statusColor = data.paused ? 'var(--amber)'
-    : isActive ? 'var(--green)' : 'var(--text-dim)'
+  const color = dotColor(data.paused, isActive)
+  const periodStats = period === '1d' ? data.stats1d : period === '7d' ? data.stats7d : data.stats30d
+  const freeDiskGb = (data.freeDiskMb || 0) / 1024
 
-  // ── Header ─────────────────────────────────────────────────────────────────
-  const Header = ({ large = false }: { large?: boolean }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 6,
-          padding: large ? '4px 12px' : '3px 10px',
-          borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)',
-          textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
-        <span style={{ fontSize: large ? 13 : 11, color: 'var(--text-dim)' }}>↓</span>
-        <span style={{
-          fontFamily: 'DM Mono, monospace', fontWeight: 700,
-          fontSize: large ? 18 : 13,
-          color: isActive ? 'var(--green)' : 'var(--text-dim)',
-        }}>
-          {fmtBPS(data.speedBps)}
+  const queueTotal = (data.downloading ?? 0) + (data.queued ?? 0) + (data.pausedCount ?? 0) + (data.postProc ?? 0) + (data.failed ?? 0)
+  const donut = queueTotal > 0
+    ? { downloading: data.downloading ?? 0, queued: data.queued ?? 0, paused: data.pausedCount ?? 0, postProc: data.postProc ?? 0, failed: data.failed ?? 0 }
+    : { downloading: periodStats?.completed ?? 0, queued: 0, paused: 0, postProc: 0, failed: periodStats?.failed ?? 0 }
+
+  const sectionHeader = (label: string, count?: number) => (
+    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+      textTransform: 'uppercase', letterSpacing: '0.07em',
+      marginBottom: 6, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+      {label}
+      {count != null && (
+        <span style={{ background: 'var(--surface2)', borderRadius: 8, padding: '0 5px',
+          fontWeight: 600, fontSize: 10, color: 'var(--text-muted)' }}>
+          {count}
         </span>
+      )}
+    </div>
+  )
+
+  const Summary = () => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
+        style={{ textDecoration: 'none', color: 'inherit', flexShrink: 0, marginTop: 2 }}>
+        <DonutChart {...donut} />
       </a>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 9px', borderRadius: 6,
-        background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%',
-          background: statusColor, flexShrink: 0 }} />
-        <span style={{ color: statusColor, fontWeight: 600 }}>{statusLabel}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 20,
+          color: isActive ? 'var(--green)' : 'var(--text-dim)', lineHeight: 1, marginBottom: 4 }}>
+          ↓ {fmtBPS(data.speedBps)}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%',
+            background: color, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color, fontWeight: 600 }}>{statusLabel}</span>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', fontSize: 11,
+          color: 'var(--text-dim)' }}>
+          {data.queueCount > 0 && (
+            <span>
+              <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                color: 'var(--text-muted)' }}>
+                {data.queueCount}
+              </span>{' queued'}
+            </span>
+          )}
+          {data.remainMb > 0 && (
+            <span style={{ fontFamily: 'DM Mono, monospace', color: 'var(--text-dim)' }}>
+              {fmtMB(data.remainMb)} left
+            </span>
+          )}
+          {freeDiskGb > 0 && (
+            <span style={{ color: 'var(--text-dim)' }}>
+              ∥ {fmtGB(freeDiskGb)} free
+            </span>
+          )}
+        </div>
       </div>
+    </div>
+  )
 
-      {groups.length > 0 && (
-        <div style={{ padding: '3px 9px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
-            {groups.length}
-          </span>
-          <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>queued</span>
+  const PeriodStats = () => (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 12, marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+          textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          Stats
         </div>
-      )}
-
-      {data.remainMb > 0 && (
-        <div style={{ padding: '3px 9px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
-            {fmtMB(data.remainMb)}
-          </span>
-          <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>left</span>
-        </div>
-      )}
-    </div>
-  )
-
-  // ── 1x ─────────────────────────────────────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-      <Header />
-    </div>
-  )
-
-  // ── 2-3x ───────────────────────────────────────────────────────────────────
-  if (heightUnits <= 3) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <Header large />
-      {section('Queue')}
-      {groups.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Queue is empty</div>
-        : groups.map((g, i) => <GroupRow key={i} g={g} />)
-      }
-    </div>
-  )
-
-  // ── 4x+ ────────────────────────────────────────────────────────────────────
-  return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', gap: 16 }}>
-      {/* Left: stats + history */}
-      <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
-        overflow: 'auto' }}>
-        <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-          style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ marginBottom: 4 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-              letterSpacing: '0.07em', marginBottom: 4 }}>Download speed</div>
-            <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
-              fontSize: 28, color: isActive ? 'var(--green)' : 'var(--text-dim)', lineHeight: 1 }}>
-              {fmtBPS(data.speedBps)}
+        <PeriodPills value={period} onChange={setPeriod} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px 6px',
+        marginBottom: 4 }}>
+        {[
+          { label: 'Downloaded', value: fmtGB(periodStats?.downloadedGb ?? 0) },
+          { label: 'Completed', value: String(periodStats?.completed ?? 0) },
+          { label: 'Failed', value: String(periodStats?.failed ?? 0) },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ background: 'var(--surface2)', borderRadius: 6, padding: '6px 8px' }}>
+            <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, fontWeight: 700,
+              color: 'var(--text-muted)' }}>
+              {value}
             </div>
           </div>
-        </a>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: statusColor }} />
-          <span style={{ fontSize: 12, color: statusColor, fontWeight: 600 }}>{statusLabel}</span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px',
-          marginBottom: 16 }}>
-          {[
-            { label: 'Queued', value: String(groups.length) },
-            { label: 'Remaining', value: data.remainMb > 0 ? fmtMB(data.remainMb) : '—' },
-            { label: "Today's DL", value: data.downloadedMb > 0 ? fmtMB(data.downloadedMb) : '—' },
-            { label: 'Free disk', value: data.freeDiskMb > 0 ? fmtMB(data.freeDiskMb) : '—' },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 1 }}>{label}</div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, fontWeight: 600 }}>
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {history.length > 0 && (
-          <>
-            {section('Recent history')}
-            {history.slice(0, 6).map((h, i) => <HistRow key={i} h={h} />)}
-          </>
-        )}
+        ))}
       </div>
+    </>
+  )
 
-      {/* Right: queue */}
-      <div style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
-        {section('Queue')}
-        {groups.length === 0
-          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Queue is empty</div>
-          : groups.map((g, i) => <GroupRow key={i} g={g} />)
-        }
-        {groups.length > 0 && history.length > 0 && (
-          <>
-            {section('History')}
-            {history.slice(0, 10).map((h, i) => <HistRow key={i} h={h} />)}
-          </>
-        )}
-      </div>
+  if (heightUnits <= 1) return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
+      <Summary />
+    </div>
+  )
+
+  if (heightUnits <= 2) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <Summary />
+      {speedHistory.length >= 2 && <Sparkline data={speedHistory} />}
+      {sectionHeader('Queue', groups.length)}
+      {groups.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Queue is empty</div>
+        : groups.slice(0, 6).map((g, i) => <GroupRow key={i} g={g} />)
+      }
+      {groups.length > 6 && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>+{groups.length - 6} more</div>
+      )}
+    </div>
+  )
+
+  return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <Summary />
+      {speedHistory.length >= 2 && <Sparkline data={speedHistory} />}
+      <PeriodStats />
+      {sectionHeader('Queue', groups.length)}
+      {groups.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>Queue is empty</div>
+        : groups.slice(0, 6).map((g, i) => <GroupRow key={i} g={g} />)
+      }
+      {groups.length > 6 && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+          +{groups.length - 6} more
+        </div>
+      )}
+      {heightUnits >= 4 && history.length > 0 && (
+        <>
+          {sectionHeader('History', history.length)}
+          {history.slice(0, 10).map((h, i) => <HistRow key={i} h={h} />)}
+        </>
+      )}
     </div>
   )
 }

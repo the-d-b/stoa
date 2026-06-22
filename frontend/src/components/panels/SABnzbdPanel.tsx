@@ -21,6 +21,12 @@ interface SABHistorySlot {
   failMessage: string
 }
 
+interface NZBPeriodStats {
+  downloadedGb: number
+  completed: number
+  failed: number
+}
+
 interface SABData {
   uiUrl: string
   integrationId: string
@@ -31,66 +37,151 @@ interface SABData {
   status: string
   paused: boolean
   queueCount: number
+  downloading: number
+  queued: number
+  pausedCount: number
+  failed: number
+  freeDiskGb: number
+  speedHistory: number[]
+  stats1d: NZBPeriodStats
+  stats7d: NZBPeriodStats
+  stats30d: NZBPeriodStats
   slots: SABSlot[]
   history: SABHistorySlot[]
 }
 
-// Format KB/s → human speed string
+type Period = '1d' | '7d' | '30d'
+
 function fmtSpeed(kbps: number): string {
   if (kbps >= 1024) return `${(kbps / 1024).toFixed(1)} MB/s`
   if (kbps > 0) return `${kbps.toFixed(0)} KB/s`
   return '0 KB/s'
 }
 
-// Format MB → human size
 function fmtMB(mb: number): string {
   if (mb >= 1024) return `${(mb / 1024).toFixed(2)} GB`
   return `${mb.toFixed(0)} MB`
 }
 
-function statusColor(s: string): string {
-  const l = s.toLowerCase()
-  if (l === 'downloading') return 'var(--green)'
-  if (l === 'paused') return 'var(--amber)'
-  if (l === 'idle' || l === 'no active downloads') return 'var(--text-dim)'
-  return 'var(--text-muted)'
+function fmtGB(gb: number): string {
+  if (gb >= 1024) return `${(gb / 1024).toFixed(1)} TB`
+  if (gb >= 1) return `${gb.toFixed(1)} GB`
+  return `${(gb * 1024).toFixed(0)} MB`
 }
 
-function histStatusIcon(s: string): { icon: string; color: string } {
+function dotColor(status: string, paused: boolean): string {
+  if (paused) return 'var(--amber)'
+  const l = status.toLowerCase()
+  if (l === 'downloading') return 'var(--green)'
+  return 'var(--text-dim)'
+}
+
+function histIcon(s: string): { icon: string; color: string } {
   const l = s.toLowerCase()
   if (l === 'completed') return { icon: '✓', color: 'var(--green)' }
   if (l === 'failed') return { icon: '✗', color: 'var(--red)' }
   return { icon: '↻', color: 'var(--amber)' }
 }
 
-// Category badge with soft color
 function CatBadge({ cat }: { cat: string }) {
   if (!cat) return null
   const colors: Record<string, string> = {
     tv: '#6366f1', movies: '#f59e0b', music: '#22c55e',
-    books: '#14b8a6', software: '#06b6d4', games: '#a855f7',
-    xxx: '#ec4899',
+    books: '#14b8a6', software: '#06b6d4', games: '#a855f7', xxx: '#ec4899',
   }
   const bg = colors[cat.toLowerCase()] ?? '#6b7280'
   return (
     <span style={{
       fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,
-      background: bg + '28', color: bg, textTransform: 'uppercase', letterSpacing: '0.05em',
-      flexShrink: 0,
+      background: bg + '28', color: bg, textTransform: 'uppercase',
+      letterSpacing: '0.05em', flexShrink: 0,
     }}>
       {cat}
     </span>
   )
 }
 
-// Progress bar row for a queue slot
+function DonutChart({ downloading, queued, paused, failed }: {
+  downloading: number; queued: number; paused: number; failed: number
+}) {
+  const total = downloading + queued + paused + failed
+  const r = 14, cx = 17, cy = 17, circ = 2 * Math.PI * r
+  if (total === 0) {
+    return (
+      <svg width="34" height="34" style={{ flexShrink: 0 }}>
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth="5" />
+      </svg>
+    )
+  }
+  const segs = [
+    { count: downloading, color: 'var(--green)' },
+    { count: queued, color: 'var(--accent)' },
+    { count: paused, color: 'var(--amber)' },
+    { count: failed, color: 'var(--red)' },
+  ]
+  let offset = 0
+  return (
+    <svg width="34" height="34" style={{ flexShrink: 0 }}>
+      <g transform={`rotate(-90 ${cx} ${cy})`}>
+        {segs.map((seg, i) => {
+          if (seg.count === 0) return null
+          const dash = (seg.count / total) * circ
+          const el = (
+            <circle key={i} cx={cx} cy={cy} r={r}
+              fill="none" stroke={seg.color} strokeWidth="5"
+              strokeDasharray={`${dash} ${circ - dash}`}
+              strokeDashoffset={-offset} />
+          )
+          offset += dash
+          return el
+        })}
+      </g>
+    </svg>
+  )
+}
+
+function Sparkline({ data }: { data: number[] }) {
+  if (!data || data.length < 2) return null
+  const w = 200, h = 28
+  const max = Math.max(...data, 0.01)
+  const pts = data.map((v, i) => {
+    const x = (i / (data.length - 1)) * w
+    const y = h - (v / max) * h * 0.9 - h * 0.05
+    return `${x},${y}`
+  })
+  const line = pts.join(' ')
+  return (
+    <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none"
+      style={{ display: 'block', marginTop: 4 }}>
+      <polygon points={`0,${h} ${line} ${w},${h}`} fill="var(--green)" opacity="0.12" />
+      <polyline points={line} fill="none" stroke="var(--green)"
+        strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function PeriodPills({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
+  return (
+    <div style={{ display: 'flex', gap: 4 }}>
+      {(['1d', '7d', '30d'] as Period[]).map(p => (
+        <button key={p} onClick={() => onChange(p)} style={{
+          padding: '2px 8px', borderRadius: 4, lineHeight: '16px',
+          border: `1px solid ${value === p ? 'var(--accent)' : 'var(--border)'}`,
+          background: 'var(--surface2)',
+          color: value === p ? 'var(--accent)' : 'var(--text-dim)',
+          fontSize: 10, fontWeight: 700, cursor: 'pointer',
+        }}>
+          {p}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 function SlotRow({ slot }: { slot: SABSlot }) {
   const pct = Math.min(Math.max(slot.percentage, 0), 100)
-  const isDownloading = slot.status.toLowerCase() === 'downloading'
-  const barColor = slot.status.toLowerCase() === 'paused'
-    ? 'var(--amber)'
-    : isDownloading ? 'var(--accent)' : 'var(--text-dim)'
-
+  const barColor = slot.status.toLowerCase() === 'paused' ? 'var(--amber)'
+    : 'var(--accent)'
   return (
     <div style={{ marginBottom: 7 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
@@ -109,26 +200,17 @@ function SlotRow({ slot }: { slot: SABSlot }) {
             {slot.timeleft}
           </span>
         )}
-        {slot.mbleft > 0 && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-            fontFamily: 'DM Mono, monospace' }}>
-            {fmtMB(slot.mbleft)}
-          </span>
-        )}
       </div>
       <div style={{ height: 3, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
-        <div style={{
-          width: `${pct}%`, height: '100%', background: barColor,
-          borderRadius: 2, transition: 'width 0.4s ease',
-        }} />
+        <div style={{ width: `${pct}%`, height: '100%', background: barColor,
+          borderRadius: 2, transition: 'width 0.4s ease' }} />
       </div>
     </div>
   )
 }
 
-// History slot row
 function HistRow({ h }: { h: SABHistorySlot }) {
-  const { icon, color } = histStatusIcon(h.status)
+  const { icon, color } = histIcon(h.status)
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
       borderBottom: '1px solid var(--border)' }}>
@@ -149,6 +231,7 @@ export default function SABnzbdPanel({ panel, heightUnits }: { panel: Panel; hei
   const [data, setData] = useState<SABData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [period, setPeriod] = useState<Period>('7d')
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
@@ -180,166 +263,143 @@ export default function SABnzbdPanel({ panel, heightUnits }: { panel: Panel; hei
   const isActive = data.speedKbps > 0
   const slots = data.slots || []
   const history = data.history || []
+  const speedHistory = data.speedHistory || []
+  const statusLabel = data.paused ? 'Paused' : (data.status || 'Idle')
+  const color = dotColor(data.status, data.paused)
+  const periodStats = period === '1d' ? data.stats1d : period === '7d' ? data.stats7d : data.stats30d
 
-  const section = (label: string) => (
+  const queueTotal = (data.downloading ?? 0) + (data.queued ?? 0) + (data.pausedCount ?? 0) + (data.failed ?? 0)
+  const donut = queueTotal > 0
+    ? { downloading: data.downloading ?? 0, queued: data.queued ?? 0, paused: data.pausedCount ?? 0, failed: data.failed ?? 0 }
+    : { downloading: periodStats?.completed ?? 0, queued: 0, paused: 0, failed: periodStats?.failed ?? 0 }
+
+  const sectionHeader = (label: string, count?: number) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
-      textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, marginTop: 10 }}>
+      textTransform: 'uppercase', letterSpacing: '0.07em',
+      marginBottom: 6, marginTop: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
       {label}
+      {count != null && (
+        <span style={{ background: 'var(--surface2)', borderRadius: 8, padding: '0 5px',
+          fontWeight: 600, fontSize: 10, color: 'var(--text-muted)' }}>
+          {count}
+        </span>
+      )}
     </div>
   )
 
-  // ── Header bar ─────────────────────────────────────────────────────────────
-  const Header = ({ large = false }: { large?: boolean }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-      {/* Speed chip — links to UI */}
+  const Summary = () => (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 6,
-          padding: large ? '4px 12px' : '3px 10px',
-          borderRadius: 7, background: 'var(--surface2)', border: '1px solid var(--border)',
-          textDecoration: 'none', color: 'inherit', flexShrink: 0 }}>
-        <span style={{ fontSize: large ? 13 : 11, color: 'var(--text-dim)' }}>↓</span>
-        <span style={{
-          fontFamily: 'DM Mono, monospace',
-          fontWeight: 700,
-          fontSize: large ? 18 : 13,
-          color: isActive ? 'var(--green)' : 'var(--text-dim)',
-        }}>
-          {fmtSpeed(data.speedKbps)}
-        </span>
+        style={{ textDecoration: 'none', color: 'inherit', flexShrink: 0, marginTop: 2 }}>
+        <DonutChart {...donut} />
       </a>
-
-      {/* Status chip */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 5,
-        padding: '3px 9px', borderRadius: 6,
-        background: 'var(--surface2)', border: '1px solid var(--border)',
-        fontSize: 11,
-      }}>
-        <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-          background: statusColor(data.status) }} />
-        <span style={{ color: statusColor(data.status), fontWeight: 600 }}>
-          {data.paused ? 'Paused' : data.status}
-        </span>
-      </div>
-
-      {/* Queue count chip */}
-      {data.queueCount > 0 && (
-        <div style={{ padding: '3px 9px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
-            {data.queueCount}
-          </span>
-          <span style={{ color: 'var(--text-dim)', marginLeft: 4 }}>queued</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 20,
+          color: isActive ? 'var(--green)' : 'var(--text-dim)', lineHeight: 1, marginBottom: 4 }}>
+          ↓ {fmtSpeed(data.speedKbps)}
         </div>
-      )}
-
-      {/* MB left + time left */}
-      {data.mbLeft > 0 && (
-        <div style={{ padding: '3px 9px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
-            {fmtMB(data.mbLeft)}
-          </span>
-          {data.timeLeft && data.timeLeft !== '0:00:00' && (
-            <span style={{ color: 'var(--text-dim)', marginLeft: 5 }}>
-              · {data.timeLeft}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%',
+            background: color, flexShrink: 0 }} />
+          <span style={{ fontSize: 11, color, fontWeight: 600 }}>{statusLabel}</span>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 10px', fontSize: 11,
+          color: 'var(--text-dim)' }}>
+          {data.queueCount > 0 && (
+            <span>
+              <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 600,
+                color: 'var(--text-muted)' }}>
+                {data.queueCount}
+              </span>{' queued'}
+            </span>
+          )}
+          {data.mbLeft > 0 && (
+            <span style={{ fontFamily: 'DM Mono, monospace', color: 'var(--text-dim)' }}>
+              {fmtMB(data.mbLeft)}
+              {data.timeLeft && data.timeLeft !== '0:00:00' && ` · ${data.timeLeft}`}
+            </span>
+          )}
+          {data.freeDiskGb > 0 && (
+            <span style={{ color: 'var(--text-dim)' }}>
+              ∥ {fmtGB(data.freeDiskGb)} free
             </span>
           )}
         </div>
+      </div>
+    </div>
+  )
+
+  const PeriodStats = () => (
+    <>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 12, marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+          textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+          Stats
+        </div>
+        <PeriodPills value={period} onChange={setPeriod} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px 6px',
+        marginBottom: 4 }}>
+        {[
+          { label: 'Downloaded', value: fmtGB(periodStats?.downloadedGb ?? 0) },
+          { label: 'Completed', value: String(periodStats?.completed ?? 0) },
+          { label: 'Failed', value: String(periodStats?.failed ?? 0) },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ background: 'var(--surface2)', borderRadius: 6, padding: '6px 8px' }}>
+            <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 2 }}>{label}</div>
+            <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, fontWeight: 700,
+              color: 'var(--text-muted)' }}>
+              {value}
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  )
+
+  if (heightUnits <= 1) return (
+    <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
+      <Summary />
+    </div>
+  )
+
+  if (heightUnits <= 2) return (
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <Summary />
+      {speedHistory.length >= 2 && <Sparkline data={speedHistory} />}
+      {sectionHeader('Queue', slots.length)}
+      {slots.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Queue is empty</div>
+        : slots.slice(0, 6).map((s, i) => <SlotRow key={i} slot={s} />)
+      }
+      {slots.length > 6 && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>+{slots.length - 6} more</div>
       )}
     </div>
   )
 
-  // ── 1x: just the header bar ─────────────────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-      <Header />
-    </div>
-  )
-
-  // ── 2-3x: header + queue slots ──────────────────────────────────────────────
-  if (heightUnits <= 3) return (
-    <div style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-      <Header large />
-      {section('Queue')}
-      {slots.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Queue is empty</div>
-        : slots.map((s, i) => <SlotRow key={i} slot={s} />)
-      }
-    </div>
-  )
-
-  // ── 4x+: two-column layout ──────────────────────────────────────────────────
   return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', gap: 16 }}>
-      {/* Left: speed stats + aggregate bar */}
-      <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column',
-        overflow: 'auto' }}>
-        {/* Big speed display */}
-        <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-          style={{ textDecoration: 'none', color: 'inherit' }}>
-          <div style={{ marginBottom: 4 }}>
-            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-              letterSpacing: '0.07em', marginBottom: 4 }}>Download speed</div>
-            <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700,
-              fontSize: 28, color: isActive ? 'var(--green)' : 'var(--text-dim)',
-              lineHeight: 1 }}>
-              {fmtSpeed(data.speedKbps)}
-            </div>
-          </div>
-        </a>
-
-        {/* Status */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%',
-            background: statusColor(data.status) }} />
-          <span style={{ fontSize: 12, color: statusColor(data.status), fontWeight: 600 }}>
-            {data.paused ? 'Paused' : data.status}
-          </span>
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <Summary />
+      {speedHistory.length >= 2 && <Sparkline data={speedHistory} />}
+      <PeriodStats />
+      {sectionHeader('Queue', slots.length)}
+      {slots.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 6 }}>Queue is empty</div>
+        : slots.slice(0, 6).map((s, i) => <SlotRow key={i} slot={s} />)
+      }
+      {slots.length > 6 && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 6 }}>
+          +{slots.length - 6} more
         </div>
-
-        {/* Stats grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px',
-          marginBottom: 16 }}>
-          {[
-            { label: 'Queued', value: String(data.queueCount) },
-            { label: 'Remaining', value: data.mbLeft > 0 ? fmtMB(data.mbLeft) : '—' },
-            { label: 'Time left', value: (data.timeLeft && data.timeLeft !== '0:00:00') ? data.timeLeft : '—' },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', marginBottom: 1 }}>{label}</div>
-              <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, fontWeight: 600 }}>
-                {value}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* History section */}
-        {history.length > 0 && (
-          <>
-            {section('Recent history')}
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              {history.slice(0, 6).map((h, i) => <HistRow key={i} h={h} />)}
-            </div>
-          </>
-        )}
-      </div>
-
-      {/* Right: queue slots */}
-      <div style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
-        {section('Queue')}
-        {slots.length === 0
-          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Queue is empty</div>
-          : slots.map((s, i) => <SlotRow key={i} slot={s} />)
-        }
-        {slots.length > 0 && history.length > 0 && (
-          <>
-            {section('History')}
-            {history.slice(0, 10).map((h, i) => <HistRow key={i} h={h} />)}
-          </>
-        )}
-      </div>
+      )}
+      {heightUnits >= 4 && history.length > 0 && (
+        <>
+          {sectionHeader('History', history.length)}
+          {history.slice(0, 10).map((h, i) => <HistRow key={i} h={h} />)}
+        </>
+      )}
     </div>
   )
 }
