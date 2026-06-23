@@ -285,6 +285,7 @@ export interface Integration {
   type: string
   apiUrl: string
   uiUrl: string
+  config: string
   secretId: string | null
   scope: string
   skipTls: boolean
@@ -297,9 +298,9 @@ export interface Integration {
 
 export const integrationsApi = {
   list: () => api.get<Integration[]>('/integrations'),
-  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; secretId?: string; skipTls?: boolean; refreshSecs?: number; scope?: string }) =>
+  create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; config?: string; secretId?: string; skipTls?: boolean; refreshSecs?: number; scope?: string }) =>
     api.post<{ id: string }>('/integrations', data),
-  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; skipTls: boolean; refreshSecs: number; enabled: boolean }>) =>
+  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; config: string; secretId: string; skipTls: boolean; refreshSecs: number; enabled: boolean }>) =>
     api.put(`/integrations/${id}`, data),
   delete: (id: string) => api.delete(`/integrations/${id}`),
   test: (data: { type: string; apiUrl: string; secretId?: string; skipTls?: boolean }) =>
@@ -384,7 +385,7 @@ export const myPanelsApi = {
 
 export const myIntegrationsApi = {
   list: () => api.get<Integration[]>('/my/integrations'),
-  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; secretId: string; skipTls: boolean; refreshSecs: number }>) =>
+  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; config: string; secretId: string; skipTls: boolean; refreshSecs: number }>) =>
     api.put(`/my/integrations/${id}`, data),
   delete: (id: string) => api.delete(`/my/integrations/${id}`),
 }

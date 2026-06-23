@@ -21,12 +21,19 @@ type Integration struct {
 	Type        string    `json:"type"`
 	APIURL      string    `json:"apiUrl"`
 	UIURL       string    `json:"uiUrl"`
+	Config      string    `json:"config"`
 	SecretID    *string   `json:"secretId,omitempty"`
 	SkipTLS     bool      `json:"skipTls"`
 	Enabled     bool      `json:"enabled"`
 	RefreshSecs int       `json:"refreshSecs"`
 	CreatedBy   string    `json:"createdBy"`
 	CreatedAt   time.Time `json:"createdAt"`
+}
+
+// integrationConfigTypes are types whose "what to fetch" config lives in the
+// config column rather than api_url. api_url may be empty for these types.
+var integrationConfigTypes = map[string]bool{
+	"stocks": true, "crypto": true, "sports": true, "weather": true,
 }
 
 func ListIntegrations(db *sql.DB) http.HandlerFunc {
@@ -37,14 +44,14 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 		if claims.Role == models.RoleAdmin {
 			// Admin sees SYSTEM integrations + their own personal integrations
 			rows, err = db.Query(`
-				SELECT id, name, type, api_url, ui_url, secret_id, enabled, skip_tls, refresh_secs, created_by, created_at
+				SELECT id, name, type, api_url, ui_url, COALESCE(config,'{}'), secret_id, enabled, skip_tls, refresh_secs, created_by, created_at
 				FROM integrations
 				WHERE created_by = 'SYSTEM' OR created_by = ?
 				ORDER BY CASE WHEN created_by = 'SYSTEM' THEN 0 ELSE 1 END ASC, name ASC
 			`, claims.UserID)
 		} else {
 			rows, err = db.Query(`
-				SELECT DISTINCT i.id, i.name, i.type, i.api_url, i.ui_url,
+				SELECT DISTINCT i.id, i.name, i.type, i.api_url, i.ui_url, COALESCE(i.config,'{}'),
 				       i.secret_id, i.enabled, i.skip_tls, i.refresh_secs, i.created_by, i.created_at
 				FROM integrations i
 				WHERE
@@ -71,7 +78,7 @@ func ListIntegrations(db *sql.DB) http.HandlerFunc {
 			var enabled int
 			var secretID sql.NullString
 			var skipTLS int
-			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL,
+			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL, &ig.Config,
 				&secretID, &enabled, &skipTLS, &ig.RefreshSecs, &ig.CreatedBy, &ig.CreatedAt)
 			ig.Enabled = enabled == 1
 			ig.SkipTLS = skipTLS == 1
@@ -136,13 +143,15 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 			Type        string  `json:"type"`
 			APIURL      string  `json:"apiUrl"`
 			UIURL       string  `json:"uiUrl"`
+			Config      string  `json:"config"`
 			SecretID    *string `json:"secretId"`
 			SkipTLS     bool    `json:"skipTls"`
 			Scope       string  `json:"scope"`
 			RefreshSecs int     `json:"refreshSecs"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil ||
-			req.Name == "" || req.Type == "" || req.APIURL == "" {
+			req.Name == "" || req.Type == "" ||
+			(!integrationConfigTypes[req.Type] && req.APIURL == "") {
 			writeError(w, http.StatusBadRequest, "name, type and apiUrl required")
 			return
 		}
@@ -152,6 +161,7 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		req.UIURL = strings.TrimSpace(req.UIURL)
+		if req.Config == "" { req.Config = "{}" }
 		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs(req.Type) }
 		id := generateID()
 		var secretID interface{} = nil
@@ -161,9 +171,9 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		skipTLSInt := 0
 		if req.SkipTLS { skipTLSInt = 1 }
 		_, err := db.Exec(`
-			INSERT INTO integrations (id, name, type, api_url, ui_url, secret_id, skip_tls, refresh_secs, created_by)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`, id, req.Name, req.Type, req.APIURL, req.UIURL, secretID, skipTLSInt, req.RefreshSecs, ownerID)
+			INSERT INTO integrations (id, name, type, api_url, ui_url, config, secret_id, skip_tls, refresh_secs, created_by)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		`, id, req.Name, req.Type, req.APIURL, req.UIURL, req.Config, secretID, skipTLSInt, req.RefreshSecs, ownerID)
 		if err != nil {
 			log.Printf("[INTEGRATIONS] create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create integration")
@@ -185,6 +195,7 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 			Name        string  `json:"name"`
 			APIURL      string  `json:"apiUrl"`
 			UIURL       string  `json:"uiUrl"`
+			Config      string  `json:"config"`
 			SecretID    *string `json:"secretId"`
 			SkipTLS     bool    `json:"skipTls"`
 			RefreshSecs int     `json:"refreshSecs"`
@@ -192,6 +203,7 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 		json.NewDecoder(r.Body).Decode(&req)
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		req.UIURL = strings.TrimSpace(req.UIURL)
+		if req.Config == "" { req.Config = "{}" }
 		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs("") }
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
@@ -199,8 +211,8 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		skipTLSInt := 0
 		if req.SkipTLS { skipTLSInt = 1 }
-		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=?`,
-			req.Name, req.APIURL, req.UIURL, secretID, skipTLSInt, req.RefreshSecs, id)
+		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, config=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=?`,
+			req.Name, req.APIURL, req.UIURL, req.Config, secretID, skipTLSInt, req.RefreshSecs, id)
 		if uerr != nil {
 			log.Printf("[INTEGRATIONS] update error: %v", uerr)
 			writeError(w, http.StatusInternalServerError, "update failed")
@@ -637,7 +649,7 @@ func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		rows, err := db.Query(`
-			SELECT id, name, type, api_url, ui_url, secret_id, enabled, skip_tls, refresh_secs, created_by, created_at
+			SELECT id, name, type, api_url, ui_url, COALESCE(config,'{}'), secret_id, enabled, skip_tls, refresh_secs, created_by, created_at
 			FROM integrations WHERE created_by = ? ORDER BY name ASC
 		`, claims.UserID)
 		if err != nil {
@@ -651,7 +663,7 @@ func ListMyIntegrations(db *sql.DB) http.HandlerFunc {
 			var enabled int
 			var secretID sql.NullString
 			var skipTLS int
-			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL,
+			rows.Scan(&ig.ID, &ig.Name, &ig.Type, &ig.APIURL, &ig.UIURL, &ig.Config,
 				&secretID, &enabled, &skipTLS, &ig.RefreshSecs, &ig.CreatedBy, &ig.CreatedAt)
 			ig.Enabled = enabled == 1
 			ig.SkipTLS = skipTLS == 1
@@ -679,6 +691,7 @@ func UpdateMyIntegration(db *sql.DB) http.HandlerFunc {
 			Name        string  `json:"name"`
 			APIURL      string  `json:"apiUrl"`
 			UIURL       string  `json:"uiUrl"`
+			Config      string  `json:"config"`
 			SecretID    *string `json:"secretId"`
 			SkipTLS     bool    `json:"skipTls"`
 			RefreshSecs int     `json:"refreshSecs"`
@@ -686,13 +699,14 @@ func UpdateMyIntegration(db *sql.DB) http.HandlerFunc {
 		json.NewDecoder(r.Body).Decode(&req)
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		req.UIURL = strings.TrimSpace(req.UIURL)
+		if req.Config == "" { req.Config = "{}" }
 		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs("") }
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" { secretID = *req.SecretID }
 		skipTLSInt := 0
 		if req.SkipTLS { skipTLSInt = 1 }
-		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=? AND created_by=?`,
-			req.Name, req.APIURL, req.UIURL, secretID, skipTLSInt, req.RefreshSecs, id, claims.UserID)
+		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, config=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=? AND created_by=?`,
+			req.Name, req.APIURL, req.UIURL, req.Config, secretID, skipTLSInt, req.RefreshSecs, id, claims.UserID)
 		if uerr != nil {
 			writeError(w, http.StatusInternalServerError, "update failed")
 			return
@@ -710,6 +724,17 @@ func DeleteMyIntegration(db *sql.DB) http.HandlerFunc {
 		db.Exec("DELETE FROM integrations WHERE id=? AND created_by=?", id, claims.UserID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
+}
+
+// readIntegrationConfig returns the config JSON for an integration.
+// Used by types whose fetch config lives in the config column (stocks, crypto, sports, weather).
+func readIntegrationConfig(db *sql.DB, id string) (string, error) {
+	var cfg string
+	err := db.QueryRow(`SELECT COALESCE(config,'{}') FROM integrations WHERE id=? AND enabled=1`, id).Scan(&cfg)
+	if err != nil {
+		return "{}", fmt.Errorf("integration not found: %w", err)
+	}
+	return cfg, nil
 }
 
 // resolveIntegration fetches the API URL, UI URL, and decrypted API key for an integration.

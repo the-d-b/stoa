@@ -287,11 +287,11 @@ func fetchCoinGeckoSpark(coinID string, days int, apiKey string) ([]SparkPoint, 
 // -- Main fetcher -------------------------------------------------------------
 
 func FetchStocksData(db *sql.DB, integrationID string) (*MarketData, error) {
-	var apiURL string
-	if err := db.QueryRow(`SELECT api_url FROM integrations WHERE id = ?`, integrationID).Scan(&apiURL); err != nil {
+	cfgJSON, err := readIntegrationConfig(db, integrationID)
+	if err != nil {
 		return nil, fmt.Errorf("stocks integration not found: %v", err)
 	}
-	cfg := parseStocksConfig(apiURL)
+	cfg := parseStocksConfig(cfgJSON)
 	data := &MarketData{
 		Quotes:    []MarketQuote{},
 		Sparks:    map[string][]SparkPoint{},
@@ -315,8 +315,10 @@ func FetchStocksData(db *sql.DB, integrationID string) (*MarketData, error) {
 }
 
 func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
-	var apiURL, secretID string
-	if err := db.QueryRow(`SELECT api_url, COALESCE(secret_id,'') FROM integrations WHERE id = ?`, integrationID).Scan(&apiURL, &secretID); err != nil {
+	var secretID string
+	db.QueryRow(`SELECT COALESCE(secret_id,'') FROM integrations WHERE id = ?`, integrationID).Scan(&secretID)
+	cfgJSON, err := readIntegrationConfig(db, integrationID)
+	if err != nil {
 		return nil, fmt.Errorf("crypto integration not found: %v", err)
 	}
 	// Resolve CoinGecko Demo API key if configured
@@ -327,7 +329,7 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 			cgAPIKey = decryptSecret(enc)
 		}
 	}
-	cfg := parseCryptoConfig(apiURL)
+	cfg := parseCryptoConfig(cfgJSON)
 	data := &MarketData{
 		Quotes:    []MarketQuote{},
 		Sparks:    map[string][]SparkPoint{},

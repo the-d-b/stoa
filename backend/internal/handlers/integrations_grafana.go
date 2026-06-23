@@ -89,7 +89,12 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 		uiURL = baseURL
 	}
 
-	out := &GrafanaPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	out := &GrafanaPanelData{
+		UIURL:         uiURL,
+		IntegrationID: integrationID,
+		Datasources:   []GrafanaDatasource{},
+		Alerts:        []GrafanaAlert{},
+	}
 
 	// ── Health / version ──────────────────────────────────────────────────────
 	if body, err := grafanaGet(baseURL, apiKey, "/api/health", skipTLS); err == nil {

@@ -156,6 +156,30 @@ export default function IntegrationForm({
   const [skipTls, setSkipTls] = useState(integration?.skipTls ?? false)
   const [refreshSecs, setRefreshSecs] = useState(integration?.refreshSecs ?? 60)
 
+  // ── Prometheus custom metrics ──────────────────────────────────────────────
+  type PromMetric = { label: string; query: string; unit: string }
+  const parsePromMetrics = (cfg: string): PromMetric[] => {
+    try { return (JSON.parse(cfg) as any).metrics ?? [] } catch { return [] }
+  }
+  const [promMetrics, setPromMetrics] = useState<PromMetric[]>(
+    () => parsePromMetrics(integration?.config ?? '{}')
+  )
+
+  // ── Integration config (stocks/crypto/sports/weather — what to ingest) ────
+  // Initialized from integration.config; for legacy weather rows still using
+  // api_url pipe format, convert on load so the UI shows the correct city.
+  const [igConfig, setIgConfig] = useState<string>(() => {
+    const cfg = integration?.config ?? '{}'
+    if (cfg !== '{}' && cfg !== '') return cfg
+    // Legacy weather: api_url holds "lat|lon|city|unit"
+    const legacy = integration?.apiUrl ?? ''
+    if (integration?.type === 'weather' && legacy.includes('|')) {
+      const [lat, lon, city = '', unit = 'f'] = legacy.split('|')
+      return JSON.stringify({ lat, lon, city, unit })
+    }
+    return '{}'
+  })
+
   // ── Form state ─────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -250,6 +274,17 @@ export default function IntegrationForm({
     setTestResult(null)
     setGeoQuery(''); setGeoResults([])
     setSteamVanity('')
+    setPromMetrics(parsePromMetrics(integration.config ?? '{}'))
+    // Re-init integration config; migrate legacy weather api_url pipe format
+    const cfg = integration.config ?? '{}'
+    if (cfg !== '{}' && cfg !== '') {
+      setIgConfig(cfg)
+    } else if (integration.type === 'weather' && integration.apiUrl?.includes('|')) {
+      const [lat, lon, city = '', unit = 'f'] = integration.apiUrl.split('|')
+      setIgConfig(JSON.stringify({ lat, lon, city, unit }))
+    } else {
+      setIgConfig('{}')
+    }
   }, [integration?.id])
 
   const handleTypeChange = (t: string) => {
@@ -292,7 +327,7 @@ export default function IntegrationForm({
 
   const selectGeo = (r: any) => {
     const city = [r.name, r.admin1, r.country].filter(Boolean).join(', ')
-    setApiUrl(`${r.latitude}|${r.longitude}|${city}|f`)
+    setIgConfig(JSON.stringify({ lat: String(r.latitude), lon: String(r.longitude), city, unit: 'f' }))
     setGeoResults([]); setGeoQuery('')
   }
 
@@ -319,21 +354,35 @@ export default function IntegrationForm({
     finally { setTesting(false) }
   }
 
+  const CONFIG_TYPES = ['stocks', 'crypto', 'sports', 'weather']
+  const effectiveApiUrl = CONFIG_TYPES.includes(isEdit ? integration!.type : type) ? '' : apiUrl
+
+  const buildIgConfig = (t: string): string => {
+    if (t === 'prometheus') {
+      const valid = promMetrics.filter(m => m.query.trim() !== '')
+      return valid.length > 0 ? JSON.stringify({ metrics: valid }) : '{}'
+    }
+    return igConfig
+  }
+
   const save = async () => {
     if (!name.trim() || (!NO_URL_REQUIRED.includes(type) && !apiUrl)) return
     setSaving(true)
+    const resolvedType = isEdit ? integration!.type : type
+    const configToSave = buildIgConfig(resolvedType)
     try {
       if (isEdit && integration) {
-        // Personal integrations use myIntegrationsApi, system integrations use integrationsApi
         const api = (integration.createdBy && integration.createdBy !== 'SYSTEM')
           ? myIntegrationsApi : integrationsApi
         await api.update(integration.id, {
-          name: name.trim(), apiUrl, uiUrl,
+          name: name.trim(), apiUrl: effectiveApiUrl, uiUrl,
+          config: configToSave,
           secretId: secretId || undefined, skipTls, refreshSecs,
         })
       } else {
         await integrationsApi.create({
-          name: name.trim(), type, apiUrl, uiUrl,
+          name: name.trim(), type, apiUrl: effectiveApiUrl, uiUrl,
+          config: configToSave,
           secretId: secretId || undefined,
           skipTls, refreshSecs,
           ...(scope === 'personal' ? { scope: 'personal' } : {}),
@@ -437,11 +486,12 @@ export default function IntegrationForm({
       {activeType === 'weather' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <label className="label">Location</label>
-          {apiUrl && (
-            <div style={{ fontSize: 12, color: 'var(--accent2)' }}>
-              📍 {apiUrl.includes('|') ? apiUrl.split('|').slice(2, 4).join(', ') : apiUrl.split(',').slice(2).join(',')}
-            </div>
-          )}
+          {(() => {
+            try {
+              const wc = JSON.parse(igConfig)
+              return wc.city ? <div style={{ fontSize: 12, color: 'var(--accent2)' }}>📍 {wc.city}</div> : null
+            } catch { return null }
+          })()}
           <div style={{ display: 'flex', gap: 6 }}>
             <input className="input" value={geoQuery}
               onChange={e => setGeoQuery(e.target.value)}
@@ -821,11 +871,11 @@ export default function IntegrationForm({
             placeholder="https://example.com/feed.xml" />
         </div>
       ) : activeType === 'stocks' ? (
-        <StocksConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
+        <StocksConfigUI apiUrl={igConfig} onChange={setIgConfig} />
       ) : activeType === 'crypto' ? (
-        <CryptoConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
+        <CryptoConfigUI apiUrl={igConfig} onChange={setIgConfig} />
       ) : activeType === 'sports' ? (
-        <SportsConfigUI apiUrl={apiUrl} onChange={setApiUrl} />
+        <SportsConfigUI apiUrl={igConfig} onChange={setIgConfig} />
       ) : (
         <div style={{ display: 'flex', gap: 10 }}>
           <div style={{ flex: 1 }}>
@@ -890,13 +940,48 @@ export default function IntegrationForm({
           (e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>example.com</code>) if "-" does not resolve to your tailnet.
         </div>
       )}
-      {/* Prometheus: local service, optional auth */}
+      {/* Prometheus: local service, optional auth + custom metrics */}
       {activeType === 'prometheus' && (
-        <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-          URL is your Prometheus base URL, e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>http://prometheus:9090</code>.
-          Leave API key blank if Prometheus has no authentication (common in home labs behind a firewall).
-          For reverse-proxy Basic Auth: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>.
-          For Bearer token auth: bare token string. Custom PromQL metric cards are configured per panel, not here.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            URL is your Prometheus base URL, e.g. <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>http://prometheus:9090</code>.
+            Leave API key blank if Prometheus is open. For Basic Auth use <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>username:password</code>;
+            for a Bearer token use a bare token string.
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <label className="label">
+              Custom metrics{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — target health &amp; alerts always shown)</span>
+            </label>
+            {promMetrics.map((m, i) => (
+              <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input className="input" value={m.label}
+                  onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
+                  placeholder="Label" style={{ width: 90, flexShrink: 0 }} />
+                <input className="input" value={m.query}
+                  onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, query: e.target.value } : x))}
+                  placeholder="PromQL expression" style={{ flex: 1, fontFamily: 'DM Mono, monospace', fontSize: 12 }} />
+                <input className="input" value={m.unit}
+                  onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))}
+                  placeholder="Unit" style={{ width: 55, flexShrink: 0 }} />
+                <button className="btn btn-ghost" style={{ fontSize: 14, padding: '0 8px', flexShrink: 0 }}
+                  onClick={() => setPromMetrics(prev => prev.filter((_, j) => j !== i))}>×</button>
+              </div>
+            ))}
+            {promMetrics.length < 8 && (
+              <button className="btn btn-secondary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
+                onClick={() => setPromMetrics(prev => [...prev, { label: '', query: '', unit: '' }])}>
+                + Add metric
+              </button>
+            )}
+            {promMetrics.length > 0 && (
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
+                Each metric shows as a stat card with a 1-hour sparkline. Examples —
+                CPU: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>100 - avg(rate(node_cpu_seconds_total{'{'}mode="idle"{'}'}{`[5m]`}) * 100)</code>,
+                Memory free: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>node_memory_MemAvailable_bytes</code>.
+              </div>
+            )}
+          </div>
         </div>
       )}
       {/* Prowlarr: standard Servarr API key */}

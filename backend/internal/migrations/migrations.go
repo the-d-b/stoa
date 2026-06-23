@@ -764,6 +764,16 @@ var migrations = []migration{
 			created_at        DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 52,
+		name:    "integration_config",
+		stmts: []string{
+			`ALTER TABLE integrations ADD COLUMN config TEXT NOT NULL DEFAULT '{}'`,
+			// stocks and crypto store JSON directly in api_url — move it to config
+			`UPDATE integrations SET config = api_url, api_url = ''
+			 WHERE type IN ('stocks', 'crypto', 'sports') AND api_url LIKE '{%'`,
+		},
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

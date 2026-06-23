@@ -119,8 +119,8 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
 | Uptime Kuma | ✅ Tested | Blank (no auth) **or** plain API key (Kuma 1.23+) | Required | 60 s | [kuma/](kuma/) |
-| Prometheus | 🔶 Need Testing | Blank (open) **or** `username:password` **or** Bearer `token` | Required | 30 s | [prometheus/](prometheus/) |
-| Grafana | 🔶 Need Testing | Service Account token — Grafana → Administration → Service Accounts | Required | 60 s | [grafana/](grafana/) |
+| Prometheus | ✅ Tested | Blank (open) **or** `username:password` **or** Bearer `token` | Required | 30 s | [prometheus/](prometheus/) |
+| Grafana | ✅ Tested | Service Account token — Grafana → Administration → Service Accounts | Required | 60 s | [grafana/](grafana/) |
 
 ---
 

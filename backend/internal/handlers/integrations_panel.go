@@ -175,6 +175,7 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// the unfiltered integration cache key, not per-panel filtered keys.
 		plexFiltered := panelType == "plex" && allowedRatings != ""
 
+
 		// Cache key includes allowedRatings so panels with different filters
 		// get separate cache entries even when sharing the same integration
 		cacheKey := integrationID

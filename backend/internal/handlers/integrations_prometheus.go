@@ -142,7 +142,14 @@ func fetchPrometheusPanelData(db *sql.DB, config map[string]interface{}) (*Prome
 		uiURL = baseURL
 	}
 
-	out := &PrometheusPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	out := &PrometheusPanelData{
+		UIURL:         uiURL,
+		IntegrationID: integrationID,
+		Targets:       []PrometheusTarget{},
+		Jobs:          []PrometheusJobSummary{},
+		Alerts:        []PrometheusAlert{},
+		Metrics:       []PrometheusMetric{},
+	}
 
 	// ── Build info (soft: older versions may not have this) ───────────────────
 	if body, err := prometheusGet(baseURL, apiKey, "/api/v1/status/buildinfo", nil, skipTLS); err == nil {
@@ -259,12 +266,14 @@ func fetchPrometheusPanelData(db *sql.DB, config map[string]interface{}) (*Prome
 		}
 	}
 
-	// ── Custom metrics ────────────────────────────────────────────────────────
+	// ── Custom metrics — read from integration config, not panel config ──────
 	var metricCfgs []prometheusMetricCfg
-	if rawMetrics, ok := config["metrics"]; ok {
-		if b, err := json.Marshal(rawMetrics); err == nil {
-			json.Unmarshal(b, &metricCfgs)
+	if cfgJSON, cfgErr := readIntegrationConfig(db, integrationID); cfgErr == nil && cfgJSON != "{}" {
+		var igCfg struct {
+			Metrics []prometheusMetricCfg `json:"metrics"`
 		}
+		json.Unmarshal([]byte(cfgJSON), &igCfg)
+		metricCfgs = igCfg.Metrics
 	}
 
 	now := time.Now()

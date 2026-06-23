@@ -245,12 +245,6 @@ export default function PanelForm({
   // ── Actual Budget budget filter ────────────────────────────────────────────
   const [abBudgetId, setAbBudgetId] = useState(cfg.budgetId ?? '')
 
-  // ── Prometheus custom metrics ──────────────────────────────────────────────
-  type PromMetric = { label: string; query: string; unit: string }
-  const [promMetrics, setPromMetrics] = useState<PromMetric[]>(
-    (cfg.metrics as PromMetric[]) ?? []
-  )
-
   // ── Bookmarks ──────────────────────────────────────────────────────────────
   const [bookmarkRootId, setBookmarkRootId] = useState(cfg.rootNodeId ?? '')
 
@@ -327,7 +321,6 @@ export default function PanelForm({
     setApiRefreshSecs(c.refreshSecs ?? 600)
     setApiPreview(null)
     setIfaceCaps(c.ifaceCaps || {})
-    setPromMetrics((c.metrics as PromMetric[]) ?? [])
   }, [panel?.id])
 
   const handleTypeChange = (t: string) => {
@@ -449,10 +442,6 @@ export default function PanelForm({
       }
       if (RATINGS_TYPES.includes(type) && allowedRatings.trim()) {
         base.allowedRatings = allowedRatings.trim()
-      }
-      if (type === 'prometheus') {
-        const valid = promMetrics.filter(m => m.query.trim() !== '')
-        if (valid.length > 0) base.metrics = valid
       }
     }
     return JSON.stringify(base)
@@ -962,44 +951,6 @@ export default function PanelForm({
             Name or Sync ID of the budget to pre-select on load. Leave blank to default to the first budget.
             All budgets are always available via the pill selector on the panel.
           </div>
-        </div>
-      )}
-
-      {/* Prometheus custom metrics */}
-      {type === 'prometheus' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <label className="label">
-            Custom metrics{' '}
-            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — target health &amp; alerts always shown)</span>
-          </label>
-          {promMetrics.map((m, i) => (
-            <div key={i} style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input className="input" value={m.label}
-                onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, label: e.target.value } : x))}
-                placeholder="Label" style={{ width: 90, flexShrink: 0 }} />
-              <input className="input" value={m.query}
-                onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, query: e.target.value } : x))}
-                placeholder="PromQL expression" style={{ flex: 1, fontFamily: 'DM Mono, monospace', fontSize: 12 }} />
-              <input className="input" value={m.unit}
-                onChange={e => setPromMetrics(prev => prev.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))}
-                placeholder="Unit" style={{ width: 55, flexShrink: 0 }} />
-              <button className="btn btn-ghost" style={{ fontSize: 14, padding: '0 8px', flexShrink: 0 }}
-                onClick={() => setPromMetrics(prev => prev.filter((_, j) => j !== i))}>×</button>
-            </div>
-          ))}
-          {promMetrics.length < 8 && (
-            <button className="btn btn-secondary" style={{ fontSize: 12, alignSelf: 'flex-start' }}
-              onClick={() => setPromMetrics(prev => [...prev, { label: '', query: '', unit: '' }])}>
-              + Add metric
-            </button>
-          )}
-          {promMetrics.length > 0 && (
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-              Each metric is displayed as a stat card with a 1-hour sparkline. Example queries:
-              CPU <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>100 - avg(rate(node_cpu_seconds_total{'{'}mode="idle"{'}'}{`[5m]`}) * 100)</code>,
-              Memory free <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>node_memory_MemAvailable_bytes</code>.
-            </div>
-          )}
         </div>
       )}
 

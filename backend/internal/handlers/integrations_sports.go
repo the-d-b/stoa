@@ -516,14 +516,12 @@ func fetchSportsSchedule(league string, daysAhead int, favTeams []string) ([]Spo
 // -- Main integration fetcher
 
 func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error) {
-	// Read integration config (stored as JSON in api_url)
-	var apiURL string
-	err := db.QueryRow(`SELECT api_url FROM integrations WHERE id = ?`, integrationID).Scan(&apiURL)
+	cfgJSON, err := readIntegrationConfig(db, integrationID)
 	if err != nil {
 		return nil, fmt.Errorf("sports integration not found: %v", err)
 	}
 
-	cfg := parseSportsConfig(apiURL)
+	cfg := parseSportsConfig(cfgJSON)
 	data := &SportsPanelData{
 		Games:     []SportsGame{},
 		Standings: []SportsStanding{},

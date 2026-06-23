@@ -133,7 +133,8 @@ function Sparkline({ values, width = 64, height = 28 }: { values: number[]; widt
     return `${x.toFixed(1)},${y.toFixed(1)}`
   }).join(' ')
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', flexShrink: 0 }}>
+    <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none" style={{ display: 'block', overflow: 'hidden' }}>
       <polyline points={pts} fill="none" stroke="#22d3ee" strokeWidth={1.5}
         strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -144,24 +145,29 @@ function MetricCard({ metric }: { metric: PrometheusMetric }) {
   const hasSparkline = metric.sparkline?.length >= 2
   return (
     <div style={{
-      display: 'flex', flexDirection: 'column', gap: 4, padding: '8px 10px', borderRadius: 8,
-      background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 110,
+      display: 'flex', flexDirection: 'column', gap: 2, padding: '4px 8px', borderRadius: 6,
+      background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 0,
     }}>
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
+      <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
         letterSpacing: '0.04em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {metric.label || metric.query}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, color: metric.error ? 'var(--text-dim)' : '#22d3ee' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, minWidth: 0 }}>
+        <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, flexShrink: 0,
+          color: metric.error ? 'var(--text-dim)' : '#22d3ee' }}>
           {metric.error
-            ? <span style={{ fontSize: 11, color: '#e53e3e' }}>error</span>
+            ? <span style={{ fontSize: 10, color: '#e53e3e' }}>error</span>
             : <>
-                <span style={{ fontSize: 18 }}>{metric.value || '—'}</span>
-                {metric.unit && <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 2 }}>{metric.unit}</span>}
+                <span style={{ fontSize: 14 }}>{metric.value || '—'}</span>
+                {metric.unit && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 2 }}>{metric.unit}</span>}
               </>
           }
         </div>
-        {!metric.error && hasSparkline && <Sparkline values={metric.sparkline} />}
+        {!metric.error && hasSparkline && (
+          <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+            <Sparkline values={metric.sparkline} width={54} height={20} />
+          </div>
+        )}
       </div>
     </div>
   )
@@ -238,9 +244,12 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
   if (!data) return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No data</div>
 
   const {
-    totalTargets, upTargets, downTargets, firingAlerts, pendingAlerts,
-    targets = [], jobs = [], alerts = [], metrics = [], version,
+    totalTargets, upTargets, downTargets, firingAlerts, pendingAlerts, version,
   } = data
+  const targets = data.targets ?? []
+  const jobs = data.jobs ?? []
+  const alerts = data.alerts ?? []
+  const metrics = data.metrics ?? []
 
   const healthPct = totalTargets > 0 ? Math.round(upTargets / totalTargets * 100) : 100
   const statusColor = downTargets === 0 ? '#4ade80' : downTargets < totalTargets ? '#f59e0b' : '#e53e3e'
@@ -284,182 +293,118 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
   // ── 2–3× medium ─────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Donut + target chips */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <HealthDonut up={upTargets} total={totalTargets} size={80} />
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            <StatChip label="Up" value={upTargets} color="#4ade80" />
-            {downTargets > 0 && <StatChip label="Down" value={downTargets} color="#e53e3e" bg="#e53e3e18" />}
-            <StatChip label="Total" value={totalTargets} />
-            {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
-            {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="#f59e0b" bg="#f59e0b12" />}
-            {version && <StatChip label="Version" value={`v${version}`} />}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+        <HealthDonut up={upTargets} total={totalTargets} size={80} />
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+          <StatChip label="Up" value={upTargets} color="#4ade80" />
+          {downTargets > 0 && <StatChip label="Down" value={downTargets} color="#e53e3e" bg="#e53e3e18" />}
+          <StatChip label="Total" value={totalTargets} />
+          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
+          {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="#f59e0b" bg="#f59e0b12" />}
+          {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
-
-        {/* Custom metrics */}
-        {metrics.length > 0 && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {metrics.map((m, i) => <MetricCard key={i} metric={m} />)}
-          </div>
-        )}
-
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <div>
-            <ColHeader>
-              Alerts ({firingAlerts} firing{pendingAlerts > 0 ? `, ${pendingAlerts} pending` : ''})
-            </ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {alerts.slice(0, 4).map((a, i) => <AlertRow key={i} alert={a} />)}
-              {alerts.length > 4 && (
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', paddingLeft: 13 }}>
-                  +{alerts.length - 4} more
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Down targets */}
-        {downTargets > 0 && (
-          <div>
-            <ColHeader>Down Targets ({downTargets})</ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {targets.filter(t => t.health !== 'up').slice(0, 4).map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#e53e3e', flexShrink: 0 }} />
-                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11,
-                    color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                    {t.job}/{t.instance}
-                  </span>
-                  {t.lastError && (
-                    <span style={{ fontSize: 10, color: '#e53e3e', flexShrink: 0,
-                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}
-                      title={t.lastError}>
-                      {t.lastError.split(':')[0]}
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     )
   }
 
   // ── 4×+ full layout ──────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Donut + chips */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflow: 'auto' }}>
+      {/* Donut */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
         <HealthDonut up={upTargets} total={totalTargets} size={80} />
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          <StatChip label="Up" value={upTargets} color="#4ade80" />
-          {downTargets > 0 && <StatChip label="Down" value={downTargets} color="#e53e3e" bg="#e53e3e18" />}
-          <StatChip label="Total" value={totalTargets} />
-          <StatChip label="Health" value={`${healthPct}%`} color={statusColor} />
-          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
-          {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="#f59e0b" bg="#f59e0b12" />}
-          {version && <StatChip label="Version" value={`v${version}`} />}
-        </div>
+      </div>
+
+      {/* Data tiles */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+        <StatChip label="Up" value={upTargets} color="#4ade80" />
+        {downTargets > 0 && <StatChip label="Down" value={downTargets} color="#e53e3e" bg="#e53e3e18" />}
+        <StatChip label="Total" value={totalTargets} />
+        <StatChip label="Health" value={`${healthPct}%`} color={statusColor} />
+        {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
+        {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="#f59e0b" bg="#f59e0b12" />}
+        {version && <StatChip label="Version" value={`v${version}`} />}
       </div>
 
       {/* Custom metrics */}
       {metrics.length > 0 && (
         <div>
           <ColHeader>Custom Metrics</ColHeader>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
             {metrics.map((m, i) => <MetricCard key={i} metric={m} />)}
           </div>
         </div>
       )}
 
-      {/* Three-column: jobs | alerts | targets */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
-
-        {/* Col 1: Jobs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Jobs ({jobs.length})</ColHeader>
-          {jobs.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No scrape jobs</div>
-            : jobs.map((j, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                  background: j.up === j.total ? '#4ade80' : j.up > 0 ? '#f59e0b' : '#e53e3e' }} />
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  color: 'var(--text)' }}>
-                  {j.job}
-                </span>
-                <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
-                  {j.up}/{j.total}
-                </span>
-              </div>
-            ))
-          }
-        </div>
-
-        {/* Col 2: Alerts */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>
-            Alerts {(firingAlerts + pendingAlerts) > 0
-              ? `(${firingAlerts} firing${pendingAlerts > 0 ? `, ${pendingAlerts} pending` : ''})`
-              : '(none)'}
-          </ColHeader>
-          {alerts.length === 0
-            ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
-            : alerts.map((a, i) => <AlertRow key={i} alert={a} />)
-          }
-        </div>
-
-        {/* Col 3: Down targets (or healthy message) */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>
-            {downTargets > 0 ? `Down Targets (${downTargets})` : 'All Targets'}
-          </ColHeader>
-          {downTargets === 0
-            ? <div style={{ fontSize: 12, color: '#4ade80' }}>All {totalTargets} targets healthy</div>
-            : targets.filter(t => t.health !== 'up').map((t, i) => (
-              <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: healthDot(t.health), flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {t.instance}
+      {/* Jobs */}
+      <div>
+        <ColHeader>Jobs ({jobs.length})</ColHeader>
+        {jobs.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No scrape jobs</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {jobs.map((j, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0 }}>
+                  <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+                    background: j.up === j.total ? '#4ade80' : j.up > 0 ? '#f59e0b' : '#e53e3e' }} />
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    color: 'var(--text)' }}>
+                    {j.job}
                   </span>
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
-                    {t.job}
-                  </span>
-                </div>
-                {t.lastError && (
-                  <div style={{ fontSize: 10, color: '#e53e3e', paddingLeft: 13,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                    title={t.lastError}>
-                    {t.lastError}
-                  </div>
-                )}
-              </div>
-            ))
-          }
-          {/* Also show all targets when there are no failures */}
-          {downTargets === 0 && targets.length > 0 && targets.length <= 10 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3, marginTop: 4 }}>
-              {targets.map((t, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-                  <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
-                  <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                    {t.instance}
-                  </span>
-                  <span style={{ color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', fontSize: 10, flexShrink: 0 }}>
-                    {t.job}
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
+                    {j.up}/{j.total}
                   </span>
                 </div>
               ))}
             </div>
-          )}
-        </div>
+        }
+      </div>
+
+      {/* Alerts */}
+      <div>
+        <ColHeader>
+          Alerts {(firingAlerts + pendingAlerts) > 0
+            ? `(${firingAlerts} firing${pendingAlerts > 0 ? `, ${pendingAlerts} pending` : ''})`
+            : '(none)'}
+        </ColHeader>
+        {alerts.length === 0
+          ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {alerts.map((a, i) => <AlertRow key={i} alert={a} />)}
+            </div>
+        }
+      </div>
+
+      {/* All targets */}
+      <div>
+        <ColHeader>
+          {downTargets > 0 ? `Down Targets (${downTargets})` : `All Targets (${totalTargets})`}
+        </ColHeader>
+        {downTargets === 0 && targets.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No targets</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(downTargets > 0 ? targets.filter(t => t.health !== 'up') : targets).map((t, i) => (
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: healthDot(t.health), flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)', overflow: 'hidden',
+                      textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                      {t.instance}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }}>
+                      {t.job}
+                    </span>
+                  </div>
+                  {t.lastError && (
+                    <div style={{ fontSize: 10, color: '#e53e3e', paddingLeft: 13,
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      title={t.lastError}>
+                      {t.lastError}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+        }
       </div>
     </div>
   )

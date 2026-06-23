@@ -232,12 +232,11 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
 
   const {
     totalDs, healthyDs, unhealthyDs, firingAlerts,
-    datasources = [], alerts = [], version, orgName, database,
-    dashboardCount, userCount,
+    version, orgName, database, dashboardCount, userCount,
   } = data
+  const datasources = data.datasources ?? []
+  const alerts = data.alerts ?? []
 
-  // Treat "unknown" health DSes as the unknown category (not unhealthy if no health API)
-  const unknownDs = totalDs - healthyDs - unhealthyDs
   const dbOk = database === 'ok'
   const dsStatusColor = unhealthyDs === 0 ? '#4ade80' : unhealthyDs < totalDs ? '#f59e0b' : '#e53e3e'
 
@@ -276,162 +275,113 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
   // ── 2–3× medium ─────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Donut + chips */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          {totalDs > 0
-            ? <DSDonut healthy={healthyDs} total={totalDs} size={80} />
-            : <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
-          }
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            {totalDs > 0 && <StatChip label="Healthy" value={healthyDs} color="#4ade80" />}
-            {unhealthyDs > 0 && <StatChip label="Down" value={unhealthyDs} color="#e53e3e" bg="#e53e3e18" />}
-            {totalDs > 0 && <StatChip label="Total DS" value={totalDs} />}
-            {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
-            {dashboardCount > 0 && <StatChip label="Dashboards" value={dashboardCount} />}
-            {version && <StatChip label="Version" value={`v${version}`} />}
-          </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
+        {totalDs > 0
+          ? <DSDonut healthy={healthyDs} total={totalDs} size={80} />
+          : <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
+        }
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+          {totalDs > 0 && <StatChip label="Healthy" value={healthyDs} color="#4ade80" />}
+          {unhealthyDs > 0 && <StatChip label="Down" value={unhealthyDs} color="#e53e3e" bg="#e53e3e18" />}
+          {totalDs > 0 && <StatChip label="Total DS" value={totalDs} />}
+          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
+          {dashboardCount > 0 && <StatChip label="Dashboards" value={dashboardCount} />}
+          {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
-
-        {/* Alerts */}
-        {alerts.length > 0 && (
-          <div>
-            <ColHeader>Alerts ({firingAlerts} firing)</ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {alerts.slice(0, 4).map((a, i) => <AlertRow key={i} alert={a} />)}
-              {alerts.length > 4 && (
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', paddingLeft: 13 }}>
-                  +{alerts.length - 4} more
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Datasource list */}
-        {datasources.length > 0 && (
-          <div>
-            <ColHeader>
-              Datasources ({unhealthyDs > 0 ? `${unhealthyDs} down` : `${healthyDs} healthy`}{unknownDs > 0 ? `, ${unknownDs} unknown` : ''})
-            </ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {datasources.slice(0, 5).map((ds, i) => <DSRow key={i} ds={ds} />)}
-              {datasources.length > 5 && (
-                <div style={{ fontSize: 11, color: 'var(--text-dim)', paddingLeft: 13 }}>
-                  +{datasources.length - 5} more
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     )
   }
 
   // ── 4×+ full layout ──────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {/* Donut + chips header */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        {totalDs > 0
-          ? <DSDonut healthy={healthyDs} total={totalDs} size={80} />
-          : null
-        }
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          {totalDs > 0 && <StatChip label="Healthy DS" value={healthyDs} color="#4ade80" />}
-          {unhealthyDs > 0 && <StatChip label="Down DS" value={unhealthyDs} color="#e53e3e" bg="#e53e3e18" />}
-          {totalDs > 0 && <StatChip label="Total DS" value={totalDs} />}
-          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
-          {dashboardCount > 0 && <StatChip label="Dashboards" value={dashboardCount} />}
-          {userCount > 0 && <StatChip label="Users" value={userCount} />}
-          {version && <StatChip label="Version" value={`v${version}`} />}
-          {orgName && <StatChip label="Org" value={orgName} />}
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflow: 'auto' }}>
+      {/* Donut */}
+      <div style={{ display: 'flex', justifyContent: 'center' }}>
+        {totalDs > 0 ? <DSDonut healthy={healthyDs} total={totalDs} size={80} /> : null}
       </div>
 
-      {/* Three-column: datasources | alerts | details */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+      {/* Data tiles */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
+        {totalDs > 0 && <StatChip label="Healthy DS" value={healthyDs} color="#4ade80" />}
+        {unhealthyDs > 0 && <StatChip label="Down DS" value={unhealthyDs} color="#e53e3e" bg="#e53e3e18" />}
+        {totalDs > 0 && <StatChip label="Total DS" value={totalDs} />}
+        {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
+        {dashboardCount > 0 && <StatChip label="Dashboards" value={dashboardCount} />}
+        {userCount > 0 && <StatChip label="Users" value={userCount} />}
+        {version && <StatChip label="Version" value={`v${version}`} />}
+        {orgName && <StatChip label="Org" value={orgName} />}
+      </div>
 
-        {/* Col 1: Datasources */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Datasources ({totalDs})</ColHeader>
-          {datasources.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No datasources</div>
-            : datasources.map((ds, i) => <DSRow key={i} ds={ds} />)
-          }
-        </div>
+      {/* Datasources */}
+      <div>
+        <ColHeader>Datasources ({totalDs})</ColHeader>
+        {datasources.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No datasources</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {datasources.map((ds, i) => <DSRow key={i} ds={ds} />)}
+            </div>
+        }
+      </div>
 
-        {/* Col 2: Alerts */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Alerts {firingAlerts > 0 ? `(${firingAlerts} firing)` : '(none)'}</ColHeader>
-          {alerts.length === 0
-            ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
-            : alerts.map((a, i) => <AlertRow key={i} alert={a} />)
-          }
-        </div>
+      {/* Alerts */}
+      <div>
+        <ColHeader>Alerts {firingAlerts > 0 ? `(${firingAlerts} firing)` : '(none)'}</ColHeader>
+        {alerts.length === 0
+          ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
+          : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {alerts.map((a, i) => <AlertRow key={i} alert={a} />)}
+            </div>
+        }
+      </div>
 
-        {/* Col 3: Instance details */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Instance</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {database && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <div style={{ width: 7, height: 7, borderRadius: '50%',
-                  background: dbOk ? '#4ade80' : '#e53e3e', flexShrink: 0 }} />
-                <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                  Database {dbOk ? 'ok' : database}
-                </span>
+      {/* Instance */}
+      <div>
+        <ColHeader>Instance</ColHeader>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {database && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{ width: 7, height: 7, borderRadius: '50%',
+                background: dbOk ? '#4ade80' : '#e53e3e', flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                Database {dbOk ? 'ok' : database}
+              </span>
+            </div>
+          )}
+          {version && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+              Version: v{version}
+            </div>
+          )}
+          {orgName && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Org: {orgName}</div>
+          )}
+          {dashboardCount > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Dashboards: {dashboardCount}</div>
+          )}
+          {userCount > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Users: {userCount}</div>
+          )}
+          {datasources.length > 0 && (() => {
+            const typeCounts: Record<string, number> = {}
+            datasources.forEach(ds => {
+              const t = dsTypeName(ds.type)
+              typeCounts[t] = (typeCounts[t] || 0) + 1
+            })
+            const types = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
+            return types.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 2 }}>
+                {types.map(([t, n]) => (
+                  <span key={t} style={{
+                    fontSize: 9, fontWeight: 600, color: dsTypeColor(t.toLowerCase()),
+                    background: dsTypeColor(t.toLowerCase()) + '22',
+                    borderRadius: 4, padding: '2px 5px', letterSpacing: '0.03em',
+                  }}>
+                    {t}{n > 1 ? ` ×${n}` : ''}
+                  </span>
+                ))}
               </div>
-            )}
-            {version && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
-                Version: v{version}
-              </div>
-            )}
-            {orgName && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Org: {orgName}
-              </div>
-            )}
-            {dashboardCount > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Dashboards: {dashboardCount}
-              </div>
-            )}
-            {userCount > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                Users: {userCount}
-              </div>
-            )}
-            {/* Datasource type breakdown */}
-            {datasources.length > 0 && (() => {
-              const typeCounts: Record<string, number> = {}
-              datasources.forEach(ds => {
-                const t = dsTypeName(ds.type)
-                typeCounts[t] = (typeCounts[t] || 0) + 1
-              })
-              const types = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])
-              return types.length > 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
-                  <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-                    letterSpacing: '0.04em', marginBottom: 2 }}>
-                    DS Types
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {types.map(([t, n]) => (
-                      <span key={t} style={{
-                        fontSize: 9, fontWeight: 600, color: dsTypeColor(t.toLowerCase()),
-                        background: dsTypeColor(t.toLowerCase()) + '22',
-                        borderRadius: 4, padding: '2px 5px', letterSpacing: '0.03em',
-                      }}>
-                        {t} {n > 1 ? `×${n}` : ''}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null
-            })()}
-          </div>
+            ) : null
+          })()}
         </div>
       </div>
     </div>

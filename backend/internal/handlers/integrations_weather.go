@@ -270,57 +270,69 @@ func fetchWeatherPanel(config map[string]interface{}) (*WeatherPanelData, error)
 	return data, nil
 }
 
-// ── Integration-based fetcher — reads lat/lon from integration api_url ────────
-// api_url stores "lat,lon,city,unit" — repurposed since weather has no base URL.
+// ── Integration-based fetcher — reads lat/lon/city/unit from integration config ─
 
 func FetchWeatherForIntegration(db *sql.DB, config map[string]interface{}) (interface{}, error) {
 	integrationID, _ := config["integrationId"].(string)
 	if integrationID == "" {
 		return nil, fmt.Errorf("no integrationId in config")
 	}
-	// api_url stores "lat|lon|city|unit" (pipe-delimited to avoid comma issues with city names)
-	// Legacy format "lat,lon,city,unit" is also supported
-	var apiURL string
-	db.QueryRow(`SELECT api_url FROM integrations WHERE id=? AND enabled=1`, integrationID).Scan(&apiURL)
-	if apiURL == "" {
-		return nil, fmt.Errorf("weather integration not configured")
-	}
-	// Detect delimiter
-	delim := "|"
-	if !strings.Contains(apiURL, "|") { delim = "," }
-	var parts []string
-	if delim == "|" {
-		parts = strings.Split(apiURL, "|")
-	} else {
-		// Legacy comma format — only safe split is first 2 fields (lat,lon); rest is city,unit
-		// lat and lon never contain commas so split on first 2
-		commaparts := strings.SplitN(apiURL, ",", 3)
-		if len(commaparts) >= 2 {
-			parts = []string{commaparts[0], commaparts[1]}
-			if len(commaparts) == 3 {
-				// Last part may be "Chicago, IL, US,f" — unit is after last comma
-				rest := commaparts[2]
-				lastComma := strings.LastIndex(rest, ",")
-				if lastComma >= 0 {
-					parts = append(parts, strings.TrimSpace(rest[:lastComma]))
-					parts = append(parts, strings.TrimSpace(rest[lastComma+1:]))
-				} else {
-					parts = append(parts, rest)
-				}
+
+	var apiURL, cfgJSON string
+	db.QueryRow(`SELECT COALESCE(api_url,''), COALESCE(config,'{}') FROM integrations WHERE id=? AND enabled=1`,
+		integrationID).Scan(&apiURL, &cfgJSON)
+
+	wConfig := map[string]interface{}{"city": "", "unit": "f"}
+
+	// New format: config column holds {"lat":"...","lon":"...","city":"...","unit":"..."}
+	if cfgJSON != "{}" && cfgJSON != "" {
+		var parsed map[string]interface{}
+		if json.Unmarshal([]byte(cfgJSON), &parsed) == nil {
+			if lat, ok := parsed["lat"].(string); ok && lat != "" {
+				wConfig["lat"] = lat
+				wConfig["lon"] = parsed["lon"]
+				wConfig["city"] = parsed["city"]
+				wConfig["unit"] = parsed["unit"]
 			}
 		}
 	}
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid weather config: expected lat|lon[|city[|unit]]")
+
+	// Legacy fallback: api_url stores "lat|lon|city|unit" (pipe-delimited)
+	if wConfig["lat"] == nil && apiURL != "" {
+		delim := "|"
+		if !strings.Contains(apiURL, "|") {
+			delim = ","
+		}
+		var parts []string
+		if delim == "|" {
+			parts = strings.Split(apiURL, "|")
+		} else {
+			commaparts := strings.SplitN(apiURL, ",", 3)
+			if len(commaparts) >= 2 {
+				parts = []string{commaparts[0], commaparts[1]}
+				if len(commaparts) == 3 {
+					rest := commaparts[2]
+					lastComma := strings.LastIndex(rest, ",")
+					if lastComma >= 0 {
+						parts = append(parts, strings.TrimSpace(rest[:lastComma]))
+						parts = append(parts, strings.TrimSpace(rest[lastComma+1:]))
+					} else {
+						parts = append(parts, rest)
+					}
+				}
+			}
+		}
+		if len(parts) >= 2 {
+			wConfig["lat"] = strings.TrimSpace(parts[0])
+			wConfig["lon"] = strings.TrimSpace(parts[1])
+			if len(parts) >= 3 { wConfig["city"] = strings.TrimSpace(parts[2]) }
+			if len(parts) >= 4 { wConfig["unit"] = strings.TrimSpace(parts[3]) }
+		}
 	}
-	wConfig := map[string]interface{}{
-		"lat":  strings.TrimSpace(parts[0]),
-		"lon":  strings.TrimSpace(parts[1]),
-		"city": "",
-		"unit": "f",
+
+	if wConfig["lat"] == nil {
+		return nil, fmt.Errorf("weather integration not configured")
 	}
-	if len(parts) >= 3 { wConfig["city"] = strings.TrimSpace(parts[2]) }
-	if len(parts) >= 4 { wConfig["unit"] = strings.TrimSpace(parts[3]) }
 	return fetchWeatherPanel(wConfig)
 }
 
