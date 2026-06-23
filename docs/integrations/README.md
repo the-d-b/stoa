@@ -152,7 +152,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| GitHub | 🔶 Need Testing | Classic or fine-grained PAT — GitHub → Settings → Developer Settings; scopes: `read:user`, `public_repo` | None (GitHub API) | 2 min | [github/](github/) |
+| GitHub | ✅ Tested | Classic or fine-grained PAT — GitHub → Settings → Developer Settings; scopes: `read:user`, `public_repo` | None (GitHub API) | 2 min | [github/](github/) |
 
 ---
 
