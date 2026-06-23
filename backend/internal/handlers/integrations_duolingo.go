@@ -1,88 +1,23 @@
 package handlers
 
 import (
-	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"sort"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
-// ── JWT cache (avoid logging in on every 60-second panel refresh) ──────────────
-
-var (
-	duoJWTMu    sync.RWMutex
-	duoJWTCache = map[string]struct {
-		jwt       string
-		expiresAt time.Time
-	}{}
-)
-
-func duoParseCreds(apiKey string) (username, password string, err error) {
-	idx := strings.Index(apiKey, ":")
-	if idx < 0 {
-		return "", "", fmt.Errorf("duolingo: API key must be username:password")
+// duoParseCreds accepts "username" or "username:jwt_token".
+// The profile API is publicly accessible; JWT is optional for potential private fields.
+func duoParseCreds(apiKey string) (username, jwt string) {
+	if idx := strings.Index(apiKey, ":"); idx > 0 {
+		return strings.TrimSpace(apiKey[:idx]), strings.TrimSpace(apiKey[idx+1:])
 	}
-	return apiKey[:idx], apiKey[idx+1:], nil
-}
-
-func duoGetJWT(username, password string) (string, error) {
-	cacheKey := username + ":" + password
-
-	duoJWTMu.RLock()
-	if e, ok := duoJWTCache[cacheKey]; ok && time.Now().Before(e.expiresAt) {
-		duoJWTMu.RUnlock()
-		return e.jwt, nil
-	}
-	duoJWTMu.RUnlock()
-
-	body, _ := json.Marshal(map[string]string{"login": username, "password": password})
-	req, _ := http.NewRequest("POST", "https://www.duolingo.com/login", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; StoaDashboard/1.0)")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("duolingo: login request failed: %w", err)
-	}
-	defer resp.Body.Close()
-	b, _ := io.ReadAll(resp.Body)
-
-	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("duolingo: login failed (HTTP %d) — check username and password", resp.StatusCode)
-	}
-
-	var loginResp struct {
-		JWT     string `json:"jwt"`
-		Failure string `json:"failure"`
-	}
-	json.Unmarshal(b, &loginResp)
-
-	// JWT may also be in response header
-	if loginResp.JWT == "" {
-		loginResp.JWT = resp.Header.Get("jwt")
-	}
-	if loginResp.Failure != "" {
-		return "", fmt.Errorf("duolingo: login rejected — %s", loginResp.Failure)
-	}
-	if loginResp.JWT == "" {
-		return "", fmt.Errorf("duolingo: no JWT in login response")
-	}
-
-	duoJWTMu.Lock()
-	duoJWTCache[cacheKey] = struct {
-		jwt       string
-		expiresAt time.Time
-	}{loginResp.JWT, time.Now().Add(12 * time.Hour)}
-	duoJWTMu.Unlock()
-
-	return loginResp.JWT, nil
+	return strings.TrimSpace(apiKey), ""
 }
 
 func duoGetUser(username, jwt string) ([]byte, error) {
@@ -92,7 +27,6 @@ func duoGetUser(username, jwt string) ([]byte, error) {
 	if jwt != "" {
 		req.Header.Set("Authorization", "Bearer "+jwt)
 	}
-
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -107,54 +41,56 @@ func duoGetUser(username, jwt string) ([]byte, error) {
 // ── Output types ──────────────────────────────────────────────────────────────
 
 type DuolingoCourse struct {
-	Code   string `json:"code"`
-	Name   string `json:"name"`
-	Level  int    `json:"level"`
-	XP     int    `json:"xp"`
-	Active bool   `json:"active"`
-}
-
-type DuolingoDayXP struct {
-	Date string `json:"date"`
-	XP   int    `json:"xp"`
+	ID               string `json:"id"`
+	LearningLanguage string `json:"learningLanguage"`
+	Title            string `json:"title"`
+	XP               int    `json:"xp"`
+	Crowns           int    `json:"crowns"`
+	Active           bool   `json:"active"`
 }
 
 type DuolingoPanelData struct {
-	Username  string           `json:"username"`
-	Name      string           `json:"name"`
-	Streak    int              `json:"streak"`
-	TodayXP   int              `json:"todayXP"`
-	DailyGoal int              `json:"dailyGoal"`
-	TotalXP   int              `json:"totalXP"`
-	GoalMet   bool             `json:"goalMet"`
-	League    string           `json:"league"`
-	Courses   []DuolingoCourse `json:"courses"`
-	RecentXP  []DuolingoDayXP  `json:"recentXP"`
+	Username        string           `json:"username"`
+	Name            string           `json:"name"`
+	AvatarURL       string           `json:"avatarUrl"`
+	Streak          int              `json:"streak"`
+	LongestStreak   int              `json:"longestStreak"`
+	StreakDoneToday bool             `json:"streakDoneToday"`
+	TotalXP         int              `json:"totalXP"`
+	HasPlus         bool             `json:"hasPlus"`
+	League          string           `json:"league"`
+	Courses         []DuolingoCourse `json:"courses"`
 }
 
-// ── Raw API response types ────────────────────────────────────────────────────
+// ── Raw API types ─────────────────────────────────────────────────────────────
 
-type duoLangData struct {
-	LanguageString  string `json:"language_string"`
-	Learning        bool   `json:"learning"`
-	CurrentLearning bool   `json:"current_learning"`
-	Level           int    `json:"level"`
-	Points          int    `json:"points"`
-	Streak          int    `json:"streak"`
+type duoCourseRaw struct {
+	ID               string `json:"id"`
+	LearningLanguage string `json:"learningLanguage"`
+	Title            string `json:"title"`
+	XP               int    `json:"xp"`
+	Crowns           int    `json:"crowns"`
 }
 
 type duoUserRaw struct {
-	ID                   int64                       `json:"id"`
-	Name                 string                      `json:"name"`
-	Username             string                      `json:"username"`
-	SiteStreak           int                         `json:"site_streak"`
-	DailyGoal            int                         `json:"daily_goal"`
-	StreakExtendedToday  bool                        `json:"streak_extended_today"`
-	CurrentLanguage      string                      `json:"language"`
-	Languages            []string                    `json:"languages"`
-	LanguageData         map[string]duoLangData      `json:"language_data"`
-	Calendar             map[string]int              `json:"calendar"`
-	LeagueData           json.RawMessage             `json:"league_data"`
+	Name            string         `json:"name"`
+	Username        string         `json:"username"`
+	Picture         string         `json:"picture"`
+	Streak          int            `json:"streak"`
+	TotalXp         int            `json:"totalXp"`
+	HasPlus         bool           `json:"hasPlus"`
+	CurrentCourseID string         `json:"currentCourseId"`
+	Courses         []duoCourseRaw `json:"courses"`
+	StreakData      struct {
+		CurrentStreak struct {
+			Length  int    `json:"length"`
+			EndDate string `json:"endDate"`
+		} `json:"currentStreak"`
+		LongestStreak struct {
+			Length int `json:"length"`
+		} `json:"longestStreak"`
+	} `json:"streakData"`
+	LeagueData json.RawMessage `json:"leagueData"`
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
@@ -164,67 +100,49 @@ func fetchDuolingoPanelData(db *sql.DB, config map[string]interface{}) (*Duoling
 	if integrationID == "" {
 		return nil, fmt.Errorf("duolingo: integrationId required in panel config")
 	}
-
 	_, _, apiKey, _, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
-
-	username, password, err := duoParseCreds(apiKey)
-	if err != nil {
-		return nil, err
+	username, jwt := duoParseCreds(apiKey)
+	if username == "" {
+		return nil, fmt.Errorf("duolingo: username is required")
 	}
 
-	// Login to get JWT
-	jwt, err := duoGetJWT(username, password)
-	if err != nil {
-		return nil, err
-	}
-
-	// Fetch user profile
 	b, err := duoGetUser(username, jwt)
 	if err != nil {
-		// Invalidate cached JWT on auth failure and retry once
-		duoJWTMu.Lock()
-		delete(duoJWTCache, username+":"+password)
-		duoJWTMu.Unlock()
-		jwt2, loginErr := duoGetJWT(username, password)
-		if loginErr != nil {
-			return nil, err
-		}
-		b, err = duoGetUser(username, jwt2)
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
-
-	// Parse response — users array
 	var wrapper struct {
 		Users []duoUserRaw `json:"users"`
 	}
 	if json.Unmarshal(b, &wrapper) != nil || len(wrapper.Users) == 0 {
-		return nil, fmt.Errorf("duolingo: unexpected response format")
+		return nil, fmt.Errorf("duolingo: user %q not found — check your Duolingo username", username)
 	}
 	u := wrapper.Users[0]
 
-	// ── Courses ───────────────────────────────────────────────────────────────
-	totalXP := 0
-	var courses []DuolingoCourse
-	for _, code := range u.Languages {
-		ld, ok := u.LanguageData[code]
-		if !ok || !ld.Learning {
-			continue
-		}
-		totalXP += ld.Points
+	// Avatar: Duolingo returns protocol-relative URLs (//simg-ssl.duolingo.com/...)
+	avatarURL := u.Picture
+	if strings.HasPrefix(avatarURL, "//") {
+		avatarURL = "https:" + avatarURL
+	}
+
+	// Streak done today: compare endDate (last practice day) against today UTC
+	today := time.Now().UTC().Format("2006-01-02")
+	streakDoneToday := u.StreakData.CurrentStreak.EndDate >= today
+
+	// Courses — sort active first, then XP descending
+	courses := make([]DuolingoCourse, 0, len(u.Courses))
+	for _, c := range u.Courses {
 		courses = append(courses, DuolingoCourse{
-			Code:   code,
-			Name:   ld.LanguageString,
-			Level:  ld.Level,
-			XP:     ld.Points,
-			Active: ld.CurrentLearning || code == u.CurrentLanguage,
+			ID:               c.ID,
+			LearningLanguage: c.LearningLanguage,
+			Title:            c.Title,
+			XP:               c.XP,
+			Crowns:           c.Crowns,
+			Active:           c.ID == u.CurrentCourseID,
 		})
 	}
-	// Sort: active first, then by XP descending
 	sort.Slice(courses, func(i, j int) bool {
 		if courses[i].Active != courses[j].Active {
 			return courses[i].Active
@@ -232,61 +150,17 @@ func fetchDuolingoPanelData(db *sql.DB, config map[string]interface{}) (*Duoling
 		return courses[i].XP > courses[j].XP
 	})
 
-	// ── Calendar → recent XP (last 14 days) ──────────────────────────────────
-	type tsXP struct {
-		ts int64
-		xp int
-	}
-	var tsSlice []tsXP
-	for tsStr, xp := range u.Calendar {
-		ts, err := strconv.ParseInt(tsStr, 10, 64)
-		if err != nil {
-			continue
-		}
-		tsSlice = append(tsSlice, tsXP{ts, xp})
-	}
-	sort.Slice(tsSlice, func(i, j int) bool { return tsSlice[i].ts < tsSlice[j].ts })
-
-	// Take last 14 entries
-	if len(tsSlice) > 14 {
-		tsSlice = tsSlice[len(tsSlice)-14:]
-	}
-
-	recentXP := make([]DuolingoDayXP, len(tsSlice))
-	for i, entry := range tsSlice {
-		t := time.Unix(entry.ts, 0).UTC()
-		recentXP[i] = DuolingoDayXP{Date: t.Format("2006-01-02"), XP: entry.xp}
-	}
-
-	// Today's XP — last calendar entry if it's today's date
-	todayXP := 0
-	todayStr := time.Now().UTC().Format("2006-01-02")
-	if len(recentXP) > 0 {
-		last := recentXP[len(recentXP)-1]
-		if last.Date == todayStr {
-			todayXP = last.XP
-		}
-	}
-
-	// ── League ───────────────────────────────────────────────────────────────
-	league := duoParseLeague(u.LeagueData)
-
-	goal := u.DailyGoal
-	if goal == 0 {
-		goal = 10
-	}
-
 	return &DuolingoPanelData{
-		Username:  u.Username,
-		Name:      u.Name,
-		Streak:    u.SiteStreak,
-		TodayXP:   todayXP,
-		DailyGoal: goal,
-		TotalXP:   totalXP,
-		GoalMet:   u.StreakExtendedToday || todayXP >= goal,
-		League:    league,
-		Courses:   courses,
-		RecentXP:  recentXP,
+		Username:        u.Username,
+		Name:            u.Name,
+		AvatarURL:       avatarURL,
+		Streak:          u.Streak,
+		LongestStreak:   u.StreakData.LongestStreak.Length,
+		StreakDoneToday: streakDoneToday,
+		TotalXP:         u.TotalXp,
+		HasPlus:         u.HasPlus,
+		League:          duoParseLeague(u.LeagueData),
+		Courses:         courses,
 	}, nil
 }
 
@@ -295,7 +169,6 @@ func duoParseLeague(raw json.RawMessage) string {
 	if len(raw) == 0 || string(raw) == "null" {
 		return ""
 	}
-	// Try common shapes
 	var v1 struct {
 		Tier string `json:"tier"`
 	}
@@ -310,7 +183,6 @@ func duoParseLeague(raw json.RawMessage) string {
 	if json.Unmarshal(raw, &v2) == nil && v2.Active.Tier != "" {
 		return v2.Active.Tier
 	}
-	// Numeric tier → name
 	var v3 struct {
 		Tier int `json:"tier"`
 	}
@@ -323,20 +195,23 @@ func duoParseLeague(raw json.RawMessage) string {
 	return ""
 }
 
-// testDuolingoConnection parses credentials and attempts a login.
+// testDuolingoConnection validates the secret by hitting the profile endpoint.
 func testDuolingoConnection(apiKey string) error {
-	username, password, err := duoParseCreds(apiKey)
+	username, jwt := duoParseCreds(apiKey)
+	if username == "" {
+		return fmt.Errorf("duolingo: username is required")
+	}
+	b, err := duoGetUser(username, jwt)
 	if err != nil {
 		return err
 	}
-	if username == "" || password == "" {
-		return fmt.Errorf("duolingo: username and password cannot be empty")
+	var wrapper struct {
+		Users []struct {
+			Username string `json:"username"`
+		} `json:"users"`
 	}
-	// Invalidate cache to force a fresh login
-	duoJWTMu.Lock()
-	delete(duoJWTCache, username+":"+password)
-	duoJWTMu.Unlock()
-
-	_, err = duoGetJWT(username, password)
-	return err
+	if json.Unmarshal(b, &wrapper) != nil || len(wrapper.Users) == 0 {
+		return fmt.Errorf("duolingo: user %q not found — check your Duolingo username", username)
+	}
+	return nil
 }

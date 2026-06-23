@@ -204,7 +204,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | wger | 🔶 Need Testing | Plain API key — wger Dashboard → API (permanent token) | Required | 15 min | [wger/](wger/) |
 | Fittrackee | 🔶 Need Testing | `email:password` — your Fittrackee login | Required | 15 min | [fittrackee/](fittrackee/) |
 | Strava | 🔶 Need Testing | `clientId:clientSecret` — Strava API settings; connect account after saving | None (OAuth) | 60 s | [strava/](strava/) |
-| Duolingo | 🔶 Need Testing | `username:password` — your Duolingo login | None (unofficial API) | 60 s | [duolingo/](duolingo/) |
+| Duolingo | ✅ Tested | Your Duolingo `username` — public profile API, no password required | None (public API) | 5 min | [duolingo/](duolingo/) |
 
 ---
 
@@ -265,7 +265,7 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | Format | Example | Used by |
 |---|---|---|
 | Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy |
-| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Duolingo, Homebox, Fittrackee |
+| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Homebox, Fittrackee |
 | Bare password (no username) | `mysecret` | Deluge, wg-easy |
 | `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox |
 | `username:apiKey` | `alice:abc123` | Last.fm |
