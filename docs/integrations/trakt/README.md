@@ -34,7 +34,7 @@ Trakt watch-tracking panel with live now-playing indicator, all-time stats, and 
 - **Now watching badge** — pulsing red dot with title when actively scrobbling via PlexTraktSync or similar
 - **Stats bar** — total movies watched, episodes watched, and ratings count
 - **Artwork carousels** — hover the left/right 15% edge to auto-scroll filmstrips; click any poster to open on trakt.tv
-- **Add to Radarr / Sonarr** — ➕ button on each poster card; configure integrations via the ⚙ Add to ARR section in the panel
+- **Add to Radarr / Sonarr** — ➕ button on each poster card; configure Radarr/Sonarr integrations and rating filters in Settings → Panels → Edit
 - **Accordion sections** — one open at a time; auto-opens the first section with data:
   - 📈 Trending (movies + shows tabs)
   - ⭐ Popular (movies + shows tabs)
@@ -42,7 +42,6 @@ Trakt watch-tracking panel with live now-playing indicator, all-time stats, and 
   - 📌 My Watchlist (movies + shows tabs)
   - 🕐 Watch History (deduped by show)
   - 📋 My Lists (links to your public custom lists)
-  - ⚙ Add to ARR (Radarr + Sonarr integration selector)
 
 ### Height behavior
 
@@ -53,12 +52,21 @@ Trakt watch-tracking panel with live now-playing indicator, all-time stats, and 
 
 ### Adding to Radarr / Sonarr
 
-1. Expand **⚙ Add to ARR** at the bottom of the panel
+1. Go to **Settings → Panels → Edit** (the pencil icon on the Trakt panel)
 2. Select your Radarr integration (for movies) and/or Sonarr integration (for shows)
-3. Click **Save** — the ➕ button will now appear on every poster card
+3. Click **Save** — the ➕ button will now appear on every poster card in the panel
 4. Click ➕ on any poster to add it (uses your first quality profile and root folder)
 
 > Radarr uses the TMDB ID; Sonarr uses the TVDB ID — both are provided by Trakt on every item so no lookup is needed.
+
+### Rating filters
+
+To keep shared dashboards family-safe, configure allowed ratings in **Settings → Panels → Edit**:
+
+- **Movie ratings** — comma-separated MPAA ratings, e.g. `G, PG, PG-13`. Leave blank to show all.
+- **TV ratings** — comma-separated TV ratings, e.g. `TV-Y, TV-G, TV-PG, TV-14`. Leave blank to show all.
+
+Any international rating system is supported — just enter the rating strings as they appear on Trakt. Unrated / NR content is excluded whenever a filter is active.
 
 ### Screenshots
 

@@ -463,11 +463,14 @@ func parseTraktStats(b []byte) TraktStats {
 // ── Rating filter ─────────────────────────────────────────────────────────────
 
 func traktRatingFilter(config map[string]interface{}, key string) []string {
-	raw, _ := config[key].([]interface{})
-	out := make([]string, 0, len(raw))
-	for _, r := range raw {
-		if s, ok := r.(string); ok && s != "" {
-			out = append(out, strings.ToUpper(strings.TrimSpace(s)))
+	raw, _ := config[key].(string)
+	if raw == "" {
+		return nil
+	}
+	var out []string
+	for _, r := range strings.Split(raw, ",") {
+		if s := strings.ToUpper(strings.TrimSpace(r)); s != "" {
+			out = append(out, s)
 		}
 	}
 	return out

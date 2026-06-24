@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { integrationsApi, panelsApi, myPanelsApi, Panel, Integration } from '../../api'
+import { integrationsApi, Panel } from '../../api'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -342,157 +342,6 @@ function ListsContent({ lists, username }: { lists: TraktUserList[]; username: s
   )
 }
 
-// ── ARR Settings Section ──────────────────────────────────────────────────────
-
-const MOVIE_RATINGS = ['G', 'PG', 'PG-13', 'R', 'NC-17']
-const SHOW_RATINGS  = ['TV-Y', 'TV-Y7', 'TV-G', 'TV-PG', 'TV-14', 'TV-MA']
-
-function RatingToggle({ label, note, ratings, allRatings, onChange }: {
-  label: string; note: string
-  ratings: string[]; allRatings: string[]
-  onChange: (r: string[]) => void
-}) {
-  const toggle = (r: string) =>
-    onChange(ratings.includes(r) ? ratings.filter(x => x !== r) : [...ratings, r])
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600 }}>{label}</label>
-        <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>
-          {ratings.length === 0 ? '(all shown)' : `(${ratings.join(', ')} only — unrated excluded)`}
-        </span>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-        {allRatings.map(r => {
-          const active = ratings.includes(r)
-          return (
-            <button key={r} onClick={() => toggle(r)} style={{
-              padding: '3px 9px', borderRadius: 5, cursor: 'pointer', fontSize: 11,
-              background: active ? 'var(--accent-bg)' : 'transparent',
-              color: active ? 'var(--accent2)' : 'var(--text-dim)',
-              border: `1px solid ${active ? '#7c6fff50' : 'var(--border)'}`,
-              fontWeight: active ? 600 : 400,
-            }}>{r}</button>
-          )
-        })}
-      </div>
-      <span style={{ fontSize: 10, color: 'var(--text-dim)', lineHeight: 1.4 }}>{note}</span>
-    </div>
-  )
-}
-
-function ArrSettings({ panel, radarrIntId, sonarrIntId, movieRatings: initMR, showRatings: initSR, onSaved }: {
-  panel: Panel
-  radarrIntId: string
-  sonarrIntId: string
-  movieRatings: string[]
-  showRatings: string[]
-  onSaved: (radarrId: string, sonarrId: string, movieRatings: string[], showRatings: string[]) => void
-}) {
-  const [integrations, setIntegrations] = useState<Integration[] | null>(null)
-  const [localRadarr, setLocalRadarr] = useState(radarrIntId)
-  const [localSonarr, setLocalSonarr] = useState(sonarrIntId)
-  const [movieRatings, setMovieRatings] = useState<string[]>(initMR)
-  const [showRatings, setShowRatings] = useState<string[]>(initSR)
-  const [saving, setSaving] = useState(false)
-  const [saveMsg, setSaveMsg] = useState('')
-
-  useEffect(() => {
-    integrationsApi.list().then(r => setIntegrations(r.data || []))
-  }, [])
-
-  const radarrOptions = (integrations || []).filter(i => i.type === 'radarr')
-  const sonarrOptions = (integrations || []).filter(i => i.type === 'sonarr')
-
-  async function save() {
-    setSaving(true)
-    setSaveMsg('')
-    try {
-      const existing = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-      const newConfig = JSON.stringify({
-        ...existing,
-        radarrIntegrationId: localRadarr,
-        sonarrIntegrationId: localSonarr,
-        movieRatings,
-        showRatings,
-      })
-      if (panel.scope === 'personal') {
-        await myPanelsApi.update(panel.id, { title: panel.title, config: newConfig })
-      } else {
-        await panelsApi.update(panel.id, { title: panel.title, config: newConfig })
-      }
-      onSaved(localRadarr, localSonarr, movieRatings, showRatings)
-      setSaveMsg('Saved')
-    } catch {
-      setSaveMsg('Save failed — admin access required for shared panels')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (!integrations) {
-    return <div style={{ padding: '10px 12px', fontSize: 11, color: 'var(--text-dim)' }}>Loading…</div>
-  }
-
-  return (
-    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-
-      {/* ARR integration selectors */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600 }}>Radarr (movies)</label>
-        <select value={localRadarr} onChange={e => setLocalRadarr(e.target.value)}
-          className="input" style={{ fontSize: 12, padding: '4px 8px' }}>
-          <option value="">— not configured —</option>
-          {radarrOptions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-        </select>
-        {radarrOptions.length === 0 && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>No Radarr integrations found. Add one in Admin → Integrations.</span>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <label style={{ fontSize: 11, color: 'var(--text-dim)', fontWeight: 600 }}>Sonarr (shows)</label>
-        <select value={localSonarr} onChange={e => setLocalSonarr(e.target.value)}
-          className="input" style={{ fontSize: 12, padding: '4px 8px' }}>
-          <option value="">— not configured —</option>
-          {sonarrOptions.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
-        </select>
-        {sonarrOptions.length === 0 && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>No Sonarr integrations found. Add one in Admin → Integrations.</span>
-        )}
-      </div>
-
-      <div style={{ height: 1, background: 'var(--border)' }} />
-
-      {/* Rating filters */}
-      <RatingToggle
-        label="Movie ratings"
-        note="Select ratings to show. Leave all off to show everything. Unrated movies are excluded when any filter is active."
-        ratings={movieRatings} allRatings={MOVIE_RATINGS}
-        onChange={setMovieRatings}
-      />
-      <RatingToggle
-        label="Show ratings"
-        note="Select ratings to show. Leave all off to show everything. Unrated shows are excluded when any filter is active."
-        ratings={showRatings} allRatings={SHOW_RATINGS}
-        onChange={setShowRatings}
-      />
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <button className="btn btn-primary" onClick={save} disabled={saving}
-          style={{ fontSize: 12, padding: '5px 14px' }}>
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-        {saveMsg && (
-          <span style={{ fontSize: 11, color: saveMsg === 'Saved' ? '#22c55e' : '#ef4444' }}>
-            {saveMsg}
-          </span>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ── Panel ─────────────────────────────────────────────────────────────────────
 
 const SECTION_DEFS = [
@@ -512,10 +361,8 @@ export default function TraktPanel({ panel, heightUnits }: { panel: Panel; heigh
 
   // Parse ARR config from panel config
   const panelCfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const [radarrIntId, setRadarrIntId] = useState<string>(panelCfg.radarrIntegrationId ?? '')
-  const [sonarrIntId, setSonarrIntId] = useState<string>(panelCfg.sonarrIntegrationId ?? '')
-  const [movieRatings, setMovieRatings] = useState<string[]>(panelCfg.movieRatings ?? [])
-  const [showRatings, setShowRatings] = useState<string[]>(panelCfg.showRatings ?? [])
+  const radarrIntId: string = panelCfg.radarrIntegrationId ?? ''
+  const sonarrIntId: string = panelCfg.sonarrIntegrationId ?? ''
 
   const load = useCallback(async () => {
     try {
@@ -658,19 +505,6 @@ export default function TraktPanel({ panel, heightUnits }: { panel: Panel; heigh
             </div>
           : <ListsContent lists={data.userLists ?? []} username={data.username} />
         }
-      </AccordionSection>
-
-      {/* ARR Settings */}
-      <AccordionSection icon="⚙" label="Add to ARR" isOpen={openSection === 'settings'}
-        onToggle={() => toggle('settings')}>
-        <ArrSettings
-          panel={panel}
-          radarrIntId={radarrIntId}
-          sonarrIntId={sonarrIntId}
-          movieRatings={movieRatings}
-          showRatings={showRatings}
-          onSaved={(r, s, mr, sr) => { setRadarrIntId(r); setSonarrIntId(s); setMovieRatings(mr); setShowRatings(sr) }}
-        />
       </AccordionSection>
 
     </div>

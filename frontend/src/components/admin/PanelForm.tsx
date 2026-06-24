@@ -238,6 +238,12 @@ export default function PanelForm({
   const [integrationId, setIntegrationId] = useState(cfg.integrationId ?? '')
   const [allowedRatings, setAllowedRatings] = useState(cfg.allowedRatings ?? '')
 
+  // ── Trakt ARR links ────────────────────────────────────────────────────────
+  const [traktRadarrId, setTraktRadarrId] = useState(cfg.radarrIntegrationId ?? '')
+  const [traktSonarrId, setTraktSonarrId] = useState(cfg.sonarrIntegrationId ?? '')
+  const [traktMovieRatings, setTraktMovieRatings] = useState(cfg.movieRatings ?? '')
+  const [traktShowRatings, setTraktShowRatings] = useState(cfg.showRatings ?? '')
+
   // ── Home Assistant entity filter ───────────────────────────────────────────
   const [haEntityIds, setHaEntityIds] = useState(cfg.entityIds ?? '')
   const [haDomains, setHaDomains] = useState(cfg.domains ?? '')
@@ -305,6 +311,10 @@ export default function PanelForm({
     setHeight(c.height ?? 2)
     setIntegrationId(c.integrationId ?? '')
     setAllowedRatings(c.allowedRatings ?? '')
+    setTraktRadarrId(c.radarrIntegrationId ?? '')
+    setTraktSonarrId(c.sonarrIntegrationId ?? '')
+    setTraktMovieRatings(c.movieRatings ?? '')
+    setTraktShowRatings(c.showRatings ?? '')
     setHaEntityIds(c.entityIds ?? '')
     setHaDomains(c.domains ?? '')
     setAbBudgetId(c.budgetId ?? '')
@@ -326,6 +336,7 @@ export default function PanelForm({
   const handleTypeChange = (t: string) => {
     setType(t); setIntegrationId(''); setAllowedRatings('')
     setHaEntityIds(''); setHaDomains(''); setAbBudgetId('')
+    setTraktRadarrId(''); setTraktSonarrId(''); setTraktMovieRatings(''); setTraktShowRatings('')
     setShowInlineCreate(false)
     setInlineName(''); setInlineUrl(''); setInlineSecretId('')
     setInlineTestResult(null); setInlineGeoQuery(''); setInlineGeoResults([])
@@ -442,6 +453,12 @@ export default function PanelForm({
       }
       if (RATINGS_TYPES.includes(type) && allowedRatings.trim()) {
         base.allowedRatings = allowedRatings.trim()
+      }
+      if (type === 'trakt') {
+        if (traktRadarrId) base.radarrIntegrationId = traktRadarrId
+        if (traktSonarrId) base.sonarrIntegrationId = traktSonarrId
+        if (traktMovieRatings.trim()) base.movieRatings = traktMovieRatings.trim()
+        if (traktShowRatings.trim()) base.showRatings = traktShowRatings.trim()
       }
     }
     return JSON.stringify(base)
@@ -763,6 +780,62 @@ export default function PanelForm({
             placeholder="e.g. G, PG, PG-13" />
           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
             Unrated / NR content is excluded when a filter is active.
+          </div>
+        </div>
+      )}
+
+      {/* Trakt: Radarr/Sonarr links + rating filters */}
+      {type === 'trakt' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <label className="label">
+              Radarr integration{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — for adding movies)</span>
+            </label>
+            <select className="input" value={traktRadarrId}
+              onChange={e => setTraktRadarrId(e.target.value)} style={{ cursor: 'pointer' }}>
+              <option value="">— None —</option>
+              {localIntegrations.filter(i => i.type === 'radarr').map(i => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">
+              Sonarr integration{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — for adding shows)</span>
+            </label>
+            <select className="input" value={traktSonarrId}
+              onChange={e => setTraktSonarrId(e.target.value)} style={{ cursor: 'pointer' }}>
+              <option value="">— None —</option>
+              {localIntegrations.filter(i => i.type === 'sonarr').map(i => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label">
+              Movie ratings{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+            </label>
+            <input className="input" value={traktMovieRatings}
+              onChange={e => setTraktMovieRatings(e.target.value)}
+              placeholder="e.g. G, PG, PG-13" />
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+              Comma-separated MPAA ratings. Unrated / NR content is excluded when a filter is active.
+            </div>
+          </div>
+          <div>
+            <label className="label">
+              TV ratings{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+            </label>
+            <input className="input" value={traktShowRatings}
+              onChange={e => setTraktShowRatings(e.target.value)}
+              placeholder="e.g. TV-Y, TV-G, TV-PG, TV-14" />
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+              Comma-separated TV content ratings. Unrated / NR content is excluded when a filter is active.
+            </div>
           </div>
         </div>
       )}
