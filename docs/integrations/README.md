@@ -233,7 +233,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|---|---|
 | YouTube | 🧪 Experimental | `clientId:clientSecret` — Google Cloud Console; connect account after saving | None (OAuth) | 60 min | [youtube/](youtube/) |
 | Twitch | 🔶 Need Testing | `clientId:clientSecret` — Twitch Developer Console; connect account after saving | None (OAuth) | 60 s | [twitch/](twitch/) |
-| Trakt | 🔶 Need Testing | `clientId:username` — Client ID from trakt.tv/oauth/applications + your Trakt username | None (Trakt API) | 60 s | [trakt/](trakt/) |
+| Trakt | ✅ Tested | `clientId:username` or `clientId:username:tmdbApiKey` — Client ID from trakt.tv/oauth/applications + Trakt username + optional TMDB key for poster artwork | None (Trakt API) | 60 s | [trakt/](trakt/) |
 | RSS / Atom | ✅ Tested | Blank (public feeds) **or** Bearer `token` (authenticated feeds) | Feed URL | 5 min | [rss/](rss/) |
 | Weather | ✅ Tested | Blank — Open-Meteo public API, no key needed | None (standalone) | 10 min | [weather/](weather/) |
 | Sports | ✅ Tested | Blank — ESPN public API, no key needed | None (standalone) | 5 min | [sports/](sports/) |
@@ -270,7 +270,7 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox |
 | `username:apiKey` | `alice:abc123` | Last.fm |
 | `clientId:clientSecret` → OAuth | `abc:xyz` | Spotify, Strava, Twitch, YouTube |
-| `clientId:username` | `abc123:alice` | Trakt |
+| `clientId:username[:tmdbApiKey]` | `abc123:alice` or `abc123:alice:eyJ...` | Trakt (TMDB key optional — enables poster artwork) |
 | `key:secret` | `key:secret` | OPNsense, Coinbase (`apiKey:apiSecret`) |
 | `user@realm!tokenid:secret` | `root@pam!stoa:abc` | Proxmox API token |
 | `account:password` | `collective/user:pass` | Docspell |
