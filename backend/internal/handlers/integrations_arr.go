@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -50,6 +51,32 @@ func httpClient(skipTLS bool) *http.Client {
 }
 
 // ── Shared arr HTTP helper ────────────────────────────────────────────────────
+
+func arrPost(apiURL, apiKey, path string, skipTLS bool, bodyJSON []byte) ([]byte, error) {
+	url := strings.TrimRight(apiURL, "/") + path
+	req, err := http.NewRequest("POST", url, bytes.NewReader(bodyJSON))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if apiKey != "" {
+		req.Header.Set("X-Api-Key", apiKey)
+	}
+	resp, err := httpClient(skipTLS).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	rb, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		msg := string(rb)
+		if len(msg) > 300 {
+			msg = msg[:300]
+		}
+		return rb, fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
+	}
+	return rb, nil
+}
 
 func arrGet(apiURL, apiKey, path string, skipTLS ...bool) ([]byte, error) {
 	url := strings.TrimRight(apiURL, "/") + path

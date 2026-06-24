@@ -310,6 +310,8 @@ export const integrationsApi = {
     api.put(`/integrations/${id}/groups`, { groupIds }),
   getPanelData: (panelId: string, params?: Record<string, string | number>) =>
     api.get<any>(`/panels/${panelId}/data`, { params }),
+  panelAction: (panelId: string, data: { action: string; tmdbId?: number; tvdbId?: number; title?: string }) =>
+    api.post<{ status: string }>(`/panels/${panelId}/action`, data),
 }
 
 // ── Preferences ──────────────────────────────────────────────────────────────
