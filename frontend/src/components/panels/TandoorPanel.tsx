@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
@@ -8,6 +8,7 @@ interface TandoorRecipe {
   rating: number
   workingTime: number
   keywords: string[]
+  hasImage: boolean
 }
 
 interface TandoorMealEntry {
@@ -26,17 +27,16 @@ interface TandoorData {
   uiUrl: string
   integrationId: string
   recipeCount: number
-  recentRecipes: TandoorRecipe[]
+  recipes: TandoorRecipe[]
   mealPlan: TandoorMealEntry[]
   shopping: TandoorShoppingEntry[]
 }
 
 const TODAY = new Date().toISOString().slice(0, 10)
 
-// Get Mon–Sun of current week as ISO strings
 function weekDates(): string[] {
   const now = new Date()
-  const day = now.getDay() === 0 ? 7 : now.getDay() // Mon=1..Sun=7
+  const day = now.getDay() === 0 ? 7 : now.getDay()
   const monday = new Date(now)
   monday.setDate(now.getDate() - (day - 1))
   return Array.from({ length: 7 }, (_, i) => {
@@ -47,71 +47,147 @@ function weekDates(): string[] {
 }
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const MEAL_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 }
 
-// Meal type ordering
-const MEAL_ORDER: Record<string, number> = {
-  breakfast: 0, lunch: 1, dinner: 2, snack: 3,
-}
-function mealOrder(type: string) {
-  return MEAL_ORDER[type.toLowerCase()] ?? 99
+function authedFetch(url: string) {
+  const token = localStorage.getItem('stoa_token')
+  return fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
 }
 
-// Star rating display
-function Stars({ rating }: { rating: number }) {
-  const r = Math.round(rating)
-  if (!r) return null
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <span style={{ fontSize: 10, color: 'var(--amber)', letterSpacing: 0 }}>
-      {'★'.repeat(r)}{'☆'.repeat(Math.max(0, 5 - r))}
-    </span>
+    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+      textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+      {children}
+    </div>
   )
 }
 
-// Keyword pill
-function Keyword({ label }: { label: string }) {
-  return (
-    <span style={{
-      fontSize: 9, padding: '1px 5px', borderRadius: 3,
-      background: 'var(--accent)18', color: 'var(--accent)',
-      border: '1px solid var(--accent)30',
-      whiteSpace: 'nowrap',
-    }}>
-      {label}
-    </span>
+function StatChip({ value, label, href }: { value: number | string; label: string; href?: string }) {
+  const inner = (
+    <div style={{ padding: '3px 10px', borderRadius: 6, background: 'var(--surface2)',
+      border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 5,
+      textDecoration: 'none', color: 'inherit' }}>
+      <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{value}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{label}</span>
+    </div>
   )
+  if (href) {
+    return <a href={href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>{inner}</a>
+  }
+  return inner
 }
 
-// Recipe row with name, rating, cook time, and up to 3 keyword pills
-function RecipeRow({ r, uiUrl }: { r: TandoorRecipe; uiUrl: string }) {
-  const href = uiUrl ? `${uiUrl}/recipe/${r.id}` : '#'
+// ── Recipe photo carousel (Immich-style) ──────────────────────────────────────
+
+function RecipeCarousel({ recipes, integrationId, uiUrl }: {
+  recipes: TandoorRecipe[]
+  integrationId: string
+  uiUrl: string
+}) {
+  const [current, setCurrent] = useState(0)
+  const [hovered, setHovered] = useState(false)
+  const [imageUrls, setImageUrls] = useState<Record<number, string>>({})
+  const revokeRef = useRef<string[]>([])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const photoRecipes = recipes.filter(r => r.hasImage)
+  const photoKey = photoRecipes.map(r => r.id).join(',')
+
+  useEffect(() => {
+    if (!photoRecipes.length || !integrationId) return
+    Promise.all(photoRecipes.map(async r => {
+      try {
+        const res = await authedFetch(`/api/tandoor/${integrationId}/image/${r.id}`)
+        if (!res.ok) return null
+        const blob = await res.blob()
+        return { id: r.id, objUrl: URL.createObjectURL(blob) }
+      } catch { return null }
+    })).then(results => {
+      const map: Record<number, string> = {}
+      const urls: string[] = []
+      results.forEach(r => { if (r) { map[r.id] = r.objUrl; urls.push(r.objUrl) } })
+      revokeRef.current.forEach(u => URL.revokeObjectURL(u))
+      revokeRef.current = urls
+      setImageUrls(map)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoKey, integrationId])
+
+  useEffect(() => () => { revokeRef.current.forEach(u => URL.revokeObjectURL(u)) }, [])
+
+  const advance = useCallback(() => setCurrent(c => (c + 1) % Math.max(1, photoRecipes.length)), [photoRecipes.length])
+
+  useEffect(() => {
+    if (hovered || photoRecipes.length <= 1) return
+    timerRef.current = setInterval(advance, 4000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [hovered, advance, photoRecipes.length])
+
+  if (photoRecipes.length === 0) {
+    return (
+      <div style={{ width: '100%', height: '100%', background: 'var(--surface2)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8 }}>
+        <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>No recipe photos</span>
+      </div>
+    )
+  }
+
+  const recipe = photoRecipes[Math.min(current, photoRecipes.length - 1)]
+  const objUrl = imageUrls[recipe.id]
+  const href = uiUrl ? `${uiUrl}/recipe/${recipe.id}` : undefined
+
   return (
-    <a href={href} target="_blank" rel="noopener noreferrer"
-      style={{ display: 'block', textDecoration: 'none', color: 'inherit',
-        padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: r.keywords.length ? 3 : 0 }}>
-        <span style={{ fontSize: 12, fontWeight: 500, flex: 1, overflow: 'hidden',
-          textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text)' }}>
-          {r.name}
+    <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: 8, overflow: 'hidden' }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}>
+      <a href={href} target="_blank" rel="noopener noreferrer"
+        style={{ display: 'block', width: '100%', height: '100%', textDecoration: 'none' }}>
+        {objUrl ? (
+          <img src={objUrl} alt={recipe.name}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', background: 'var(--surface2)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ color: 'var(--text-dim)', fontSize: 12 }}>…</span>
+          </div>
+        )}
+      </a>
+
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0,
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.7))',
+        padding: '24px 10px 8px', pointerEvents: 'none' }}>
+        <span style={{ fontSize: 12, color: '#fff', fontWeight: 500,
+          textShadow: '0 1px 3px rgba(0,0,0,0.8)', display: 'block',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          paddingRight: photoRecipes.length > 1 ? 52 : 0 }}>
+          {recipe.name}
         </span>
-        <Stars rating={r.rating} />
-        {r.workingTime > 0 && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-            fontFamily: 'DM Mono, monospace' }}>
-            {r.workingTime}m
+        {recipe.workingTime > 0 && (
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.65)', display: 'block', marginTop: 2 }}>
+            {recipe.workingTime}m
           </span>
         )}
       </div>
-      {r.keywords.length > 0 && (
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          {r.keywords.slice(0, 4).map((k, i) => <Keyword key={i} label={k} />)}
+
+      {photoRecipes.length > 1 && (
+        <div style={{ position: 'absolute', bottom: 8, right: 8, display: 'flex', gap: 3, zIndex: 2 }}>
+          {photoRecipes.map((_, i) => (
+            <button key={i} onClick={e => { e.preventDefault(); setCurrent(i) }}
+              style={{ width: i === current ? 14 : 5, height: 5, borderRadius: 3,
+                background: i === current ? '#fff' : 'rgba(255,255,255,0.4)',
+                border: 'none', padding: 0, cursor: 'pointer',
+                transition: 'width 0.25s, background 0.25s' }} />
+          ))}
         </div>
       )}
-    </a>
+    </div>
   )
 }
 
-// Weekly meal plan column view
-function WeekPlan({ mealPlan }: { mealPlan: TandoorMealEntry[] }) {
+// ── Weekly meal plan ──────────────────────────────────────────────────────────
+
+function WeekPlan({ mealPlan, uiUrl }: { mealPlan: TandoorMealEntry[]; uiUrl: string }) {
   const dates = weekDates()
   const byDate: Record<string, TandoorMealEntry[]> = {}
   for (const m of mealPlan) {
@@ -119,7 +195,7 @@ function WeekPlan({ mealPlan }: { mealPlan: TandoorMealEntry[] }) {
     byDate[m.date].push(m)
   }
   for (const d of dates) {
-    if (byDate[d]) byDate[d].sort((a, b) => mealOrder(a.mealType) - mealOrder(b.mealType))
+    if (byDate[d]) byDate[d].sort((a, b) => (MEAL_ORDER[a.mealType.toLowerCase()] ?? 9) - (MEAL_ORDER[b.mealType.toLowerCase()] ?? 9))
   }
 
   return (
@@ -128,15 +204,13 @@ function WeekPlan({ mealPlan }: { mealPlan: TandoorMealEntry[] }) {
         const isToday = date === TODAY
         const entries = byDate[date] || []
         return (
-          <div key={date} style={{
-            display: 'flex', alignItems: 'flex-start', gap: 8,
+          <div key={date} style={{ display: 'flex', alignItems: 'flex-start', gap: 8,
             padding: '4px 6px', borderRadius: 5,
             background: isToday ? 'var(--accent)12' : 'transparent',
-            border: isToday ? '1px solid var(--accent)30' : '1px solid transparent',
-          }}>
+            border: isToday ? '1px solid var(--accent)30' : '1px solid transparent' }}>
             <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: isToday ? 'var(--accent)' : 'var(--text-dim)',
-                textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
+                letterSpacing: '0.05em', color: isToday ? 'var(--accent)' : 'var(--text-dim)' }}>
                 {DAY_NAMES[i]}
               </div>
             </div>
@@ -144,14 +218,16 @@ function WeekPlan({ mealPlan }: { mealPlan: TandoorMealEntry[] }) {
               {entries.length === 0
                 ? <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>—</span>
                 : entries.map((e, j) => (
-                  <div key={j} style={{ fontSize: 11, color: 'var(--text-muted)',
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <a key={j} href={uiUrl ? `${uiUrl}/meal-plan` : undefined} target="_blank"
+                    rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block',
+                      fontSize: 11, color: 'var(--text)', overflow: 'hidden',
+                      textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {e.mealType && (
                       <span style={{ fontSize: 9, color: 'var(--text-dim)', marginRight: 4,
                         textTransform: 'capitalize' }}>{e.mealType}:</span>
                     )}
                     {e.recipe}
-                  </div>
+                  </a>
                 ))
               }
             </div>
@@ -162,30 +238,35 @@ function WeekPlan({ mealPlan }: { mealPlan: TandoorMealEntry[] }) {
   )
 }
 
-// Shopping list
-function ShoppingList({ items }: { items: TandoorShoppingEntry[] }) {
+// ── Shopping list ─────────────────────────────────────────────────────────────
+
+function ShoppingList({ items, uiUrl }: { items: TandoorShoppingEntry[]; uiUrl: string }) {
   if (items.length === 0) return (
     <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Shopping list is empty</div>
   )
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {items.slice(0, 12).map((s, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-          padding: '2px 0', borderBottom: '1px solid var(--border)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {items.slice(0, 15).map((s, i) => (
+        <a key={i} href={uiUrl ? `${uiUrl}/shopping` : undefined} target="_blank" rel="noopener noreferrer"
+          style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
+            padding: '3px 0', borderBottom: '1px solid var(--border)', color: 'inherit' }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, flexShrink: 0,
-            border: '1.5px solid var(--accent)', background: 'transparent' }} />
-          <span style={{ fontSize: 11, flex: 1, color: 'var(--text-muted)' }}>{s.food}</span>
+            border: '1.5px solid var(--accent)', background: 'transparent', display: 'inline-block' }} />
+          <span style={{ fontSize: 11, flex: 1, color: 'var(--text)', overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.food}</span>
           {(s.amount > 0 || s.unit) && (
             <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
               fontFamily: 'DM Mono, monospace' }}>
               {s.amount > 0 ? s.amount : ''}{s.unit ? ' ' + s.unit : ''}
             </span>
           )}
-        </div>
+        </a>
       ))}
     </div>
   )
 }
+
+// ── Panel ─────────────────────────────────────────────────────────────────────
 
 export default function TandoorPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<TandoorData | null>(null)
@@ -219,100 +300,60 @@ export default function TandoorPanel({ panel, heightUnits }: { panel: Panel; hei
   if (!data) return null
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
+  const recipes = data.recipes || []
   const mealPlan = data.mealPlan || []
-  const recipes = data.recentRecipes || []
   const shopping = data.shopping || []
-  const todayMeals = mealPlan.filter(m => m.date === TODAY)
 
-  const section = (label: string) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
-      textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, marginTop: 10 }}>
-      {label}
+  const chips = (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <StatChip value={data.recipeCount} label="recipes" href={uiUrl || undefined} />
+      {mealPlan.length > 0 && <StatChip value={mealPlan.length} label="this week" />}
+      {shopping.length > 0 && <StatChip value={shopping.length} label="to buy" />}
     </div>
   )
 
-  // ── Stat chips ──────────────────────────────────────────────────────────────
-  const StatChips = () => (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-      <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 6,
-          padding: '3px 10px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)',
-          textDecoration: 'none', color: 'inherit', fontSize: 12 }}>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>
-          {data.recipeCount}
-        </span>
-        <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>recipes</span>
-      </a>
-      {mealPlan.length > 0 && (
-        <div style={{ padding: '3px 10px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>
-            {mealPlan.length}
-          </span>
-          <span style={{ color: 'var(--text-dim)', fontSize: 11, marginLeft: 4 }}>this week</span>
-        </div>
-      )}
-      {shopping.length > 0 && (
-        <div style={{ padding: '3px 10px', borderRadius: 6,
-          background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>
-            {shopping.length}
-          </span>
-          <span style={{ color: 'var(--text-dim)', fontSize: 11, marginLeft: 4 }}>to buy</span>
-        </div>
-      )}
-      {todayMeals.length > 0 && (
-        <div style={{ padding: '3px 10px', borderRadius: 6,
-          background: 'var(--accent)12', border: '1px solid var(--accent)30', fontSize: 11 }}>
-          <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
-            Today: {todayMeals.map(m => m.recipe).join(' · ')}
-          </span>
-        </div>
-      )}
-    </div>
-  )
-
-  // ── 1x ─────────────────────────────────────────────────────────────────────
-  if (heightUnits <= 1) return (
-    <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
-      <StatChips />
-    </div>
-  )
-
-  // ── 2-3x: chips + week plan ─────────────────────────────────────────────────
-  if (heightUnits <= 3) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <StatChips />
-      {section("This week's meals")}
-      <WeekPlan mealPlan={mealPlan} />
-    </div>
-  )
-
-  // ── 4x+: two-column ─────────────────────────────────────────────────────────
-  return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', gap: 16 }}>
-      {/* Left: stats + meal plan + shopping */}
-      <div style={{ width: 220, flexShrink: 0, overflow: 'auto', display: 'flex',
-        flexDirection: 'column' }}>
-        <StatChips />
-        {section("This week's meals")}
-        <WeekPlan mealPlan={mealPlan} />
-        {shopping.length > 0 && (
-          <>
-            {section('Shopping list')}
-            <ShoppingList items={shopping} />
-          </>
-        )}
+  // ── 1x: stat chips ──────────────────────────────────────────────────────────
+  if (heightUnits <= 1) {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', padding: '0 12px', overflow: 'hidden' }}>
+        {chips}
       </div>
+    )
+  }
 
-      {/* Right: recent recipes */}
-      <div style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
-        {section('Recent recipes')}
-        {recipes.length === 0
-          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recipes yet</div>
-          : recipes.map((r, i) => <RecipeRow key={i} r={r} uiUrl={uiUrl} />)
-        }
+  // ── 2x–3x: photo carousel ───────────────────────────────────────────────────
+  if (heightUnits <= 3) {
+    return (
+      <div style={{ height: '100%', padding: 8, boxSizing: 'border-box', overflow: 'hidden' }}>
+        <RecipeCarousel recipes={recipes} integrationId={data.integrationId} uiUrl={uiUrl} />
+      </div>
+    )
+  }
+
+  // ── 4x+: carousel + meal plan + shopping ────────────────────────────────────
+  return (
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: '0 0 55%', maxHeight: 280, minHeight: 80, padding: '8px 8px 4px' }}>
+        <RecipeCarousel recipes={recipes} integrationId={data.integrationId} uiUrl={uiUrl} />
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '4px 12px 12px', minHeight: 0,
+        display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {chips}
+        {mealPlan.length > 0 && (
+          <div>
+            <SectionLabel>This Week's Meals</SectionLabel>
+            <WeekPlan mealPlan={mealPlan} uiUrl={uiUrl} />
+          </div>
+        )}
+        {shopping.length > 0 && (
+          <div>
+            <SectionLabel>Shopping List</SectionLabel>
+            <ShoppingList items={shopping} uiUrl={uiUrl} />
+          </div>
+        )}
+        {mealPlan.length === 0 && shopping.length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No meals planned or shopping items.</div>
+        )}
       </div>
     </div>
   )

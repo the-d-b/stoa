@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/gorilla/mux"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -18,6 +20,7 @@ type TandoorRecipe struct {
 	Rating      float64  `json:"rating"`
 	WorkingTime int      `json:"workingTime"`
 	Keywords    []string `json:"keywords"`
+	HasImage    bool     `json:"hasImage"`
 }
 
 type TandoorMealEntry struct {
@@ -36,7 +39,7 @@ type TandoorPanelData struct {
 	UIURL         string                 `json:"uiUrl"`
 	IntegrationID string                 `json:"integrationId"`
 	RecipeCount   int                    `json:"recipeCount"`
-	RecentRecipes []TandoorRecipe        `json:"recentRecipes"`
+	Recipes       []TandoorRecipe        `json:"recipes"`
 	MealPlan      []TandoorMealEntry     `json:"mealPlan"`
 	Shopping      []TandoorShoppingEntry `json:"shopping"`
 }
@@ -50,28 +53,43 @@ func tandoorGet(baseURL, token, path string, skipTLS bool) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d", resp.StatusCode)
+		msg := strings.TrimSpace(string(body))
+		if len(msg) > 300 {
+			msg = msg[:300]
+		}
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
 	}
-	return io.ReadAll(resp.Body)
+	return body, nil
 }
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 func fetchTandoorPanelData(db *sql.DB, config map[string]interface{}) (*TandoorPanelData, error) {
-	baseURL, _ := config["apiUrl"].(string)
-	token, _ := config["apiKey"].(string)
-	uiURL, _ := config["uiUrl"].(string)
-	integrationID, _ := config["integrationId"].(string)
-	skipTLS, _ := config["skipTls"].(bool)
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("integrationId required")
+	}
+	baseURL, uiURL, token, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
+	if uiURL == "" {
+		uiURL = baseURL
+	}
+	if token == "" {
+		return nil, fmt.Errorf("API token required — generate one in Tandoor → Settings → API Token")
+	}
 
-	// Recent recipes (also gives total count)
-	recipeBody, err := tandoorGet(baseURL, token, "/api/recipe/?page_size=8&ordering=-created_at", skipTLS)
+	// Random recipes for photo carousel (also gives total count)
+	recipeBody, err := tandoorGet(baseURL, token, "/api/recipe/?page_size=6&random=true", skipTLS)
 	if err != nil {
 		return nil, fmt.Errorf("recipes: %w", err)
 	}
@@ -82,6 +100,7 @@ func fetchTandoorPanelData(db *sql.DB, config map[string]interface{}) (*TandoorP
 			Name        string  `json:"name"`
 			Rating      float64 `json:"rating"`
 			WorkingTime int     `json:"working_time"`
+			Image       string  `json:"image"`
 			Keywords    []struct {
 				Name string `json:"name"`
 			} `json:"keywords"`
@@ -103,6 +122,7 @@ func fetchTandoorPanelData(db *sql.DB, config map[string]interface{}) (*TandoorP
 			Rating:      r.Rating,
 			WorkingTime: r.WorkingTime,
 			Keywords:    kws,
+			HasImage:    r.Image != "",
 		})
 	}
 
@@ -191,10 +211,72 @@ func fetchTandoorPanelData(db *sql.DB, config map[string]interface{}) (*TandoorP
 		UIURL:         uiURL,
 		IntegrationID: integrationID,
 		RecipeCount:   recipeResp.Count,
-		RecentRecipes: recipes,
+		Recipes:       recipes,
 		MealPlan:      mealPlan,
 		Shopping:      shopping,
 	}, nil
+}
+
+// ── Image proxy ───────────────────────────────────────────────────────────────
+
+func ProxyTandoorImage(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		integID := vars["integrationId"]
+		recipeID := vars["recipeId"]
+
+		baseURL, _, token, skipTLS, err := resolveIntegration(db, integID)
+		if err != nil {
+			http.Error(w, "integration not found", http.StatusNotFound)
+			return
+		}
+
+		// Fetch the recipe to get its image URL
+		body, err := tandoorGet(baseURL, token, "/api/recipe/"+recipeID+"/", skipTLS)
+		if err != nil {
+			http.Error(w, "recipe not found", http.StatusNotFound)
+			return
+		}
+		var recipe struct {
+			Image string `json:"image"`
+		}
+		if err := json.Unmarshal(body, &recipe); err != nil || recipe.Image == "" {
+			http.Error(w, "no image", http.StatusNotFound)
+			return
+		}
+
+		// Proxy the image file (Tandoor returns full absolute URL in image field)
+		client := httpClient(skipTLS)
+		req, err := http.NewRequest("GET", recipe.Image, nil)
+		if err != nil {
+			http.Error(w, "request error", http.StatusBadGateway)
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "image fetch failed", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			http.Error(w, "image unavailable", resp.StatusCode)
+			return
+		}
+
+		imgBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			http.Error(w, "read error", http.StatusBadGateway)
+			return
+		}
+		ct := resp.Header.Get("Content-Type")
+		if ct == "" {
+			ct = http.DetectContentType(imgBody)
+		}
+		w.Header().Set("Content-Type", ct)
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		w.Write(imgBody)
+	}
 }
 
 // ── Test ──────────────────────────────────────────────────────────────────────

@@ -203,6 +203,7 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// Cache miss (or plex filtered — always live) — fetch and optionally store
 		data, err := fetcher(db, config)
 		if err != nil {
+			log.Printf("[PANEL] %s fetch error: %v", panelType, err)
 			writeError(w, http.StatusInternalServerError, friendlyPanelError(err))
 			return
 		}

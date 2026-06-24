@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -17,6 +20,7 @@ type MealieRecipe struct {
 	Slug      string  `json:"slug"`
 	Rating    float64 `json:"rating"`
 	TotalTime string  `json:"totalTime"`
+	HasImage  bool    `json:"hasImage"`
 }
 
 type MealieMealEntry struct {
@@ -46,7 +50,7 @@ type MealiePanelData struct {
 	IntegrationID string               `json:"integrationId"`
 	TotalRecipes  int                  `json:"totalRecipes"`
 	MealPlan      []MealieMealEntry    `json:"mealPlan"`
-	RecentRecipes []MealieRecipe       `json:"recentRecipes"`
+	Recipes       []MealieRecipe       `json:"recipes"`
 	ShoppingLists []MealieShoppingList `json:"shoppingLists"`
 }
 
@@ -103,23 +107,30 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 		}
 	}
 
-	// ── Recent recipes ────────────────────────────────────────────────────────
-	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?orderBy=dateAdded&orderDirection=desc&perPage=8", skipTLS); err == nil {
+	// ── Random recipes for photo carousel ────────────────────────────────────
+	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?orderBy=dateAdded&orderDirection=desc&perPage=50", skipTLS); err == nil {
 		var r struct {
 			Items []struct {
 				Name      string  `json:"name"`
 				Slug      string  `json:"slug"`
 				Rating    float64 `json:"rating"`
 				TotalTime string  `json:"totalTime"`
+				Image     *string `json:"image"`
 			} `json:"items"`
 		}
 		if json.Unmarshal(body, &r) == nil {
+			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+			rng.Shuffle(len(r.Items), func(i, j int) { r.Items[i], r.Items[j] = r.Items[j], r.Items[i] })
+			if len(r.Items) > 6 {
+				r.Items = r.Items[:6]
+			}
 			for _, recipe := range r.Items {
-				out.RecentRecipes = append(out.RecentRecipes, MealieRecipe{
+				out.Recipes = append(out.Recipes, MealieRecipe{
 					Name:      recipe.Name,
 					Slug:      recipe.Slug,
 					Rating:    recipe.Rating,
 					TotalTime: recipe.TotalTime,
+					HasImage:  recipe.Image != nil && *recipe.Image != "",
 				})
 			}
 		}
@@ -221,6 +232,54 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 	}
 
 	return out, nil
+}
+
+// ── Image proxy ───────────────────────────────────────────────────────────────
+
+func ProxyMealieImage(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		vars := mux.Vars(r)
+		integID := vars["integrationId"]
+		slug := vars["slug"]
+
+		baseURL, _, token, skipTLS, err := resolveIntegration(db, integID)
+		if err != nil {
+			http.Error(w, "integration not found", http.StatusNotFound)
+			return
+		}
+
+		imgURL := strings.TrimRight(baseURL, "/") + "/api/media/recipes/" + slug + "/images/min-original.webp"
+		client := httpClient(skipTLS)
+		req, err := http.NewRequest("GET", imgURL, nil)
+		if err != nil {
+			http.Error(w, "request error", http.StatusBadGateway)
+			return
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := client.Do(req)
+		if err != nil {
+			http.Error(w, "image fetch failed", http.StatusBadGateway)
+			return
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode >= 400 {
+			http.Error(w, "image unavailable", resp.StatusCode)
+			return
+		}
+
+		imgBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			http.Error(w, "read error", http.StatusBadGateway)
+			return
+		}
+		ct := resp.Header.Get("Content-Type")
+		if ct == "" {
+			ct = http.DetectContentType(imgBody)
+		}
+		w.Header().Set("Content-Type", ct)
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		w.Write(imgBody)
+	}
 }
 
 // ── Connection test ───────────────────────────────────────────────────────────
