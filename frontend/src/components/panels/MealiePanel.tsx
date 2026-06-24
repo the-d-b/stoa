@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 
 interface MealieRecipe {
+  id: string
   name: string
   slug: string
   rating: number
@@ -34,6 +35,7 @@ interface MealieShoppingList {
 interface MealiePanelData {
   uiUrl: string
   integrationId: string
+  householdSlug: string
   totalRecipes: number
   mealPlan: MealieMealEntry[]
   recipes: MealieRecipe[]
@@ -41,12 +43,23 @@ interface MealiePanelData {
 }
 
 const TODAY = new Date().toISOString().slice(0, 10)
-const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_NAMES_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const MEAL_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, side: 3 }
 
-function fmtShortDate(iso: string): string {
-  const d = new Date(iso + 'T00:00:00')
-  return DAY_NAMES[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate()
+function weekDates(): string[] {
+  const now = new Date()
+  const day = now.getDay() === 0 ? 7 : now.getDay()
+  const monday = new Date(now)
+  monday.setDate(now.getDate() - (day - 1))
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday)
+    d.setDate(monday.getDate() + i)
+    return d.toISOString().slice(0, 10)
+  })
+}
+
+function recipeUrl(uiUrl: string, householdSlug: string, slug: string): string {
+  return `${uiUrl}/g/${householdSlug}/r/${slug}`
 }
 
 function authedFetch(url: string) {
@@ -80,10 +93,11 @@ function StatChip({ value, label, href }: { value: number | string; label: strin
 
 // ── Recipe photo carousel (Immich-style) ──────────────────────────────────────
 
-function RecipeCarousel({ recipes, integrationId, uiUrl }: {
+function RecipeCarousel({ recipes, integrationId, uiUrl, householdSlug }: {
   recipes: MealieRecipe[]
   integrationId: string
   uiUrl: string
+  householdSlug: string
 }) {
   const [current, setCurrent] = useState(0)
   const [hovered, setHovered] = useState(false)
@@ -92,21 +106,21 @@ function RecipeCarousel({ recipes, integrationId, uiUrl }: {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const photoRecipes = recipes.filter(r => r.hasImage)
-  const photoKey = photoRecipes.map(r => r.slug).join(',')
+  const photoKey = photoRecipes.map(r => r.id).join(',')
 
   useEffect(() => {
     if (!photoRecipes.length || !integrationId) return
     Promise.all(photoRecipes.map(async r => {
       try {
-        const res = await authedFetch(`/api/mealie/${integrationId}/image/${r.slug}`)
+        const res = await authedFetch(`/api/mealie/${integrationId}/image/${r.id}`)
         if (!res.ok) return null
         const blob = await res.blob()
-        return { slug: r.slug, objUrl: URL.createObjectURL(blob) }
+        return { id: r.id, objUrl: URL.createObjectURL(blob) }
       } catch { return null }
     })).then(results => {
       const map: Record<string, string> = {}
       const urls: string[] = []
-      results.forEach(r => { if (r) { map[r.slug] = r.objUrl; urls.push(r.objUrl) } })
+      results.forEach(r => { if (r) { map[r.id] = r.objUrl; urls.push(r.objUrl) } })
       revokeRef.current.forEach(u => URL.revokeObjectURL(u))
       revokeRef.current = urls
       setImageUrls(map)
@@ -134,8 +148,8 @@ function RecipeCarousel({ recipes, integrationId, uiUrl }: {
   }
 
   const recipe = photoRecipes[Math.min(current, photoRecipes.length - 1)]
-  const objUrl = imageUrls[recipe.slug]
-  const href = uiUrl ? `${uiUrl}/recipe/${recipe.slug}` : undefined
+  const objUrl = imageUrls[recipe.id]
+  const href = uiUrl && recipe.slug ? recipeUrl(uiUrl, householdSlug, recipe.slug) : undefined
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%', borderRadius: 8, overflow: 'hidden' }}
@@ -187,62 +201,52 @@ function RecipeCarousel({ recipes, integrationId, uiUrl }: {
 
 // ── Meal plan ─────────────────────────────────────────────────────────────────
 
-function groupByDate(entries: MealieMealEntry[]): Map<string, MealieMealEntry[]> {
-  const map = new Map<string, MealieMealEntry[]>()
-  const sorted = [...entries].sort((a, b) => a.date.localeCompare(b.date))
-  for (const e of sorted) {
-    if (!map.has(e.date)) map.set(e.date, [])
-    map.get(e.date)!.push(e)
+function MealPlanView({ mealPlan, uiUrl, householdSlug }: {
+  mealPlan: MealieMealEntry[]
+  uiUrl: string
+  householdSlug: string
+}) {
+  const dates = weekDates()
+  const byDate: Record<string, MealieMealEntry[]> = {}
+  for (const e of mealPlan) {
+    if (!byDate[e.date]) byDate[e.date] = []
+    byDate[e.date].push(e)
   }
-  for (const [, day] of map) {
-    day.sort((a, b) => (MEAL_ORDER[a.mealType] ?? 9) - (MEAL_ORDER[b.mealType] ?? 9))
+  for (const d of dates) {
+    if (byDate[d]) byDate[d].sort((a, b) => (MEAL_ORDER[a.mealType] ?? 9) - (MEAL_ORDER[b.mealType] ?? 9))
   }
-  return map
-}
 
-function mealIcon(type: string): string {
-  if (type === 'breakfast') return '🌅'
-  if (type === 'lunch') return '☀️'
-  if (type === 'dinner') return '🌙'
-  return '🍽️'
-}
-
-function MealPlanView({ mealPlan, uiUrl }: { mealPlan: MealieMealEntry[]; uiUrl: string }) {
-  const planByDate = groupByDate(mealPlan)
-  const dates = Array.from(planByDate.keys())
-  if (dates.length === 0) return (
-    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No meals planned this week.</div>
-  )
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      {dates.map(date => {
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {dates.map((date, i) => {
         const isToday = date === TODAY
-        const entries = planByDate.get(date)!
+        const entries = byDate[date] || []
         return (
           <div key={date} style={{ display: 'flex', alignItems: 'flex-start', gap: 8,
             padding: '4px 6px', borderRadius: 5,
             background: isToday ? 'var(--accent)12' : 'transparent',
             border: isToday ? '1px solid var(--accent)30' : '1px solid transparent' }}>
-            <div style={{ width: 36, flexShrink: 0 }}>
+            <div style={{ width: 28, flexShrink: 0, textAlign: 'center' }}>
               <div style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase',
-                letterSpacing: '0.04em', color: isToday ? 'var(--accent)' : 'var(--text-dim)' }}>
-                {fmtShortDate(date)}
+                letterSpacing: '0.05em', color: isToday ? 'var(--accent)' : 'var(--text-dim)' }}>
+                {DAY_NAMES_SHORT[i]}
               </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              {entries.map((e, j) => {
-                const eName = e.recipe?.name || e.title || '—'
-                const eHref = e.recipe?.slug ? `${uiUrl}/recipe/${e.recipe.slug}` : undefined
-                return (
-                  <a key={j} href={eHref} target="_blank" rel="noopener noreferrer"
-                    style={{ textDecoration: 'none', display: 'flex', alignItems: 'center',
-                      gap: 4, color: 'inherit' }}>
-                    <span style={{ fontSize: 11, flexShrink: 0 }}>{mealIcon(e.mealType)}</span>
-                    <span style={{ fontSize: 11, color: 'var(--text)', overflow: 'hidden',
-                      textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eName}</span>
-                  </a>
-                )
-              })}
+              {entries.length === 0
+                ? <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>—</span>
+                : entries.map((e, j) => {
+                  const name = e.recipe?.name || e.title || '—'
+                  const href = e.recipe?.slug ? recipeUrl(uiUrl, householdSlug, e.recipe.slug) : undefined
+                  return (
+                    <a key={j} href={href} target="_blank" rel="noopener noreferrer"
+                      style={{ textDecoration: 'none', display: 'block', fontSize: 11,
+                        color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {name}
+                    </a>
+                  )
+                })
+              }
             </div>
           </div>
         )
@@ -306,6 +310,7 @@ export default function MealiePanel({ panel, heightUnits }: { panel: Panel; heig
   if (!data) return null
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
+  const householdSlug = data.householdSlug || 'home'
   const recipes = data.recipes || []
   const mealPlan = data.mealPlan || []
   const primaryList = data.shoppingLists?.[0] ?? null
@@ -332,7 +337,7 @@ export default function MealiePanel({ panel, heightUnits }: { panel: Panel; heig
   if (heightUnits <= 3) {
     return (
       <div style={{ height: '100%', padding: 8, boxSizing: 'border-box', overflow: 'hidden' }}>
-        <RecipeCarousel recipes={recipes} integrationId={data.integrationId} uiUrl={uiUrl} />
+        <RecipeCarousel recipes={recipes} integrationId={data.integrationId} uiUrl={uiUrl} householdSlug={householdSlug} />
       </div>
     )
   }
@@ -341,7 +346,7 @@ export default function MealiePanel({ panel, heightUnits }: { panel: Panel; heig
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ flex: '0 0 55%', maxHeight: 280, minHeight: 80, padding: '8px 8px 4px' }}>
-        <RecipeCarousel recipes={recipes} integrationId={data.integrationId} uiUrl={uiUrl} />
+        <RecipeCarousel recipes={recipes} integrationId={data.integrationId} uiUrl={uiUrl} householdSlug={householdSlug} />
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 12px 12px', minHeight: 0,
         display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -349,7 +354,7 @@ export default function MealiePanel({ panel, heightUnits }: { panel: Panel; heig
         {mealPlan.length > 0 && (
           <div>
             <SectionLabel>This Week's Meals</SectionLabel>
-            <MealPlanView mealPlan={mealPlan} uiUrl={uiUrl} />
+            <MealPlanView mealPlan={mealPlan} uiUrl={uiUrl} householdSlug={householdSlug} />
           </div>
         )}
         {primaryList && shoppingCount > 0 && (

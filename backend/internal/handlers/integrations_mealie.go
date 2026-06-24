@@ -16,6 +16,7 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type MealieRecipe struct {
+	ID        string  `json:"id"`
 	Name      string  `json:"name"`
 	Slug      string  `json:"slug"`
 	Rating    float64 `json:"rating"`
@@ -48,6 +49,7 @@ type MealieShoppingList struct {
 type MealiePanelData struct {
 	UIURL         string               `json:"uiUrl"`
 	IntegrationID string               `json:"integrationId"`
+	HouseholdSlug string               `json:"householdSlug"`
 	TotalRecipes  int                  `json:"totalRecipes"`
 	MealPlan      []MealieMealEntry    `json:"mealPlan"`
 	Recipes       []MealieRecipe       `json:"recipes"`
@@ -97,7 +99,19 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 		return nil, fmt.Errorf("API token required — generate one in Mealie → User Settings → API Tokens")
 	}
 
-	out := &MealiePanelData{UIURL: uiURL, IntegrationID: integrationID}
+	out := &MealiePanelData{UIURL: uiURL, IntegrationID: integrationID, HouseholdSlug: "home"}
+
+	// ── Household slug (for UI recipe links: /g/{slug}/r/{recipe-slug}) ───────
+	if userBody, err := mealieGet(baseURL, apiKey, "/api/users/self", skipTLS); err == nil {
+		var user struct {
+			Household *struct {
+				Slug string `json:"slug"`
+			} `json:"household"`
+		}
+		if json.Unmarshal(userBody, &user) == nil && user.Household != nil && user.Household.Slug != "" {
+			out.HouseholdSlug = user.Household.Slug
+		}
+	}
 
 	// ── Recipe count ──────────────────────────────────────────────────────────
 	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?perPage=1&page=1", skipTLS); err == nil {
@@ -111,6 +125,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?orderBy=dateAdded&orderDirection=desc&perPage=50", skipTLS); err == nil {
 		var r struct {
 			Items []struct {
+				ID        string  `json:"id"`
 				Name      string  `json:"name"`
 				Slug      string  `json:"slug"`
 				Rating    float64 `json:"rating"`
@@ -126,6 +141,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 			}
 			for _, recipe := range r.Items {
 				out.Recipes = append(out.Recipes, MealieRecipe{
+					ID:        recipe.ID,
 					Name:      recipe.Name,
 					Slug:      recipe.Slug,
 					Rating:    recipe.Rating,
@@ -183,7 +199,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 	}
 
 	// ── Shopping lists ────────────────────────────────────────────────────────
-	if body, err := mealieGet(baseURL, apiKey, "/api/groups/shopping/lists?perPage=10", skipTLS); err == nil {
+	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err == nil {
 		var r struct {
 			Items []struct {
 				ID   string `json:"id"`
@@ -194,7 +210,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 			for _, list := range r.Items {
 				sl := MealieShoppingList{ID: list.ID, Name: list.Name}
 				// Fetch items for this list
-				itemPath := fmt.Sprintf("/api/groups/shopping/items?shopping_list_id=%s&perPage=100", list.ID)
+				itemPath := fmt.Sprintf("/api/households/shopping/items?shopping_list_id=%s&perPage=100", list.ID)
 				if ibody, ierr := mealieGet(baseURL, apiKey, itemPath, skipTLS); ierr == nil {
 					var ir struct {
 						Items []struct {
@@ -240,7 +256,7 @@ func ProxyMealieImage(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		integID := vars["integrationId"]
-		slug := vars["slug"]
+		recipeID := vars["recipeId"]
 
 		baseURL, _, token, skipTLS, err := resolveIntegration(db, integID)
 		if err != nil {
@@ -248,7 +264,8 @@ func ProxyMealieImage(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		imgURL := strings.TrimRight(baseURL, "/") + "/api/media/recipes/" + slug + "/images/min-original.webp"
+		// Mealie images are keyed by recipe UUID, not slug
+		imgURL := strings.TrimRight(baseURL, "/") + "/api/media/recipes/" + recipeID + "/images/min-original.webp"
 		client := httpClient(skipTLS)
 		req, err := http.NewRequest("GET", imgURL, nil)
 		if err != nil {

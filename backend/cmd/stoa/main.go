@@ -173,7 +173,7 @@ func main() {
 	// Tandoor recipe image proxy (auth-gated, browser-cached 24h)
 	protected.HandleFunc("/tandoor/{integrationId}/image/{recipeId}", handlers.ProxyTandoorImage(database)).Methods("GET")
 	// Mealie recipe image proxy (auth-gated, browser-cached 24h)
-	protected.HandleFunc("/mealie/{integrationId}/image/{slug}", handlers.ProxyMealieImage(database)).Methods("GET")
+	protected.HandleFunc("/mealie/{integrationId}/image/{recipeId}", handlers.ProxyMealieImage(database)).Methods("GET")
 	// Kavita cover proxy (auth-gated, browser-cached 24h)
 	protected.HandleFunc("/kavita/{integrationId}/cover/{seriesId}", handlers.ProxyKavitaCover(database)).Methods("GET")
 	// Komga series cover proxy (auth-gated, browser-cached 24h)

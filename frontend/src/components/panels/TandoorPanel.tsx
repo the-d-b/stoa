@@ -218,7 +218,7 @@ function WeekPlan({ mealPlan, uiUrl }: { mealPlan: TandoorMealEntry[]; uiUrl: st
               {entries.length === 0
                 ? <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>—</span>
                 : entries.map((e, j) => (
-                  <a key={j} href={uiUrl ? `${uiUrl}/meal-plan` : undefined} target="_blank"
+                  <a key={j} href={uiUrl ? `${uiUrl}/mealplan` : undefined} target="_blank"
                     rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'block',
                       fontSize: 11, color: 'var(--text)', overflow: 'hidden',
                       textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
