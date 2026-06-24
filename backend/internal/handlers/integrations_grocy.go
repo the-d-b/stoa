@@ -140,7 +140,7 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 				} `json:"product"`
 			}
 
-			parseEntry := func(raw json.RawMessage, expired bool) {
+			parseEntry := func(raw json.RawMessage) {
 				var e stockEntry
 				if json.Unmarshal(raw, &e) != nil {
 					return
@@ -157,7 +157,7 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 						daysFromNow = int(d.Sub(now).Hours() / 24)
 					}
 				}
-				if expired {
+				if daysFromNow < 0 {
 					out.ExpiredCount++
 				} else {
 					out.ExpiringCount++
@@ -171,13 +171,13 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 			}
 
 			for _, raw := range r.ExpiredProducts {
-				parseEntry(raw, true)
+				parseEntry(raw)
 			}
 			for _, raw := range r.DueProducts {
-				parseEntry(raw, false)
+				parseEntry(raw)
 			}
 			for _, raw := range r.OverdueProducts {
-				parseEntry(raw, false)
+				parseEntry(raw)
 			}
 		}
 	}
