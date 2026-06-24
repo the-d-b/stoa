@@ -121,19 +121,20 @@ func tmdbEnrichCards(cards []*TraktCard, apiKey string) {
 // ── Output types ──────────────────────────────────────────────────────────────
 
 type TraktCard struct {
-	Type      string `json:"type"`
-	Title     string `json:"title"`
-	Year      int    `json:"year,omitempty"`
-	Slug      string `json:"slug,omitempty"`
-	PosterURL string `json:"posterUrl,omitempty"`
-	TMDBID    int64  `json:"tmdbId,omitempty"`
-	TVDBID    int64  `json:"tvdbId,omitempty"`
-	Watchers  int    `json:"watchers,omitempty"`
-	WatchedAt string `json:"watchedAt,omitempty"`
-	ShowTitle string `json:"showTitle,omitempty"`
-	Season    int    `json:"season,omitempty"`
-	Episode   int    `json:"episode,omitempty"`
-	EpTitle   string `json:"epTitle,omitempty"`
+	Type          string `json:"type"`
+	Title         string `json:"title"`
+	Year          int    `json:"year,omitempty"`
+	Slug          string `json:"slug,omitempty"`
+	PosterURL     string `json:"posterUrl,omitempty"`
+	TMDBID        int64  `json:"tmdbId,omitempty"`
+	TVDBID        int64  `json:"tvdbId,omitempty"`
+	Certification string `json:"certification,omitempty"`
+	Watchers      int    `json:"watchers,omitempty"`
+	WatchedAt     string `json:"watchedAt,omitempty"`
+	ShowTitle     string `json:"showTitle,omitempty"`
+	Season        int    `json:"season,omitempty"`
+	Episode       int    `json:"episode,omitempty"`
+	EpTitle       string `json:"epTitle,omitempty"`
 }
 
 type TraktUserList struct {
@@ -190,9 +191,10 @@ type traktIDs struct {
 }
 
 type traktMedia struct {
-	Title string   `json:"title"`
-	Year  int      `json:"year"`
-	IDs   traktIDs `json:"ids"`
+	Title         string   `json:"title"`
+	Year          int      `json:"year"`
+	Certification string   `json:"certification"`
+	IDs           traktIDs `json:"ids"`
 }
 
 type traktEpisodeRaw struct {
@@ -205,7 +207,7 @@ type traktEpisodeRaw struct {
 // ── Section fetchers ──────────────────────────────────────────────────────────
 
 func traktFetchTrending(clientID, mediaType string, limit int) []TraktCard {
-	_, b, err := traktGet(clientID, fmt.Sprintf("/%ss/trending?limit=%d", mediaType, limit))
+	_, b, err := traktGet(clientID, fmt.Sprintf("/%ss/trending?limit=%d&extended=full", mediaType, limit))
 	if err != nil {
 		return nil
 	}
@@ -219,7 +221,7 @@ func traktFetchTrending(clientID, mediaType string, limit int) []TraktCard {
 		}
 		out := make([]TraktCard, 0, len(raw))
 		for _, r := range raw {
-			out = append(out, TraktCard{Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year, Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB, Watchers: r.Watchers})
+			out = append(out, TraktCard{Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year, Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB, Certification: r.Movie.Certification, Watchers: r.Watchers})
 		}
 		return out
 	}
@@ -232,13 +234,13 @@ func traktFetchTrending(clientID, mediaType string, limit int) []TraktCard {
 	}
 	out := make([]TraktCard, 0, len(raw))
 	for _, r := range raw {
-		out = append(out, TraktCard{Type: "show", Title: r.Show.Title, Year: r.Show.Year, Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB, Watchers: r.Watchers})
+		out = append(out, TraktCard{Type: "show", Title: r.Show.Title, Year: r.Show.Year, Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB, Certification: r.Show.Certification, Watchers: r.Watchers})
 	}
 	return out
 }
 
 func traktFetchPopular(clientID, mediaType string, limit int) []TraktCard {
-	_, b, err := traktGet(clientID, fmt.Sprintf("/%ss/popular?limit=%d", mediaType, limit))
+	_, b, err := traktGet(clientID, fmt.Sprintf("/%ss/popular?limit=%d&extended=full", mediaType, limit))
 	if err != nil {
 		return nil
 	}
@@ -248,13 +250,13 @@ func traktFetchPopular(clientID, mediaType string, limit int) []TraktCard {
 	}
 	out := make([]TraktCard, 0, len(raw))
 	for _, r := range raw {
-		out = append(out, TraktCard{Type: mediaType, Title: r.Title, Year: r.Year, Slug: r.IDs.Slug, TMDBID: r.IDs.TMDB, TVDBID: r.IDs.TVDB})
+		out = append(out, TraktCard{Type: mediaType, Title: r.Title, Year: r.Year, Slug: r.IDs.Slug, TMDBID: r.IDs.TMDB, TVDBID: r.IDs.TVDB, Certification: r.Certification})
 	}
 	return out
 }
 
 func traktFetchAnticipated(clientID, mediaType string, limit int) []TraktCard {
-	_, b, err := traktGet(clientID, fmt.Sprintf("/%ss/anticipated?limit=%d", mediaType, limit))
+	_, b, err := traktGet(clientID, fmt.Sprintf("/%ss/anticipated?limit=%d&extended=full", mediaType, limit))
 	if err != nil {
 		return nil
 	}
@@ -267,7 +269,7 @@ func traktFetchAnticipated(clientID, mediaType string, limit int) []TraktCard {
 		}
 		out := make([]TraktCard, 0, len(raw))
 		for _, r := range raw {
-			out = append(out, TraktCard{Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year, Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB})
+			out = append(out, TraktCard{Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year, Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB, Certification: r.Movie.Certification})
 		}
 		return out
 	}
@@ -279,13 +281,13 @@ func traktFetchAnticipated(clientID, mediaType string, limit int) []TraktCard {
 	}
 	out := make([]TraktCard, 0, len(raw))
 	for _, r := range raw {
-		out = append(out, TraktCard{Type: "show", Title: r.Show.Title, Year: r.Show.Year, Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB})
+		out = append(out, TraktCard{Type: "show", Title: r.Show.Title, Year: r.Show.Year, Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB, Certification: r.Show.Certification})
 	}
 	return out
 }
 
 func traktFetchWatchlist(clientID, username, mediaType string) []TraktCard {
-	_, b, err := traktGet(clientID, fmt.Sprintf("/users/%s/watchlist/%ss", username, mediaType))
+	_, b, err := traktGet(clientID, fmt.Sprintf("/users/%s/watchlist/%ss?extended=full", username, mediaType))
 	if err != nil {
 		return nil
 	}
@@ -298,7 +300,7 @@ func traktFetchWatchlist(clientID, username, mediaType string) []TraktCard {
 		}
 		out := make([]TraktCard, 0, len(raw))
 		for _, r := range raw {
-			out = append(out, TraktCard{Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year, Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB})
+			out = append(out, TraktCard{Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year, Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB, Certification: r.Movie.Certification})
 		}
 		return out
 	}
@@ -310,7 +312,7 @@ func traktFetchWatchlist(clientID, username, mediaType string) []TraktCard {
 	}
 	out := make([]TraktCard, 0, len(raw))
 	for _, r := range raw {
-		out = append(out, TraktCard{Type: "show", Title: r.Show.Title, Year: r.Show.Year, Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB})
+		out = append(out, TraktCard{Type: "show", Title: r.Show.Title, Year: r.Show.Year, Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB, Certification: r.Show.Certification})
 	}
 	return out
 }
@@ -357,7 +359,7 @@ func traktFetchUserLists(clientID, username string) ([]TraktUserList, string) {
 }
 
 func traktFetchHistory(clientID, username string, limit int) []TraktCard {
-	_, b, err := traktGet(clientID, fmt.Sprintf("/users/%s/history?limit=%d", username, limit))
+	_, b, err := traktGet(clientID, fmt.Sprintf("/users/%s/history?limit=%d&extended=full", username, limit))
 	if err != nil {
 		return nil
 	}
@@ -381,7 +383,8 @@ func traktFetchHistory(clientID, username string, limit int) []TraktCard {
 			seen[r.Movie.IDs.TMDB] = true
 			out = append(out, TraktCard{
 				Type: "movie", Title: r.Movie.Title, Year: r.Movie.Year,
-				Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB, WatchedAt: r.WatchedAt,
+				Slug: r.Movie.IDs.Slug, TMDBID: r.Movie.IDs.TMDB,
+				Certification: r.Movie.Certification, WatchedAt: r.WatchedAt,
 			})
 		} else if r.Type == "episode" && r.Episode != nil && r.Show != nil {
 			if seen[r.Show.IDs.TMDB] {
@@ -390,7 +393,8 @@ func traktFetchHistory(clientID, username string, limit int) []TraktCard {
 			seen[r.Show.IDs.TMDB] = true
 			out = append(out, TraktCard{
 				Type: "episode", Title: r.Show.Title, Year: r.Show.Year,
-				Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB, WatchedAt: r.WatchedAt,
+				Slug: r.Show.IDs.Slug, TMDBID: r.Show.IDs.TMDB, TVDBID: r.Show.IDs.TVDB,
+				Certification: r.Show.Certification, WatchedAt: r.WatchedAt,
 				ShowTitle: r.Show.Title, Season: r.Episode.Season,
 				Episode: r.Episode.Number, EpTitle: r.Episode.Title,
 			})
@@ -456,6 +460,71 @@ func parseTraktStats(b []byte) TraktStats {
 	}
 }
 
+// ── Rating filter ─────────────────────────────────────────────────────────────
+
+func traktRatingFilter(config map[string]interface{}, key string) []string {
+	raw, _ := config[key].([]interface{})
+	out := make([]string, 0, len(raw))
+	for _, r := range raw {
+		if s, ok := r.(string); ok && s != "" {
+			out = append(out, strings.ToUpper(strings.TrimSpace(s)))
+		}
+	}
+	return out
+}
+
+func traktCertAllowed(cert string, allowed []string) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	c := strings.ToUpper(strings.TrimSpace(cert))
+	if c == "" || c == "NR" || c == "NOT RATED" || c == "UNRATED" {
+		// Include NR/Unrated only if explicitly listed in allowed
+		for _, a := range allowed {
+			if a == c || a == "NR" {
+				return true
+			}
+		}
+		return false
+	}
+	for _, a := range allowed {
+		if a == c {
+			return true
+		}
+	}
+	return false
+}
+
+func filterTraktCards(cards []TraktCard, allowed []string) []TraktCard {
+	if len(allowed) == 0 {
+		return cards
+	}
+	out := make([]TraktCard, 0, len(cards))
+	for _, c := range cards {
+		if traktCertAllowed(c.Certification, allowed) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
+func filterTraktHistory(cards []TraktCard, movieRatings, showRatings []string) []TraktCard {
+	if len(movieRatings) == 0 && len(showRatings) == 0 {
+		return cards
+	}
+	out := make([]TraktCard, 0, len(cards))
+	for _, c := range cards {
+		allowed := showRatings
+		if c.Type == "movie" {
+			allowed = movieRatings
+		}
+		if traktCertAllowed(c.Certification, allowed) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 // ── Main fetch ────────────────────────────────────────────────────────────────
 
 func fetchTraktPanelData(db *sql.DB, config map[string]interface{}) (*TraktPanelData, error) {
@@ -511,6 +580,19 @@ func fetchTraktPanelData(db *sql.DB, config map[string]interface{}) (*TraktPanel
 	launch(func() { c := traktFetchHistory(clientID, username, 40); mu.Lock(); out.History = c; mu.Unlock() })
 
 	wg.Wait()
+
+	// Apply rating filters before TMDB enrichment to skip poster fetches for filtered items.
+	movieRatings := traktRatingFilter(config, "movieRatings")
+	showRatings := traktRatingFilter(config, "showRatings")
+	out.TrendingMovies    = filterTraktCards(out.TrendingMovies,    movieRatings)
+	out.TrendingShows     = filterTraktCards(out.TrendingShows,     showRatings)
+	out.PopularMovies     = filterTraktCards(out.PopularMovies,     movieRatings)
+	out.PopularShows      = filterTraktCards(out.PopularShows,      showRatings)
+	out.AnticipatedMovies = filterTraktCards(out.AnticipatedMovies, movieRatings)
+	out.AnticipatedShows  = filterTraktCards(out.AnticipatedShows,  showRatings)
+	out.WatchlistMovies   = filterTraktCards(out.WatchlistMovies,   movieRatings)
+	out.WatchlistShows    = filterTraktCards(out.WatchlistShows,    showRatings)
+	out.History           = filterTraktHistory(out.History,          movieRatings, showRatings)
 
 	var allCards []*TraktCard
 	for i := range out.TrendingMovies    { allCards = append(allCards, &out.TrendingMovies[i]) }
