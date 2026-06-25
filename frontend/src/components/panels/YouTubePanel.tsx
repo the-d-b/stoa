@@ -34,8 +34,6 @@ function fmtAge(publishedAt: string): string {
   return `${Math.floor(days / 30)}mo ago`
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
 function VideoRow({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void }) {
   return (
     <button
@@ -67,7 +65,7 @@ function VideoRow({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void }
   )
 }
 
-function VideoCard({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void }) {
+function HeroCard({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void }) {
   const [thumbError, setThumbError] = useState(false)
   return (
     <button
@@ -75,13 +73,12 @@ function VideoCard({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void 
       style={{
         display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer',
         background: 'none', border: '1px solid var(--border)', padding: 0,
-        borderRadius: 8, overflow: 'hidden', color: 'inherit',
+        borderRadius: 8, overflow: 'hidden', color: 'inherit', flexShrink: 0,
         transition: 'border-color 0.15s',
       }}
       onMouseOver={e => (e.currentTarget.style.borderColor = YT_RED + '80')}
       onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}
     >
-      {/* Thumbnail */}
       {!thumbError && video.thumbnailUrl ? (
         <div style={{ position: 'relative', paddingBottom: '56.25%', background: '#0f0f0f' }}>
           <img
@@ -104,11 +101,9 @@ function VideoCard({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void 
           </div>
         </div>
       )}
-      {/* Info */}
-      <div style={{ padding: '7px 9px', background: 'var(--surface2)' }}>
-        <div style={{ fontSize: 11, fontWeight: 500, color: 'var(--text)',
-          overflow: 'hidden', display: '-webkit-box',
-          WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', lineHeight: 1.4, marginBottom: 3 }}>
+      <div style={{ padding: '6px 9px', background: 'var(--surface2)' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>
           {video.title}
         </div>
         <div style={{ fontSize: 10, color: YT_RED, overflow: 'hidden',
@@ -123,7 +118,6 @@ function VideoCard({ video, onPlay }: { video: YouTubeVideo; onPlay: () => void 
 function VideoPlayer({ video, onBack }: { video: YouTubeVideo; onBack: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Back bar */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px',
         borderBottom: '1px solid var(--border)', flexShrink: 0, background: 'var(--surface)' }}>
         <button
@@ -142,7 +136,6 @@ function VideoPlayer({ video, onBack }: { video: YouTubeVideo; onBack: () => voi
           <div style={{ fontSize: 10, color: YT_RED }}>{video.channelTitle}</div>
         </div>
       </div>
-      {/* Player */}
       <div style={{ flex: 1, minHeight: 0, background: '#000' }}>
         <iframe
           src={`https://www.youtube.com/embed/${video.videoId}?autoplay=1&rel=0`}
@@ -180,31 +173,26 @@ export default function YouTubePanel({ panel, heightUnits }: { panel: Panel; hei
   if (error)   return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>▶ {error}</div>
   if (!data)   return null
 
-  // Player mode — takes over the whole panel
-  if (activeVideo) {
-    return <VideoPlayer video={activeVideo} onBack={() => setActiveVideo(null)} />
-  }
+  if (activeVideo) return <VideoPlayer video={activeVideo} onBack={() => setActiveVideo(null)} />
 
   const videos = data.videos ?? []
 
-  // ── 1× ─────────────────────────────────────────────────────────────────────
+  // ── 1x: single latest video strip ───────────────────────────────────────────
   if (heightUnits <= 1) {
-    const latest = videos[0] ?? null
+    const v = videos[0] ?? null
     return (
       <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8,
         height: '100%', overflow: 'hidden' }}>
         <span style={{ fontSize: 14, color: YT_RED, flexShrink: 0 }}>▶</span>
-        {latest ? (
-          <>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{latest.title}</div>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', overflow: 'hidden',
-                textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {latest.channelTitle} · {fmtAge(latest.publishedAt)}
-              </div>
+        {v ? (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{v.title}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', overflow: 'hidden',
+              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {v.channelTitle} · {fmtAge(v.publishedAt)}
             </div>
-          </>
+          </div>
         ) : (
           <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent videos</span>
         )}
@@ -212,79 +200,64 @@ export default function YouTubePanel({ panel, heightUnits }: { panel: Panel; hei
     )
   }
 
-  // ── 2–3× ───────────────────────────────────────────────────────────────────
+  // ── 2x: 3 rows · 3x: 7 rows (no scroll, exact fit) ──────────────────────────
   if (heightUnits <= 3) {
+    const limit = heightUnits <= 2 ? 3 : 7
     return (
       <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
-        display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-          {data.profileImageUrl && (
-            <img src={data.profileImageUrl} alt={data.channelTitle}
-              style={{ width: 26, height: 26, borderRadius: '50%', flexShrink: 0, objectFit: 'cover' }} />
-          )}
-          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', flex: 1,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {data.channelTitle}
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>
-            {videos.length} videos
-          </span>
+        display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexShrink: 0 }}>
+          <span style={{ fontSize: 12, color: YT_RED, fontWeight: 700 }}>▶</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', flex: 1 }}>YouTube</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{videos.length} videos</span>
         </div>
-
-        {videos.length === 0 ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No recent videos</span>
-          </div>
-        ) : (
-          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-            {videos.map(v => (
-              <VideoRow key={v.videoId} video={v} onPlay={() => setActiveVideo(v)} />
-            ))}
-          </div>
-        )}
+        <div style={{ overflow: 'hidden' }}>
+          {videos.slice(0, limit).map(v => (
+            <VideoRow key={v.videoId} video={v} onPlay={() => setActiveVideo(v)} />
+          ))}
+        </div>
       </div>
     )
   }
 
-  // ── 4×+ ────────────────────────────────────────────────────────────────────
+  // ── 4x: 1 hero + scrollable list · 5x+: 2 heroes side by side + list ────────
+  const heroCount = heightUnits >= 5 ? 2 : 1
+  const heroes = videos.slice(0, heroCount)
+  const listVideos = videos.slice(heroCount)
+
   return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 10 }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        {data.profileImageUrl && (
-          <img src={data.profileImageUrl} alt={data.channelTitle}
-            style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, objectFit: 'cover',
-              border: `2px solid ${YT_RED_DIM}` }} />
-        )}
-        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', flex: 1,
-          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {data.channelTitle}
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
-          padding: '3px 10px', borderRadius: 20,
-          background: YT_RED_DIM, border: `1px solid ${YT_RED}40` }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>▶</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+        <span style={{ fontSize: 13, color: YT_RED, fontWeight: 700 }}>▶</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', flex: 1 }}>YouTube</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px',
+          borderRadius: 20, background: YT_RED_DIM, border: `1px solid ${YT_RED}40` }}>
           <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'DM Mono, monospace', color: YT_RED }}>
             {videos.length}
           </span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>videos</span>
         </div>
       </div>
 
-      {videos.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column', gap: 8 }}>
-          <span style={{ fontSize: 32, opacity: 0.2 }}>▶</span>
-          <span style={{ fontSize: 13, color: 'var(--text-dim)' }}>No recent videos</span>
+      {/* Hero thumbnail(s) */}
+      {heroes.length > 0 && (
+        <div style={{ display: 'grid',
+          gridTemplateColumns: heroCount === 2 ? '1fr 1fr' : '1fr',
+          gap: 8, flexShrink: 0 }}>
+          {heroes.map(v => (
+            <HeroCard key={v.videoId} video={v} onPlay={() => setActiveVideo(v)} />
+          ))}
         </div>
-      ) : (
+      )}
+
+      {/* Scrollable list */}
+      {listVideos.length > 0 && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
-            {videos.map(v => (
-              <VideoCard key={v.videoId} video={v} onPlay={() => setActiveVideo(v)} />
-            ))}
-          </div>
+          {listVideos.map(v => (
+            <VideoRow key={v.videoId} video={v} onPlay={() => setActiveVideo(v)} />
+          ))}
         </div>
       )}
     </div>
