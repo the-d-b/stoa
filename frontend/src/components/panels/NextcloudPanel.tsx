@@ -32,15 +32,11 @@ interface NextcloudData {
 function fmtBytes(bytes: number): string {
   if (bytes <= 0) return '—'
   const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB']
-  let i = 0
-  let v = bytes
+  let i = 0, v = bytes
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++ }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`
 }
 
-function fmtKB(kb: number): string {
-  return fmtBytes(kb * 1024)
-}
 
 function fmtNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -48,96 +44,86 @@ function fmtNum(n: number): string {
   return String(n)
 }
 
-function memPercent(total: number, free: number): number {
-  if (total <= 0) return 0
-  return Math.round((1 - free / total) * 100)
-}
-
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-function ColHeader({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{
-      fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
-      textTransform: 'uppercase', letterSpacing: '0.05em',
-      marginBottom: 5, borderBottom: '1px solid var(--border)', paddingBottom: 3,
-    }}>
-      {children}
-    </div>
-  )
-}
-
-function StatChip({ label, value, color }: { label: string; value: string | number; color?: string }) {
+function Chip({ label, value, color }: { label: string; value: string | number; color?: string }) {
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '5px 12px', borderRadius: 8,
-      background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 64,
+      padding: '4px 14px', borderRadius: 7, minWidth: 64,
+      background: 'var(--surface2)', border: '1px solid var(--border)',
     }}>
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2 }}>
+      <div style={{ fontSize: 9, color: 'var(--text-dim)', textTransform: 'uppercase',
+        letterSpacing: '0.05em', marginBottom: 1 }}>
         {label}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'DM Mono, monospace', color: color || 'var(--text)' }}>
+      <div style={{ fontSize: 12, fontWeight: 600, fontFamily: 'DM Mono, monospace',
+        color: color || 'var(--text)', whiteSpace: 'nowrap' }}>
         {value}
       </div>
     </div>
   )
 }
 
-function UsageDonut({ used, total, size = 80, label }: { used: number; total: number; size?: number; label?: string }) {
-  const cx = size / 2, cy = size / 2, r = size * 0.36
-  const circ = 2 * Math.PI * r
-  const pct = total > 0 ? Math.min(used / total, 1) : 0
-  const filled = circ * pct
-  const color = pct > 0.9 ? '#e53e3e' : pct > 0.75 ? '#f59e0b' : '#4ade80'
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke={color} strokeWidth={size * 0.13}
-        strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
-        transform={`rotate(-90 ${cx} ${cy})`} />
-      <text x={cx} y={cy - size * 0.05} textAnchor="middle" dominantBaseline="middle"
-        fill="var(--text)" style={{ fontSize: size * 0.22, fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
-        {Math.round(pct * 100)}%
-      </text>
-      {label && (
-        <text x={cx} y={cy + size * 0.2} textAnchor="middle"
-          fill="var(--text-dim)" style={{ fontSize: size * 0.11 }}>
-          {label}
-        </text>
-      )}
-    </svg>
+    <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
+      letterSpacing: '0.06em', marginBottom: 5 }}>
+      {children}
+    </div>
   )
 }
 
 function ActivityBar({ label, value, max }: { label: string; value: number; max: number }) {
   const pct = max > 0 ? Math.min(value / max, 1) : 0
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', width: 28, textAlign: 'right', flexShrink: 0 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ fontSize: 10, color: 'var(--text-dim)', width: 26, textAlign: 'right', flexShrink: 0 }}>
         {label}
       </div>
-      <div style={{ flex: 1, height: 6, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
+      <div style={{ flex: 1, height: 5, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
         <div style={{ width: `${pct * 100}%`, height: '100%', background: '#38bdf8', borderRadius: 3 }} />
       </div>
-      <div style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)', width: 24, textAlign: 'right', flexShrink: 0 }}>
+      <div style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)',
+        width: 22, textAlign: 'right', flexShrink: 0 }}>
         {value}
       </div>
     </div>
   )
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
+function DataRow({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
-      <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0, width: 80 }}>{label}</span>
-      <span style={{ fontSize: 11, color: 'var(--text)', fontFamily: 'DM Mono, monospace',
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {value}
-      </span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+      padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+      <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>{label}</span>
+      <span style={{ fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{value}</span>
     </div>
   )
 }
+
+function MemBar({ totalKb, freeKb }: { totalKb: number; freeKb: number }) {
+  if (totalKb <= 0) return null
+  const usedKb = totalKb - freeKb
+  const pct = Math.round((usedKb / totalKb) * 100)
+  const color = pct > 90 ? '#e53e3e' : pct > 75 ? '#f59e0b' : '#4ade80'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ fontSize: 10, color: 'var(--text-dim)', width: 26, textAlign: 'right', flexShrink: 0 }}>
+        RAM
+      </div>
+      <div style={{ flex: 1, height: 5, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', background: color, borderRadius: 3 }} />
+      </div>
+      <div style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)',
+        flexShrink: 0, textAlign: 'right', minWidth: 36 }}>
+        {pct}%
+      </div>
+    </div>
+  )
+}
+
+
 
 // ── Main panel ────────────────────────────────────────────────────────────────
 
@@ -157,134 +143,127 @@ export default function NextcloudPanel({ panel, heightUnits }: { panel: Panel; h
   }, [panel.id, integrationId])
 
   const wrap = (children: React.ReactNode) => (
-    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 14px', boxSizing: 'border-box', overflow: 'hidden' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column',
+      padding: '10px 14px', boxSizing: 'border-box', overflow: 'hidden' }}>
       {children}
     </div>
   )
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
-  if (loading) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error) return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
-  if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
+  if (loading)       return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
+  if (error)         return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (!data)         return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
-  const memUsed = data.memTotalKb - data.memFreeKb
-  const memPct = memPercent(data.memTotalKb, data.memFreeKb)
+  const enabledUsers = data.numUsers - data.numDisabledUsers
+  const hasUpdates   = data.numAppUpdates > 0
+  const hasMemory    = data.memTotalKb > 0
 
-  // ── 1× ───────────────────────────────────────────────────────────────────
+  const updatesPill = hasUpdates && (
+    <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b',
+      background: '#f59e0b18', border: '1px solid #f59e0b40',
+      borderRadius: 5, padding: '3px 8px', flexShrink: 0 }}>
+      {data.numAppUpdates} app update{data.numAppUpdates > 1 ? 's' : ''}
+    </div>
+  )
+
+  // ── 1× ── single line ─────────────────────────────────────────────────────
   if (heightUnits <= 1) {
-    return wrap(
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <StatChip label="Users" value={data.numUsers} color="#4ade80" />
-        <StatChip label="Active" value={data.activeLast24h} color="#38bdf8" />
-        <StatChip label="Files" value={fmtNum(data.numFiles)} />
-        <StatChip label="Storage" value={fmtBytes(data.freeSpaceBytes) + ' free'} />
-        {data.numAppUpdates > 0 && <StatChip label="Updates" value={data.numAppUpdates} color="#f59e0b" />}
-        {data.version && <StatChip label="Version" value={data.version} />}
+    const parts = [
+      `${enabledUsers}/${data.numUsers} users`,
+      `${fmtBytes(data.freeSpaceBytes)} free`,
+      `${data.activeLast24h} active today`,
+    ]
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center',
+        padding: '0 14px', gap: 8, overflow: 'hidden' }}>
+        <span style={{ fontSize: 14, flexShrink: 0 }}>☁</span>
+        <span style={{ fontSize: 12, color: 'var(--text)', whiteSpace: 'nowrap',
+          overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {parts.join(' · ')}
+        </span>
+        {hasUpdates && (
+          <span style={{ fontSize: 11, color: '#f59e0b', flexShrink: 0 }}>
+            · {data.numAppUpdates} update{data.numAppUpdates > 1 ? 's' : ''}
+          </span>
+        )}
       </div>
     )
   }
 
-  // ── 2–3× ─────────────────────────────────────────────────────────────────
+  // ── chip row ── shared across 2×+ ─────────────────────────────────────────
+  const chips = (
+    <div style={{ display: 'flex', gap: 6, flexShrink: 0, justifyContent: 'center' }}>
+      <Chip label="Users" value={`${enabledUsers}/${data.numUsers}`} color="#4ade80" />
+      <Chip label="Free"  value={fmtBytes(data.freeSpaceBytes)}      color="#38bdf8" />
+      <Chip label="Files" value={fmtNum(data.numFiles)} />
+    </div>
+  )
+
+  // ── activity bars ── shared across 2×+ ────────────────────────────────────
+  const maxActive = data.numUsers || 1
+  const activityBars = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      <SectionLabel>Active users</SectionLabel>
+      <ActivityBar label="5m"  value={data.activeLast5m}  max={maxActive} />
+      <ActivityBar label="1h"  value={data.activeLast1h}  max={maxActive} />
+      <ActivityBar label="24h" value={data.activeLast24h} max={maxActive} />
+    </div>
+  )
+
+  // ── 2× ───────────────────────────────────────────────────────────────────
+  if (heightUnits <= 2) {
+    return wrap(
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%' }}>
+        {chips}
+        {hasUpdates && <div style={{ display: 'flex', justifyContent: 'center' }}>{updatesPill}</div>}
+        {activityBars}
+      </div>
+    )
+  }
+
+  // ── 3× ───────────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return wrap(
-      <>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <StatChip label="Users" value={`${data.numUsers - data.numDisabledUsers}/${data.numUsers}`} color="#4ade80" />
-          <StatChip label="Files" value={fmtNum(data.numFiles)} />
-          <StatChip label="Free" value={fmtBytes(data.freeSpaceBytes)} color="#38bdf8" />
-          <StatChip label="Shares" value={data.numShares} />
-          {data.numAppUpdates > 0 && <StatChip label="Updates" value={data.numAppUpdates} color="#f59e0b" />}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', overflow: 'hidden' }}>
+        {chips}
+        {hasUpdates && <div style={{ display: 'flex', justifyContent: 'center' }}>{updatesPill}</div>}
+        {activityBars}
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <SectionLabel>Shares</SectionLabel>
+          <DataRow label="User shares"  value={String(data.numSharesUser)} />
+          <DataRow label="Group shares" value={String(data.numSharesGroup)} />
+          <DataRow label="Public links" value={String(data.numSharesLink)} />
         </div>
-
-        <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', minHeight: 0 }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <ColHeader>Active Users</ColHeader>
-            <ActivityBar label="5m" value={data.activeLast5m} max={data.numUsers} />
-            <ActivityBar label="1h" value={data.activeLast1h} max={data.numUsers} />
-            <ActivityBar label="24h" value={data.activeLast24h} max={data.numUsers} />
-          </div>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <ColHeader>Shares</ColHeader>
-            <InfoRow label="User shares" value={String(data.numSharesUser)} />
-            <InfoRow label="Group shares" value={String(data.numSharesGroup)} />
-            <InfoRow label="Links" value={String(data.numSharesLink)} />
-            <InfoRow label="Total" value={String(data.numShares)} />
-          </div>
-        </div>
-      </>
+      </div>
     )
   }
 
-  // ── 4×+ — three columns ───────────────────────────────────────────────────
+  // ── 4×+ ──────────────────────────────────────────────────────────────────
+  const serverLine = [
+    data.version  && `NC ${data.version}`,
+    data.dbType   && `${data.dbType}${data.dbVersion ? ` ${data.dbVersion}` : ''}`,
+    data.webserver,
+  ].filter(Boolean).join(' · ')
+
   return wrap(
-    <>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <StatChip label="Users" value={`${data.numUsers - data.numDisabledUsers}/${data.numUsers}`} color="#4ade80" />
-        <StatChip label="Files" value={fmtNum(data.numFiles)} />
-        <StatChip label="Free" value={fmtBytes(data.freeSpaceBytes)} color="#38bdf8" />
-        <StatChip label="Shares" value={data.numShares} />
-        {data.numAppUpdates > 0 && <StatChip label="Updates" value={data.numAppUpdates} color="#f59e0b" />}
-        {data.version && <StatChip label="NC" value={data.version} />}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, height: '100%', overflow: 'hidden' }}>
+      {chips}
+      {hasUpdates && <div style={{ display: 'flex', justifyContent: 'center' }}>{updatesPill}</div>}
+      {activityBars}
+      {hasMemory && <MemBar totalKb={data.memTotalKb} freeKb={data.memFreeKb} />}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <SectionLabel>Shares</SectionLabel>
+        <DataRow label="User shares"  value={String(data.numSharesUser)} />
+        <DataRow label="Group shares" value={String(data.numSharesGroup)} />
+        <DataRow label="Public links" value={String(data.numSharesLink)} />
+        {serverLine && (
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-dim)',
+            fontFamily: 'DM Mono, monospace', paddingTop: 6,
+            borderTop: '1px solid var(--border)' }}>
+            {serverLine}
+          </div>
+        )}
       </div>
-
-      <div style={{ flex: 1, display: 'flex', gap: 16, overflow: 'hidden', minHeight: 0 }}>
-
-        {/* Col 1 — Server info */}
-        <div style={{ width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <ColHeader>Server</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {data.webserver && <InfoRow label="Web" value={data.webserver} />}
-            {data.phpVersion && <InfoRow label="PHP" value={data.phpVersion} />}
-            {data.dbType && <InfoRow label="DB" value={`${data.dbType} ${data.dbVersion}`} />}
-            {data.memTotalKb > 0 && <InfoRow label="Memory" value={`${fmtKB(memUsed)} / ${fmtKB(data.memTotalKb)} (${memPct}%)`} />}
-            {data.numAppsInstalled > 0 && <InfoRow label="Apps" value={`${data.numAppsInstalled} installed`} />}
-            {data.numAppUpdates > 0 && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <span style={{ fontSize: 10, fontWeight: 600, color: '#f59e0b', background: '#f59e0b22',
-                  borderRadius: 3, padding: '2px 6px' }}>
-                  {data.numAppUpdates} update{data.numAppUpdates > 1 ? 's' : ''} available
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Col 2 — Users & activity */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <ColHeader>Users & Activity</ColHeader>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
-            <UsageDonut used={memUsed} total={data.memTotalKb} size={70} label="RAM" />
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <ActivityBar label="5m" value={data.activeLast5m} max={data.numUsers || 1} />
-              <ActivityBar label="1h" value={data.activeLast1h} max={data.numUsers || 1} />
-              <ActivityBar label="24h" value={data.activeLast24h} max={data.numUsers || 1} />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            <InfoRow label="Active users" value={`${data.numUsers - data.numDisabledUsers} enabled, ${data.numDisabledUsers} disabled`} />
-          </div>
-        </div>
-
-        {/* Col 3 — Shares */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <ColHeader>Shares</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <InfoRow label="Total" value={String(data.numShares)} />
-            <InfoRow label="User → User" value={String(data.numSharesUser)} />
-            <InfoRow label="User → Group" value={String(data.numSharesGroup)} />
-            <InfoRow label="Public links" value={String(data.numSharesLink)} />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <ColHeader>Files & Storage</ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <InfoRow label="Files" value={fmtNum(data.numFiles)} />
-              <InfoRow label="Free space" value={fmtBytes(data.freeSpaceBytes)} />
-              <InfoRow label="Storages" value={String(data.numStorages)} />
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </>
+    </div>
   )
 }

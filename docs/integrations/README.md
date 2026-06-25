@@ -72,7 +72,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Synology DSM | 🔶 Need Testing | `username:password` — your Synology login | Required | 30 s | [synology/](synology/) |
 | QNAP QTS | 🔶 Need Testing | `username:password` — your QNAP login | Required | 30 s | [qnap/](qnap/) |
 | Proxmox | ✅ Tested | `user@realm!tokenid:secret` — Proxmox API token (full string) | Required | 30 s | [proxmox/](proxmox/) |
-| Nextcloud | 🔶 Need Testing | `username:password` — use an app password from Settings → Security | Required | 5 min | [nextcloud/](nextcloud/) |
+| Nextcloud | ✅ Tested | `username:password` — use an app password from Settings → Security | Required | 5 min | [nextcloud/](nextcloud/) |
 | Scrutiny | 🔶 Need Testing | Blank — no authentication required | Required | 5 min | [scrutiny/](scrutiny/) |
 
 ---
