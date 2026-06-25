@@ -34,8 +34,12 @@ type Service struct {
 
 func New(cfg *config.Config, db *sql.DB) *Service {
 	s := &Service{cfg: cfg, db: db}
-	// OAuth provider will be initialized lazily when config is available
 	return s
+}
+
+func (s *Service) ResetOAuth() {
+	s.provider = nil
+	s.oauth2 = nil
 }
 
 func (s *Service) initOAuth(ctx context.Context) error {
@@ -75,9 +79,15 @@ func (s *Service) initOAuth(ctx context.Context) error {
 		s.db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_client_secret'").Scan(&clientSecret)
 	}
 	if redirectURL == "" {
-		var appURL string
-		s.db.QueryRow("SELECT value FROM app_config WHERE key = 'app_url'").Scan(&appURL)
-		redirectURL = strings.TrimRight(appURL, "/") + "/api/auth/oauth/callback"
+		var storedRedirectURL string
+		s.db.QueryRow("SELECT value FROM app_config WHERE key = 'oauth_redirect_url'").Scan(&storedRedirectURL)
+		if storedRedirectURL != "" {
+			redirectURL = storedRedirectURL
+		} else {
+			var appURL string
+			s.db.QueryRow("SELECT value FROM app_config WHERE key = 'app_url'").Scan(&appURL)
+			redirectURL = strings.TrimRight(appURL, "/") + "/api/auth/oauth/callback"
+		}
 	}
 
 	s.provider = provider

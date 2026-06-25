@@ -424,7 +424,7 @@ func main() {
 	protected.HandleFunc("/css", handlers.ListCSSSheets(database)).Methods("GET")
 	protected.HandleFunc("/css", handlers.UploadCSSSheet(database, cfg.CSSDir)).Methods("POST")
 	protected.HandleFunc("/css/{id}", handlers.DeleteCSSSheet(database, cfg.CSSDir)).Methods("DELETE")
-	admin.HandleFunc("/config/oauth", handlers.SaveOAuthConfig(database, cfg)).Methods("PUT")
+	admin.HandleFunc("/config/oauth", handlers.SaveOAuthConfig(database, cfg, authService)).Methods("PUT")
 
 	// Static frontend
 	frontendPath := cfg.FrontendPath

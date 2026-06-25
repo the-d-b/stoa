@@ -424,7 +424,7 @@ func GetOAuthConfig(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func SaveOAuthConfig(db *sql.DB, cfg *config.Config) http.HandlerFunc {
+func SaveOAuthConfig(db *sql.DB, cfg *config.Config, authSvc *auth.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req models.OAuthConfig
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -443,6 +443,7 @@ func SaveOAuthConfig(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		if req.ClientSecret != "" {
 			upsert("oauth_client_secret", req.ClientSecret)
 		}
+		authSvc.ResetOAuth()
 		log.Printf("[ADMIN] oauth_config_updated")
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
