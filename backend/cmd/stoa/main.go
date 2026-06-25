@@ -342,7 +342,7 @@ func main() {
 	// Integrations (admin only for write, all users can read)
 	protected.HandleFunc("/integrations", handlers.ListIntegrations(database)).Methods("GET")
 	protected.HandleFunc("/panels/{id}/data", handlers.GetPanelData(database)).Methods("GET")
-	protected.HandleFunc("/panels/{id}/action", handlers.TraktPanelAction(database)).Methods("POST")
+	protected.HandleFunc("/panels/{id}/action", handlers.PanelAction(database)).Methods("POST")
 	protected.HandleFunc("/integrations", handlers.CreateIntegration(database)).Methods("POST")
 	admin.HandleFunc("/integrations/{id}", handlers.UpdateIntegration(database)).Methods("PUT")
 	admin.HandleFunc("/integrations/{id}", handlers.DeleteIntegration(database)).Methods("DELETE")

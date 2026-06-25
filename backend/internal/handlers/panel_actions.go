@@ -148,7 +148,7 @@ func lidarrAddAlbum(apiURL, apiKey string, skipTLS bool, mbid string) error {
 	return err
 }
 
-func TraktPanelAction(db *sql.DB) http.HandlerFunc {
+func PanelAction(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panelID := mux.Vars(r)["id"]
 
