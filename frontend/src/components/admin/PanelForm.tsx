@@ -241,6 +241,9 @@ export default function PanelForm({
   // ── Trakt ARR links ────────────────────────────────────────────────────────
   const [traktRadarrId, setTraktRadarrId] = useState(cfg.radarrIntegrationId ?? '')
   const [traktSonarrId, setTraktSonarrId] = useState(cfg.sonarrIntegrationId ?? '')
+
+  // ── Last.fm Lidarr link ────────────────────────────────────────────────────
+  const [lfmLidarrId, setLfmLidarrId] = useState(cfg.lidarrIntegrationId ?? '')
   const [traktMovieRatings, setTraktMovieRatings] = useState(cfg.movieRatings ?? '')
   const [traktShowRatings, setTraktShowRatings] = useState(cfg.showRatings ?? '')
 
@@ -315,6 +318,7 @@ export default function PanelForm({
     setTraktSonarrId(c.sonarrIntegrationId ?? '')
     setTraktMovieRatings(c.movieRatings ?? '')
     setTraktShowRatings(c.showRatings ?? '')
+    setLfmLidarrId(c.lidarrIntegrationId ?? '')
     setHaEntityIds(c.entityIds ?? '')
     setHaDomains(c.domains ?? '')
     setAbBudgetId(c.budgetId ?? '')
@@ -337,6 +341,7 @@ export default function PanelForm({
     setType(t); setIntegrationId(''); setAllowedRatings('')
     setHaEntityIds(''); setHaDomains(''); setAbBudgetId('')
     setTraktRadarrId(''); setTraktSonarrId(''); setTraktMovieRatings(''); setTraktShowRatings('')
+    setLfmLidarrId('')
     setShowInlineCreate(false)
     setInlineName(''); setInlineUrl(''); setInlineSecretId('')
     setInlineTestResult(null); setInlineGeoQuery(''); setInlineGeoResults([])
@@ -459,6 +464,9 @@ export default function PanelForm({
         if (traktSonarrId) base.sonarrIntegrationId = traktSonarrId
         if (traktMovieRatings.trim()) base.movieRatings = traktMovieRatings.trim()
         if (traktShowRatings.trim()) base.showRatings = traktShowRatings.trim()
+      }
+      if (type === 'lastfm') {
+        if (lfmLidarrId) base.lidarrIntegrationId = lfmLidarrId
       }
     }
     return JSON.stringify(base)
@@ -837,6 +845,23 @@ export default function PanelForm({
               Comma-separated TV content ratings. Unrated / NR content is excluded when a filter is active.
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Last.fm: optional Lidarr link */}
+      {type === 'lastfm' && (
+        <div>
+          <label className="label">
+            Lidarr integration{' '}
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — for adding albums)</span>
+          </label>
+          <select className="input" value={lfmLidarrId}
+            onChange={e => setLfmLidarrId(e.target.value)} style={{ cursor: 'pointer' }}>
+            <option value="">— None —</option>
+            {localIntegrations.filter(i => i.type === 'lidarr').map(i => (
+              <option key={i.id} value={i.id}>{i.name}</option>
+            ))}
+          </select>
         </div>
       )}
 

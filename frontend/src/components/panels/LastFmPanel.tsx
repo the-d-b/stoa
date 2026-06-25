@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
 
+type AddState = 'adding' | 'added' | 'error'
+
 interface LastFmTrack {
   name: string
   artist: string
@@ -30,6 +32,7 @@ interface LastFmTopAlbum {
   artist: string
   playCount: string
   imageUrl: string
+  mbid?: string
 }
 
 interface LastFmData {
@@ -128,6 +131,10 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
   const [data, setData] = useState<LastFmData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [addStates, setAddStates] = useState<Record<string, AddState>>({})
+
+  const panelCfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const canAddAlbum = !!panelCfg.lidarrIntegrationId
 
   const load = useCallback(async () => {
     try {
@@ -140,6 +147,17 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
   }, [panel.id])
 
   useEffect(() => { load() }, [load])
+
+  async function handleAddAlbum(album: LastFmTopAlbum) {
+    if (!album.mbid) return
+    setAddStates(p => ({ ...p, [album.mbid!]: 'adding' }))
+    try {
+      await integrationsApi.panelAction(panel.id, { action: 'add_to_lidarr', mbid: album.mbid })
+      setAddStates(p => ({ ...p, [album.mbid!]: 'added' }))
+    } catch {
+      setAddStates(p => ({ ...p, [album.mbid!]: 'error' }))
+    }
+  }
 
   if (loading) return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
   if (error)   return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>🎵 {error}</div>
@@ -287,23 +305,37 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
             <div>
               <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
                 letterSpacing: '0.06em', marginBottom: 4 }}>Top albums · 7 days</div>
-              {topAlbums.map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-                  padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-                  {a.imageUrl && (
-                    <img src={a.imageUrl} alt={a.name}
-                      style={{ width: 24, height: 24, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      color: 'var(--text)' }}>{a.name}</div>
-                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      color: 'var(--text-dim)', fontSize: 11 }}>{a.artist}</div>
+              {topAlbums.map((a, i) => {
+                const st = a.mbid ? addStates[a.mbid] : undefined
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
+                    padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                    {a.imageUrl && (
+                      <img src={a.imageUrl} alt={a.name}
+                        style={{ width: 24, height: 24, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        color: 'var(--text)' }}>{a.name}</div>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        color: 'var(--text-dim)', fontSize: 11 }}>{a.artist}</div>
+                    </div>
+                    <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+                      fontFamily: 'DM Mono, monospace' }}>{a.playCount}×</span>
+                    {canAddAlbum && a.mbid && (
+                      <button onClick={() => handleAddAlbum(a)} disabled={!!st}
+                        title={st === 'added' ? 'Added to Lidarr' : st === 'error' ? 'Failed — try again' : 'Add to Lidarr'}
+                        style={{ flexShrink: 0, width: 20, height: 20, borderRadius: 4,
+                          border: '1px solid var(--border)', background: 'var(--surface2)',
+                          cursor: st ? 'default' : 'pointer', fontSize: 12, lineHeight: 1,
+                          color: st === 'added' ? 'var(--green)' : st === 'error' ? 'var(--red)' : 'var(--text-dim)',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}>
+                        {st === 'adding' ? '…' : st === 'added' ? '✓' : st === 'error' ? '✗' : '+'}
+                      </button>
+                    )}
                   </div>
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-                    fontFamily: 'DM Mono, monospace' }}>{a.playCount}×</span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
           {topTracks.length > 0 && (

@@ -211,7 +211,7 @@ func testNextcloudConnection(baseURL, apiKey string, skipTLS bool) error {
 	} else {
 		return fmt.Errorf("Nextcloud requires username:password in the API key field")
 	}
-	body, err := ncGet(baseURL, username, password, "/ocs/v1.php/cloud/capabilities", skipTLS)
+	body, err := ncGet(baseURL, username, password, "/ocs/v2.php/cloud/capabilities", skipTLS)
 	if err != nil {
 		return err
 	}

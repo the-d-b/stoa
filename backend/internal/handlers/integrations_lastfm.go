@@ -107,6 +107,7 @@ type lfmTopTrackItem struct {
 type lfmTopAlbumItem struct {
 	Name      string `json:"name"`
 	PlayCount string `json:"playcount"`
+	MBID      string `json:"mbid"`
 	Artist    struct {
 		Name string `json:"name"`
 	} `json:"artist"`
@@ -208,6 +209,7 @@ type LastFmTopAlbum struct {
 	Artist    string `json:"artist"`
 	PlayCount string `json:"playCount"`
 	ImageURL  string `json:"imageUrl"`
+	MBID      string `json:"mbid"`
 }
 
 type LastFmPanelData struct {
@@ -353,6 +355,7 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 					Artist:    a.Artist.Name,
 					PlayCount: a.PlayCount,
 					ImageURL:  lfmBestImage(a.Image),
+					MBID:      a.MBID,
 				})
 			}
 		}
