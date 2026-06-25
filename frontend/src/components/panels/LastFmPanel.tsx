@@ -213,10 +213,10 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
           </span>
         )}
       </div>
-      {/* Recent tracks */}
-      {recents.length > 0 && (
+      {/* Recent tracks — exclude now-playing (already shown in header) */}
+      {history.length > 0 && (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
-          {recents.map((t, i) => <TrackRow key={i} track={t} />)}
+          {history.slice(0, heightUnits <= 2 ? 4 : 7).map((t, i) => <TrackRow key={i} track={t} />)}
         </div>
       )}
     </div>
@@ -279,68 +279,63 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
         </div>
       )}
 
-      {/* Top tracks or top albums (fills remaining space) */}
-      {(topTracks.length > 0 || topAlbums.length > 0) && (
-        <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 10 }}>
-          {topTracks.length > 0 && (
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-              <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-                letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Top tracks · 7 days</div>
-              <div style={{ overflowY: 'auto', flex: 1 }}>
-                {topTracks.map((t, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-                    {t.imageUrl && (
-                      <img src={t.imageUrl} alt={t.name}
-                        style={{ width: 24, height: 24, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        color: 'var(--text)' }}>{t.name}</div>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        color: 'var(--text-dim)', fontSize: 11 }}>{t.artist}</div>
-                    </div>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-                      fontFamily: 'DM Mono, monospace' }}>{t.playCount}×</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+      {/* Top albums → top tracks → recent scrobbles (single scrollable column) */}
+      {(topAlbums.length > 0 || topTracks.length > 0 || history.length > 0) && (
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto',
+          display: 'flex', flexDirection: 'column', gap: 8 }}>
           {topAlbums.length > 0 && (
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+            <div>
               <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-                letterSpacing: '0.06em', marginBottom: 4, flexShrink: 0 }}>Top albums · 7 days</div>
-              <div style={{ overflowY: 'auto', flex: 1 }}>
-                {topAlbums.map((a, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-                    padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
-                    {a.imageUrl && (
-                      <img src={a.imageUrl} alt={a.name}
-                        style={{ width: 24, height: 24, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        color: 'var(--text)' }}>{a.name}</div>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        color: 'var(--text-dim)', fontSize: 11 }}>{a.artist}</div>
-                    </div>
-                    <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
-                      fontFamily: 'DM Mono, monospace' }}>{a.playCount}×</span>
+                letterSpacing: '0.06em', marginBottom: 4 }}>Top albums · 7 days</div>
+              {topAlbums.map((a, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                  {a.imageUrl && (
+                    <img src={a.imageUrl} alt={a.name}
+                      style={{ width: 24, height: 24, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      color: 'var(--text)' }}>{a.name}</div>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      color: 'var(--text-dim)', fontSize: 11 }}>{a.artist}</div>
                   </div>
-                ))}
-              </div>
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+                    fontFamily: 'DM Mono, monospace' }}>{a.playCount}×</span>
+                </div>
+              ))}
             </div>
           )}
-        </div>
-      )}
-
-      {/* Recent history — only shows if there's still space (5x+) */}
-      {heightUnits >= 5 && history.length > 0 && (
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
-            letterSpacing: '0.06em', marginBottom: 4 }}>Recent scrobbles</div>
-          {history.slice(0, 3).map((t, i) => <TrackRow key={i} track={t} showImage />)}
+          {topTracks.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
+                letterSpacing: '0.06em', marginBottom: 4 }}>Top tracks · 7 days</div>
+              {topTracks.map((t, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '2px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
+                  {t.imageUrl && (
+                    <img src={t.imageUrl} alt={t.name}
+                      style={{ width: 24, height: 24, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }} />
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      color: 'var(--text)' }}>{t.name}</div>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      color: 'var(--text-dim)', fontSize: 11 }}>{t.artist}</div>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+                    fontFamily: 'DM Mono, monospace' }}>{t.playCount}×</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {heightUnits >= 5 && history.length > 0 && (
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase',
+                letterSpacing: '0.06em', marginBottom: 4 }}>Recent scrobbles</div>
+              {history.slice(0, 3).map((t, i) => <TrackRow key={i} track={t} showImage />)}
+            </div>
+          )}
         </div>
       )}
 

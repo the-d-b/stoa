@@ -143,9 +143,9 @@ func fetchTandoorPanelData(db *sql.DB, config map[string]interface{}) (*TandoorP
 	if mealBody != nil {
 		var mealResp struct {
 			Results []struct {
-				Date   string `json:"date"`
-				Title  string `json:"title"`
-				Recipe *struct {
+				FromDate string `json:"from_date"` // datetime like "2026-06-25T12:00:00-06:00"
+				Title    string `json:"title"`
+				Recipe   *struct {
 					Name string `json:"name"`
 				} `json:"recipe"`
 				MealType struct {
@@ -162,8 +162,12 @@ func fetchTandoorPanelData(db *sql.DB, config map[string]interface{}) (*TandoorP
 				if name == "" {
 					continue
 				}
+				date := m.FromDate
+				if len(date) > 10 {
+					date = date[:10]
+				}
 				mealPlan = append(mealPlan, TandoorMealEntry{
-					Date:     m.Date,
+					Date:     date,
 					MealType: m.MealType.Name,
 					Recipe:   name,
 				})

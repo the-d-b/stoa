@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -199,6 +200,15 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 	}
 
 	// ── Shopping lists ────────────────────────────────────────────────────────
+	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err != nil {
+		log.Printf("[MEALIE] shopping lists error: %v", err)
+	} else {
+		preview := string(body)
+		if len(preview) > 300 {
+			preview = preview[:300]
+		}
+		log.Printf("[MEALIE] shopping lists response: %s", preview)
+	}
 	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err == nil {
 		var r struct {
 			Items []struct {
@@ -207,6 +217,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 			} `json:"items"`
 		}
 		if json.Unmarshal(body, &r) == nil {
+			log.Printf("[MEALIE] shopping lists parsed: %d lists", len(r.Items))
 			for _, list := range r.Items {
 				sl := MealieShoppingList{ID: list.ID, Name: list.Name}
 				// Fetch items for this list

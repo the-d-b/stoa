@@ -36,6 +36,27 @@ Connect Stoa to your services and pull live data into a clean, responsive dashbo
 
 ---
 
+## Help wanted — testers needed
+
+Stoa is in an active phase of validating integrations that are implemented but not yet verified. Most integrations pass a code review and a smoke test, but real-world confirmation against live hardware and actual accounts is what makes a status go from "should work" to "works."
+
+A handful of integrations can't be tested without specific hardware or a paid subscription that I don't have. If you already run any of the following and are willing to give the integration a quick spin, open an issue with your findings — even a one-liner saying "connected fine, data looks right" is useful.
+
+**Integrations I can't test myself:**
+
+| Integration | Blocker |
+|---|---|
+| **Spotify** | Requires Spotify Premium (Web API locked behind paid tier for new developer apps) |
+| **QNAP QTS** | Requires QNAP hardware |
+| **Omada SDN** | Requires TP-Link Omada controller |
+| **UniFi** | Requires Ubiquiti hardware / controller |
+| **Frigate** | Requires Frigate NVR setup with cameras |
+| **Blue Iris** | Requires Blue Iris license (Windows NVR) |
+
+If you run any of these and are willing to test, I'll owe you a beer. I won't actually buy you one — but I'll mean it when I say it.
+
+---
+
 ## Quick start
 
 ```yaml

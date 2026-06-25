@@ -2,7 +2,7 @@
 
 All integrations Stoa supports. Each row links to a dedicated page with full setup instructions, panel description, and screenshots.
 
-**Status legend:** ✅ Tested — verified working | 🔶 Need Testing — implemented, community validation welcome | 🧪 Experimental — new or complex, expect rough edges
+**Status legend:** ✅ Tested — verified working | 🔶 Need Testing — implemented, community validation welcome | 🧪 Experimental — new or complex, expect rough edges | 💰 Requires Premium — functional but needs a paid subscription to test
 
 ---
 
@@ -212,8 +212,8 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Spotify | 🔶 Need Testing | `clientId:clientSecret` — Spotify Developer Dashboard; connect account after saving | None (OAuth) | 30 s | [spotify/](spotify/) |
-| Last.fm | 🔶 Need Testing | `username:apiKey` — username + API key from last.fm/api | None (Last.fm API) | 30 s | [lastfm/](lastfm/) |
+| Spotify | 💰 Requires Premium | `clientId:clientSecret` — Spotify Developer Dashboard; connect account after saving. **Spotify Premium required** — the Web API is locked behind Premium for new developer apps | None (OAuth) | 30 s | [spotify/](spotify/) |
+| Last.fm | ✅ Tested | `username:apiKey` — username + free API key from last.fm/api (no OAuth) | None (Last.fm API) | 30 s | [lastfm/](lastfm/) |
 
 ---
 
