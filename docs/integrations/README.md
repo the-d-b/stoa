@@ -221,9 +221,9 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Mealie | 🔶 Need Testing | Bearer `token` — Mealie → User Settings → API Tokens | Required | 15 min | [mealie/](mealie/) |
-| Grocy | 🔶 Need Testing | Plain API key — Grocy → Manage API Keys | Required | 5 min | [grocy/](grocy/) |
-| Tandoor | 🔶 Need Testing | Bearer `token` — Tandoor → Settings → API Tokens | Required | 15 min | [tandoor/](tandoor/) |
+| Mealie | ✅ Tested | Bearer `token` — Mealie → User Settings → API Tokens | Required | 15 min | [mealie/](mealie/) |
+| Grocy | ✅ Tested | Plain API key — Grocy → Manage API Keys | Required | 5 min | [grocy/](grocy/) |
+| Tandoor | ✅ Tested | Bearer `token` — Tandoor → Settings → API Tokens | Required | 15 min | [tandoor/](tandoor/) |
 
 ---
 
