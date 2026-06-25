@@ -207,7 +207,7 @@ export default function IntegrationForm({
 
   useEffect(() => {
     if (!isEdit || integration?.type !== 'spotify') return
-    fetch(`/api/spotify/status?integrationId=${integration!.id}`, { credentials: 'include' })
+    fetch(`/api/spotify/status?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
       .then(r => r.json())
       .then(d => setSpotifyStatus(d))
       .catch(() => setSpotifyStatus({ connected: false }))
@@ -221,7 +221,7 @@ export default function IntegrationForm({
 
   useEffect(() => {
     if (!isEdit || integration?.type !== 'strava') return
-    fetch(`/api/strava/status?integrationId=${integration!.id}`, { credentials: 'include' })
+    fetch(`/api/strava/status?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
       .then(r => r.json())
       .then(d => setStravaStatus(d))
       .catch(() => setStravaStatus({ connected: false }))
@@ -235,7 +235,7 @@ export default function IntegrationForm({
 
   useEffect(() => {
     if (!isEdit || integration?.type !== 'twitch') return
-    fetch(`/api/twitch/status?integrationId=${integration!.id}`, { credentials: 'include' })
+    fetch(`/api/twitch/status?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
       .then(r => r.json())
       .then(d => setTwitchStatus(d))
       .catch(() => setTwitchStatus({ connected: false }))
@@ -249,7 +249,7 @@ export default function IntegrationForm({
 
   useEffect(() => {
     if (!isEdit || integration?.type !== 'youtube') return
-    fetch(`/api/youtube/status?integrationId=${integration!.id}`, { credentials: 'include' })
+    fetch(`/api/youtube/status?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
       .then(r => r.json())
       .then(d => setYoutubeStatus(d))
       .catch(() => setYoutubeStatus({ connected: false }))
@@ -593,7 +593,7 @@ export default function IntegrationForm({
                       setSpotifyDisconnecting(true)
                       try {
                         await fetch(`/api/spotify/disconnect?integrationId=${integration.id}`, {
-                          method: 'DELETE', credentials: 'include'
+                          method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` }
                         })
                         setSpotifyStatus({ connected: false })
                       } finally { setSpotifyDisconnecting(false) }
@@ -666,7 +666,7 @@ export default function IntegrationForm({
                       setStravaDisconnecting(true)
                       try {
                         await fetch(`/api/strava/disconnect?integrationId=${integration.id}`, {
-                          method: 'DELETE', credentials: 'include'
+                          method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` }
                         })
                         setStravaStatus({ connected: false })
                       } finally { setStravaDisconnecting(false) }
@@ -770,7 +770,7 @@ export default function IntegrationForm({
                       setYoutubeDisconnecting(true)
                       try {
                         await fetch(`/api/youtube/disconnect?integrationId=${integration.id}`, {
-                          method: 'DELETE', credentials: 'include'
+                          method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` }
                         })
                         setYoutubeStatus({ connected: false })
                       } finally { setYoutubeDisconnecting(false) }
@@ -834,7 +834,7 @@ export default function IntegrationForm({
                       setTwitchDisconnecting(true)
                       try {
                         await fetch(`/api/twitch/disconnect?integrationId=${integration.id}`, {
-                          method: 'DELETE', credentials: 'include'
+                          method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` }
                         })
                         setTwitchStatus({ connected: false })
                       } finally { setTwitchDisconnecting(false) }
