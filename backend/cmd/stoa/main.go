@@ -260,25 +260,30 @@ func main() {
 	protected.HandleFunc("/preferences", handlers.SavePreferences(database)).Methods("PUT")
 	protected.HandleFunc("/geo", handlers.GeoLookup(database)).Methods("GET")
 
+	// OAuth redirect routes — use FlexMiddleware so the token can be passed as ?token= query param
+	// (browser navigations from <a href> or window.location.href cannot set Authorization headers)
+	flex := api.PathPrefix("").Subrouter()
+	flex.Use(authService.FlexMiddleware)
+	flex.HandleFunc("/spotify/auth", handlers.SpotifyOAuthRedirect(database)).Methods("GET")
+	flex.HandleFunc("/strava/auth", handlers.StravaOAuthRedirect(database)).Methods("GET")
+	flex.HandleFunc("/twitch/auth", handlers.TwitchOAuthRedirect(database)).Methods("GET")
+	flex.HandleFunc("/youtube/auth", handlers.YouTubeOAuthRedirect(database)).Methods("GET")
+
 	// Spotify OAuth + playback
-	protected.HandleFunc("/spotify/auth", handlers.SpotifyOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/spotify/status", handlers.SpotifyGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/spotify/token", handlers.SpotifyGetToken(database)).Methods("GET")
 	protected.HandleFunc("/spotify/disconnect", handlers.SpotifyDisconnect(database)).Methods("DELETE")
 	protected.HandleFunc("/spotify/playback", handlers.SpotifyPlaybackControl(database)).Methods("POST")
 
 	// Strava OAuth
-	protected.HandleFunc("/strava/auth", handlers.StravaOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/strava/status", handlers.StravaGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/strava/disconnect", handlers.StravaDisconnect(database)).Methods("DELETE")
 
 	// Twitch OAuth
-	protected.HandleFunc("/twitch/auth", handlers.TwitchOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/twitch/status", handlers.TwitchGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/twitch/disconnect", handlers.TwitchDisconnect(database)).Methods("DELETE")
 
 	// YouTube OAuth
-	protected.HandleFunc("/youtube/auth", handlers.YouTubeOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/youtube/status", handlers.YouTubeGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/youtube/disconnect", handlers.YouTubeDisconnect(database)).Methods("DELETE")
 

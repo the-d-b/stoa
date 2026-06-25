@@ -606,10 +606,10 @@ export default function IntegrationForm({
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
                     Not connected — authorize Stoa to access your Spotify account.
                   </div>
-                  <a href={`/api/spotify/auth?integrationId=${integration.id}`}
-                    className="btn btn-primary" style={{ fontSize: 11, textDecoration: 'none', flexShrink: 0 }}>
+                  <button className="btn btn-primary" style={{ fontSize: 11, flexShrink: 0 }}
+                    onClick={() => { const t = localStorage.getItem('stoa_token') ?? ''; window.location.href = `/api/spotify/auth?integrationId=${integration.id}&token=${t}` }}>
                     Connect Spotify
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
@@ -679,11 +679,11 @@ export default function IntegrationForm({
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
                     Not connected — authorize Stoa to access your Strava data.
                   </div>
-                  <a href={`/api/strava/auth?integrationId=${integration.id}`}
-                    className="btn btn-primary" style={{ fontSize: 11, textDecoration: 'none', flexShrink: 0,
-                      background: '#FC4C02', borderColor: '#FC4C02' }}>
+                  <button className="btn btn-primary" style={{ fontSize: 11, flexShrink: 0,
+                      background: '#FC4C02', borderColor: '#FC4C02' }}
+                    onClick={() => { const t = localStorage.getItem('stoa_token') ?? ''; window.location.href = `/api/strava/auth?integrationId=${integration.id}&token=${t}` }}>
                     Connect Strava
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
@@ -783,12 +783,11 @@ export default function IntegrationForm({
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
                     Not connected — authorize Stoa to read your YouTube subscriptions.
                   </div>
-                  <a href={`/api/youtube/auth?integrationId=${integration.id}`}
-                    className="btn btn-primary"
-                    style={{ fontSize: 11, textDecoration: 'none', flexShrink: 0,
-                      background: '#FF0000', borderColor: '#FF0000' }}>
+                  <button className="btn btn-primary"
+                    style={{ fontSize: 11, flexShrink: 0, background: '#FF0000', borderColor: '#FF0000' }}
+                    onClick={() => { const t = localStorage.getItem('stoa_token') ?? ''; window.location.href = `/api/youtube/auth?integrationId=${integration.id}&token=${t}` }}>
                     Connect YouTube
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
@@ -848,11 +847,11 @@ export default function IntegrationForm({
                   <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
                     Not connected — authorize Stoa to read your followed streams.
                   </div>
-                  <a href={`/api/twitch/auth?integrationId=${integration.id}`}
-                    className="btn btn-primary" style={{ fontSize: 11, textDecoration: 'none',
-                      flexShrink: 0, background: '#9146FF', borderColor: '#9146FF' }}>
+                  <button className="btn btn-primary" style={{ fontSize: 11,
+                      flexShrink: 0, background: '#9146FF', borderColor: '#9146FF' }}
+                    onClick={() => { const t = localStorage.getItem('stoa_token') ?? ''; window.location.href = `/api/twitch/auth?integrationId=${integration.id}&token=${t}` }}>
                     Connect Twitch
-                  </a>
+                  </button>
                 </div>
               )}
             </div>
