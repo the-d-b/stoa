@@ -190,7 +190,13 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 		return data, ferr
 	}
 
-	out := &NPMPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	out := &NPMPanelData{
+		UIURL:         uiURL,
+		IntegrationID: integrationID,
+		ProxyHosts:    []NPMProxyHost{},
+		RedirectHosts: []NPMRedirectHost{},
+		Certificates:  []NPMCertificate{},
+	}
 
 	// ── Proxy hosts ───────────────────────────────────────────────────────────
 	if body, err := fetch("/api/nginx/proxy-hosts"); err == nil {

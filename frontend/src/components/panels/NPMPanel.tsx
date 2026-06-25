@@ -209,8 +209,10 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
     proxyTotal, proxyEnabled, proxyDisabled, proxySSL,
     redirectTotal, redirectEnabled, streamTotal, streamEnabled, accessListTotal,
     certTotal, certExpiringSoon, certExpired,
-    proxyHosts = [], certificates = [], redirectHosts = [],
   } = data
+  const proxyHosts   = data.proxyHosts    ?? []
+  const certificates = data.certificates  ?? []
+  const redirectHosts = data.redirectHosts ?? []
 
   const urgentCerts = certExpired + certExpiringSoon
 
@@ -295,89 +297,84 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
     )
   }
 
-  // ── 4×+ full layout ──────────────────────────────────────────────────────────
+  // ── 4×+ single column ────────────────────────────────────────────────────────
+  const disabledHosts = proxyHosts.filter(h => !h.enabled)
+  const CERT_LIMIT = 12
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Top: donut + stat chips */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <EnabledDonut enabled={proxyEnabled} total={proxyTotal} size={80} />
+    <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden', boxSizing: 'border-box',
+      display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+      {/* Donut + stat chips */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
+        <EnabledDonut enabled={proxyEnabled} total={proxyTotal} size={72} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          <StatChip label="Enabled" value={proxyEnabled} color="#4ade80" />
+          <StatChip label="Enabled"  value={proxyEnabled} color="#4ade80" />
           <StatChip label="Disabled" value={proxyDisabled} color={proxyDisabled > 0 ? 'var(--text-muted)' : undefined} />
-          <StatChip label="SSL" value={proxySSL} color="#22d3ee" />
-          {redirectTotal > 0 && <StatChip label="Redirects" value={`${redirectEnabled}/${redirectTotal}`} />}
-          {streamTotal > 0 && <StatChip label="Streams" value={`${streamEnabled}/${streamTotal}`} />}
+          <StatChip label="SSL"      value={proxySSL} color="#22d3ee" />
+          {redirectTotal > 0   && <StatChip label="Redirects"    value={`${redirectEnabled}/${redirectTotal}`} />}
+          {streamTotal > 0     && <StatChip label="Streams"      value={`${streamEnabled}/${streamTotal}`} />}
           {accessListTotal > 0 && <StatChip label="Access Lists" value={accessListTotal} />}
-          {certExpired > 0 && (
-            <StatChip label="Expired" value={certExpired} color="#e53e3e" bg="#e53e3e18" />
-          )}
-          {certExpiringSoon > 0 && (
-            <StatChip label="Expiring" value={certExpiringSoon}
-              color={certExpired > 0 ? '#f97316' : '#f59e0b'}
-              bg={certExpired > 0 ? '#f9731612' : '#f59e0b12'} />
-          )}
+          {certExpired > 0     && <StatChip label="Expired"  value={certExpired}      color="#e53e3e" bg="#e53e3e18" />}
+          {certExpiringSoon > 0 && <StatChip label="Expiring" value={certExpiringSoon}
+            color={certExpired > 0 ? '#f97316' : '#f59e0b'}
+            bg={certExpired > 0 ? '#f9731612' : '#f59e0b12'} />}
         </div>
       </div>
 
-      {/* Three-column detail */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+      {/* Single scrollable column */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-        {/* Column 1: Proxy hosts */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Proxy Hosts ({proxyTotal})</ColHeader>
-          {proxyHosts.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None configured</div>
-            : proxyHosts.map(host => <HostRow key={host.id} host={host} />)
-          }
-        </div>
-
-        {/* Column 2: Certificates */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>
-            Certificates ({certTotal})
-            {urgentCerts > 0 && (
-              <span style={{ marginLeft: 5, color: certExpired > 0 ? '#e53e3e' : '#f59e0b', fontWeight: 600 }}>
-                ⚠
-              </span>
-            )}
-          </ColHeader>
-          {certificates.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None configured</div>
-            : certificates.map(cert => <CertRow key={cert.id} cert={cert} />)
-          }
-        </div>
-
-        {/* Column 3: Redirects + other stats */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0 }}>
-          <ColHeader>Redirects ({redirectTotal})</ColHeader>
-          {redirectHosts.length === 0
-            ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>None configured</div>
-            : redirectHosts.map(rh => <RedirectRow key={rh.id} host={rh} />)
-          }
-
-          {/* Streams + Access Lists counts */}
-          {(streamTotal > 0 || accessListTotal > 0) && (
-            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 5 }}>
-              <ColHeader>Other</ColHeader>
-              {streamTotal > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: streamEnabled > 0 ? '#a855f7' : 'var(--text-dim)', flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {streamEnabled}/{streamTotal} streams
-                  </span>
-                </div>
+        {/* Certificates — sorted urgent-first, truncated with +N label */}
+        {certificates.length > 0 && (
+          <div>
+            <ColHeader>
+              Certificates ({certTotal})
+              {urgentCerts > 0 && (
+                <span style={{ marginLeft: 6, color: certExpired > 0 ? '#e53e3e' : '#f59e0b', fontWeight: 600, fontSize: 10 }}>
+                  ⚠ {urgentCerts} need attention
+                </span>
               )}
-              {accessListTotal > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f97316', flexShrink: 0 }} />
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                    {accessListTotal} access list{accessListTotal !== 1 ? 's' : ''}
-                  </span>
+            </ColHeader>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {certificates.slice(0, CERT_LIMIT).map(cert => <CertRow key={cert.id} cert={cert} />)}
+              {certificates.length > CERT_LIMIT && (
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', paddingLeft: 13 }}>
+                  +{certificates.length - CERT_LIMIT} more
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {/* Disabled hosts only — enabled count is already in the chips */}
+        {disabledHosts.length > 0 && (
+          <div>
+            <ColHeader>{disabledHosts.length} disabled host{disabledHosts.length !== 1 ? 's' : ''}</ColHeader>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {disabledHosts.map(host => <HostRow key={host.id} host={host} compact />)}
+            </div>
+          </div>
+        )}
+
+        {/* Redirects list */}
+        {redirectHosts.length > 0 && (
+          <div>
+            <ColHeader>Redirects ({redirectTotal})</ColHeader>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {redirectHosts.map(rh => <RedirectRow key={rh.id} host={rh} />)}
+            </div>
+          </div>
+        )}
+
+        {/* Streams + access lists — counts only */}
+        {(streamTotal > 0 || accessListTotal > 0) && (
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', display: 'flex', gap: 12 }}>
+            {streamTotal > 0     && <span>{streamEnabled}/{streamTotal} streams</span>}
+            {accessListTotal > 0 && <span>{accessListTotal} access list{accessListTotal !== 1 ? 's' : ''}</span>}
+          </div>
+        )}
+
       </div>
     </div>
   )
