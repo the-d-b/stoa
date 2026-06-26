@@ -144,7 +144,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Home Assistant | 🔶 Need Testing | Long-lived access token — HA → Profile → Long-Lived Access Tokens | Required | 60 s | [homeassistant/](homeassistant/) |
 | Frigate | 🔶 Need Testing | Blank (unauthenticated) **or** Bearer `token` from Frigate → Settings → Users | Required | 15 s | [frigate/](frigate/) |
 | Blue Iris | 🔶 Need Testing | `username:password` — Blue Iris user account | Required | 30 s | [blueiris/](blueiris/) |
-| LubeLogger | 🔶 Need Testing | `username:password` **or** Bearer `token` | Required | 15 min | [lubelogger/](lubelogger/) |
+| LubeLogger | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 15 min | [lubelogger/](lubelogger/) |
 
 ---
 
