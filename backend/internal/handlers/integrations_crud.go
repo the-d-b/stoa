@@ -36,7 +36,7 @@ var integrationConfigTypes = map[string]bool{
 	"stocks": true, "crypto": true, "sports": true, "weather": true,
 	"youtube": true, "twitch": true, "spotify": true, "lastfm": true,
 	"strava": true, "trakt": true, "github": true, "steam": true, "duolingo": true,
-	"rss": true,
+	"rss": true, "tailscale": true,
 }
 
 func ListIntegrations(db *sql.DB) http.HandlerFunc {

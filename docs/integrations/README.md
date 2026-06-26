@@ -108,7 +108,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|---|---|
 | Gluetun | ✅ Tested | Blank (no auth by default) | Required | 60 s | [gluetun/](gluetun/) |
 | wg-easy | 🔶 Need Testing | Bare `password` — your wg-easy web UI password | Required | 30 s | [wgeasy/](wgeasy/) |
-| Tailscale | 🔶 Need Testing | API token — `tskey-api-...` from Tailscale admin console | None (cloud) | 60 s | [tailscale/](tailscale/) |
+| Tailscale | ✅ Tested | API token — `tskey-api-...` from Tailscale admin console | None (cloud) | 60 s | [tailscale/](tailscale/) |
 | Netbird | 🔶 Need Testing | Personal Access Token — Netbird → Settings → PATs | URL or cloud | 60 s | [netbird/](netbird/) |
 | Authentik | ✅ Tested | Plain API token — Authentik → Admin → System → API Tokens | Required | 5 min | [authentik/](authentik/) |
 

@@ -41,6 +41,17 @@ type TailscaleDevice struct {
 	KeyExpired     bool `json:"keyExpired"`
 }
 
+type TailscaleKey struct {
+	ID          string `json:"id"`
+	Description string `json:"description"`
+	Created     string `json:"created"`
+	Expires     string `json:"expires"`
+	Reusable    bool   `json:"reusable"`
+	Ephemeral   bool   `json:"ephemeral"`
+	ExpiringIn  int    `json:"expiringIn"` // days until expiry; -1 = never
+	Expired     bool   `json:"expired"`
+}
+
 type TailscalePanelData struct {
 	UIURL               string            `json:"uiUrl"`
 	IntegrationID       string            `json:"integrationId"`
@@ -53,6 +64,9 @@ type TailscalePanelData struct {
 	SubnetRouters       int               `json:"subnetRouters"`
 	UnauthorizedDevices int               `json:"unauthorizedDevices"`
 	ExpiringDevices     int               `json:"expiringDevices"` // expired or expiring within 30 days
+	Keys                []TailscaleKey    `json:"keys"`
+	ExpiringKeys        int               `json:"expiringKeys"`
+	ExpiredKeys         int               `json:"expiredKeys"`
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -138,7 +152,7 @@ func fetchTailscalePanelData(db *sql.DB, config map[string]interface{}) (*Tailsc
 		uiURL = "https://login.tailscale.com/admin/machines"
 	}
 
-	body, err := tailscaleGet(apiKey, fmt.Sprintf("/api/v2/tailnet/%s/devices", tailnet))
+	body, err := tailscaleGet(apiKey, fmt.Sprintf("/api/v2/tailnet/%s/devices?fields=all", tailnet))
 	if err != nil {
 		return nil, err
 	}
@@ -242,6 +256,51 @@ func fetchTailscalePanelData(db *sql.DB, config map[string]interface{}) (*Tailsc
 		}
 		return strings.ToLower(di.Name) < strings.ToLower(dj.Name)
 	})
+
+	// Fetch auth keys — non-fatal if token lacks keys:read scope
+	if keysBody, kErr := tailscaleGet(apiKey, fmt.Sprintf("/api/v2/tailnet/%s/keys", tailnet)); kErr == nil {
+		var rawKeys struct {
+			Keys []struct {
+				ID          string `json:"id"`
+				Description string `json:"description"`
+				Created     string `json:"created"`
+				Expires     string `json:"expires"`
+				Revoked     string `json:"revoked"`
+				Invalid     bool   `json:"invalid"`
+				Capabilities struct {
+					Devices struct {
+						Create struct {
+							Reusable  bool `json:"reusable"`
+							Ephemeral bool `json:"ephemeral"`
+						} `json:"create"`
+					} `json:"devices"`
+				} `json:"capabilities"`
+			} `json:"keys"`
+		}
+		if json.Unmarshal(keysBody, &rawKeys) == nil {
+			for _, k := range rawKeys.Keys {
+				if k.Invalid || (k.Revoked != "" && k.Revoked != "0001-01-01T00:00:00Z") {
+					continue
+				}
+				daysLeft, expired := tsExpiringIn(k.Expires, false)
+				out.Keys = append(out.Keys, TailscaleKey{
+					ID:          k.ID,
+					Description: k.Description,
+					Created:     k.Created,
+					Expires:     k.Expires,
+					Reusable:    k.Capabilities.Devices.Create.Reusable,
+					Ephemeral:   k.Capabilities.Devices.Create.Ephemeral,
+					ExpiringIn:  daysLeft,
+					Expired:     expired,
+				})
+				if expired {
+					out.ExpiredKeys++
+				} else if daysLeft >= 0 && daysLeft <= 30 {
+					out.ExpiringKeys++
+				}
+			}
+		}
+	}
 
 	return out, nil
 }

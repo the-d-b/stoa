@@ -28,6 +28,17 @@ interface TailscaleDevice {
   keyExpired: boolean
 }
 
+interface TailscaleKey {
+  id: string
+  description: string
+  created: string
+  expires: string
+  reusable: boolean
+  ephemeral: boolean
+  expiringIn: number // days; -1 = never
+  expired: boolean
+}
+
 interface TailscaleData {
   uiUrl: string
   integrationId: string
@@ -40,6 +51,9 @@ interface TailscaleData {
   subnetRouters: number
   unauthorizedDevices: number
   expiringDevices: number
+  keys: TailscaleKey[]
+  expiringKeys: number
+  expiredKeys: number
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -76,6 +90,27 @@ function deviceDot(d: TailscaleDevice): string {
 
 function tagLabel(tag: string): string {
   return tag.startsWith('tag:') ? tag.slice(4) : tag
+}
+
+function subnetRoutes(d: TailscaleDevice): string[] {
+  return (d.enabledRoutes || []).filter(r => r !== '0.0.0.0/0' && r !== '::/0')
+}
+
+function pendingRoutes(d: TailscaleDevice): string[] {
+  const enabled = new Set(d.enabledRoutes || [])
+  return (d.advertisedRoutes || []).filter(r => !enabled.has(r) && r !== '0.0.0.0/0' && r !== '::/0')
+}
+
+function keyLabel(k: TailscaleKey): string {
+  return k.description || `…${k.id.slice(-6)}`
+}
+
+function fmtKeyExpiry(k: TailscaleKey): { text: string; color: string } {
+  if (k.expired) return { text: 'Expired', color: '#e53e3e' }
+  if (k.expiringIn < 0) return { text: 'No expiry', color: 'var(--text-dim)' }
+  if (k.expiringIn <= 7) return { text: `${k.expiringIn}d`, color: '#e53e3e' }
+  if (k.expiringIn <= 30) return { text: `${k.expiringIn}d`, color: '#f97316' }
+  return { text: `${k.expiringIn}d`, color: 'var(--text-dim)' }
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -164,6 +199,42 @@ function TagPill({ tag }: { tag: string }) {
   )
 }
 
+function KeysSection({ keys }: { keys: TailscaleKey[] }) {
+  if (!keys?.length) return null
+  return (
+    <div>
+      <ColHeader>Auth Keys ({keys.length})</ColHeader>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {keys.map(k => {
+          const expiry = fmtKeyExpiry(k)
+          return (
+            <div key={k.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0 }}>
+              <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                color: k.expired ? 'var(--text-dim)' : 'var(--text)' }}>
+                {keyLabel(k)}
+              </div>
+              {k.reusable && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: '#a855f7',
+                  background: '#a855f718', borderRadius: 4, padding: '1px 5px',
+                  flexShrink: 0, letterSpacing: '0.04em' }}>REUSABLE</span>
+              )}
+              {k.ephemeral && (
+                <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)',
+                  background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 4,
+                  padding: '1px 5px', flexShrink: 0, letterSpacing: '0.04em' }}>EPHEMERAL</span>
+              )}
+              <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
+                color: expiry.color, flexShrink: 0, minWidth: 55, textAlign: 'right' }}>
+                {expiry.text}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -190,6 +261,7 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
     totalDevices, onlineDevices, offlineDevices,
     updatesAvailable, exitNodes, subnetRouters,
     unauthorizedDevices, expiringDevices, devices = [],
+    keys = [], expiringKeys = 0, expiredKeys = 0,
   } = data
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
@@ -226,6 +298,14 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
             {offlineDevices} offline
           </span>
         </>}
+        {(expiredKeys > 0 || expiringKeys > 0) && <>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: expiredKeys > 0 ? '#e53e3e' : '#f97316' }}>
+            {expiredKeys > 0
+              ? `${expiredKeys} key${expiredKeys !== 1 ? 's' : ''} expired`
+              : `${expiringKeys} key${expiringKeys !== 1 ? 's' : ''} expiring`}
+          </span>
+        </>}
       </div>
     )
   }
@@ -259,21 +339,36 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
           <div>
             <ColHeader>Devices ({totalDevices})</ColHeader>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {devices.slice(0, heightUnits <= 2 ? 5 : 9).map(d => (
-                <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%', background: deviceDot(d), flexShrink: 0 }} />
-                  <div style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                    color: d.isOnline ? 'var(--text)' : 'var(--text-muted)' }}>
-                    {d.name || d.hostname}
+              {devices.slice(0, heightUnits <= 2 ? 5 : 9).map(d => {
+                const active = subnetRoutes(d)
+                const pending = pendingRoutes(d)
+                return (
+                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%', background: deviceDot(d), flexShrink: 0, alignSelf: 'flex-start', marginTop: 4 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+                          color: d.isOnline ? 'var(--text)' : 'var(--text-muted)' }}>
+                          {d.name || d.hostname}
+                        </span>
+                        <RoleBadge device={d} />
+                        {d.updateAvailable && <UpdateBadge />}
+                      </div>
+                      {(active.length > 0 || pending.length > 0) && (
+                        <div style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', marginTop: 1,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {active.length > 0 && (
+                            <span style={{ color: 'var(--text-dim)' }}>{active.join(', ')}</span>
+                          )}
+                          {pending.length > 0 && (
+                            <span style={{ color: '#f59e0b' }}>{active.length > 0 ? '  ' : ''}{pending.join(', ')} (pending)</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <RoleBadge device={d} />
-                  {d.updateAvailable && <UpdateBadge />}
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10, color: 'var(--text-dim)',
-                    flexShrink: 0, minWidth: 80, textAlign: 'right' }}>
-                    {tsIP(d.addresses)}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
               {devices.length > (heightUnits <= 2 ? 5 : 9) && (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', paddingLeft: 13 }}>
                   +{devices.length - (heightUnits <= 2 ? 5 : 9)} more
@@ -282,6 +377,7 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
             </div>
           </div>
         )}
+        <KeysSection keys={keys} />
       </div>
     )
   }
@@ -319,60 +415,62 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {/* Table header */}
               <div style={{ display: 'grid',
-                gridTemplateColumns: '10px 1fr 100px 60px 1fr 70px',
+                gridTemplateColumns: '10px 1fr 70px',
                 gap: 8, alignItems: 'center', fontSize: 10,
                 color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase',
                 letterSpacing: '0.04em', paddingBottom: 4,
                 borderBottom: '1px solid var(--border)' }}>
                 <div />
                 <div>Name</div>
-                <div>Tailscale IP</div>
-                <div>OS</div>
-                <div>User</div>
                 <div style={{ textAlign: 'right' }}>Last Seen</div>
               </div>
-              {devices.map(d => (
-                <div key={d.id} style={{ display: 'grid',
-                  gridTemplateColumns: '10px 1fr 100px 60px 1fr 70px',
-                  gap: 8, alignItems: 'center', fontSize: 12, minWidth: 0 }}>
-                  <div style={{ width: 7, height: 7, borderRadius: '50%',
-                    background: deviceDot(d), flexShrink: 0 }} />
-                  {/* Name + role/update badges */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      color: d.isOnline ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>
-                      {d.name || d.hostname}
-                    </span>
-                    <RoleBadge device={d} />
-                    {d.updateAvailable && <UpdateBadge />}
-                    {d.keyExpired && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#e53e3e',
-                        background: '#e53e3e18', borderRadius: 4, padding: '1px 5px',
-                        flexShrink: 0, letterSpacing: '0.04em' }}>EXPIRED</span>
-                    )}
-                    {!d.keyExpired && d.expiringIn >= 0 && d.expiringIn <= 30 && (
-                      <span style={{ fontSize: 9, fontWeight: 700, color: '#f97316',
-                        background: '#f9731618', borderRadius: 4, padding: '1px 5px',
-                        flexShrink: 0, letterSpacing: '0.04em' }}>{d.expiringIn}d</span>
-                    )}
+              {devices.map(d => {
+                const active = subnetRoutes(d)
+                const pending = pendingRoutes(d)
+                return (
+                  <div key={d.id} style={{ display: 'grid',
+                    gridTemplateColumns: '10px 1fr 70px',
+                    gap: 8, alignItems: 'start', fontSize: 12, minWidth: 0 }}>
+                    <div style={{ width: 7, height: 7, borderRadius: '50%',
+                      background: deviceDot(d), flexShrink: 0, marginTop: 3 }} />
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0, overflow: 'hidden' }}>
+                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                          color: d.isOnline ? 'var(--text)' : 'var(--text-muted)', flex: 1 }}>
+                          {d.name || d.hostname}
+                        </span>
+                        <RoleBadge device={d} />
+                        {d.updateAvailable && <UpdateBadge />}
+                        {d.keyExpired && (
+                          <span style={{ fontSize: 9, fontWeight: 700, color: '#e53e3e',
+                            background: '#e53e3e18', borderRadius: 4, padding: '1px 5px',
+                            flexShrink: 0, letterSpacing: '0.04em' }}>EXPIRED</span>
+                        )}
+                        {!d.keyExpired && d.expiringIn >= 0 && d.expiringIn <= 30 && (
+                          <span style={{ fontSize: 9, fontWeight: 700, color: '#f97316',
+                            background: '#f9731618', borderRadius: 4, padding: '1px 5px',
+                            flexShrink: 0, letterSpacing: '0.04em' }}>{d.expiringIn}d</span>
+                        )}
+                      </div>
+                      {(active.length > 0 || pending.length > 0) && (
+                        <div style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', marginTop: 2,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {active.length > 0 && (
+                            <span style={{ color: 'var(--text-dim)' }}>{active.join(', ')}</span>
+                          )}
+                          {pending.length > 0 && (
+                            <span style={{ color: '#f59e0b' }}>{active.length > 0 ? '  ' : ''}{pending.join(', ')} (pending)</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
+                      color: d.isOnline ? '#4ade80' : 'var(--text-dim)', textAlign: 'right', whiteSpace: 'nowrap', paddingTop: 2 }}>
+                      {fmtLastSeen(d)}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
-                    color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {tsIP(d.addresses)}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {osLabel(d.os)}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--text-dim)', overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={d.user}>
-                    {d.user?.split('@')[0] || '—'}
-                  </div>
-                  <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
-                    color: d.isOnline ? '#4ade80' : 'var(--text-dim)', textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {fmtLastSeen(d)}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )
         }
@@ -387,6 +485,8 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
           ))}
         </div>
       )}
+
+      <KeysSection keys={keys} />
     </div>
   )
 }
