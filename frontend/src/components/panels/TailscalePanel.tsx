@@ -58,18 +58,6 @@ interface TailscaleData {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function osLabel(os: string): string {
-  const map: Record<string, string> = {
-    linux: 'Linux', darwin: 'macOS', windows: 'Windows',
-    ios: 'iOS', android: 'Android', freebsd: 'FreeBSD', openbsd: 'OpenBSD',
-  }
-  return map[os?.toLowerCase()] || os || '?'
-}
-
-function tsIP(addresses: string[]): string {
-  if (!addresses?.length) return ''
-  return addresses.find(a => a.startsWith('100.')) || addresses[0] || ''
-}
 
 function fmtLastSeen(device: TailscaleDevice): string {
   if (device.isOnline) return 'Online'
