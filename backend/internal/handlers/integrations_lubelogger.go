@@ -98,11 +98,11 @@ func fetchLubeLoggerPanelData(db *sql.DB, config map[string]interface{}) (*LubeL
 		return nil, fmt.Errorf("vehicles: %w", err)
 	}
 	var rawVehicles []struct {
-		ID       int             `json:"id"`
-		Year     json.RawMessage `json:"year"` // int or string depending on version
-		Make     string          `json:"make"`
-		Model    string          `json:"model"`
-		ImageURL string          `json:"imageURL"`
+		ID            int             `json:"id"`
+		Year          json.RawMessage `json:"year"` // int or string depending on version
+		Make          string          `json:"make"`
+		Model         string          `json:"model"`
+		ImageLocation string          `json:"imageLocation"`
 	}
 	if err := json.Unmarshal(vBody, &rawVehicles); err != nil {
 		return nil, fmt.Errorf("vehicles parse: %w", err)
@@ -113,7 +113,7 @@ func fetchLubeLoggerPanelData(db *sql.DB, config map[string]interface{}) (*LubeL
 
 	for _, rv := range rawVehicles {
 		year := strings.Trim(string(rv.Year), `"`)
-		imageURL := rv.ImageURL
+		imageURL := rv.ImageLocation
 		if strings.Contains(imageURL, "noimage") {
 			imageURL = ""
 		} else if imageURL != "" && !strings.HasPrefix(imageURL, "http") {
