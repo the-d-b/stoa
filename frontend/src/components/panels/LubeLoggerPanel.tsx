@@ -68,7 +68,10 @@ function fmtCost(cost: number): string {
 
 function fmtDate(d: string): string {
   if (!d) return ''
-  return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+  // ISO YYYY-MM-DD needs T12:00:00 to avoid UTC midnight timezone shift; other formats parse directly
+  const dt = /^\d{4}-\d{2}-\d{2}$/.test(d) ? new Date(d + 'T12:00:00') : new Date(d)
+  if (isNaN(dt.getTime())) return d
+  return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
 function SectionLabel({ children }: { children: string }) {
