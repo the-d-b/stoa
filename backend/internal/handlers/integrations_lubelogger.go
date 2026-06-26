@@ -32,6 +32,7 @@ type LubeLoggerVehicle struct {
 	Year          string                    `json:"year"`
 	Make          string                    `json:"make"`
 	Model         string                    `json:"model"`
+	ImageURL      string                    `json:"imageURL"`
 	LastOdometer  float64                   `json:"lastOdometer"`
 	Reminders     []LubeLoggerReminder      `json:"reminders"`
 	RecentService []LubeLoggerServiceRecord `json:"recentService"`
@@ -97,10 +98,11 @@ func fetchLubeLoggerPanelData(db *sql.DB, config map[string]interface{}) (*LubeL
 		return nil, fmt.Errorf("vehicles: %w", err)
 	}
 	var rawVehicles []struct {
-		ID    int             `json:"id"`
-		Year  json.RawMessage `json:"year"` // int or string depending on version
-		Make  string          `json:"make"`
-		Model string          `json:"model"`
+		ID       int             `json:"id"`
+		Year     json.RawMessage `json:"year"` // int or string depending on version
+		Make     string          `json:"make"`
+		Model    string          `json:"model"`
+		ImageURL string          `json:"imageURL"`
 	}
 	if err := json.Unmarshal(vBody, &rawVehicles); err != nil {
 		return nil, fmt.Errorf("vehicles parse: %w", err)
@@ -111,11 +113,18 @@ func fetchLubeLoggerPanelData(db *sql.DB, config map[string]interface{}) (*LubeL
 
 	for _, rv := range rawVehicles {
 		year := strings.Trim(string(rv.Year), `"`)
+		imageURL := rv.ImageURL
+		if strings.Contains(imageURL, "noimage") {
+			imageURL = ""
+		} else if imageURL != "" && !strings.HasPrefix(imageURL, "http") {
+			imageURL = strings.TrimRight(baseURL, "/") + imageURL
+		}
 		v := LubeLoggerVehicle{
-			ID:    rv.ID,
-			Year:  year,
-			Make:  rv.Make,
-			Model: rv.Model,
+			ID:       rv.ID,
+			Year:     year,
+			Make:     rv.Make,
+			Model:    rv.Model,
+			ImageURL: imageURL,
 		}
 
 		// Reminders

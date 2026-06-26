@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
@@ -22,6 +22,7 @@ interface LubeLoggerVehicle {
   year: string
   make: string
   model: string
+  imageURL: string
   lastOdometer: number
   reminders: LubeLoggerReminder[]
   recentService: LubeLoggerServiceRecord[]
@@ -70,12 +71,19 @@ function fmtDate(d: string): string {
   return new Date(d + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
-// Single reminder row with urgency left-border
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+      textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 5, marginTop: 10 }}>
+      {children}
+    </div>
+  )
+}
+
 function ReminderRow({ r }: { r: LubeLoggerReminder }) {
   const color = urgencyColor(r.urgency)
   const dl = r.dueDate ? daysLabel(r.dueDate) : ''
   const isPastDue = r.urgency.toLowerCase() === 'past due'
-
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
@@ -103,55 +111,7 @@ function ReminderRow({ r }: { r: LubeLoggerReminder }) {
   )
 }
 
-// Vehicle card with reminders
-function VehicleCard({ v, uiUrl, compact = false }: {
-  v: LubeLoggerVehicle; uiUrl: string; compact?: boolean
-}) {
-  const href = uiUrl ? `${uiUrl}/vehicle/${v.id}` : '#'
-  const label = [v.year, v.make, v.model].filter(Boolean).join(' ')
-  const reminders = v.reminders || []
-  const overdueReminders = reminders.filter(r => r.urgency.toLowerCase() === 'past due')
-  const urgentReminders = reminders.filter(r =>
-    ['very urgent', 'urgent'].includes(r.urgency.toLowerCase()))
-
-  return (
-    <div style={{ marginBottom: compact ? 10 : 14 }}>
-      {/* Vehicle header */}
-      <a href={href} target="_blank" rel="noopener noreferrer"
-        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4,
-          textDecoration: 'none', color: 'inherit' }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{label}</span>
-        {v.lastOdometer > 0 && (
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-            {fmtOdo(v.lastOdometer)}
-          </span>
-        )}
-        {overdueReminders.length > 0 && (
-          <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3,
-            background: '#ef444428', color: '#ef4444', fontWeight: 700, flexShrink: 0 }}>
-            {overdueReminders.length} overdue
-          </span>
-        )}
-        {urgentReminders.length > 0 && overdueReminders.length === 0 && (
-          <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3,
-            background: '#f59e0b28', color: '#f59e0b', fontWeight: 700, flexShrink: 0 }}>
-            {urgentReminders.length} urgent
-          </span>
-        )}
-      </a>
-      {/* Reminders */}
-      {reminders.length === 0
-        ? <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '2px 8px' }}>
-            No reminders
-          </div>
-        : reminders.slice(0, compact ? 3 : 999).map((r, i) => <ReminderRow key={i} r={r} />)
-      }
-    </div>
-  )
-}
-
-// Service record row
-function ServiceRow({ s, vehicleName }: { s: LubeLoggerServiceRecord; vehicleName?: string }) {
+function ServiceRow({ s }: { s: LubeLoggerServiceRecord }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
       borderBottom: '1px solid var(--border)' }}>
@@ -166,9 +126,6 @@ function ServiceRow({ s, vehicleName }: { s: LubeLoggerServiceRecord; vehicleNam
         )}
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
-        {vehicleName && (
-          <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 1 }}>{vehicleName}</div>
-        )}
         <div style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden',
           textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {s.description}
@@ -184,10 +141,77 @@ function ServiceRow({ s, vehicleName }: { s: LubeLoggerServiceRecord; vehicleNam
   )
 }
 
+// One carousel slide — key={v.id} on the parent resets imgError on vehicle change
+function CarouselSlide({ v, uiUrl }: { v: LubeLoggerVehicle; uiUrl: string }) {
+  const [imgError, setImgError] = useState(false)
+  const label = [v.year, v.make, v.model].filter(Boolean).join(' ')
+  const reminders = v.reminders || []
+  const service = v.recentService || []
+  const overdueCount = reminders.filter(r => r.urgency.toLowerCase() === 'past due').length
+  const urgentCount = reminders.filter(r => ['very urgent', 'urgent'].includes(r.urgency.toLowerCase())).length
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {v.imageURL && !imgError && (
+        <img
+          src={v.imageURL}
+          alt={label}
+          onError={() => setImgError(true)}
+          style={{ width: '100%', maxHeight: 200, objectFit: 'cover',
+            borderRadius: 8, marginBottom: 10, display: 'block' }}
+        />
+      )}
+      <a href={uiUrl ? `${uiUrl}/vehicle/${v.id}` : '#'} target="_blank" rel="noopener noreferrer"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
+          textDecoration: 'none', color: 'inherit' }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>{label}</span>
+        {v.lastOdometer > 0 && (
+          <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+            {fmtOdo(v.lastOdometer)}
+          </span>
+        )}
+        {overdueCount > 0 && (
+          <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3,
+            background: '#ef444428', color: '#ef4444', fontWeight: 700 }}>
+            {overdueCount} overdue
+          </span>
+        )}
+        {urgentCount > 0 && overdueCount === 0 && (
+          <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3,
+            background: '#f59e0b28', color: '#f59e0b', fontWeight: 700 }}>
+            {urgentCount} urgent
+          </span>
+        )}
+      </a>
+
+      {reminders.length > 0 && (
+        <>
+          <SectionLabel>Reminders</SectionLabel>
+          {reminders.map((r, i) => <ReminderRow key={i} r={r} />)}
+        </>
+      )}
+      {reminders.length === 0 && (
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '2px 8px', marginBottom: 4 }}>
+          No reminders
+        </div>
+      )}
+
+      {service.length > 0 && (
+        <>
+          <SectionLabel>Recent service</SectionLabel>
+          {service.map((s, i) => <ServiceRow key={i} s={s} />)}
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<LubeLoggerData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [activeIdx, setActiveIdx] = useState(0)
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
@@ -205,6 +229,26 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
   useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
   useEffect(() => { load() }, [load])
 
+  const vehicles = data?.vehicles || []
+
+  const startTimer = useCallback(() => {
+    if (timerRef.current) clearInterval(timerRef.current)
+    if (vehicles.length <= 1) return
+    timerRef.current = setInterval(() => {
+      setActiveIdx(i => (i + 1) % vehicles.length)
+    }, 30000)
+  }, [vehicles.length])
+
+  useEffect(() => {
+    startTimer()
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [startTimer])
+
+  const goTo = (idx: number) => {
+    setActiveIdx(idx)
+    startTimer()
+  }
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center',
       height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
@@ -216,36 +260,21 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
   if (!data) return null
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
-  const vehicles = data.vehicles || []
+  const safeIdx = Math.min(activeIdx, Math.max(0, vehicles.length - 1))
 
-  const section = (label: string) => (
-    <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
-      textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6, marginTop: 10 }}>
-      {label}
-    </div>
-  )
-
-  // All service records across vehicles, sorted newest first
-  const allService = vehicles.flatMap(v =>
-    (v.recentService || []).map(s => ({ ...s, vehicleName: [v.year, v.make, v.model].filter(Boolean).join(' ') }))
-  ).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10)
-
-  // ── Summary chips ────────────────────────────────────────────────────────
+  // ── Summary chips (shared) ───────────────────────────────────────────────
   const SummaryChips = () => (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
       <a href={uiUrl || '#'} target="_blank" rel="noopener noreferrer"
         style={{ display: 'flex', alignItems: 'center', gap: 6,
           padding: '3px 10px', borderRadius: 6,
           background: 'var(--surface2)', border: '1px solid var(--border)',
           textDecoration: 'none', color: 'inherit', fontSize: 12 }}>
-        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>
-          {vehicles.length}
-        </span>
+        <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700 }}>{vehicles.length}</span>
         <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
           {vehicles.length === 1 ? 'vehicle' : 'vehicles'}
         </span>
       </a>
-
       {data.overdueCount > 0 && (
         <div style={{ padding: '3px 10px', borderRadius: 6,
           background: '#ef444420', border: '1px solid #ef444440', fontSize: 12 }}>
@@ -255,7 +284,6 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
           <span style={{ color: '#ef4444', fontSize: 11, marginLeft: 4 }}>past due</span>
         </div>
       )}
-
       {data.urgentCount > 0 && (
         <div style={{ padding: '3px 10px', borderRadius: 6,
           background: '#f59e0b20', border: '1px solid #f59e0b40', fontSize: 12 }}>
@@ -265,14 +293,12 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
           <span style={{ color: '#f59e0b', fontSize: 11, marginLeft: 4 }}>urgent</span>
         </div>
       )}
-
       {data.overdueCount === 0 && data.urgentCount === 0 && data.totalReminders > 0 && (
         <div style={{ padding: '3px 10px', borderRadius: 6,
           background: '#6366f120', border: '1px solid #6366f140', fontSize: 12 }}>
           <span style={{ color: '#6366f1', fontSize: 11 }}>All good ✓</span>
         </div>
       )}
-
       {data.totalReminders > 0 && (
         <div style={{ padding: '3px 9px', borderRadius: 6,
           background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 11 }}>
@@ -285,36 +311,37 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
     </div>
   )
 
-  // ── 1x ──────────────────────────────────────────────────────────────────
+  // ── Nav dots ─────────────────────────────────────────────────────────────
+  const NavDots = () => vehicles.length <= 1 ? null : (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 7, paddingTop: 12 }}>
+      {vehicles.map((_, i) => (
+        <button key={i} onClick={() => goTo(i)} style={{
+          width: i === safeIdx ? 18 : 7, height: 7, borderRadius: 4, border: 'none',
+          cursor: 'pointer', padding: 0, transition: 'all 0.2s',
+          background: i === safeIdx ? 'var(--text-muted)' : 'var(--border)',
+        }} />
+      ))}
+    </div>
+  )
+
+  // ── 1x: chips only ───────────────────────────────────────────────────────
   if (heightUnits <= 1) return (
     <div style={{ height: '100%', display: 'flex', alignItems: 'center' }}>
       <SummaryChips />
     </div>
   )
 
-  // ── 2-3x: chips + vehicle reminder list ─────────────────────────────────
-  if (heightUnits <= 3) return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
-      <SummaryChips />
-      {section('Fleet')}
-      {vehicles.map(v => <VehicleCard key={v.id} v={v} uiUrl={uiUrl} compact />)}
-    </div>
-  )
-
-  // ── 4x+: single column ──────────────────────────────────────────────────
+  // ── 2x+: carousel ────────────────────────────────────────────────────────
   return (
-    <div style={{ height: '100%', overflow: 'auto' }}>
+    <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <SummaryChips />
-      {section('Fleet & reminders')}
-      {vehicles.map(v => <VehicleCard key={v.id} v={v} uiUrl={uiUrl} />)}
-      {section('Service history')}
-      {allService.length === 0
-        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No service records</div>
-        : allService.map((s, i) => (
-          <ServiceRow key={i} s={s}
-            vehicleName={vehicles.length > 1 ? s.vehicleName : undefined} />
-        ))
-      }
+      <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
+        {vehicles.length === 0
+          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No vehicles found</div>
+          : <CarouselSlide key={vehicles[safeIdx].id} v={vehicles[safeIdx]} uiUrl={uiUrl} />
+        }
+      </div>
+      <NavDots />
     </div>
   )
 }
