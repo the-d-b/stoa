@@ -145,7 +145,7 @@ function ServiceRow({ s }: { s: LubeLoggerServiceRecord }) {
 }
 
 // One carousel slide — key={v.id} on the parent resets imgError on vehicle change
-function CarouselSlide({ v, uiUrl }: { v: LubeLoggerVehicle; uiUrl: string }) {
+function CarouselSlide({ v, uiUrl, showImage = false }: { v: LubeLoggerVehicle; uiUrl: string; showImage?: boolean }) {
   const [imgError, setImgError] = useState(false)
   const label = [v.year, v.make, v.model].filter(Boolean).join(' ')
   const reminders = v.reminders || []
@@ -155,7 +155,7 @@ function CarouselSlide({ v, uiUrl }: { v: LubeLoggerVehicle; uiUrl: string }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {v.imageURL && !imgError && (
+      {showImage && v.imageURL && !imgError && (
         <img
           src={v.imageURL}
           alt={label}
@@ -334,14 +334,15 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
     </div>
   )
 
-  // ── 2x+: carousel ────────────────────────────────────────────────────────
+  // ── 2–3x: carousel, no image · 4x+: carousel with image ─────────────────
+  const showImage = heightUnits >= 4
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <SummaryChips />
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         {vehicles.length === 0
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No vehicles found</div>
-          : <CarouselSlide key={vehicles[safeIdx].id} v={vehicles[safeIdx]} uiUrl={uiUrl} />
+          : <CarouselSlide key={vehicles[safeIdx].id} v={vehicles[safeIdx]} uiUrl={uiUrl} showImage={showImage} />
         }
       </div>
       <NavDots />
