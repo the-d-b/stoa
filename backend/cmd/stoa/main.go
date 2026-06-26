@@ -413,7 +413,7 @@ func main() {
 
 	// Panels (write)
 	admin.HandleFunc("/panels", handlers.CreatePanel(database)).Methods("POST")
-	admin.HandleFunc("/panels/{id}", handlers.UpdatePanel(database)).Methods("PUT")
+	protected.HandleFunc("/panels/{id}", handlers.UpdatePanel(database)).Methods("PUT")
 	admin.HandleFunc("/panels/{id}", handlers.DeletePanel(database)).Methods("DELETE")
 	protected.HandleFunc("/panels/{id}/tags", handlers.AddTagToPanel(database)).Methods("POST")
 	protected.HandleFunc("/panels/{id}/tags/{tagId}", handlers.RemoveTagFromPanel(database)).Methods("DELETE")
