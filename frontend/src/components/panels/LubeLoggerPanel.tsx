@@ -301,28 +301,20 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
     </div>
   )
 
-  // ── 4x+: two-column ─────────────────────────────────────────────────────
+  // ── 4x+: single column ──────────────────────────────────────────────────
   return (
-    <div style={{ height: '100%', overflow: 'hidden', display: 'flex', gap: 16 }}>
-      {/* Left: summary + all vehicles + reminders */}
-      <div style={{ width: 240, flexShrink: 0, overflow: 'auto', display: 'flex',
-        flexDirection: 'column' }}>
-        <SummaryChips />
-        {section('Fleet & reminders')}
-        {vehicles.map(v => <VehicleCard key={v.id} v={v} uiUrl={uiUrl} />)}
-      </div>
-
-      {/* Right: service history */}
-      <div style={{ flex: 1, overflow: 'auto', minWidth: 0 }}>
-        {section('Service history')}
-        {allService.length === 0
-          ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No service records</div>
-          : allService.map((s, i) => (
-            <ServiceRow key={i} s={s}
-              vehicleName={vehicles.length > 1 ? s.vehicleName : undefined} />
-          ))
-        }
-      </div>
+    <div style={{ height: '100%', overflow: 'auto' }}>
+      <SummaryChips />
+      {section('Fleet & reminders')}
+      {vehicles.map(v => <VehicleCard key={v.id} v={v} uiUrl={uiUrl} />)}
+      {section('Service history')}
+      {allService.length === 0
+        ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No service records</div>
+        : allService.map((s, i) => (
+          <ServiceRow key={i} s={s}
+            vehicleName={vehicles.length > 1 ? s.vehicleName : undefined} />
+        ))
+      }
     </div>
   )
 }
