@@ -83,11 +83,14 @@ func lubeGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 func fetchLubeLoggerPanelData(db *sql.DB, config map[string]interface{}) (*LubeLoggerPanelData, error) {
-	baseURL, _ := config["apiUrl"].(string)
-	apiKey, _ := config["apiKey"].(string)
-	uiURL, _ := config["uiUrl"].(string)
-	integrationID, _ := config["integrationId"].(string)
-	skipTLS, _ := config["skipTls"].(bool)
+	integrationID := stringVal(config, "integrationId")
+	if integrationID == "" {
+		return nil, fmt.Errorf("integrationId required in panel config")
+	}
+	baseURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
 
 	vBody, err := lubeGet(baseURL, apiKey, "/api/vehicles", skipTLS)
 	if err != nil {
