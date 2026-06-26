@@ -109,8 +109,9 @@ function VehicleCard({ v, uiUrl, compact = false }: {
 }) {
   const href = uiUrl ? `${uiUrl}/vehicle/${v.id}` : '#'
   const label = [v.year, v.make, v.model].filter(Boolean).join(' ')
-  const overdueReminders = v.reminders.filter(r => r.urgency.toLowerCase() === 'past due')
-  const urgentReminders = v.reminders.filter(r =>
+  const reminders = v.reminders || []
+  const overdueReminders = reminders.filter(r => r.urgency.toLowerCase() === 'past due')
+  const urgentReminders = reminders.filter(r =>
     ['very urgent', 'urgent'].includes(r.urgency.toLowerCase()))
 
   return (
@@ -139,11 +140,11 @@ function VehicleCard({ v, uiUrl, compact = false }: {
         )}
       </a>
       {/* Reminders */}
-      {v.reminders.length === 0
+      {reminders.length === 0
         ? <div style={{ fontSize: 11, color: 'var(--text-dim)', padding: '2px 8px' }}>
             No reminders
           </div>
-        : v.reminders.slice(0, compact ? 3 : 999).map((r, i) => <ReminderRow key={i} r={r} />)
+        : reminders.slice(0, compact ? 3 : 999).map((r, i) => <ReminderRow key={i} r={r} />)
       }
     </div>
   )
