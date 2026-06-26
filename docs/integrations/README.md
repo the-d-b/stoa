@@ -231,7 +231,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| YouTube | 🧪 Experimental | `clientId:clientSecret` — Google Cloud Console; connect account after saving | None (OAuth) | 60 min | [youtube/](youtube/) |
+| YouTube | ✅ Tested | `clientId:clientSecret` — Google Cloud Console (YouTube Data API v3); connect account after saving. Can share the same GCP project as Google Calendar. | None (OAuth) | 60 min | [youtube/](youtube/) |
 | Twitch | 🔶 Need Testing | `clientId:clientSecret` — Twitch Developer Console; connect account after saving | None (OAuth) | 60 s | [twitch/](twitch/) |
 | Trakt | ✅ Tested | `clientId:username` or `clientId:username:tmdbApiKey` — Client ID from trakt.tv/oauth/applications + Trakt username + optional TMDB key for poster artwork | None (Trakt API) | 60 s | [trakt/](trakt/) |
 | RSS / Atom | ✅ Tested | Blank (public feeds) **or** Bearer `token` (authenticated feeds) | Feed URL | 5 min | [rss/](rss/) |
