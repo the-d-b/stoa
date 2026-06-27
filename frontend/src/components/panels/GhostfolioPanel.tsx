@@ -271,18 +271,17 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
 
   // ── 4x+ ───────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Left col — net worth + performance metrics */}
-      <div style={{ width: 220, flexShrink: 0, borderRight: '1px solid #1e1e1e', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-        {/* Current value */}
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#e0e0e0', lineHeight: 1.1 }}>
-            {fmtMoney(data.currentValue, cur)}
-          </div>
-          <div style={{ fontSize: 11, color: '#555', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth · {cur}</div>
+    <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14, height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
+      {/* Net worth */}
+      <div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: '#e0e0e0', lineHeight: 1.1 }}>
+          {fmtMoney(data.currentValue, cur)}
         </div>
+        <div style={{ fontSize: 11, color: '#555', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth · {cur}</div>
+      </div>
 
-        {/* Performance metrics */}
+      {/* Performance metrics */}
+      {(data.todayChangePct !== 0 || data.yearChangePct !== 0 || data.allTimeChangePct !== 0) && (
         <div>
           <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Performance</div>
           {data.todayChangePct !== 0 && (
@@ -295,30 +294,28 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
             <PerfRow label="All time" pct={data.allTimeChangePct} amt={data.allTimeChangeAmt} currency={cur} />
           )}
         </div>
+      )}
 
-        {/* Invested */}
-        {data.totalInvestment > 0 && (
+      {/* Invested */}
+      {data.totalInvestment > 0 && (
+        <div>
+          <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Invested</div>
+          <div style={{ fontSize: 16, color: '#aaa' }}>{fmtMoney(data.totalInvestment, cur)}</div>
+        </div>
+      )}
+
+      {/* Donut + holdings list */}
+      {holdings.length > 0 && (
+        <>
+          <HoldingsDonut holdings={holdings} value={data.currentValue} currency={cur} />
           <div>
-            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Invested</div>
-            <div style={{ fontSize: 16, color: '#aaa' }}>{fmtMoney(data.totalInvestment, cur)}</div>
+            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Holdings</div>
+            {holdings.map((h, i) => (
+              <HoldingRow key={i} h={h} color={HOLDING_COLORS[i % HOLDING_COLORS.length]} currency={cur} />
+            ))}
           </div>
-        )}
-      </div>
-
-      {/* Right col — donut + holdings list */}
-      <div style={{ flex: 1, padding: '14px 16px', overflowY: 'auto', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {holdings.length > 0 && (
-          <>
-            <HoldingsDonut holdings={holdings} value={data.currentValue} currency={cur} />
-            <div>
-              <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Holdings</div>
-              {holdings.map((h, i) => (
-                <HoldingRow key={i} h={h} color={HOLDING_COLORS[i % HOLDING_COLORS.length]} currency={cur} />
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }

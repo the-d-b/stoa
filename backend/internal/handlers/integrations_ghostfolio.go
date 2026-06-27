@@ -90,25 +90,24 @@ func ghostfolioGet(baseURL, jwt, path string, skipTLS bool) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// perfField safely reads netPerformance or netPerformancePercent from a raw performance JSON blob.
+// perfFromBody parses the v2 portfolio performance response.
 func perfFromBody(body []byte) (changePct, changeAmt, currentValue, totalInvestment float64) {
 	var r struct {
 		Performance struct {
-			CurrentValue              float64 `json:"currentValue"`
-			CurrentNetWorth           float64 `json:"currentNetWorth"`
-			NetPerformance            float64 `json:"netPerformance"`
-			NetPerformancePercent     float64 `json:"netPerformancePercent"`
-			// some Ghostfolio versions use these names
-			NetPerformanceWithDividends        float64 `json:"netPerformanceWithDividends"`
-			NetPerformanceWithDividendsPercent float64 `json:"netPerformanceWithDividendsPercent"`
-			TotalInvestment           float64 `json:"totalInvestment"`
+			CurrentNetWorth                          float64 `json:"currentNetWorth"`
+			CurrentValueInBaseCurrency               float64 `json:"currentValueInBaseCurrency"`
+			NetPerformance                           float64 `json:"netPerformance"`
+			NetPerformancePercentage                 float64 `json:"netPerformancePercentage"`
+			NetPerformanceWithCurrencyEffect         float64 `json:"netPerformanceWithCurrencyEffect"`
+			NetPerformancePercentageWithCurrencyEffect float64 `json:"netPerformancePercentageWithCurrencyEffect"`
+			TotalInvestment                          float64 `json:"totalInvestment"`
 		} `json:"performance"`
 	}
 	json.Unmarshal(body, &r)
 	p := r.Performance
-	changePct = p.NetPerformancePercent
+	changePct = p.NetPerformancePercentage
 	changeAmt = p.NetPerformance
-	currentValue = p.CurrentValue
+	currentValue = p.CurrentValueInBaseCurrency
 	if currentValue == 0 {
 		currentValue = p.CurrentNetWorth
 	}
@@ -156,8 +155,8 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 		out.Currency = "USD"
 	}
 
-	// ── All-time performance (also gives current value + total investment) ────
-	if body, err := ghostfolioGet(baseURL, jwt, "/api/v1/portfolio/performance?range=max", skipTLS); err == nil {
+	// ── All-time performance ──────────────────────────────────────────────────
+	if body, err := ghostfolioGet(baseURL, jwt, "/api/v2/portfolio/performance?range=max", skipTLS); err == nil {
 		_, changeAmt, currentValue, totalInvestment := perfFromBody(body)
 		out.CurrentValue = currentValue
 		out.TotalInvestment = totalInvestment
@@ -168,7 +167,7 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 	}
 
 	// ── Today's performance ───────────────────────────────────────────────────
-	if body, err := ghostfolioGet(baseURL, jwt, "/api/v1/portfolio/performance?range=1d", skipTLS); err == nil {
+	if body, err := ghostfolioGet(baseURL, jwt, "/api/v2/portfolio/performance?range=1d", skipTLS); err == nil {
 		pct, amt, cv, _ := perfFromBody(body)
 		out.TodayChangePct = pct
 		out.TodayChangeAmt = amt
@@ -177,50 +176,69 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 		}
 	}
 
-	// ── Year-to-date / 1-year performance ────────────────────────────────────
-	if body, err := ghostfolioGet(baseURL, jwt, "/api/v1/portfolio/performance?range=1y", skipTLS); err == nil {
+	// ── 1-year performance ────────────────────────────────────────────────────
+	if body, err := ghostfolioGet(baseURL, jwt, "/api/v2/portfolio/performance?range=1y", skipTLS); err == nil {
 		pct, _, _, _ := perfFromBody(body)
 		out.YearChangePct = pct
 	}
 
 	// ── Holdings ──────────────────────────────────────────────────────────────
+	// Current Ghostfolio returns {"holdings": [...]} — an array where name/symbol/currency
+	// are nested inside assetProfile. Cash holdings are excluded from display but
+	// included in the CurrentValue total.
 	if body, err := ghostfolioGet(baseURL, jwt, "/api/v1/portfolio/holdings", skipTLS); err == nil {
-		// Holdings arrive as a JSON object keyed by symbol
 		var wrapper struct {
-			Holdings map[string]struct {
-				Name              string  `json:"name"`
-				Symbol            string  `json:"symbol"`
-				Currency          string  `json:"currency"`
-				Value             float64 `json:"value"`
-				AllocationCurrent float64 `json:"allocationCurrent"`
-				NetPerformance    float64 `json:"netPerformance"`
-				NetPerformancePercent float64 `json:"netPerformancePercent"`
-				Quantity          float64 `json:"quantity"`
-				MarketPrice       float64 `json:"marketPrice"`
+			Holdings []struct {
+				Quantity               float64 `json:"quantity"`
+				ValueInBaseCurrency    float64 `json:"valueInBaseCurrency"`
+				AllocationInPercentage float64 `json:"allocationInPercentage"`
+				Investment             float64 `json:"investment"`
+				NetPerformance         float64 `json:"netPerformance"`
+				NetPerformancePercent  float64 `json:"netPerformancePercent"`
+				MarketPrice            float64 `json:"marketPrice"`
+				AssetProfile           struct {
+					Name          string `json:"name"`
+					Symbol        string `json:"symbol"`
+					Currency      string `json:"currency"`
+					AssetSubClass string `json:"assetSubClass"`
+				} `json:"assetProfile"`
 			} `json:"holdings"`
 		}
 		if json.Unmarshal(body, &wrapper) == nil {
-			for sym, h := range wrapper.Holdings {
-				name := h.Name
+			for _, h := range wrapper.Holdings {
+				if h.AssetProfile.AssetSubClass == "CASH" {
+					continue
+				}
+				name := h.AssetProfile.Name
 				if name == "" {
-					name = sym
+					name = h.AssetProfile.Symbol
 				}
 				out.Holdings = append(out.Holdings, GhostfolioHolding{
 					Name:              name,
-					Symbol:            sym,
-					Currency:          h.Currency,
-					Value:             h.Value,
-					AllocationCurrent: h.AllocationCurrent,
+					Symbol:            h.AssetProfile.Symbol,
+					Currency:          h.AssetProfile.Currency,
+					Value:             h.ValueInBaseCurrency,
+					AllocationCurrent: h.AllocationInPercentage,
 					NetPerformancePct: h.NetPerformancePercent,
 					NetPerformance:    h.NetPerformance,
 					Quantity:          h.Quantity,
 					MarketPrice:       h.MarketPrice,
 				})
 			}
-			// Sort by value descending
 			sort.Slice(out.Holdings, func(i, j int) bool {
 				return out.Holdings[i].Value > out.Holdings[j].Value
 			})
+			// Recalculate allocation as fraction of non-cash assets so the donut
+			// reflects investment composition rather than being dominated by cash.
+			var nonCashTotal float64
+			for _, h := range out.Holdings {
+				nonCashTotal += h.Value
+			}
+			if nonCashTotal > 0 {
+				for i := range out.Holdings {
+					out.Holdings[i].AllocationCurrent = out.Holdings[i].Value / nonCashTotal
+				}
+			}
 		}
 	}
 
