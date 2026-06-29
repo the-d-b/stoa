@@ -85,7 +85,7 @@ function AllocationDonut({ accounts, total }: { accounts: CoinbaseAccount[]; tot
             <circle key={i} cx={cx} cy={cy} r={r} fill="none"
               stroke={color}
               strokeWidth={sw}
-              strokeDasharray={`${arc} ${circ}`}
+              strokeDasharray={`${arc} ${circ - arc}`}
               strokeDashoffset={circ - offset}
               transform={`rotate(-90 ${cx} ${cy})`}
               strokeLinecap="butt" />
@@ -172,17 +172,13 @@ export default function CoinbasePanel({ panel, heightUnits }: { panel: Panel; he
   if (heightUnits <= 1) {
     return (
       <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 20, height: '100%', overflow: 'hidden' }}>
-        <div>
+        <div style={{ flexShrink: 0 }}>
           <div style={{ fontSize: 22, fontWeight: 700, color: '#e0e0e0', lineHeight: 1 }}>{fmtUSD(data.totalUsd)}</div>
           <div style={{ fontSize: 10, color: '#666', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coinbase · {data.accountCount} assets</div>
         </div>
-        {/* Top 3 currencies as color pills */}
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
           {accounts.slice(0, 4).map((a, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, background: '#1a1a1a', borderRadius: 6, padding: '3px 8px' }}>
-              <div style={{ width: 7, height: 7, borderRadius: 1, background: cryptoColor(a.currency, i) }} />
-              <span style={{ fontSize: 11, color: '#ccc' }}>{a.currency}</span>
-            </div>
+            <div key={i} title={a.currency} style={{ width: 10, height: 10, borderRadius: 2, background: cryptoColor(a.currency, i), flexShrink: 0 }} />
           ))}
         </div>
       </div>
@@ -192,30 +188,22 @@ export default function CoinbasePanel({ panel, heightUnits }: { panel: Panel; he
   // ── 2-3x ──────────────────────────────────────────────────────────────────────
   if (heightUnits <= 3) {
     return (
-      <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 12, height: '100%', overflow: 'hidden' }}>
-        {/* Total + stacked allocation bar */}
-        <div style={{ flexShrink: 0 }}>
-          <div style={{ fontSize: 26, fontWeight: 700, color: '#e0e0e0', lineHeight: 1 }}>{fmtUSD(data.totalUsd)}</div>
-          <div style={{ fontSize: 10, color: '#666', marginTop: 3, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coinbase Portfolio</div>
-          {/* Stacked allocation bar */}
-          <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
-            {accounts.slice(0, 8).map((a, i) => (
-              <div key={i} style={{ flex: a.allocation, background: cryptoColor(a.currency, i), minWidth: 2 }} />
-            ))}
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 8 }}>
-            {accounts.slice(0, 6).map((a, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <div style={{ width: 7, height: 7, borderRadius: 1, background: cryptoColor(a.currency, i) }} />
-                <span style={{ fontSize: 11, color: '#aaa' }}>{a.currency}</span>
-                <span style={{ fontSize: 11, color: '#555' }}>{(a.allocation * 100).toFixed(0)}%</span>
-              </div>
-            ))}
-          </div>
+      <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden' }}>
+        <div style={{ fontSize: 26, fontWeight: 700, color: '#e0e0e0', lineHeight: 1 }}>{fmtUSD(data.totalUsd)}</div>
+        <div style={{ fontSize: 10, color: '#666', marginTop: 3, marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coinbase Portfolio</div>
+        <div style={{ display: 'flex', height: 14, borderRadius: 4, overflow: 'hidden', gap: 1 }}>
+          {accounts.slice(0, 8).map((a, i) => (
+            <div key={i} style={{ flex: a.allocation, background: cryptoColor(a.currency, i), minWidth: 2 }} />
+          ))}
         </div>
-        {/* Account list */}
-        <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          {accounts.map((a, i) => <AccountRow key={i} account={a} index={i} />)}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginTop: 10 }}>
+          {accounts.slice(0, 6).map((a, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 7, height: 7, borderRadius: 1, background: cryptoColor(a.currency, i) }} />
+              <span style={{ fontSize: 11, color: '#aaa' }}>{a.currency}</span>
+              <span style={{ fontSize: 11, color: '#555' }}>{(a.allocation * 100).toFixed(0)}%</span>
+            </div>
+          ))}
         </div>
       </div>
     )
@@ -223,20 +211,15 @@ export default function CoinbasePanel({ panel, heightUnits }: { panel: Panel; he
 
   // ── 4x+ ───────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ display: 'flex', height: '100%', overflow: 'hidden' }}>
-      {/* Left col — total + donut */}
-      <div style={{ width: 240, flexShrink: 0, borderRight: '1px solid #1e1e1e', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 16, overflowY: 'auto' }}>
-        <div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: '#e0e0e0', lineHeight: 1.1 }}>{fmtUSD(data.totalUsd)}</div>
-          <div style={{ fontSize: 11, color: '#555', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coinbase · {data.accountCount} assets</div>
-        </div>
-        {accounts.length > 0 && (
-          <AllocationDonut accounts={accounts} total={data.totalUsd} />
-        )}
+    <div style={{ padding: '14px 16px', height: '100%', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div>
+        <div style={{ fontSize: 28, fontWeight: 700, color: '#e0e0e0', lineHeight: 1.1 }}>{fmtUSD(data.totalUsd)}</div>
+        <div style={{ fontSize: 11, color: '#555', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Coinbase · {data.accountCount} assets</div>
       </div>
-
-      {/* Right col — full account list with bars */}
-      <div style={{ flex: 1, padding: '14px 16px', overflowY: 'auto', minWidth: 0 }}>
+      {accounts.length > 0 && (
+        <AllocationDonut accounts={accounts} total={data.totalUsd} />
+      )}
+      <div>
         <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Accounts</div>
         {accounts.map((a, i) => <AccountRow key={i} account={a} index={i} showBar />)}
       </div>

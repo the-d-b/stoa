@@ -173,7 +173,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Firefly III | 🔶 Need Testing | Personal Access Token — Firefly III → Profile → OAuth → PATs | Required | 60 min | [fireflyiii/](fireflyiii/) |
 | Actual Budget | ✅ Tested | API key — set as `API_KEY` env var on the `actual-http-api` sidecar | Required | 5 min | [actualbudget/](actualbudget/) |
 | Ghostfolio | ✅ Tested | Security token (recovery key) — Ghostfolio → User Account → Security Token | Required | 5 min | [ghostfolio/](ghostfolio/) |
-| Coinbase | 🔶 Need Testing | `apiKey:apiSecret` — Coinbase → Settings → API (read-only key) | None (cloud) | 5 min | [coinbase/](coinbase/) |
+| Coinbase | ✅ Tested | `keyName:privateKey` — CDP key from coinbase.com/settings/api (Ed25519, not Advanced API) | None (cloud) | 5 min | [coinbase/](coinbase/) |
 | Stocks | ✅ Tested | Blank — Yahoo Finance public data, no key needed | None (standalone) | 5 min | [stocks/](stocks/) |
 | Crypto | ✅ Tested | Blank **or** CoinGecko Demo API key (optional, for higher limits) | None (standalone) | 5 min | [crypto/](crypto/) |
 

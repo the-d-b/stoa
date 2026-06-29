@@ -1,11 +1,16 @@
 package handlers
 
 import (
-	"crypto/hmac"
+	"crypto/ecdsa"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/sha256"
+	"crypto/x509"
 	"database/sql"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/pem"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,11 +24,11 @@ import (
 
 type CoinbaseAccount struct {
 	Name          string  `json:"name"`
-	Currency      string  `json:"currency"`   // e.g. "BTC"
-	CurrencyName  string  `json:"currencyName"` // e.g. "Bitcoin"
-	Balance       float64 `json:"balance"`    // crypto amount
-	NativeBalance float64 `json:"nativeBalance"` // USD amount
-	Allocation    float64 `json:"allocation"` // 0-1 of total
+	Currency      string  `json:"currency"`
+	CurrencyName  string  `json:"currencyName"`
+	Balance       float64 `json:"balance"`
+	NativeBalance float64 `json:"nativeBalance"`
+	Allocation    float64 `json:"allocation"`
 }
 
 type CoinbasePanelData struct {
@@ -34,37 +39,240 @@ type CoinbasePanelData struct {
 	Accounts      []CoinbaseAccount `json:"accounts"`
 }
 
-// ── HTTP helper ───────────────────────────────────────────────────────────────
+// ── Credential parsing ────────────────────────────────────────────────────────
 
-func coinbaseSign(secret, timestamp, method, path string) string {
-	msg := timestamp + method + path
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write([]byte(msg))
-	return hex.EncodeToString(mac.Sum(nil))
+// splitCoinbaseCreds splits "keyName:privateKeyPEM" on the first colon.
+// keyName is e.g. "organizations/abc/apiKeys/def"; privateKeyPEM is the EC key
+// PEM block (newlines can be literal \n escapes — both forms are accepted).
+func splitCoinbaseCreds(creds string) (keyName, privateKeyPEM string, err error) {
+	idx := strings.Index(creds, ":")
+	if idx < 0 {
+		return "", "", fmt.Errorf("API key must be in keyName:privateKey format — create a CDP key at coinbase.com/developer-platform")
+	}
+	keyName = creds[:idx]
+	privateKeyPEM = strings.ReplaceAll(creds[idx+1:], `\n`, "\n")
+	return keyName, privateKeyPEM, nil
 }
 
-func coinbaseGet(apiKey, apiSecret, path string, skipTLS bool) ([]byte, error) {
-	client := httpClient(skipTLS)
-	ts := strconv.FormatInt(time.Now().Unix(), 10)
-	sig := coinbaseSign(apiSecret, ts, "GET", path)
+// ── JWT (ES256) ───────────────────────────────────────────────────────────────
+
+// normalizePEM reconstructs a standard PEM block when newlines have been
+// stripped (e.g., by a browser password input field on paste).
+func normalizePEM(input string) string {
+	input = strings.TrimSpace(input)
+	if b, _ := pem.Decode([]byte(input)); b != nil {
+		return input // already valid
+	}
+
+	beginMarker := "-----BEGIN "
+	endMarker := "-----END "
+
+	beginIdx := strings.Index(input, beginMarker)
+	if beginIdx < 0 {
+		return input
+	}
+	afterBegin := input[beginIdx+len(beginMarker):]
+	typeEnd := strings.Index(afterBegin, "-----")
+	if typeEnd < 0 {
+		return input
+	}
+	pemType := strings.TrimSpace(afterBegin[:typeEnd])
+
+	endIdx := strings.Index(input, endMarker)
+	if endIdx < 0 {
+		return input
+	}
+
+	// Extract base64 content between markers, strip all whitespace
+	raw := input[beginIdx+len(beginMarker)+typeEnd+5 : endIdx]
+	raw = strings.Map(func(r rune) rune {
+		if r == ' ' || r == '\t' || r == '\r' || r == '\n' {
+			return -1
+		}
+		return r
+	}, raw)
+
+	var sb strings.Builder
+	sb.WriteString("-----BEGIN " + pemType + "-----\n")
+	for len(raw) > 64 {
+		sb.WriteString(raw[:64] + "\n")
+		raw = raw[64:]
+	}
+	if raw != "" {
+		sb.WriteString(raw + "\n")
+	}
+	sb.WriteString("-----END " + pemType + "-----\n")
+	return sb.String()
+}
+
+// coinbaseKey holds a parsed CDP private key and the JWT algorithm it requires.
+// Coinbase CDP issues EC P-256 keys (ES256) or Ed25519 keys (EdDSA) depending
+// on the portal; the newer cdp.coinbase.com portal issues Ed25519.
+type coinbaseKey struct {
+	alg     string
+	ecKey   *ecdsa.PrivateKey
+	edKey   ed25519.PrivateKey
+}
+
+// parseCoinbaseKey accepts the secret portion of the Coinbase CDP credential
+// in any format the portal may provide:
+//   - PEM with -----BEGIN EC PRIVATE KEY----- or -----BEGIN PRIVATE KEY----- headers
+//   - PEM with newlines stripped (browser password input field behaviour)
+//   - Raw base64 of DER bytes without headers
+//   - Raw base64 of 32-byte Ed25519 seed or 64-byte Ed25519 private key
+func parseCoinbaseKey(secret string) (*coinbaseKey, error) {
+	secret = strings.TrimSpace(secret)
+
+	if strings.Contains(secret, "-----") {
+		block, _ := pem.Decode([]byte(normalizePEM(secret)))
+		if block == nil {
+			return nil, fmt.Errorf("invalid PEM block — check your Coinbase CDP key")
+		}
+		switch block.Type {
+		case "EC PRIVATE KEY":
+			k, err := x509.ParseECPrivateKey(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			return &coinbaseKey{alg: "ES256", ecKey: k}, nil
+		case "PRIVATE KEY":
+			k, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			switch kt := k.(type) {
+			case *ecdsa.PrivateKey:
+				return &coinbaseKey{alg: "ES256", ecKey: kt}, nil
+			case ed25519.PrivateKey:
+				return &coinbaseKey{alg: "EdDSA", edKey: kt}, nil
+			default:
+				return nil, fmt.Errorf("unsupported PKCS8 key type: %T", k)
+			}
+		default:
+			return nil, fmt.Errorf("unsupported PEM type: %s", block.Type)
+		}
+	}
+
+	// No PEM headers — the newer CDP portal gives raw base64 of the key bytes.
+	keyBytes, err := base64.StdEncoding.DecodeString(secret)
+	if err != nil {
+		keyBytes, err = base64.RawStdEncoding.DecodeString(secret)
+		if err != nil {
+			return nil, fmt.Errorf("private key is neither valid PEM nor base64 — check your Coinbase CDP key")
+		}
+	}
+
+	// Try DER formats first (PKCS8 covers both EC and Ed25519 when wrapped)
+	if k, e := x509.ParsePKCS8PrivateKey(keyBytes); e == nil {
+		switch kt := k.(type) {
+		case *ecdsa.PrivateKey:
+			return &coinbaseKey{alg: "ES256", ecKey: kt}, nil
+		case ed25519.PrivateKey:
+			return &coinbaseKey{alg: "EdDSA", edKey: kt}, nil
+		}
+	}
+	if k, e := x509.ParseECPrivateKey(keyBytes); e == nil {
+		return &coinbaseKey{alg: "ES256", ecKey: k}, nil
+	}
+
+	// Raw Ed25519 bytes — 32-byte seed or 64-byte private key (seed+public).
+	// The newer cdp.coinbase.com portal provides keys in this form.
+	switch len(keyBytes) {
+	case ed25519.SeedSize: // 32 bytes
+		k := ed25519.NewKeyFromSeed(keyBytes)
+		return &coinbaseKey{alg: "EdDSA", edKey: k}, nil
+	case ed25519.PrivateKeySize: // 64 bytes
+		return &coinbaseKey{alg: "EdDSA", edKey: ed25519.PrivateKey(keyBytes)}, nil
+	}
+
+	return nil, fmt.Errorf("private key format not recognized — paste the privateKey value from the JSON file Coinbase gave you")
+}
+
+func coinbaseMakeJWT(keyName, privateKeyPEM, method, path string) (string, error) {
+	ck, err := parseCoinbaseKey(privateKeyPEM)
+	if err != nil {
+		return "", err
+	}
+
+	nonceBytes := make([]byte, 16)
+	if _, err := rand.Read(nonceBytes); err != nil {
+		return "", fmt.Errorf("failed to generate nonce: %v", err)
+	}
+
+	headerJSON, _ := json.Marshal(map[string]string{
+		"alg":   ck.alg,
+		"typ":   "JWT",
+		"kid":   keyName,
+		"nonce": hex.EncodeToString(nonceBytes),
+	})
+	header := base64.RawURLEncoding.EncodeToString(headerJSON)
+
+	// Strip query string from URI — Coinbase validates path only, not query params
+	uriPath := path
+	if i := strings.IndexByte(path, '?'); i >= 0 {
+		uriPath = path[:i]
+	}
+
+	now := time.Now().Unix()
+	payloadJSON, _ := json.Marshal(map[string]interface{}{
+		"sub": keyName,
+		"iss": "cdp",
+		"aud": []string{"cdp_service"},
+		"nbf": now,
+		"exp": now + 120,
+		"uri": method + " api.coinbase.com" + uriPath,
+	})
+	payload := base64.RawURLEncoding.EncodeToString(payloadJSON)
+
+	signingInput := header + "." + payload
+
+	var sigBytes []byte
+	switch {
+	case ck.ecKey != nil:
+		hash := sha256.Sum256([]byte(signingInput))
+		r, s, err := ecdsa.Sign(rand.Reader, ck.ecKey, hash[:])
+		if err != nil {
+			return "", fmt.Errorf("failed to sign JWT: %v", err)
+		}
+		// ES256: r||s, each zero-padded to 32 bytes
+		sig := make([]byte, 64)
+		rBytes, sBytes := r.Bytes(), s.Bytes()
+		copy(sig[32-len(rBytes):32], rBytes)
+		copy(sig[64-len(sBytes):64], sBytes)
+		sigBytes = sig
+	case ck.edKey != nil:
+		// EdDSA: raw 64-byte Ed25519 signature
+		sigBytes = ed25519.Sign(ck.edKey, []byte(signingInput))
+	default:
+		return "", fmt.Errorf("no usable key")
+	}
+
+	return signingInput + "." + base64.RawURLEncoding.EncodeToString(sigBytes), nil
+}
+
+// ── HTTP helper ───────────────────────────────────────────────────────────────
+
+func coinbaseGet(keyName, privateKeyPEM, path string, skipTLS bool) ([]byte, error) {
+	jwt, err := coinbaseMakeJWT(keyName, privateKeyPEM, "GET", path)
+	if err != nil {
+		return nil, err
+	}
 
 	req, err := http.NewRequest("GET", "https://api.coinbase.com"+path, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("CB-ACCESS-KEY", apiKey)
-	req.Header.Set("CB-ACCESS-SIGN", sig)
-	req.Header.Set("CB-ACCESS-TIMESTAMP", ts)
+	req.Header.Set("Authorization", "Bearer "+jwt)
 	req.Header.Set("CB-VERSION", "2016-02-18")
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := httpClient(skipTLS).Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
-		return nil, fmt.Errorf("authentication failed — check Coinbase API key and secret")
+		return nil, fmt.Errorf("authentication failed — check Coinbase CDP key name and private key")
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("HTTP %d from Coinbase", resp.StatusCode)
@@ -72,13 +280,27 @@ func coinbaseGet(apiKey, apiSecret, path string, skipTLS bool) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// splitCoinbaseCreds splits "apiKey:apiSecret" on the first colon.
-func splitCoinbaseCreds(creds string) (apiKey, apiSecret string, err error) {
-	idx := strings.Index(creds, ":")
-	if idx < 0 {
-		return "", "", fmt.Errorf("API key must be in apiKey:apiSecret format — create a read-only key in Coinbase → Settings → API")
+// ── Spot price helper ─────────────────────────────────────────────────────────
+
+// coinbaseSpotPrice fetches the current USD spot price for a currency.
+// Returns 1.0 for USD; 0 on error so the account is shown but not valued.
+func coinbaseSpotPrice(keyName, privateKeyPEM, currency string, skipTLS bool) (float64, error) {
+	if currency == "USD" {
+		return 1.0, nil
 	}
-	return creds[:idx], creds[idx+1:], nil
+	body, err := coinbaseGet(keyName, privateKeyPEM, "/v2/prices/"+currency+"-USD/spot", skipTLS)
+	if err != nil {
+		return 0, err
+	}
+	var r struct {
+		Data struct {
+			Amount string `json:"amount"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &r); err != nil {
+		return 0, err
+	}
+	return strconv.ParseFloat(r.Data.Amount, 64)
 }
 
 // ── Panel fetcher ─────────────────────────────────────────────────────────────
@@ -95,14 +317,13 @@ func fetchCoinbasePanelData(db *sql.DB, config map[string]interface{}) (*Coinbas
 	if uiURL == "" {
 		uiURL = "https://coinbase.com"
 	}
-	apiKey, apiSecret, err := splitCoinbaseCreds(creds)
+	keyName, privateKeyPEM, err := splitCoinbaseCreds(creds)
 	if err != nil {
 		return nil, err
 	}
 
 	out := &CoinbasePanelData{UIURL: uiURL, IntegrationID: integrationID}
 
-	// Fetch all account pages
 	type rawAccount struct {
 		Name     string `json:"name"`
 		Currency struct {
@@ -110,19 +331,15 @@ func fetchCoinbasePanelData(db *sql.DB, config map[string]interface{}) (*Coinbas
 			Name string `json:"name"`
 		} `json:"currency"`
 		Balance struct {
-			Amount   string `json:"amount"`
-			Currency string `json:"currency"`
+			Amount string `json:"amount"`
 		} `json:"balance"`
-		NativeBalance struct {
-			Amount   string `json:"amount"`
-			Currency string `json:"currency"`
-		} `json:"native_balance"`
 	}
 
+	// Paginate through all accounts
 	var allRaw []rawAccount
-	nextURI := "/v2/accounts?limit=100"
-	for nextURI != "" {
-		body, ferr := coinbaseGet(apiKey, apiSecret, nextURI, skipTLS)
+	nextPath := "/v2/accounts?limit=100"
+	for nextPath != "" {
+		body, ferr := coinbaseGet(keyName, privateKeyPEM, nextPath, skipTLS)
 		if ferr != nil {
 			return nil, ferr
 		}
@@ -136,32 +353,50 @@ func fetchCoinbasePanelData(db *sql.DB, config map[string]interface{}) (*Coinbas
 			return nil, fmt.Errorf("unexpected response from Coinbase")
 		}
 		allRaw = append(allRaw, page.Data...)
-		nextURI = page.Pagination.NextURI
+		nextPath = page.Pagination.NextURI
 	}
 
-	// Parse and filter zero-balance accounts
+	// Fetch spot prices for each unique currency that has a non-zero balance.
+	// The v2 API native_balance field is unreliable with CDP JWT auth, so we
+	// calculate USD values ourselves using /v2/prices/{code}-USD/spot.
+	spotPrices := make(map[string]float64)
 	for _, ra := range allRaw {
 		bal, _ := strconv.ParseFloat(ra.Balance.Amount, 64)
-		native, _ := strconv.ParseFloat(ra.NativeBalance.Amount, 64)
-		if native <= 0 && bal <= 0 {
+		if bal <= 0 {
 			continue
 		}
+		code := ra.Currency.Code
+		if code == "" {
+			continue
+		}
+		if _, seen := spotPrices[code]; seen {
+			continue
+		}
+		price, _ := coinbaseSpotPrice(keyName, privateKeyPEM, code, skipTLS)
+		spotPrices[code] = price
+	}
+
+	for _, ra := range allRaw {
+		bal, _ := strconv.ParseFloat(ra.Balance.Amount, 64)
+		if bal <= 0 {
+			continue
+		}
+		code := ra.Currency.Code
+		native := bal * spotPrices[code]
 		out.TotalUSD += native
 		out.Accounts = append(out.Accounts, CoinbaseAccount{
 			Name:          ra.Name,
-			Currency:      ra.Currency.Code,
+			Currency:      code,
 			CurrencyName:  ra.Currency.Name,
 			Balance:       bal,
 			NativeBalance: native,
 		})
 	}
 
-	// Sort by native balance descending
 	sort.Slice(out.Accounts, func(i, j int) bool {
 		return out.Accounts[i].NativeBalance > out.Accounts[j].NativeBalance
 	})
 
-	// Compute allocations
 	if out.TotalUSD > 0 {
 		for i := range out.Accounts {
 			out.Accounts[i].Allocation = out.Accounts[i].NativeBalance / out.TotalUSD
@@ -175,11 +410,11 @@ func fetchCoinbasePanelData(db *sql.DB, config map[string]interface{}) (*Coinbas
 // ── Connection test ───────────────────────────────────────────────────────────
 
 func testCoinbaseConnection(baseURL, creds string, skipTLS bool) error {
-	apiKey, apiSecret, err := splitCoinbaseCreds(creds)
+	keyName, privateKeyPEM, err := splitCoinbaseCreds(creds)
 	if err != nil {
 		return err
 	}
-	body, err := coinbaseGet(apiKey, apiSecret, "/v2/user", skipTLS)
+	body, err := coinbaseGet(keyName, privateKeyPEM, "/v2/user", skipTLS)
 	if err != nil {
 		return err
 	}
