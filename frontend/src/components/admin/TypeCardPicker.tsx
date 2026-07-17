@@ -16,9 +16,11 @@ interface Props {
   // multi-select
   values?: string[]
   onChangeMulti?: (ids: string[]) => void
+  // focus the filter input on mount
+  autoFocus?: boolean
 }
 
-export default function TypeCardPicker({ types, value, onChange, values, onChangeMulti }: Props) {
+export default function TypeCardPicker({ types, value, onChange, values, onChangeMulti, autoFocus }: Props) {
   const isMulti = values !== undefined
   const [filter, setFilter] = useState('')
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
@@ -57,6 +59,7 @@ export default function TypeCardPicker({ types, value, onChange, values, onChang
           className="input"
           value={filter}
           onChange={e => setFilter(e.target.value)}
+          autoFocus={autoFocus}
           placeholder="Filter..."
           style={{ paddingRight: filter ? 28 : undefined, fontSize: 13 }}
         />

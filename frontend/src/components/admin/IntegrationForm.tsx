@@ -417,6 +417,7 @@ export default function IntegrationForm({
             types={INTEGRATION_TYPES}
             value={type}
             onChange={handleTypeChange}
+            autoFocus
           />
         </div>
       )}
@@ -426,7 +427,7 @@ export default function IntegrationForm({
         <div style={{ flex: 2, minWidth: 160 }}>
           <label className="label">Name</label>
           <input className="input" value={name} onChange={e => setName(e.target.value)}
-            placeholder="e.g. My Sonarr" autoFocus={!isEdit} />
+            placeholder="e.g. My Sonarr" />
         </div>
         {isEdit && (
           <div style={{ flex: 1, minWidth: 120 }}>

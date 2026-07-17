@@ -515,6 +515,7 @@ export default function PanelForm({
             }))}
             value={type}
             onChange={handleTypeChange}
+            autoFocus
           />
         </div>
       )}
@@ -524,7 +525,7 @@ export default function PanelForm({
         <div style={{ flex: 2, minWidth: 160 }}>
           <label className="label">Panel title</label>
           <input className="input" value={title} onChange={e => setTitle(e.target.value)}
-            placeholder="e.g. My Sonarr" autoFocus={!isEdit} />
+            placeholder="e.g. My Sonarr" />
         </div>
         {isEdit && (
           <div style={{ flex: 1, minWidth: 140 }}>
