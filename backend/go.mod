@@ -17,4 +17,5 @@ require (
 	github.com/SherClockHolmes/webpush-go v1.4.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
 	github.com/stretchr/testify v1.8.3 // indirect
+	github.com/teambition/rrule-go v1.8.2 // indirect
 )

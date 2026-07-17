@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	_ "time/tzdata" // embedded IANA tz database — TZID lookups work without OS tzdata
 
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"

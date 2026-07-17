@@ -32,6 +32,18 @@ func cacheGet(integrationID string) (interface{}, bool) {
 	return e.data, true
 }
 
+// cacheGetFresh returns the entry only if it is younger than maxAge.
+// Used for keys with no background refresh worker (e.g. ical feeds).
+func cacheGetFresh(key string, maxAge time.Duration) (interface{}, bool) {
+	panelCacheMu.RLock()
+	defer panelCacheMu.RUnlock()
+	e, ok := panelCache[key]
+	if !ok || time.Since(e.fetchedAt) > maxAge {
+		return nil, false
+	}
+	return e.data, true
+}
+
 // cacheDeletePrefix removes all cache entries whose key starts with the given prefix.
 // Used to bust cache when panel config changes (e.g. allowedRatings edited).
 func cacheDeletePrefix(prefix string) {

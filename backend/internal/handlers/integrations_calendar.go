@@ -9,7 +9,24 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/teambition/rrule-go"
 )
+
+// icsFetch downloads an ICS feed, returning an error on network failure or
+// non-200 status so the caller can fall back to cached data.
+func icsFetch(icsURL string) ([]byte, error) {
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Get(icsURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("HTTP %d from ICS feed", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
 
 // localDate extracts the YYYY-MM-DD date in local server time from a UTC timestamp.
 // Radarr/Lidarr return UTC midnight — without this, users west of UTC see dates
@@ -379,25 +396,36 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			if color == "" { color = "#0078d4" }
 
 			cacheKey := "ical:" + icsURL
-			var rawEvents []icsEvent
-			if cached, ok := cacheGet(cacheKey); ok {
-				if ev, ok2 := cached.([]icsEvent); ok2 {
-					rawEvents = ev
+			var vevents []icsVEvent
+			haveCache := false
+			if cached, ok := cacheGetFresh(cacheKey, 15*time.Minute); ok {
+				if ev, ok2 := cached.([]icsVEvent); ok2 {
+					vevents, haveCache = ev, true
 				}
 			}
-			if rawEvents == nil {
-				client := &http.Client{Timeout: 15 * time.Second}
-				resp, err := client.Get(icsURL)
-				if err != nil {
-					log.Printf("[CAL] ical: fetch error: %v", err)
-					continue
+			if !haveCache {
+				body, ferr := icsFetch(icsURL)
+				if ferr != nil {
+					log.Printf("[CAL] ical: fetch error: %v", ferr)
+					// Fall back to stale cache rather than dropping the source
+					if cached, ok := cacheGet(cacheKey); ok {
+						if ev, ok2 := cached.([]icsVEvent); ok2 {
+							vevents, haveCache = ev, true
+						}
+					}
+					if !haveCache { continue }
+				} else {
+					vevents = parseICSVEvents(body)
+					cacheSet(cacheKey, vevents)
+					log.Printf("[CAL] ical: fetched %d raw events from %s", len(vevents), icsURL)
 				}
-				body, _ := io.ReadAll(resp.Body)
-				resp.Body.Close()
-				rawEvents = parseICSEvents(body)
-				cacheSet(cacheKey, rawEvents)
-				log.Printf("[CAL] ical: fetched %d events from %s", len(rawEvents), icsURL)
 			}
+
+			// Expand recurring series into concrete instances within the window
+			now := timeNow().Local()
+			winStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+			winEnd := winStart.AddDate(0, 0, daysAhead+1)
+			rawEvents := expandICSEvents(vevents, winStart, winEnd)
 
 			today := timeNow().Format("2006-01-02")
 			endDate := timeNow().AddDate(0, 0, daysAhead).Format("2006-01-02")
@@ -563,24 +591,44 @@ type icsEvent struct {
 	EndDT   string // RFC3339, empty for all-day events
 }
 
-// parseICSEvents parses a raw ICS feed and returns a flat list of VEVENT entries.
-// Handles line folding (RFC 5545 §3.1), date-only and datetime DTSTART/DTEND,
-// UTC "Z" suffix, and TZID parameters for localised datetimes.
-// Recurring events (RRULE) are not expanded — only the base instance is included.
-func parseICSEvents(data []byte) []icsEvent {
+// icsVEvent is one raw VEVENT from the feed, before recurrence expansion.
+type icsVEvent struct {
+	UID             string
+	Summary         string
+	Cancelled       bool
+	Start           time.Time
+	AllDay          bool
+	Duration        time.Duration
+	RRule           string // raw RRULE value; empty for one-off events
+	ExDates         []time.Time
+	RecurrenceID    time.Time // set when this VEVENT overrides one instance of a series
+	HasRecurrenceID bool
+}
+
+// parseICSVEvents parses a raw ICS feed into VEVENT entries with recurrence
+// metadata intact. Handles line folding (RFC 5545 §3.1), date-only and datetime
+// DTSTART/DTEND, UTC "Z" suffix, and TZID parameters (including Windows
+// timezone names as published by Outlook/M365).
+func parseICSVEvents(data []byte) []icsVEvent {
 	unfolded := icsUnfold(data)
-	var events []icsEvent
+	var events []icsVEvent
 	var inEvent bool
-	var cur icsEvent
+	var cur icsVEvent
+	var end time.Time
+	var hasEnd bool
 
 	for _, line := range strings.Split(unfolded, "\n") {
 		line = strings.TrimRight(line, "\r")
 		switch line {
 		case "BEGIN:VEVENT":
 			inEvent = true
-			cur = icsEvent{}
+			cur = icsVEvent{}
+			end, hasEnd = time.Time{}, false
 		case "END:VEVENT":
-			if inEvent && cur.Date != "" && cur.Summary != "" {
+			if inEvent && !cur.Start.IsZero() && cur.Summary != "" {
+				if hasEnd && end.After(cur.Start) {
+					cur.Duration = end.Sub(cur.Start)
+				}
 				events = append(events, cur)
 			}
 			inEvent = false
@@ -595,16 +643,123 @@ func parseICSEvents(data []byte) []icsEvent {
 			if len(parts) > 1 { params = parts[1] }
 
 			switch propName {
+			case "UID":
+				cur.UID = value
 			case "SUMMARY":
 				cur.Summary = icsUnescape(value)
+			case "STATUS":
+				if strings.EqualFold(strings.TrimSpace(value), "CANCELLED") {
+					cur.Cancelled = true
+				}
 			case "DTSTART":
-				cur.Date, cur.StartDT = icsParseDT(value, params)
+				if t, allDay, ok := icsParseTime(value, params); ok {
+					cur.Start, cur.AllDay = t, allDay
+				}
 			case "DTEND":
-				_, cur.EndDT = icsParseDT(value, params)
+				if t, _, ok := icsParseTime(value, params); ok {
+					end, hasEnd = t, true
+				}
+			case "RRULE":
+				cur.RRule = value
+			case "EXDATE":
+				// May appear multiple times, each with comma-separated values
+				for _, v := range strings.Split(value, ",") {
+					if t, _, ok := icsParseTime(v, params); ok {
+						cur.ExDates = append(cur.ExDates, t)
+					}
+				}
+			case "RECURRENCE-ID":
+				if t, _, ok := icsParseTime(value, params); ok {
+					cur.RecurrenceID = t
+					cur.HasRecurrenceID = true
+				}
 			}
 		}
 	}
 	return events
+}
+
+// expandICSEvents flattens raw VEVENTs into concrete calendar instances within
+// [winStart, winEnd]. Recurring series (RRULE) are expanded per occurrence,
+// EXDATE-deleted instances are dropped, and RECURRENCE-ID override VEVENTs
+// (moved/renamed/cancelled single instances) replace their master occurrence.
+func expandICSEvents(vevents []icsVEvent, winStart, winEnd time.Time) []icsEvent {
+	// Series overrides grouped by UID
+	overrides := map[string][]icsVEvent{}
+	for _, ev := range vevents {
+		if ev.HasRecurrenceID && ev.UID != "" {
+			overrides[ev.UID] = append(overrides[ev.UID], ev)
+		}
+	}
+
+	var out []icsEvent
+	emit := func(ev icsVEvent, start time.Time) {
+		if ev.Cancelled { return }
+		if ev.AllDay {
+			out = append(out, icsEvent{Summary: ev.Summary, Date: start.Format("2006-01-02")})
+			return
+		}
+		e := icsEvent{
+			Summary: ev.Summary,
+			Date:    start.Local().Format("2006-01-02"),
+			StartDT: start.UTC().Format(time.RFC3339),
+		}
+		if ev.Duration > 0 {
+			e.EndDT = start.Add(ev.Duration).UTC().Format(time.RFC3339)
+		}
+		out = append(out, e)
+	}
+
+	for _, ev := range vevents {
+		if ev.HasRecurrenceID {
+			// Override instances are emitted below, replacing master occurrences
+			continue
+		}
+		if ev.RRule == "" {
+			emit(ev, ev.Start)
+			continue
+		}
+		occurrences := icsExpandRRule(ev, winStart, winEnd)
+		for _, occ := range occurrences {
+			skip := false
+			for _, ex := range ev.ExDates {
+				if occ.Equal(ex) { skip = true; break }
+			}
+			if !skip {
+				for _, ov := range overrides[ev.UID] {
+					if occ.Equal(ov.RecurrenceID) { skip = true; break }
+				}
+			}
+			if skip { continue }
+			emit(ev, occ)
+		}
+	}
+
+	// Moved/renamed single instances carry their own DTSTART
+	for _, ovs := range overrides {
+		for _, ov := range ovs {
+			emit(ov, ov.Start)
+		}
+	}
+	return out
+}
+
+// icsExpandRRule expands one recurring VEVENT's RRULE into occurrence start
+// times within the window. Returns just the base instance on parse failure so
+// a malformed rule degrades to pre-expansion behavior.
+func icsExpandRRule(ev icsVEvent, winStart, winEnd time.Time) []time.Time {
+	opt, err := rrule.StrToROptionInLocation(ev.RRule, ev.Start.Location())
+	if err != nil {
+		log.Printf("[CAL] ical: bad RRULE %q: %v", ev.RRule, err)
+		return []time.Time{ev.Start}
+	}
+	opt.Dtstart = ev.Start
+	r, err := rrule.NewRRule(*opt)
+	if err != nil {
+		log.Printf("[CAL] ical: RRULE build error %q: %v", ev.RRule, err)
+		return []time.Time{ev.Start}
+	}
+	return r.Between(winStart, winEnd, true)
 }
 
 // icsUnfold joins continuation lines (lines beginning with space/tab).
@@ -623,30 +778,28 @@ func icsUnfold(data []byte) string {
 	return sb.String()
 }
 
-// icsParseDT parses an iCal date/datetime value and returns (YYYY-MM-DD, RFC3339).
-// RFC3339 is empty for all-day (date-only) events.
-func icsParseDT(value, params string) (date, rfc3339 string) {
+// icsParseTime parses an iCal date/datetime value into a time.Time.
+// allDay is true for date-only values (parsed at local midnight).
+func icsParseTime(value, params string) (t time.Time, allDay, ok bool) {
 	value = strings.TrimSpace(value)
-	if value == "" { return "", "" }
+	if value == "" { return time.Time{}, false, false }
 
 	isDateOnly := strings.Contains(params, "VALUE=DATE") ||
 		(len(value) == 8 && !strings.Contains(value, "T"))
 
 	if isDateOnly && len(value) >= 8 {
-		return value[:4] + "-" + value[4:6] + "-" + value[6:8], ""
+		t, err := time.ParseInLocation("20060102", value[:8], time.Local)
+		if err != nil { return time.Time{}, false, false }
+		return t, true, true
 	}
 
 	// Expect YYYYMMDDTHHmmss[Z]
-	if len(value) < 15 { return "", "" }
-	dateStr := value[:4] + "-" + value[4:6] + "-" + value[6:8]
-	timeStr := value[9:11] + ":" + value[11:13] + ":" + value[13:15]
-	stamp := dateStr + "T" + timeStr
-
-	var t time.Time
+	if len(value) < 15 { return time.Time{}, false, false }
+	stamp := value[:15]
 	var err error
 
 	if strings.HasSuffix(value, "Z") {
-		t, err = time.Parse("2006-01-02T15:04:05Z", stamp+"Z")
+		t, err = time.ParseInLocation("20060102T150405", stamp, time.UTC)
 	} else {
 		tzID := ""
 		for _, p := range strings.Split(params, ";") {
@@ -657,19 +810,110 @@ func icsParseDT(value, params string) (date, rfc3339 string) {
 			}
 		}
 		if tzID != "" {
-			if loc, lerr := time.LoadLocation(tzID); lerr == nil {
-				t, err = time.ParseInLocation("2006-01-02T15:04:05", stamp, loc)
+			if loc := icsLoadLocation(tzID); loc != nil {
+				t, err = time.ParseInLocation("20060102T150405", stamp, loc)
 			} else {
 				// Unknown TZID — treat as UTC
-				t, err = time.Parse("2006-01-02T15:04:05Z", stamp+"Z")
+				t, err = time.ParseInLocation("20060102T150405", stamp, time.UTC)
 			}
 		} else {
 			// Floating time — use server local timezone
-			t, err = time.ParseInLocation("2006-01-02T15:04:05", stamp, time.Local)
+			t, err = time.ParseInLocation("20060102T150405", stamp, time.Local)
 		}
 	}
-	if err != nil { return dateStr, "" }
-	return t.Local().Format("2006-01-02"), t.UTC().Format(time.RFC3339)
+	if err != nil { return time.Time{}, false, false }
+	return t, false, true
+}
+
+// windowsTZ maps Windows timezone names (as published in Outlook/M365 ICS
+// feeds) to IANA identifiers. Subset of the CLDR windowsZones mapping covering
+// the zones Outlook commonly emits.
+var windowsTZ = map[string]string{
+	"Dateline Standard Time":          "Etc/GMT+12",
+	"Hawaiian Standard Time":          "Pacific/Honolulu",
+	"Aleutian Standard Time":          "America/Adak",
+	"Alaskan Standard Time":           "America/Anchorage",
+	"Pacific Standard Time":           "America/Los_Angeles",
+	"Pacific Standard Time (Mexico)":  "America/Tijuana",
+	"US Mountain Standard Time":       "America/Phoenix",
+	"Mountain Standard Time":          "America/Denver",
+	"Mountain Standard Time (Mexico)": "America/Chihuahua",
+	"Central Standard Time":           "America/Chicago",
+	"Central Standard Time (Mexico)":  "America/Mexico_City",
+	"Canada Central Standard Time":    "America/Regina",
+	"Central America Standard Time":   "America/Guatemala",
+	"Eastern Standard Time":           "America/New_York",
+	"Eastern Standard Time (Mexico)":  "America/Cancun",
+	"US Eastern Standard Time":        "America/Indiana/Indianapolis",
+	"Atlantic Standard Time":          "America/Halifax",
+	"SA Pacific Standard Time":        "America/Bogota",
+	"SA Western Standard Time":        "America/La_Paz",
+	"SA Eastern Standard Time":        "America/Cayenne",
+	"Venezuela Standard Time":         "America/Caracas",
+	"Newfoundland Standard Time":      "America/St_Johns",
+	"E. South America Standard Time":  "America/Sao_Paulo",
+	"Argentina Standard Time":         "America/Argentina/Buenos_Aires",
+	"Azores Standard Time":            "Atlantic/Azores",
+	"Cape Verde Standard Time":        "Atlantic/Cape_Verde",
+	"UTC":                             "Etc/UTC",
+	"GMT Standard Time":               "Europe/London",
+	"Greenwich Standard Time":         "Atlantic/Reykjavik",
+	"W. Europe Standard Time":         "Europe/Berlin",
+	"Central Europe Standard Time":    "Europe/Budapest",
+	"Romance Standard Time":           "Europe/Paris",
+	"Central European Standard Time":  "Europe/Warsaw",
+	"W. Central Africa Standard Time": "Africa/Lagos",
+	"GTB Standard Time":               "Europe/Bucharest",
+	"Middle East Standard Time":       "Asia/Beirut",
+	"Egypt Standard Time":             "Africa/Cairo",
+	"E. Europe Standard Time":         "Europe/Chisinau",
+	"South Africa Standard Time":      "Africa/Johannesburg",
+	"FLE Standard Time":               "Europe/Kiev",
+	"Israel Standard Time":            "Asia/Jerusalem",
+	"Arabic Standard Time":            "Asia/Baghdad",
+	"Arab Standard Time":              "Asia/Riyadh",
+	"Russian Standard Time":           "Europe/Moscow",
+	"E. Africa Standard Time":         "Africa/Nairobi",
+	"Iran Standard Time":              "Asia/Tehran",
+	"Arabian Standard Time":           "Asia/Dubai",
+	"Afghanistan Standard Time":       "Asia/Kabul",
+	"West Asia Standard Time":         "Asia/Tashkent",
+	"Pakistan Standard Time":          "Asia/Karachi",
+	"India Standard Time":             "Asia/Kolkata",
+	"Sri Lanka Standard Time":         "Asia/Colombo",
+	"Nepal Standard Time":             "Asia/Kathmandu",
+	"Central Asia Standard Time":      "Asia/Almaty",
+	"Bangladesh Standard Time":        "Asia/Dhaka",
+	"Myanmar Standard Time":           "Asia/Yangon",
+	"SE Asia Standard Time":           "Asia/Bangkok",
+	"China Standard Time":             "Asia/Shanghai",
+	"Singapore Standard Time":         "Asia/Singapore",
+	"Taipei Standard Time":            "Asia/Taipei",
+	"Tokyo Standard Time":             "Asia/Tokyo",
+	"Korea Standard Time":             "Asia/Seoul",
+	"W. Australia Standard Time":      "Australia/Perth",
+	"Cen. Australia Standard Time":    "Australia/Adelaide",
+	"AUS Central Standard Time":       "Australia/Darwin",
+	"AUS Eastern Standard Time":       "Australia/Sydney",
+	"E. Australia Standard Time":      "Australia/Brisbane",
+	"Tasmania Standard Time":          "Australia/Hobart",
+	"West Pacific Standard Time":      "Pacific/Port_Moresby",
+	"New Zealand Standard Time":       "Pacific/Auckland",
+	"Fiji Standard Time":              "Pacific/Fiji",
+}
+
+// icsLoadLocation resolves a TZID to a *time.Location, accepting both IANA
+// names and Windows names. Returns nil if the zone is unknown.
+func icsLoadLocation(tzID string) *time.Location {
+	if loc, err := time.LoadLocation(tzID); err == nil {
+		return loc
+	}
+	if iana, ok := windowsTZ[tzID]; ok {
+		if loc, err := time.LoadLocation(iana); err == nil {
+			return loc
+		}
+	}
+	return nil
 }
 
 // icsUnescape unescapes iCal text values per RFC 5545 §3.3.11.
