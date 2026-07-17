@@ -484,10 +484,9 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 }
 
 
-// ListPorticoConfigPanels returns panels for a portico's configure-columns UI.
-// Does a proper DB join: system panels tagged for this portico + personal panels
-// assigned to this portico, LEFT JOINed with the user's saved order and column
-// assignments for this specific portico. Single query, no client-side guessing.
+// ListPorticoConfigPanels returns panels for a portico's configure-columns UI,
+// LEFT JOINed with the user's saved order and column assignments for this
+// portico. Must return the same panel set the dashboard shows for the portico.
 func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
@@ -497,11 +496,12 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		// System panels: tagged with an active tag on this portico
-		// Also panels with NO tags (always visible) that the user can access
-		// LEFT JOIN position from user_panel_order_v3 and col from panel_custom_columns
+		// Membership matches the dashboard exactly: a panel is on this portico
+		// when the user can access it (their own panel, or a system panel their
+		// groups allow) and it is either untagged (visible on every portico) or
+		// carries a tag that is active on this portico.
 		rows, err := db.Query(`
-			SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
+			SELECT p.id, p.type, p.title, p.config, p.scope,
 				COALESCE(p.created_by,''),
 				COALESCE(upo.position, 99999),
 				COALESCE(pcc.col, 1)
@@ -514,51 +514,31 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 				ON pcc.panel_id = p.id
 				AND pcc.user_id = ?
 				AND pcc.portico_id = ?
-			WHERE p.created_by = 'SYSTEM'
-			AND (
-				-- Panels with no tags: always visible on all porticos
-				NOT EXISTS (SELECT 1 FROM panel_tags WHERE panel_id = p.id)
-				OR
-				-- Panels whose tag appears in portico_tags for this portico
-				EXISTS (
-					SELECT 1 FROM panel_tags ptag
-					JOIN portico_tags pt ON pt.tag_id = ptag.tag_id
-					WHERE ptag.panel_id = p.id
-					AND pt.portico_id = ?
-					AND pt.active = 1
+			WHERE
+				(
+					p.created_by = ?
+					OR (p.created_by = 'SYSTEM' AND (
+						NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
+						OR EXISTS (
+							SELECT 1 FROM panel_groups pg
+							JOIN user_groups ug ON ug.group_id = pg.group_id
+							WHERE pg.panel_id = p.id AND ug.user_id = ?
+						)
+					))
 				)
-			)
-			AND (
-				NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
-				OR EXISTS (
-					SELECT 1 FROM panel_groups pg
-					JOIN user_groups ug ON ug.group_id = pg.group_id
-					WHERE pg.panel_id = p.id AND ug.user_id = ?
+				AND (
+					NOT EXISTS (SELECT 1 FROM panel_tags WHERE panel_id = p.id)
+					OR EXISTS (
+						SELECT 1 FROM panel_tags ptag
+						JOIN portico_tags pt ON pt.tag_id = ptag.tag_id
+						WHERE ptag.panel_id = p.id
+						AND pt.portico_id = ?
+						AND pt.active = 1
+					)
 				)
-			)
-			UNION
-			-- Personal panels assigned to this portico via assignedWalls in config
-			SELECT DISTINCT p.id, p.type, p.title, p.config, p.scope,
-				COALESCE(p.created_by,''),
-				COALESCE(upo2.position, 99999),
-				COALESCE(pcc2.col, 1)
-			FROM panels p
-			LEFT JOIN user_panel_order_v3 upo2
-				ON upo2.panel_id = p.id
-				AND upo2.user_id = ?
-				AND upo2.portico_id = ?
-			LEFT JOIN panel_custom_columns pcc2
-				ON pcc2.panel_id = p.id
-				AND pcc2.user_id = ?
-				AND pcc2.portico_id = ?
-			WHERE p.created_by = ?
-			AND p.scope = 'personal'
-			AND json_extract(p.config, '$.assignedWalls') LIKE '%' || ? || '%'
-			ORDER BY 7, p.id
+			ORDER BY COALESCE(upo.position, 99999), p.created_at, p.id
 		`, claims.UserID, porticoID, claims.UserID, porticoID,
-		   porticoID, claims.UserID,
-		   claims.UserID, porticoID, claims.UserID, porticoID,
-		   claims.UserID, porticoID)
+		   claims.UserID, claims.UserID, porticoID)
 
 		if err != nil {
 			log.Printf("[PANELS] portico config panels error: %v", err)
@@ -578,13 +558,10 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 			CustomColumn int    `json:"customColumn"`
 		}
 		var panels []ConfigPanel
-		seen := map[string]bool{}
 		for rows.Next() {
 			var p ConfigPanel
 			rows.Scan(&p.ID, &p.Type, &p.Title, &p.Config, &p.Scope,
 				&p.CreatedBy, &p.Position, &p.CustomColumn)
-			if seen[p.ID] { continue }
-			seen[p.ID] = true
 			panels = append(panels, p)
 		}
 		if panels == nil { panels = []ConfigPanel{} }

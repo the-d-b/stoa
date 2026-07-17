@@ -682,18 +682,17 @@ function CustomColumnConfigurator({ porticoId, colCount, onSaved }: { porticoId:
     const pr = await porticoConfigApi.panels(porticoId)
     const items = (pr.data || []) as ConfPanel[]
 
-    // Build column map — validate monotonically non-decreasing, reset to 1 if invalid
+    // Normalize assignments the same way the dashboard renders them: columns
+    // cascade forward (never decrease down the panel order) and clamp to the
+    // column count. A panel with no saved assignment lands in the running
+    // column, exactly as the renderer places it — never reset the whole list.
     const colData: Record<string,number> = {}
-    let lastCol = 1
-    let valid = true
+    let runningCol = 1
     for (const p of items) {
-      const col = p.customColumn || 1
-      if (col < lastCol) { valid = false; break }
-      lastCol = col
+      const raw = Math.min(Math.max(p.customColumn || 1, 1), colCount)
+      if (raw > runningCol) runningCol = raw
+      colData[p.id] = runningCol
     }
-    items.forEach(p => {
-      colData[p.id] = valid ? (p.customColumn || 1) : 1
-    })
 
     setPanels(items)
     setColumns(colData)
