@@ -432,7 +432,7 @@ function OverviewTab() {
       <ThemeDensityBlock />
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text-dim)', fontSize: 12 }}>
-        <StoaLogo size={14} />stoa {APP_VERSION}
+        <StoaLogo size={14} />stoa v{APP_VERSION}
       </div>
     </div>
   )

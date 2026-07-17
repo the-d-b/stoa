@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom'
 import { useUserMode } from '../context/UserModeContext'
 import { useAuth } from '../context/AuthContext'
+import { APP_VERSION } from '../version'
 
 const GITHUB = 'https://github.com/the-d-b/stoa'
 const DOCS   = `${GITHUB}/tree/main/docs`
-
-const VERSION = '0.4.0'
 
 function DocLink({ href, title, desc }: { href: string; title: string; desc: string }) {
   return (
@@ -56,7 +55,7 @@ export default function HelpPage() {
         marginBottom: 28 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 4px 0' }}>Help</h1>
-          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Stoa v{VERSION}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Stoa v{APP_VERSION}</div>
         </div>
         <a href={GITHUB} target="_blank" rel="noopener noreferrer"
           style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12,

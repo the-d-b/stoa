@@ -217,7 +217,7 @@ export default function LoginPage() {
         </div>
 
         <div className="fade-up-3" style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: 'var(--text-dim)' }}>
-          stoa {APP_VERSION}
+          stoa v{APP_VERSION}
         </div>
       </div>
     </div>
