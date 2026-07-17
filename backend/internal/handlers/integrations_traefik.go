@@ -342,7 +342,7 @@ func testTraefikConnection(apiURL, apiKey string, skipTLS bool) error {
 	client := traefikClient(skipTLS)
 	body, err := traefikGet(client, apiURL, "/api/overview", apiKey)
 	if err != nil {
-		return fmt.Errorf("API unreachable: %w — make sure the Traefik API is enabled (--api=true) and accessible")
+		return fmt.Errorf("API unreachable: %w — make sure the Traefik API is enabled (--api=true) and accessible", err)
 	}
 	var check struct {
 		HTTP interface{} `json:"http"`
