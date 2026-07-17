@@ -26,17 +26,19 @@ The downloaded file looks like this:
 
 ```json
 {
-  "name": "organizations/70e…c98/apiKeys/332…31c",
-  "privateKey": "ow…base64…=="
+  "name": "organizations/abc123.../apiKeys/xyz789...",
+  "privateKey": "AAAAexamplebase64...=="
 }
 ```
+
+*(Values above are placeholders — yours will be long random strings.)*
 
 ### Stoa secret format
 
 Concatenate the two fields with a colon — paste them exactly as they appear in the JSON:
 
 ```
-organizations/70e…c98/apiKeys/332…31c:ow…base64…==
+organizations/abc123.../apiKeys/xyz789...:AAAAexamplebase64...==
 ```
 
 No quotes, no spaces, no modification to the key material. The private key is raw base64 and should be pasted verbatim.
@@ -45,7 +47,7 @@ No quotes, no spaces, no modification to the key material. The private key is ra
 
 1. Create a CDP API key as described above and save the JSON file
 2. Stoa → **Admin → Secrets → New**: paste `{name}:{privateKey}` (colon-separated, values from the JSON) → **Save**
-3. Stoa → **Admin → Integrations → New** → select **Coinbase**, leave URL blank, select the secret → **Save**
+3. Stoa → **Admin → Integrations → New** → select **Coinbase**, select the secret → **Save** (no URL field — the endpoint is fixed)
 4. Stoa → **Admin → Panels → New** → select **Coinbase** → **Create**
 
 ---
@@ -76,7 +78,7 @@ Portfolio dashboard showing total holdings value in USD, per-asset allocation, a
 
 - **CDP keys only:** Legacy HMAC keys (the old `apiKey + apiSecret` pair from coinbase.com/settings) are no longer supported and cannot be reactivated. Only CDP keys created at coinbase.com/settings/api work.
 - **Ed25519 vs ECDSA:** Both algorithms are supported, but Ed25519 is what Coinbase recommends and what most users will have. The key type is detected automatically from the key material.
-- **No URL needed:** The Coinbase API endpoint is fixed (`api.coinbase.com`). Leave the URL field blank when creating the integration.
+- **No URL needed:** The Coinbase API endpoint is fixed (`api.coinbase.com`), so the integration form does not show a URL field.
 - **USD values:** Stoa fetches live spot prices from `/v2/prices/{code}-USD/spot` for each held asset and multiplies by the on-chain balance. Stablecoins (USDC, USDT, DAI) and USD cash use $1.00.
 - **Zero-balance accounts:** Wallets with a zero balance are filtered out of the panel display.
 - **Permissions:** The integration only reads account balances and spot prices. No trading or withdrawal permissions are needed or requested.

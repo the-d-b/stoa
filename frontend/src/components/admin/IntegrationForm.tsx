@@ -127,7 +127,7 @@ export const INTEGRATION_TYPES = [
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale']
 
 interface Props {
   scope: 'system' | 'personal'
@@ -861,6 +861,18 @@ export default function IntegrationForm({
               After creating the integration, open it to connect your Twitch account via OAuth.
             </div>
           )}
+        </div>
+      ) : activeType === 'coinbase' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>keyName:privateKey</code> (colon-separated) —
+            both values from the JSON file Coinbase downloads when you create a CDP key at{' '}
+            <a href="https://www.coinbase.com/settings/api" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>coinbase.com/settings/api</a>. Choose Ed25519 when prompted (the default).
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            No URL needed — Stoa always calls api.coinbase.com. Read-only scopes are sufficient.
+          </div>
         </div>
       ) : activeType === 'rss' ? (
         <div>
