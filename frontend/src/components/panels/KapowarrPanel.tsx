@@ -86,18 +86,55 @@ function VolumeRow({ vol, uiUrl }: { vol: KapowarrVolume; uiUrl: string }) {
   )
 }
 
-function QueueRow({ item }: { item: KapowarrQueItem }) {
+// One queue row per series, aggregating its queued issues
+interface QueueGroup {
+  volumeId: number
+  title: string
+  count: number
+  statuses: string[]
+}
+
+function groupQueue(queue: KapowarrQueItem[], volumeTitles: Map<number, string>): QueueGroup[] {
+  const map = new Map<number, QueueGroup>()
+  for (const q of queue) {
+    const g = map.get(q.volumeId)
+    if (g) { g.count++; g.statuses.push(q.status) }
+    else map.set(q.volumeId, {
+      volumeId: q.volumeId,
+      title: volumeTitles.get(q.volumeId) || q.title || `Volume ${q.volumeId}`,
+      count: 1,
+      statuses: [q.status],
+    })
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count)
+}
+
+function QueueGroupRow({ group, uiUrl }: { group: QueueGroup; uiUrl: string }) {
+  const href = uiUrl ? `${uiUrl}/volumes/${group.volumeId}` : undefined
+  const uniform = group.statuses.every(s => s === group.statuses[0])
+  const status = uniform ? group.statuses[0] : 'mixed'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6,
       padding: '3px 0', borderBottom: '1px solid var(--border)', fontSize: 12 }}>
       <span style={{ fontSize: 9, color: 'var(--accent)', flexShrink: 0 }}>↓</span>
-      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        fontWeight: 500 }}>
-        {item.title || `Volume ${item.volumeId}`}
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {href
+          ? <a href={href} target="_blank" rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'none', fontWeight: 500 }}>
+              {group.title}
+            </a>
+          : <span style={{ fontWeight: 500 }}>{group.title}</span>
+        }
       </span>
+      {group.count > 1 && (
+        <span style={{ fontSize: 10, color: 'var(--amber)', fontWeight: 700, flexShrink: 0,
+          fontFamily: 'DM Mono, monospace' }}>
+          {group.count} issues
+        </span>
+      )}
       <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
         textTransform: 'capitalize' }}>
-        {item.status}
+        {status}
       </span>
     </div>
   )
@@ -135,10 +172,14 @@ export default function KapowarrPanel({ panel, heightUnits }: { panel: Panel; he
     linkUrl: uiUrl ? `${uiUrl}/volumes/${v.id}` : undefined,
   }))
 
-  const queueCoverItems = queue.map(q => ({
-    coverUrl: `/api/kapowarr/${integId}/cover/${q.volumeId}`,
-    title: q.title,
-    linkUrl: uiUrl ? `${uiUrl}/volumes/${q.volumeId}` : undefined,
+  const volumeTitles = new Map(volumes.map(v => [v.id, v.title]))
+  const queueGroups = groupQueue(queue, volumeTitles)
+
+  // One cover per series, however many of its issues are queued
+  const queueCoverItems = queueGroups.map(g => ({
+    coverUrl: `/api/kapowarr/${integId}/cover/${g.volumeId}`,
+    title: g.count > 1 ? `${g.title} — ${g.count} issues` : g.title,
+    linkUrl: uiUrl ? `${uiUrl}/volumes/${g.volumeId}` : undefined,
   }))
 
   // ── 1x: icon + stats ──────────────────────────────────────────────────────
@@ -186,7 +227,7 @@ export default function KapowarrPanel({ panel, heightUnits }: { panel: Panel; he
               Queue ({queue.length})
             </div>
             <div style={{ overflowY: 'auto', flex: 1 }}>
-              {queue.map((q, i) => <QueueRow key={i} item={q} />)}
+              {queueGroups.map(g => <QueueGroupRow key={g.volumeId} group={g} uiUrl={uiUrl} />)}
             </div>
           </>
         ) : (
