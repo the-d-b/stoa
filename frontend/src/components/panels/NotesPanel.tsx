@@ -371,6 +371,32 @@ export default function NotesPanel({ panel, heightUnits = 2 }: { panel: Panel; h
     <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 12 }}>Loading...</div>
   )
 
+  // ── 1× compact bar — stats only, no room for the note list ──────────────────
+  if (heightUnits <= 1) {
+    const latest = notes.length > 0
+      ? notes.reduce((a, b) => new Date(a.updatedAt) > new Date(b.updatedAt) ? a : b)
+      : null
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px' }}>
+        <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
+          background: notes.length > 0 ? 'var(--accent)' : 'var(--border)' }} />
+        {latest === null ? (
+          <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No notes yet</span>
+        ) : (
+          <>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+              {notes.length} note{notes.length !== 1 ? 's' : ''}
+            </span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+              updated {timeAgo(latest.updatedAt)}
+            </span>
+          </>
+        )}
+      </div>
+    )
+  }
+
   const showControls = heightUnits >= 2
   const controlsOnTop = heightUnits >= 4
 

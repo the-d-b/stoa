@@ -120,6 +120,44 @@ export default function ChecklistPanel({ panel, heightUnits = 2 }: { panel: Pane
     <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 12 }}>Loading...</div>
   )
 
+  // ── 1× compact bar — stats only, no room for the item list ──────────────────
+  if (heightUnits <= 1) {
+    const overdueCount = incomplete.filter(i => isOverdue(i.dueDate)).length
+    const nextDue = incomplete
+      .map(i => i.dueDate)
+      .filter((d): d is string => !!d && !isOverdue(d))
+      .sort()[0]
+    const dotColor = overdueCount > 0 ? 'var(--red)'
+      : items.length > 0 && incomplete.length === 0 ? 'var(--green)'
+      : 'var(--accent)'
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 12px' }}>
+        <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+        {items.length === 0 ? (
+          <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>Empty checklist</span>
+        ) : (
+          <>
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
+              {incomplete.length} open · {completed.length} done
+            </span>
+            {overdueCount > 0 && <>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
+              <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
+                ⚠ {overdueCount} overdue
+              </span>
+            </>}
+            {overdueCount === 0 && nextDue && <>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
+              <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                next due {fmtDate(nextDue)}
+              </span>
+            </>}
+          </>
+        )}
+      </div>
+    )
+  }
+
   const showControls = heightUnits >= 2
   const controlsOnTop = heightUnits >= 4
 
