@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -263,6 +264,8 @@ func CreateSecret(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "name and value required")
 			return
 		}
+		// Strip pasted whitespace/newlines — they break auth headers downstream
+		req.Value = strings.TrimSpace(req.Value)
 		scope := req.Scope
 		if scope != "shared" && scope != "personal" {
 			scope = "personal"
@@ -316,6 +319,7 @@ func UpdateSecret(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		req.Value = strings.TrimSpace(req.Value)
 		if req.Value != "" {
 			encrypted, err := encryptSecret(req.Value)
 			if err != nil {

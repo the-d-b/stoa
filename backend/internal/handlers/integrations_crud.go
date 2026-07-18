@@ -754,9 +754,14 @@ func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, sk
 	if secretID.Valid {
 		var enc string
 		if dbErr := db.QueryRow("SELECT value FROM secrets WHERE id=?", secretID.String).Scan(&enc); dbErr == nil {
-			apiKey = decryptSecret(enc)
+			// Trim pasted whitespace/newlines — a trailing \n in a stored key
+			// makes Go reject the auth header ("invalid header field value")
+			// and every request for the integration fails.
+			apiKey = strings.TrimSpace(decryptSecret(enc))
 		}
 	}
+	apiURL = strings.TrimSpace(apiURL)
+	uiURL = strings.TrimSpace(uiURL)
 	return
 }
 
