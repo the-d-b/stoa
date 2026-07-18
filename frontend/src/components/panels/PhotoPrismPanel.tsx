@@ -245,8 +245,11 @@ export default function PhotoPrismPanel({ panel, heightUnits }: { panel: Panel; 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 8, overflow: 'hidden' }}>
       {hasCarousel && (
-        // Cap at 260px so the carousel doesn't crowd out stats on very tall panels
-        <div style={{ flex: '0 0 55%', maxHeight: 260, minHeight: 80 }}>
+        // Fixed px height: percentage sizing collapses under dynamic-height
+        // porticos (card height is auto, so 55%/100% have nothing to resolve
+        // against and the photo overflowed onto the stat tiles). 260px matches
+        // what the old 55%-capped-at-260 math produced at every 4x+ size.
+        <div style={{ height: 260, flexShrink: 0 }}>
           <PhotoCarousel photos={preview} integrationId={data.integrationId} uiUrl={uiUrl} />
         </div>
       )}
