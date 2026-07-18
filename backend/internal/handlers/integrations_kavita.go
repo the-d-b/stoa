@@ -120,15 +120,20 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		return kavitaPost(apiURL, apiKey, path, body, skipTLS)
 	}
 
+	anyOK := false
+
 	// Server stats
 	if statsBody, serr := get("/api/Stats/server/stats"); serr == nil {
+		anyOK = true
 		var stats struct {
 			SeriesCount int `json:"seriesCount"`
 			TotalFiles  int `json:"totalFiles"`
 		}
-		if json.Unmarshal(statsBody, &stats) == nil {
+		if uerr := json.Unmarshal(statsBody, &stats); uerr == nil {
 			data.SeriesCount = stats.SeriesCount
 			data.TotalFiles = stats.TotalFiles
+		} else {
+			log.Printf("[Kavita] stats unmarshal error: %v — body: %.300s", uerr, string(statsBody))
 		}
 	} else {
 		log.Printf("[Kavita] stats error: %v", serr)
@@ -140,6 +145,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 			ID   int    `json:"id"`
 			Name string `json:"name"`
 		}
+		anyOK = true
 		if json.Unmarshal(libBody, &libs) == nil {
 			for _, l := range libs {
 				data.Libraries = append(data.Libraries, KavitaLibrary{ID: l.ID, Name: l.Name})
@@ -156,6 +162,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 		"limitTo":     0,
 	}
 	if recentBody, rerr := post("/api/Series/recently-added-v2?pageNumber=1&pageSize=30", filterBody); rerr == nil {
+		anyOK = true
 		var series []struct {
 			ID          int    `json:"id"`
 			Name        string `json:"name"`
@@ -196,6 +203,12 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 	}
 	for _, id := range libOrder {
 		data.LibraryStrips = append(data.LibraryStrips, *libStripMap[id])
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	// (typical causes: TLS trust for internal CAs, wrong key, wrong URL)
+	if !anyOK {
+		return nil, fmt.Errorf("kavita unreachable — check URL, API key, and TLS settings (see server log for details)")
 	}
 
 	return data, nil
