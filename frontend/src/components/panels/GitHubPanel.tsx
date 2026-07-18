@@ -265,14 +265,10 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-            {data.publicRepos} repos
-          </span>
-          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-            {data.followers} followers
-          </span>
-        </div>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 1, minWidth: 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {data.publicRepos} repos · {data.followers} followers
+        </span>
       </div>
     )
   }
@@ -282,15 +278,16 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
     return (
       <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {/* Profile header */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexShrink: 0 }}>
+        {/* Profile header — wraps on narrow panels so chips drop below the name */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexShrink: 0,
+          flexWrap: 'wrap' }}>
           {data.avatarUrl && (
             <a href={`https://github.com/${data.login}`} target="_blank" rel="noreferrer">
               <img src={data.avatarUrl} alt={data.login}
                 style={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
             </a>
           )}
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: '1 1 120px', minWidth: 0 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {data.name || data.login}
@@ -300,7 +297,7 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
               @{data.login}{data.location ? ` · ${data.location}` : ''}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             <StatChip label="repos" value={data.publicRepos} />
             <StatChip label="followers" value={data.followers} />
           </div>
@@ -319,19 +316,22 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
   return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 10 }}>
-      {/* Profile header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexShrink: 0 }}>
+      {/* Profile header — wraps on narrow panels so chips drop below the name */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexShrink: 0,
+        flexWrap: 'wrap' }}>
         {data.avatarUrl && (
           <a href={`https://github.com/${data.login}`} target="_blank" rel="noreferrer">
             <img src={data.avatarUrl} alt={data.login}
               style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
           </a>
         )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+        <div style={{ flex: '1 1 140px', minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {data.name || data.login}
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             @{data.login}{data.location ? ` · 📍 ${data.location}` : ''}
           </div>
           {data.bio && (
@@ -341,7 +341,7 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
             </div>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           <StatChip label="repos" value={data.publicRepos} />
           <StatChip label="followers" value={data.followers} />
           <StatChip label="following" value={data.following} />
