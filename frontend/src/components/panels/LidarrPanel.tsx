@@ -164,7 +164,15 @@ export default function LidarrPanel({ panel, heightUnits }: { panel: Panel; heig
   )
 
   // ── 4x — filmstrip + stats + history + wanted ─────────────────────────────
-  const allCovers = [...(data.missing || []), ...(data.history || [])]
+  // One cover per album (an album can repeat in history via upgrades, or sit
+  // in both missing and history)
+  const seenAlbums = new Set<string>()
+  const allCovers = [...(data.missing || []), ...(data.history || [])].filter(a => {
+    const key = a.foreignAlbumId || a.title || a.coverUrl || ''
+    if (seenAlbums.has(key)) return false
+    seenAlbums.add(key)
+    return true
+  })
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
       <ScrollableCoverStrip items={allCovers.map(a => ({

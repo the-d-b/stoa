@@ -202,7 +202,15 @@ export default function SonarrPanel({ panel, heightUnits }: { panel: Panel; heig
   const episodePosters = [...(data.upcoming || []), ...(data.history || [])]
   // Fall back to zero-byte series (wanted, no files) — parallel to missing+history in Radarr/Lidarr
   const wantedPosters = (data.zeroByte || []).map(s => ({ posterUrl: s.posterUrl, seriesTitle: s.title, titleSlug: s.titleSlug }))
-  const allPosters = episodePosters.length > 0 ? episodePosters : wantedPosters
+  // One poster per series — upcoming/history are episode lists, so a show with
+  // many episodes would otherwise repeat its poster
+  const seenSeries = new Set<string>()
+  const allPosters = (episodePosters.length > 0 ? episodePosters : wantedPosters).filter(p => {
+    const key = p.titleSlug || p.seriesTitle || p.posterUrl || ''
+    if (seenSeries.has(key)) return false
+    seenSeries.add(key)
+    return true
+  })
 
   // ── 2x — stats + recently downloaded ────────────────────────────────────
   if (heightUnits < 3) {

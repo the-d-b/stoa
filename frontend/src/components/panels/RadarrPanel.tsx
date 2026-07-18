@@ -168,8 +168,15 @@ export default function RadarrPanel({ panel, heightUnits }: { panel: Panel; heig
     </div>
   )
 
-  // 4x — history + missing sample
-  const allMoviePosters = [...(data.missing || []), ...(data.history || [])]
+  // 4x — history + missing sample; one poster per movie (a movie can repeat
+  // in history via upgrades, or sit in both missing and history)
+  const seenMovies = new Set<string>()
+  const allMoviePosters = [...(data.missing || []), ...(data.history || [])].filter(m => {
+    const key = m.titleSlug || m.title || m.posterUrl || ''
+    if (seenMovies.has(key)) return false
+    seenMovies.add(key)
+    return true
+  })
 
   return (
     <div style={{ height: '100%', overflow: 'auto' }}>
