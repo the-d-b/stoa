@@ -38,7 +38,6 @@ type KavitaPanelData struct {
 	UIURL         string               `json:"uiUrl"`
 	IntegrationID string               `json:"integrationId"`
 	SeriesCount   int                  `json:"seriesCount"`
-	TotalFiles    int                  `json:"totalFiles"`
 	Libraries     []KavitaLibrary      `json:"libraries"`
 	RecentlyAdded []KavitaSeries       `json:"recentlyAdded"`
 	LibraryStrips []KavitaLibraryStrip `json:"libraryStrips"`
@@ -63,33 +62,38 @@ func kavitaGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// kavitaPost sends an authenticated POST with a JSON body using the x-api-key header.
-func kavitaPost(baseURL, apiKey, path string, body interface{}, skipTLS bool) ([]byte, error) {
+// kavitaPost sends an authenticated POST with a JSON body using the x-api-key
+// header. Returns the body and response headers (pagination metadata lives in
+// a Pagination header).
+func kavitaPost(baseURL, apiKey, path string, body interface{}, skipTLS bool) ([]byte, http.Header, error) {
 	payload, err := json.Marshal(body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req, err := http.NewRequest("POST", strings.TrimRight(baseURL, "/")+path, bytes.NewReader(payload))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	req.Header.Set("x-api-key", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := httpClient(skipTLS).Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("kavita: HTTP %d", resp.StatusCode)
+		return nil, nil, fmt.Errorf("kavita: HTTP %d", resp.StatusCode)
 	}
-	return io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	return respBody, resp.Header, err
 }
 
 // ── Test ──────────────────────────────────────────────────────────────────────
 
+// Uses the libraries endpoint — reachable by any authenticated user, unlike
+// /api/Stats which requires the admin role.
 func testKavitaConnection(apiURL, apiKey string, skipTLS bool) error {
-	_, err := kavitaGet(apiURL, apiKey, "/api/Stats/server/stats", skipTLS)
+	_, err := kavitaGet(apiURL, apiKey, "/api/Library/libraries", skipTLS)
 	return err
 }
 
@@ -116,27 +120,43 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 	get := func(path string) ([]byte, error) {
 		return kavitaGet(apiURL, apiKey, path, skipTLS)
 	}
-	post := func(path string, body interface{}) ([]byte, error) {
+	post := func(path string, body interface{}) ([]byte, http.Header, error) {
 		return kavitaPost(apiURL, apiKey, path, body, skipTLS)
+	}
+
+	// SeriesFilterV2Dto — empty filter matches everything
+	filterBody := map[string]interface{}{
+		"statements":  []interface{}{},
+		"combination": 1,
+		"limitTo":     0,
 	}
 
 	anyOK := false
 
-	// Server stats
-	if statsBody, serr := get("/api/Stats/server/stats"); serr == nil {
+	// Total series via pagination metadata. /api/Stats/server/stats requires
+	// the admin role (403 for regular users), but the series listing works for
+	// any authenticated user — pageSize=1 keeps the response tiny and the
+	// Pagination response header carries the library-wide total.
+	if _, hdr, cerr := post("/api/Series/all-v2?pageNumber=1&pageSize=1", filterBody); cerr == nil {
 		anyOK = true
-		var stats struct {
-			SeriesCount int `json:"seriesCount"`
-			TotalFiles  int `json:"totalFiles"`
+		pag := hdr.Get("Pagination")
+		if pag == "" {
+			pag = hdr.Get("X-Pagination")
 		}
-		if uerr := json.Unmarshal(statsBody, &stats); uerr == nil {
-			data.SeriesCount = stats.SeriesCount
-			data.TotalFiles = stats.TotalFiles
+		var meta struct {
+			TotalItems int `json:"totalItems"`
+			TotalCount int `json:"totalCount"`
+		}
+		if pag != "" && json.Unmarshal([]byte(pag), &meta) == nil {
+			data.SeriesCount = meta.TotalItems
+			if data.SeriesCount == 0 {
+				data.SeriesCount = meta.TotalCount
+			}
 		} else {
-			log.Printf("[Kavita] stats unmarshal error: %v — body: %.300s", uerr, string(statsBody))
+			log.Printf("[Kavita] series count: missing or unparseable Pagination header: %q", pag)
 		}
 	} else {
-		log.Printf("[Kavita] stats error: %v", serr)
+		log.Printf("[Kavita] series count error: %v", cerr)
 	}
 
 	// Libraries — v0.9 path
@@ -156,12 +176,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 	}
 
 	// Recently added series — v0.9 uses POST with SeriesFilterV2Dto body
-	filterBody := map[string]interface{}{
-		"statements":  []interface{}{},
-		"combination": 1,
-		"limitTo":     0,
-	}
-	if recentBody, rerr := post("/api/Series/recently-added-v2?pageNumber=1&pageSize=30", filterBody); rerr == nil {
+	if recentBody, _, rerr := post("/api/Series/recently-added-v2?pageNumber=1&pageSize=30", filterBody); rerr == nil {
 		anyOK = true
 		var series []struct {
 			ID          int    `json:"id"`

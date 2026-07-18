@@ -25,7 +25,6 @@ interface KavitaData {
   uiUrl: string
   integrationId: string
   seriesCount: number
-  totalFiles: number
   libraries: KavitaLibrary[]
   recentlyAdded: KavitaSeries[]
   libraryStrips?: KavitaLibraryStrip[]
@@ -47,12 +46,6 @@ function StatsRow({ data }: { data: KavitaData }) {
         <span style={{ color: 'var(--text-dim)' }}>
           <span style={{ fontSize: 11 }}>🗂️</span>{' '}
           <strong style={{ color: 'var(--accent)' }}>{data.libraries.length}</strong> libraries
-        </span>
-      )}
-      {data.totalFiles > 0 && (
-        <span style={{ color: 'var(--text-dim)' }}>
-          <span style={{ fontSize: 11 }}>📄</span>{' '}
-          <strong style={{ color: 'var(--accent)' }}>{data.totalFiles.toLocaleString()}</strong> files
         </span>
       )}
     </div>

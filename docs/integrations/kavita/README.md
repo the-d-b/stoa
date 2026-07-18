@@ -1,4 +1,4 @@
-# Kavita
+﻿# Kavita
 
 **Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 min
 
@@ -8,7 +8,7 @@
 
 **Secret format:** Plain API key
 
-> Kavita → your username (top-right) → User Settings → API Key
+> Kavita → your username (top-right) → User Settings → API Key (any account works — admin not required)
 
 **URL required:** Required
 
@@ -25,11 +25,11 @@
 
 ## Panel
 
-Library reader showing series counts, file totals, per-library scrollable cover filmstrips, and a recently-added list grouped by library.
+Library reader showing series counts, per-library scrollable cover filmstrips, and a recently-added list grouped by library.
 
 ### What's shown
 
-- **Stats** — series count · library count · total files
+- **Stats** — series count · library count
 - **Cover filmstrip** (2x+) — scrollable strip of recently added series; hover left/right edge to scroll
 - **Per-library filmstrips** (4x+) — one strip per library, each labelled, drawn from the 30 most recently added series
 - **Recently added list** (4x+) — recently added series grouped by library with sticky group headers, top 5 per library
