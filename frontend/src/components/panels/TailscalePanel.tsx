@@ -371,6 +371,17 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
   }
 
   // ── 4×+ full layout ──────────────────────────────────────────────────────────
+  // Group devices by owning user — one user often has several endpoints
+  const userGroups = (() => {
+    const map = new Map<string, TailscaleDevice[]>()
+    for (const d of devices) {
+      const u = d.user || 'Tagged devices'
+      if (!map.has(u)) map.set(u, [])
+      map.get(u)!.push(d)
+    }
+    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  })()
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {/* Donut + chips */}
@@ -401,18 +412,21 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
           ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No devices found</div>
           : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {/* Table header */}
-              <div style={{ display: 'grid',
-                gridTemplateColumns: '10px 1fr 70px',
-                gap: 8, alignItems: 'center', fontSize: 10,
-                color: 'var(--text-dim)', fontWeight: 600, textTransform: 'uppercase',
-                letterSpacing: '0.04em', paddingBottom: 4,
-                borderBottom: '1px solid var(--border)' }}>
-                <div />
-                <div>Name</div>
-                <div style={{ textAlign: 'right' }}>Last Seen</div>
+              {userGroups.map(([user, userDevices]) => (
+              <div key={user} style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+              {/* User group header */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0,
+                paddingBottom: 3, borderBottom: '1px solid var(--border)', marginTop: 2 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {user}
+                </span>
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0,
+                  fontFamily: 'DM Mono, monospace' }}>
+                  {userDevices.filter(d => d.isOnline).length}/{userDevices.length} online
+                </span>
               </div>
-              {devices.map(d => {
+              {userDevices.map(d => {
                 const active = subnetRoutes(d)
                 const pending = pendingRoutes(d)
                 return (
@@ -459,6 +473,8 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
                   </div>
                 )
               })}
+              </div>
+              ))}
             </div>
           )
         }
