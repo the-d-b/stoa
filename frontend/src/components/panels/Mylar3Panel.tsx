@@ -203,6 +203,79 @@ function IssueList({ issues, uiUrl, label, accent }: {
   )
 }
 
+// ── Wanted list — one row per series with missing-issue count ────────────────
+
+interface WantedGroup {
+  comicId: string
+  comicName: string
+  issueNumbers: string[]
+}
+
+function groupWanted(issues: Mylar3Issue[]): WantedGroup[] {
+  const map = new Map<string, WantedGroup>()
+  for (const i of issues) {
+    const key = i.comicId || i.comicName
+    const g = map.get(key)
+    if (g) g.issueNumbers.push(i.issueNumber)
+    else map.set(key, { comicId: i.comicId, comicName: i.comicName, issueNumbers: [i.issueNumber] })
+  }
+  return [...map.values()].sort((a, b) => b.issueNumbers.length - a.issueNumbers.length)
+}
+
+function WantedSeriesList({ groups, totalIssues, uiUrl, accent }: {
+  groups: WantedGroup[]
+  totalIssues: number
+  uiUrl: string
+  accent: string
+}) {
+  if (groups.length === 0) return null
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{
+        fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em',
+        color: accent, marginBottom: 4, flexShrink: 0,
+      }}>
+        Wanted ({totalIssues})
+      </div>
+      <div style={{ overflowY: 'auto', flex: 1 }}>
+        {groups.map((g, i) => {
+          const href = uiUrl && g.comicId ? `${uiUrl}/series/${g.comicId}` : undefined
+          const numbers = g.issueNumbers.filter(Boolean)
+          const tooltip = numbers.length > 0 ? '#' + numbers.join(', #') : undefined
+          const countLabel = g.issueNumbers.length === 1
+            ? (numbers[0] ? `#${numbers[0]}` : '1 issue')
+            : `${g.issueNumbers.length} issues`
+          return (
+            <div key={i} title={tooltip} style={{
+              padding: '4px 0',
+              borderBottom: '1px solid var(--border)',
+              fontSize: 12,
+              display: 'flex', alignItems: 'baseline', gap: 5, minWidth: 0,
+            }}>
+              {href ? (
+                <a href={href} target="_blank" rel="noopener noreferrer"
+                  style={{ color: 'inherit', textDecoration: 'none', fontWeight: 600,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                  {g.comicName}
+                </a>
+              ) : (
+                <span style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap', flex: 1, minWidth: 0 }}>
+                  {g.comicName}
+                </span>
+              )}
+              <span style={{ fontSize: 10, color: accent, fontWeight: 700, flexShrink: 0,
+                fontFamily: 'DM Mono, monospace' }}>
+                {countLabel}
+              </span>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function Mylar3Panel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -278,7 +351,8 @@ export default function Mylar3Panel({ panel, heightUnits }: { panel: Panel; heig
       </div>
       <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 14, overflow: 'hidden' }}>
         {wanted.length > 0 && (
-          <IssueList issues={wanted} uiUrl={uiUrl} label="Wanted" accent="var(--amber)" />
+          <WantedSeriesList groups={groupWanted(wanted)} totalIssues={wanted.length}
+            uiUrl={uiUrl} accent="var(--amber)" />
         )}
         {upcoming.length > 0 && (
           <IssueList issues={upcoming} uiUrl={uiUrl} label="Upcoming" accent="var(--amber)" />
