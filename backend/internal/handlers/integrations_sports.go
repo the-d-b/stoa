@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -97,14 +98,16 @@ type SportsPanelData struct {
 	FetchedAt     string               `json:"fetchedAt"`
 }
 
-// Known approximate next-season start dates - update annually
-var nextSeasonStart = map[string]string{
-	"NFL": "September 4, 2025", // 2025 season
-	"NHL": "October 7, 2025",
-	"NBA": "October 21, 2025",
-	"MLB": "March 26, 2026",
+// espnSeasonWindow is the current season's date range from the scoreboard
+// response (leagues[0].season). Zero when ESPN omits it.
+type espnSeasonWindow struct {
+	Start time.Time
+	End   time.Time
 }
 
+// isLeagueOffSeason is the fallback heuristic when the scoreboard has no
+// season window. Unreliable on its own: ESPN's scoreboard lists the next
+// scheduled games even months ahead, so "pre" games don't imply in-season.
 func isLeagueOffSeason(league string, games []SportsGame, schedule []SportsScheduleGame) bool {
 	// If there are any games today or upcoming, not off-season
 	for _, g := range games {
@@ -113,6 +116,87 @@ func isLeagueOffSeason(league string, games []SportsGame, schedule []SportsSched
 	if len(schedule) > 0 { return false }
 	// All games are post or there are none, and no schedule - likely off-season
 	return true
+}
+
+// -- Next-season lookup (ESPN core API), cached per league
+
+var (
+	nextSeasonCache   = map[string]cachedSeasonStart{}
+	nextSeasonCacheMu sync.Mutex
+)
+
+type cachedSeasonStart struct {
+	value     string
+	fetchedAt time.Time
+}
+
+// nextRegularSeasonStart returns the next regular-season start date for a
+// league formatted "January 2, 2006", resolved live from ESPN's core API.
+// Successful lookups are cached 24h, failures 1h. Empty when unknown.
+func nextRegularSeasonStart(league string) string {
+	league = strings.ToLower(league)
+	nextSeasonCacheMu.Lock()
+	if c, ok := nextSeasonCache[league]; ok {
+		ttl := 24 * time.Hour
+		if c.value == "" { ttl = time.Hour }
+		if time.Since(c.fetchedAt) < ttl {
+			nextSeasonCacheMu.Unlock()
+			return c.value
+		}
+	}
+	nextSeasonCacheMu.Unlock()
+
+	value := fetchNextRegularSeasonStart(league)
+	nextSeasonCacheMu.Lock()
+	nextSeasonCache[league] = cachedSeasonStart{value: value, fetchedAt: time.Now()}
+	nextSeasonCacheMu.Unlock()
+	return value
+}
+
+func fetchNextRegularSeasonStart(league string) string {
+	corePath := espnCoreLeaguePath[league]
+	if corePath == "" {
+		return ""
+	}
+	// Latest season (ESPN lists seasons newest-first, including upcoming ones)
+	body, err := espnGet(fmt.Sprintf("https://sports.core.api.espn.com/v2/sports/%s/seasons?limit=1", corePath))
+	if err != nil {
+		log.Printf("[SPORTS] seasons list error %s: %v", league, err)
+		return ""
+	}
+	var seasons struct {
+		Items []struct {
+			Ref string `json:"$ref"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(body, &seasons) != nil || len(seasons.Items) == 0 {
+		return ""
+	}
+	ref := seasons.Items[0].Ref
+	if i := strings.IndexByte(ref, '?'); i >= 0 {
+		ref = ref[:i]
+	}
+	year := ref[strings.LastIndexByte(ref, '/')+1:]
+	if year == "" {
+		return ""
+	}
+	// Type 2 = regular season; its startDate is opening night / kickoff
+	body, err = espnGet(fmt.Sprintf("https://sports.core.api.espn.com/v2/sports/%s/seasons/%s/types/2", corePath, year))
+	if err != nil {
+		log.Printf("[SPORTS] season type error %s: %v", league, err)
+		return ""
+	}
+	var seasonType struct {
+		StartDate string `json:"startDate"`
+	}
+	if json.Unmarshal(body, &seasonType) != nil || seasonType.StartDate == "" {
+		return ""
+	}
+	start, err := parseESPNTime(seasonType.StartDate)
+	if err != nil || start.Before(time.Now()) {
+		return "" // already started or unparseable — nothing future to show
+	}
+	return start.Local().Format("January 2, 2006")
 }
 
 // -- Config helpers
@@ -237,18 +321,24 @@ func logoURL(sport, league, abbr string) string {
 
 // -- Scoreboard fetch
 
-func fetchSportsScoreboard(league string, favTeams []string) ([]SportsGame, bool, error) {
+func fetchSportsScoreboard(league string, favTeams []string) ([]SportsGame, bool, espnSeasonWindow, error) {
 	path := espnLeaguePath[league]
 	if path == "" {
-		return nil, false, nil
+		return nil, false, espnSeasonWindow{}, nil
 	}
 	url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/%s/scoreboard", path)
 	body, err := espnGet(url)
 	if err != nil {
-		return nil, false, err
+		return nil, false, espnSeasonWindow{}, err
 	}
 
 	var raw struct {
+		Leagues []struct {
+			Season struct {
+				StartDate string `json:"startDate"`
+				EndDate   string `json:"endDate"`
+			} `json:"season"`
+		} `json:"leagues"`
 		Events []struct {
 			ID        string `json:"id"`
 			ShortName string `json:"shortName"`
@@ -277,7 +367,17 @@ func fetchSportsScoreboard(league string, favTeams []string) ([]SportsGame, bool
 		} `json:"events"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, false, err
+		return nil, false, espnSeasonWindow{}, err
+	}
+
+	var season espnSeasonWindow
+	if len(raw.Leagues) > 0 {
+		if t, err := parseESPNTime(raw.Leagues[0].Season.StartDate); err == nil {
+			season.Start = t
+		}
+		if t, err := parseESPNTime(raw.Leagues[0].Season.EndDate); err == nil {
+			season.End = t
+		}
 	}
 
 	var games []SportsGame
@@ -324,7 +424,7 @@ func fetchSportsScoreboard(league string, favTeams []string) ([]SportsGame, bool
 		g.IsFavorite = isFavoriteTeam(g.HomeAbbr, favTeams) || isFavoriteTeam(g.AwayAbbr, favTeams)
 		games = append(games, g)
 	}
-	return games, hasLive, nil
+	return games, hasLive, season, nil
 }
 
 // -- Standings fetch
@@ -535,7 +635,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 	// We'll populate plays after the main loop for live games only
 	for _, league := range cfg.Leagues {
 		// Scores / today's games
-		games, hasLive, err := fetchSportsScoreboard(league, cfg.Teams)
+		games, hasLive, seasonWin, err := fetchSportsScoreboard(league, cfg.Teams)
 		if err != nil {
 			log.Printf("[SPORTS] scoreboard error %s: %v", league, err)
 		} else {
@@ -563,17 +663,25 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 			leagueSchedule[strings.ToUpper(league)] = schedule
 		}
 
-		// Detect off-season
+		// Detect off-season from ESPN's season window: outside [start, end] is
+		// off-season. The scoreboard lists next scheduled games even months
+		// ahead, so upcoming "pre" games alone don't mean the season is active.
+		// Note the window can lag: after a season ends ESPN may keep the
+		// scoreboard on the ended season for weeks (end date in the past).
 		leagueUpper := strings.ToUpper(league)
-		offSeason := isLeagueOffSeason(league, leagueGames[leagueUpper], leagueSchedule[leagueUpper])
+		now := time.Now()
+		var offSeason bool
+		if !seasonWin.Start.IsZero() && !seasonWin.End.IsZero() {
+			offSeason = now.Before(seasonWin.Start) || now.After(seasonWin.End)
+		} else {
+			offSeason = isLeagueOffSeason(league, leagueGames[leagueUpper], leagueSchedule[leagueUpper])
+		}
 		status := LeagueStatus{
 			League:      leagueUpper,
 			IsOffSeason: offSeason,
 		}
 		if offSeason {
-			if next, ok := nextSeasonStart[leagueUpper]; ok {
-				status.NextSeasonStart = next
-			}
+			status.NextSeasonStart = nextRegularSeasonStart(league)
 		}
 		data.LeagueStatus = append(data.LeagueStatus, status)
 	}
