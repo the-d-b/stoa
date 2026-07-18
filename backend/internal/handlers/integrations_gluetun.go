@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 )
@@ -21,6 +22,7 @@ type GluetunPanelData struct {
 	Provider   string `json:"provider"`
 	ServerName string `json:"serverName"`
 	Port       int    `json:"port"`
+	Warning    string `json:"warning,omitempty"`
 }
 
 func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunPanelData, error) {
@@ -54,7 +56,9 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 		}
 	}
 
-	// Public IP + location
+	// Public IP + location. Gluetun v3.40+ requires an API key for this route
+	// (while keeping the status/portforward routes public), so a missing or
+	// wrong key silently loses the panel's IP and location.
 	if body, err := gluetunGet(apiURL, apiKey, "/v1/publicip/ip", skipTLS); err == nil {
 		var ip struct {
 			PublicIP string `json:"public_ip"`
@@ -67,6 +71,15 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 			data.Country = ip.Country
 			data.City = ip.City
 			data.Hostname = ip.Hostname
+		}
+	} else {
+		log.Printf("[GLUETUN] publicip error: %v", err)
+		if gluetunAuthDenied(err) {
+			if apiKey == "" {
+				data.Warning = "Public IP needs an API key — Gluetun v3.40+ restricts this route. See the Gluetun integration docs."
+			} else {
+				data.Warning = "Public IP denied — check the API key role config in Gluetun (auth/config.toml routes)."
+			}
 		}
 	}
 
@@ -93,9 +106,16 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 			data.Provider = settings.VPNProvider
 			data.ServerName = settings.ServerName
 		}
+	} else {
+		log.Printf("[GLUETUN] vpn/settings error: %v", err)
 	}
 
 	return data, nil
+}
+
+// gluetunAuthDenied reports whether a gluetunGet error was an auth rejection.
+func gluetunAuthDenied(err error) bool {
+	return err != nil && (strings.Contains(err.Error(), "HTTP 401") || strings.Contains(err.Error(), "HTTP 403"))
 }
 
 func gluetunGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {

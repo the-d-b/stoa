@@ -6,6 +6,7 @@ interface GluetunData {
   uiUrl: string; status: string; publicIp: string
   country: string; city: string; hostname: string
   provider: string; serverName: string; port: number
+  warning?: string
 }
 
 export default function GluetunPanel({ panel }: { panel: Panel; heightUnits: number }) {
@@ -83,6 +84,13 @@ export default function GluetunPanel({ panel }: { panel: Panel; heightUnits: num
           </div>
         )}
       </div>
+      {data.warning && (
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 10,
+          color: 'var(--amber)', lineHeight: 1.4 }}>
+          <span>⚠</span>
+          <span>{data.warning}</span>
+        </div>
+      )}
     </div>
   )
 }
