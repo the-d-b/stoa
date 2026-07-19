@@ -6,6 +6,51 @@ import (
 	"time"
 )
 
+func TestDueSoonEvents(t *testing.T) {
+	now := time.Date(2026, 7, 19, 8, 0, 0, 0, time.Local)
+	items := []dueItem{
+		{Title: "Electric", DueDate: "2026-07-28"},  // due in 9d → event on 25th
+		{Title: "Rent", DueDate: "2026-07-20"},      // due tomorrow → lead clamps to today
+		{Title: "Water", DueDate: "2026-07-19"},     // due today → clamps to today
+		{Title: "Old bill", DueDate: "2026-07-18"},  // past due → dropped
+		{Title: "Far out", DueDate: "2026-09-01"},   // beyond 30d window → dropped
+		{Title: "Bad date", DueDate: "not-a-date"},  // unparseable → dropped
+	}
+
+	events := dueSoonEvents(items, "My Budget", "http://actual.local", "#14b8a6", 30, now)
+
+	if len(events) != 3 {
+		t.Fatalf("expected 3 events, got %d: %v", len(events), events)
+	}
+	byTitle := map[string]map[string]interface{}{}
+	for _, e := range events {
+		byTitle[e["title"].(string)] = e
+	}
+
+	if e := byTitle["Due soon: Electric (Jul 28)"]; e == nil {
+		t.Errorf("missing Electric event, got %v", byTitle)
+	} else {
+		if e["date"] != "2026-07-25" {
+			t.Errorf("Electric: expected event 3 days before due, got %v", e["date"])
+		}
+		if e["source"] != "My Budget" {
+			t.Errorf("Electric: source should be integration name, got %v", e["source"])
+		}
+		if e["uiUrl"] != "http://actual.local" {
+			t.Errorf("Electric: expected uiUrl, got %v", e["uiUrl"])
+		}
+		if e["color"] != "#14b8a6" {
+			t.Errorf("Electric: expected passed-through color, got %v", e["color"])
+		}
+	}
+	if e := byTitle["Due soon: Rent (Jul 20)"]; e == nil || e["date"] != "2026-07-19" {
+		t.Errorf("Rent: expected lead time clamped to today, got %v", e)
+	}
+	if e := byTitle["Due soon: Water (Jul 19)"]; e == nil || e["date"] != "2026-07-19" {
+		t.Errorf("Water: expected due-today event on today, got %v", e)
+	}
+}
+
 func TestICSRecurrenceExpansion(t *testing.T) {
 	// Window: 2026-07-17 .. 2026-07-31 (matches "today" at time of writing)
 	winStart := time.Date(2026, 7, 17, 0, 0, 0, 0, time.Local)

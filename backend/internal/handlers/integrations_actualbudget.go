@@ -280,6 +280,80 @@ func abFetchOneBudget(baseURL, uiURL, apiKey, integrationID, budgetID, budgetNam
 	return out
 }
 
+// ── Schedules (calendar source) ───────────────────────────────────────────────
+
+// abFetchScheduleItems lists upcoming schedules across all budgets on the
+// Actual instance as dueItems (NextDate is YYYY-MM-DD as reported by Actual).
+// Schedule names are optional in Actual, so payee names are resolved as a
+// fallback title. Budgets are fetched sequentially — the sidecar is stateful
+// (one budget open at a time).
+func abFetchScheduleItems(baseURL, apiKey string, skipTLS bool) ([]dueItem, error) {
+	body, err := abGet(baseURL, apiKey, "/v1/budgets", skipTLS)
+	if err != nil {
+		return nil, fmt.Errorf("listing budgets: %w", err)
+	}
+	var rawBudgets []struct {
+		GroupID string `json:"groupId"`
+	}
+	if err := abUnwrap(body, &rawBudgets); err != nil {
+		return nil, fmt.Errorf("parsing budgets: %w", err)
+	}
+
+	seen := map[string]bool{}
+	var items []dueItem
+	for _, rb := range rawBudgets {
+		if rb.GroupID == "" || seen[rb.GroupID] {
+			continue
+		}
+		seen[rb.GroupID] = true
+
+		payeeName := map[string]string{}
+		if pBody, perr := abGet(baseURL, apiKey, "/v1/budgets/"+rb.GroupID+"/payees", skipTLS); perr != nil {
+			log.Printf("[AB] schedules: payees fetch error for %s: %v", rb.GroupID, perr)
+		} else {
+			var payees []struct {
+				ID   string `json:"id"`
+				Name string `json:"name"`
+			}
+			if abUnwrap(pBody, &payees) == nil {
+				for _, p := range payees {
+					payeeName[p.ID] = p.Name
+				}
+			}
+		}
+
+		sBody, serr := abGet(baseURL, apiKey, "/v1/budgets/"+rb.GroupID+"/schedules", skipTLS)
+		if serr != nil {
+			log.Printf("[AB] schedules fetch error for %s: %v", rb.GroupID, serr)
+			continue
+		}
+		var schedules []struct {
+			Name      string `json:"name"`
+			NextDate  string `json:"next_date"`
+			Completed bool   `json:"completed"`
+			Payee     string `json:"payee"`
+		}
+		if err := abUnwrap(sBody, &schedules); err != nil {
+			log.Printf("[AB] schedules parse error for %s: %v", rb.GroupID, err)
+			continue
+		}
+		for _, s := range schedules {
+			if s.Completed || s.NextDate == "" {
+				continue
+			}
+			title := s.Name
+			if title == "" {
+				title = payeeName[s.Payee]
+			}
+			if title == "" {
+				title = "Scheduled transaction"
+			}
+			items = append(items, dueItem{Title: title, DueDate: s.NextDate})
+		}
+	}
+	return items, nil
+}
+
 // ── Connection test ───────────────────────────────────────────────────────────
 
 func testActualBudgetConnection(baseURL, apiKey string, skipTLS bool) error {

@@ -14,6 +14,8 @@ A multi-source calendar that aggregates events from any combination of:
 - **Checklist panels** — due dates from Stoa checklist items
 - **Kanban panels** — due dates from Stoa kanban cards
 - **LubeLogger** — upcoming vehicle maintenance reminders
+- **Actual Budget** — upcoming scheduled transactions (bills), surfaced 3 days before their due date
+- **Firefly III** — upcoming bill payment dates and recurring transactions, surfaced 3 days before their due date
 - **Weather** — daily forecast events
 
 Each source is configured independently with its own label, color, and days-ahead window (7–90 days).
@@ -86,6 +88,26 @@ Once OAuth is configured, add source → **Google Calendar** → select an accou
 ### Arr sources (Sonarr / Radarr / Lidarr / Readarr)
 
 Requires the corresponding integration to already be set up. Add source → **Stoa integration** → select the integration. The days-ahead window controls how far forward Stoa looks for scheduled releases.
+
+---
+
+### Actual Budget
+
+Requires an Actual Budget integration (see [Actual Budget](../actualbudget/README.md) for the sidecar setup). Add source → **Stoa integration** → select the integration.
+
+Upcoming scheduled transactions (Actual's **Schedules** feature) from all budgets on the instance appear as all-day events **3 days before** their due date — e.g. a bill due on the 10th shows on the 7th as "Due soon: Electric (Jul 10)". Bills due sooner than 3 days out appear today. Completed schedules are skipped. The event pill is labeled with the integration's name, and clicking an event opens the integration's UI URL. Schedules are polled at most once per 15 minutes.
+
+Each schedule shows only its **next** occurrence — a weekly schedule appears once, not every week in the window (Actual precomputes only the next date).
+
+---
+
+### Firefly III
+
+Requires a Firefly III integration. Add source → **Stoa integration** → select the integration.
+
+Upcoming payment dates from both Firefly's **Bills / Subscriptions** and **Recurring transactions** features appear as all-day events **3 days before** their due date, same behavior as Actual Budget above. Unlike Actual, recurring bills show **every** expected occurrence in the window — Firefly computes the full payment schedule. Inactive bills/recurrences and bill payment dates already matched to a transaction are skipped, and an obligation modeled as both a bill and a recurrence is deduplicated. Polled at most once per 15 minutes.
+
+> **Note:** Firefly only exposes the next few upcoming fire dates per recurring transaction, so with a large days-ahead window a frequent recurrence (e.g. daily) may not show occurrences all the way to the end of the window. Bills always cover the full window.
 
 ---
 

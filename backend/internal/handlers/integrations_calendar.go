@@ -28,6 +28,77 @@ func icsFetch(icsURL string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// dueItem is one upcoming payment obligation from a finance source
+// (Actual Budget schedule, Firefly III bill), cached per integration.
+type dueItem struct {
+	Title   string `json:"title"`
+	DueDate string `json:"dueDate"` // YYYY-MM-DD
+}
+
+// dueSoonEvents converts due items into calendar events. Each item due within
+// [today, today+daysAhead] appears 3 days BEFORE its due date (clamped to
+// today) so bills surface as "due soon" with time to act.
+func dueSoonEvents(items []dueItem, intName, uiURL, color string, daysAhead int, now time.Time) []map[string]interface{} {
+	today := now.Format("2006-01-02")
+	end := now.AddDate(0, 0, daysAhead).Format("2006-01-02")
+	events := []map[string]interface{}{}
+	for _, it := range items {
+		if it.DueDate < today || it.DueDate > end {
+			continue
+		}
+		due, err := time.Parse("2006-01-02", it.DueDate)
+		if err != nil {
+			continue
+		}
+		eventDate := due.AddDate(0, 0, -3).Format("2006-01-02")
+		if eventDate < today {
+			eventDate = today
+		}
+		events = append(events, map[string]interface{}{
+			"source": intName,
+			"date":   eventDate,
+			"title":  fmt.Sprintf("Due soon: %s (%s)", it.Title, due.Format("Jan 2")),
+			"color":  color,
+			"uiUrl":  uiURL,
+		})
+	}
+	return events
+}
+
+// cachedDueItems returns due items from the 15-minute cache, fetching on miss.
+// On fetch failure it falls back to stale cache rather than dropping the source.
+func cachedDueItems(cacheKey string, fetch func() ([]dueItem, error)) ([]dueItem, bool) {
+	if cached, ok := cacheGetFresh(cacheKey, 15*time.Minute); ok {
+		if items, ok2 := cached.([]dueItem); ok2 {
+			return items, true
+		}
+	}
+	items, err := fetch()
+	if err != nil {
+		log.Printf("[CAL] %s fetch error: %v", cacheKey, err)
+		if cached, ok := cacheGet(cacheKey); ok {
+			if stale, ok2 := cached.([]dueItem); ok2 {
+				return stale, true
+			}
+		}
+		return nil, false
+	}
+	cacheSet(cacheKey, items)
+	log.Printf("[CAL] %s: %d upcoming items", cacheKey, len(items))
+	return items, true
+}
+
+// integrationName returns the display name of an integration for use as a
+// calendar pill label, with a fallback when unset.
+func integrationName(db *sql.DB, integrationID, fallback string) string {
+	var name string
+	db.QueryRow(`SELECT COALESCE(name,'') FROM integrations WHERE id=?`, integrationID).Scan(&name)
+	if name == "" {
+		return fallback
+	}
+	return name
+}
+
 // localDate extracts the YYYY-MM-DD date in local server time from a UTC timestamp.
 // Radarr/Lidarr return UTC midnight — without this, users west of UTC see dates
 // shifted one day earlier than the arr app shows.
@@ -383,6 +454,42 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 					"league":  g.League,
 				})
 			}
+
+		case "actualbudget":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] actualbudget resolveIntegration error: %v", err)
+				continue
+			}
+			if uiURL == "" {
+				uiURL = apiURL
+			}
+			items, ok := cachedDueItems("abschedules:"+integrationID, func() ([]dueItem, error) {
+				return abFetchScheduleItems(apiURL, apiKey, skipTLS)
+			})
+			if !ok {
+				continue
+			}
+			intName := integrationName(db, integrationID, "Actual Budget")
+			events = append(events, dueSoonEvents(items, intName, uiURL, "#14b8a6", daysAhead, timeNow())...)
+
+		case "fireflyiii":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] fireflyiii resolveIntegration error: %v", err)
+				continue
+			}
+			if uiURL == "" {
+				uiURL = apiURL
+			}
+			items, ok := cachedDueItems("ffbills:"+integrationID, func() ([]dueItem, error) {
+				return ffFetchBillItems(apiURL, apiKey, skipTLS)
+			})
+			if !ok {
+				continue
+			}
+			intName := integrationName(db, integrationID, "Firefly III")
+			events = append(events, dueSoonEvents(items, intName, uiURL, "#ec4899", daysAhead, timeNow())...)
 
 		case "ical":
 			icsURL := stringVal(source, "icsUrl")

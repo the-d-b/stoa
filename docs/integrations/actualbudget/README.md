@@ -87,6 +87,12 @@ On each poll cycle the backend fetches all budgets from the sidecar sequentially
 
 ---
 
+## Calendar
+
+Add Actual Budget as a calendar source (Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**) to see upcoming scheduled transactions on the calendar. Each schedule appears as an all-day "Due soon" event 3 days before its due date. See [Calendar](../calendar/README.md#actual-budget) for details.
+
+---
+
 ## Notes
 
 - The sidecar opens and syncs one budget at a time from the Actual sync server. If you notice stale data, use **Refresh Now** to force an immediate re-sync.

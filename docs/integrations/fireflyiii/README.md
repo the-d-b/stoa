@@ -44,6 +44,12 @@ Monthly summary figures (earned, spent, net worth, bills paid/unpaid, left to sp
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
 ---
 
+## Calendar
+
+Add Firefly III as a calendar source (Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**) to see upcoming bill payment dates and recurring transactions on the calendar. Each expected payment appears as an all-day "Due soon" event 3 days before its due date; recurring bills show every occurrence in the window. See [Calendar](../calendar/README.md#firefly-iii) for details.
+
+---
+
 ## Notes
 
 Summary figures cover the current calendar month. Polls hourly - financial data changes infrequently.
