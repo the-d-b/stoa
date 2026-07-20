@@ -18,7 +18,9 @@ func friendlyPanelError(err error) string {
 	case "no integration configured":
 		return "No integration selected — edit this panel to choose an integration"
 	case "integration not found":
-		return "Integration not found or disabled — check Admin → Integrations"
+		return "Integration not found — check Admin → Integrations"
+	case "integration disabled":
+		return "Integration disabled — re-enable it in Admin → Integrations or Profile → My Integrations"
 	}
 
 	// TLS / certificate errors

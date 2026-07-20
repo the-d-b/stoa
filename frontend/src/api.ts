@@ -302,8 +302,9 @@ export const integrationsApi = {
   list: () => api.get<Integration[]>('/integrations'),
   create: (data: { name: string; type: string; apiUrl: string; uiUrl?: string; config?: string; secretId?: string; skipTls?: boolean; refreshSecs?: number; scope?: string }) =>
     api.post<{ id: string }>('/integrations', data),
-  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; config: string; secretId: string; skipTls: boolean; refreshSecs: number; enabled: boolean }>) =>
+  update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; config: string; secretId: string; skipTls: boolean; refreshSecs: number }>) =>
     api.put(`/integrations/${id}`, data),
+  setEnabled: (id: string, enabled: boolean) => api.put(`/integrations/${id}/enabled`, { enabled }),
   delete: (id: string) => api.delete(`/integrations/${id}`),
   test: (data: { type: string; apiUrl: string; secretId?: string; skipTls?: boolean }) =>
     api.post<{ ok: boolean; error?: string }>('/integrations/test', data),
@@ -392,6 +393,7 @@ export const myIntegrationsApi = {
   list: () => api.get<Integration[]>('/my/integrations'),
   update: (id: string, data: Partial<{ name: string; apiUrl: string; uiUrl: string; config: string; secretId: string; skipTls: boolean; refreshSecs: number }>) =>
     api.put(`/my/integrations/${id}`, data),
+  setEnabled: (id: string, enabled: boolean) => api.put(`/my/integrations/${id}/enabled`, { enabled }),
   delete: (id: string) => api.delete(`/my/integrations/${id}`),
 }
 

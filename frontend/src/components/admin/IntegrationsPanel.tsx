@@ -139,12 +139,18 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
         <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'DM Mono, monospace' }}>
           {expanded ? '▼' : '▶'}
         </span>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, opacity: ig.enabled ? 1 : 0.55 }}>
           <span style={{ fontSize: 13, fontWeight: 500 }}>{ig.name}</span>
           <span style={{ marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 4,
             background: 'var(--surface2)', color: 'var(--text-dim)', border: '1px solid var(--border)' }}>
             {typeDef?.label ?? ig.type}
           </span>
+          {!ig.enabled && (
+            <span style={{ marginLeft: 8, fontSize: 10, padding: '1px 6px', borderRadius: 4,
+              background: 'var(--surface2)', color: 'var(--amber)', border: '1px solid var(--border)' }}>
+              disabled
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
           <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
@@ -155,6 +161,12 @@ function IntegrationRow({ integration: ig, secrets, groups, assignedGroups, onGr
           }
         </div>
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+          <button className="btn btn-ghost" style={{ fontSize: 12,
+            color: ig.enabled ? 'var(--text-dim)' : 'var(--green)' }}
+            title={ig.enabled ? 'Stop polling this integration; panels using it grey out' : 'Resume polling this integration'}
+            onClick={async () => { await integrationsApi.setEnabled(ig.id, !ig.enabled); onUpdate() }}>
+            {ig.enabled ? 'Disable' : 'Enable'}
+          </button>
           <button className="btn btn-ghost" style={{ fontSize: 12 }}
             onClick={() => { if (!expanded) onExpand(); setEditing(e => !e) }}>
             {editing ? 'View' : 'Edit'}

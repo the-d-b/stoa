@@ -594,7 +594,7 @@ export default function PanelForm({
               onChange={e => setIntegrationId(e.target.value)} style={{ cursor: 'pointer' }}>
               <option value="">— Select integration —</option>
               {compatibleIntegrations.map(i => (
-                <option key={i.id} value={i.id}>{i.name}</option>
+                <option key={i.id} value={i.id}>{i.name}{(i as any).enabled === false ? " (disabled)" : ""}</option>
               ))}
             </select>
           )}
@@ -870,7 +870,7 @@ export default function PanelForm({
               onChange={e => setTraktRadarrId(e.target.value)} style={{ cursor: 'pointer' }}>
               <option value="">— None —</option>
               {localIntegrations.filter(i => i.type === 'radarr').map(i => (
-                <option key={i.id} value={i.id}>{i.name}</option>
+                <option key={i.id} value={i.id}>{i.name}{(i as any).enabled === false ? " (disabled)" : ""}</option>
               ))}
             </select>
           </div>
@@ -883,7 +883,7 @@ export default function PanelForm({
               onChange={e => setTraktSonarrId(e.target.value)} style={{ cursor: 'pointer' }}>
               <option value="">— None —</option>
               {localIntegrations.filter(i => i.type === 'sonarr').map(i => (
-                <option key={i.id} value={i.id}>{i.name}</option>
+                <option key={i.id} value={i.id}>{i.name}{(i as any).enabled === false ? " (disabled)" : ""}</option>
               ))}
             </select>
           </div>
@@ -925,7 +925,7 @@ export default function PanelForm({
             onChange={e => setLfmLidarrId(e.target.value)} style={{ cursor: 'pointer' }}>
             <option value="">— None —</option>
             {localIntegrations.filter(i => i.type === 'lidarr').map(i => (
-              <option key={i.id} value={i.id}>{i.name}</option>
+              <option key={i.id} value={i.id}>{i.name}{(i as any).enabled === false ? " (disabled)" : ""}</option>
             ))}
           </select>
         </div>

@@ -241,6 +241,67 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// setIntegrationEnabled flips the enabled bit. Disabling stops the polling
+// worker and clears the cache so the integration goes fully inert (every
+// fetch path checks enabled via resolveIntegration); enabling restarts the
+// worker. requireOwner enforces personal-integration ownership.
+func setIntegrationEnabled(db *sql.DB, requireOwner bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		if requireOwner {
+			var owner string
+			db.QueryRow("SELECT created_by FROM integrations WHERE id=?", id).Scan(&owner)
+			if owner != claims.UserID {
+				writeError(w, http.StatusForbidden, "not your integration")
+				return
+			}
+		}
+		var req struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		var intName string
+		db.QueryRow("SELECT name FROM integrations WHERE id=?", id).Scan(&intName)
+		val := 0
+		if req.Enabled {
+			val = 1
+		}
+		res, err := db.Exec("UPDATE integrations SET enabled=? WHERE id=?", val, id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "update failed")
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			writeError(w, http.StatusNotFound, "integration not found")
+			return
+		}
+		action := "integration.disable"
+		if req.Enabled {
+			action = "integration.enable"
+			go StartWorkerForIntegration(db, id)
+		} else {
+			StopWorkerForIntegration(id)
+			cacheDelete(id)
+		}
+		RecordAudit(db, claims.UserID, claims.Username, action, id, intName, nil)
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+// SetIntegrationEnabled is the admin toggle (any integration).
+func SetIntegrationEnabled(db *sql.DB) http.HandlerFunc {
+	return setIntegrationEnabled(db, false)
+}
+
+// SetMyIntegrationEnabled is the personal toggle (ownership enforced).
+func SetMyIntegrationEnabled(db *sql.DB) http.HandlerFunc {
+	return setIntegrationEnabled(db, true)
+}
+
 func DeleteIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
@@ -756,9 +817,13 @@ func DeleteMyIntegration(db *sql.DB) http.HandlerFunc {
 // Used by types whose fetch config lives in the config column (stocks, crypto, sports, weather).
 func readIntegrationConfig(db *sql.DB, id string) (string, error) {
 	var cfg string
-	err := db.QueryRow(`SELECT COALESCE(config,'{}') FROM integrations WHERE id=? AND enabled=1`, id).Scan(&cfg)
+	var enabledInt int
+	err := db.QueryRow(`SELECT COALESCE(config,'{}'), enabled FROM integrations WHERE id=?`, id).Scan(&cfg, &enabledInt)
 	if err != nil {
 		return "{}", fmt.Errorf("integration not found: %w", err)
+	}
+	if enabledInt != 1 {
+		return "{}", fmt.Errorf("integration disabled")
 	}
 	return cfg, nil
 }
@@ -766,12 +831,15 @@ func readIntegrationConfig(db *sql.DB, id string) (string, error) {
 // resolveIntegration fetches the API URL, UI URL, and decrypted API key for an integration.
 func resolveIntegration(db *sql.DB, id string) (apiURL, uiURL, apiKey string, skipTLS bool, err error) {
 	var secretID sql.NullString
-	var skipTLSInt int
+	var skipTLSInt, enabledInt int
 	err = db.QueryRow(`
-		SELECT api_url, ui_url, secret_id, skip_tls FROM integrations WHERE id=? AND enabled=1
-	`, id).Scan(&apiURL, &uiURL, &secretID, &skipTLSInt)
+		SELECT api_url, ui_url, secret_id, skip_tls, enabled FROM integrations WHERE id=?
+	`, id).Scan(&apiURL, &uiURL, &secretID, &skipTLSInt, &enabledInt)
 	if err != nil {
 		return "", "", "", false, fmt.Errorf("integration not found")
+	}
+	if enabledInt != 1 {
+		return "", "", "", false, fmt.Errorf("integration disabled")
 	}
 	skipTLS = skipTLSInt == 1
 	if secretID.Valid {

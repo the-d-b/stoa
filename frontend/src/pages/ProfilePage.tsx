@@ -2757,13 +2757,22 @@ function PersonalIntegrationsTab() {
                 color: 'var(--text-dim)', border: '1px solid var(--border)', flexShrink: 0 }}>
                 {INTEGRATION_TYPES.find(t => t.id === ig.type)?.label ?? ig.type}
               </span>
-              <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ig.name}</span>
+              <span style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0, opacity: ig.enabled ? 1 : 0.55,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {ig.name}
+                {!ig.enabled && <span style={{ marginLeft: 8, fontSize: 10, color: 'var(--amber)' }}>disabled</span>}
+              </span>
               <span style={{ fontSize: 11, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 maxWidth: '25%', flexShrink: 1, minWidth: 0 }}>
                 {ig.apiUrl}
               </span>
+              <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0,
+                color: ig.enabled ? 'var(--text-dim)' : 'var(--green)' }}
+                title={ig.enabled ? 'Stop polling this integration' : 'Resume polling this integration'}
+                onClick={async () => { await myIntegrationsApi.setEnabled(ig.id, !ig.enabled); await load() }}>
+                {ig.enabled ? 'Disable' : 'Enable'}
+              </button>
               <button className="btn btn-ghost" style={{ fontSize: 12, flexShrink: 0 }} onClick={() => setEditId(editId === ig.id ? null : ig.id)}>Edit</button>
               <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)', flexShrink: 0 }} onClick={() => remove(ig.id, ig.name)}>Delete</button>
             </div>

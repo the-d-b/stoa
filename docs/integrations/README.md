@@ -281,3 +281,13 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | Blank (no auth) | — | Scrutiny, Gluetun (optional), Frigate (optional), Weather, Sports, Stocks |
 
 The colon convention (`username:password`) follows the same format as `curl -u user:pass` — Stoa splits on the **first** colon only, so passwords containing colons are supported.
+
+## Enabling and disabling integrations
+
+Every integration has an **Enable/Disable** toggle (Admin → Integrations for system integrations, Profile → My Integrations for personal ones). Disabling an integration:
+
+- stops its background polling worker immediately — the source stops receiving any traffic from Stoa
+- clears its cached data
+- greys out panels that use it with an "Integration disabled" note instead of an error
+
+The integration, its configuration, and its panel assignments are all preserved — re-enabling restarts polling and panels come back on the next refresh. Useful for services that are down for maintenance, containers being stood up or decommissioned, or integrations you only want active while testing. Disabled integrations still appear in pickers, marked "(disabled)".

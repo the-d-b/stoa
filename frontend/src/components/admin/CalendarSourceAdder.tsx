@@ -190,7 +190,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
               style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
               <option value="">— Select integration —</option>
               {calIntegrations.map((i: any) => (
-                <option key={i.id} value={i.id}>{i.name} ({i.type})</option>
+                <option key={i.id} value={i.id}>{i.name} ({i.type}){(i as any).enabled === false ? " — disabled" : ""}</option>
               ))}
             </select>
             {showDaysSelect && (
