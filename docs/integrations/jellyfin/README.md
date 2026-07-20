@@ -51,6 +51,12 @@ The panel subscribes to **Server-Sent Events (SSE)**. When the worker refreshes 
 
 ---
 
+## Ratings filter
+
+Set **Allowed ratings** in the panel config (e.g. `G, PG, PG-13, TV-PG`) to hide now-playing sessions for content outside the list — useful on family-shared dashboards. Unrated content is hidden when a filter is active. Matches the item's official rating string as reported by the server.
+
+---
+
 ## Notes
 
 - The API key grants read access to the Jellyfin API. No write permissions are used.

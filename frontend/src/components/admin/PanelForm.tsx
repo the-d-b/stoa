@@ -148,7 +148,21 @@ const SEARCH_ENGINE_LIST = [
 ]
 
 const HEIGHT_OPTIONS = [1,2,3,4,5,6,7,8]
-const RATINGS_TYPES = ['radarr', 'sonarr', 'plex']
+// Types using the comma-separated MPAA/TV ratings text filter
+const RATINGS_TYPES = ['radarr', 'sonarr', 'plex', 'jellyfin', 'emby']
+// Kavita max-age-rating dropdown values (Kavita AgeRating enum numbers)
+const KAVITA_AGE_RATINGS = [
+  { value: '3', label: 'Everyone' },
+  { value: '4', label: 'G' },
+  { value: '5', label: 'Everyone 10+' },
+  { value: '6', label: 'PG' },
+  { value: '7', label: 'Kids to Adults' },
+  { value: '8', label: 'Teen' },
+  { value: '9', label: 'Mature 15+' },
+  { value: '10', label: 'Mature 17+' },
+  { value: '11', label: 'Mature' },
+  { value: '12', label: 'R18+' },
+]
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','mylar3','kapowarr','tranga','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
@@ -237,6 +251,7 @@ export default function PanelForm({
   // ── Integration types ──────────────────────────────────────────────────────
   const [integrationId, setIntegrationId] = useState(cfg.integrationId ?? '')
   const [allowedRatings, setAllowedRatings] = useState(cfg.allowedRatings ?? '')
+  const [hideExplicit, setHideExplicit] = useState<boolean>(cfg.hideExplicit ?? false)
 
   // ── Trakt ARR links ────────────────────────────────────────────────────────
   const [traktRadarrId, setTraktRadarrId] = useState(cfg.radarrIntegrationId ?? '')
@@ -314,6 +329,7 @@ export default function PanelForm({
     setHeight(c.height ?? 2)
     setIntegrationId(c.integrationId ?? '')
     setAllowedRatings(c.allowedRatings ?? '')
+    setHideExplicit(c.hideExplicit ?? false)
     setTraktRadarrId(c.radarrIntegrationId ?? '')
     setTraktSonarrId(c.sonarrIntegrationId ?? '')
     setTraktMovieRatings(c.movieRatings ?? '')
@@ -456,8 +472,11 @@ export default function PanelForm({
       if (type === 'actualbudget') {
         if (abBudgetId.trim()) base.budgetId = abBudgetId.trim()
       }
-      if (RATINGS_TYPES.includes(type) && allowedRatings.trim()) {
+      if ((RATINGS_TYPES.includes(type) || type === 'kavita' || type === 'komga') && allowedRatings.trim()) {
         base.allowedRatings = allowedRatings.trim()
+      }
+      if (type === 'audiobookshelf' && hideExplicit) {
+        base.hideExplicit = true
       }
       if (type === 'trakt') {
         if (traktRadarrId) base.radarrIntegrationId = traktRadarrId
@@ -786,11 +805,57 @@ export default function PanelForm({
           </label>
           <input className="input" value={allowedRatings}
             onChange={e => setAllowedRatings(e.target.value)}
-            placeholder="e.g. G, PG, PG-13" />
+            placeholder="e.g. G, PG, PG-13, TV-PG" />
           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
             Unrated / NR content is excluded when a filter is active.
           </div>
         </div>
+      )}
+
+      {/* Kavita: max age rating */}
+      {type === 'kavita' && (
+        <div>
+          <label className="label">
+            Maximum age rating{' '}
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+          </label>
+          <select className="input" value={allowedRatings}
+            onChange={e => setAllowedRatings(e.target.value)} style={{ cursor: 'pointer' }}>
+            <option value="">— No filter —</option>
+            {KAVITA_AGE_RATINGS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+          </select>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            Uses Kavita's per-series age rating. Series without a rating are hidden when a filter is active.
+          </div>
+        </div>
+      )}
+
+      {/* Komga: max age */}
+      {type === 'komga' && (
+        <div>
+          <label className="label">
+            Maximum age rating{' '}
+            <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+          </label>
+          <input className="input" type="number" min="0" max="21" value={allowedRatings}
+            onChange={e => setAllowedRatings(e.target.value)}
+            placeholder="e.g. 12" style={{ maxWidth: 140 }} />
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            Uses Komga's per-series age rating (years). Series above this age, or without a rating set, are hidden when a filter is active.
+          </div>
+        </div>
+      )}
+
+      {/* Audiobookshelf: hide explicit */}
+      {type === 'audiobookshelf' && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
+          <input type="checkbox" checked={hideExplicit}
+            onChange={e => setHideExplicit(e.target.checked)} />
+          Hide explicit items
+          <span style={{ color: 'var(--text-dim)', fontSize: 11 }}>
+            (uses Audiobookshelf's per-item explicit flag)
+          </span>
+        </label>
       )}
 
       {/* Trakt: Radarr/Sonarr links + rating filters */}

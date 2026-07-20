@@ -65,12 +65,13 @@ type jellyfinSessionResponse struct {
 }
 
 type jellyfinNowPlaying struct {
-	Id           string `json:"Id"`
-	Name         string `json:"Name"`
-	Type         string `json:"Type"`
-	SeriesName   string `json:"SeriesName"`
-	SeriesId     string `json:"SeriesId"`
-	RunTimeTicks int64  `json:"RunTimeTicks"`
+	Id             string `json:"Id"`
+	Name           string `json:"Name"`
+	Type           string `json:"Type"`
+	SeriesName     string `json:"SeriesName"`
+	SeriesId       string `json:"SeriesId"`
+	RunTimeTicks   int64  `json:"RunTimeTicks"`
+	OfficialRating string `json:"OfficialRating"` // e.g. "PG-13", "TV-MA"
 }
 
 type jellyfinPlayState struct {
@@ -135,8 +136,12 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 	if err == nil {
 		var sessions []jellyfinSessionResponse
 		if json.Unmarshal(sessBody, &sessions) == nil {
+			ratingsFilter := allowedRatings(config)
 			for _, s := range sessions {
 				if s.NowPlayingItem == nil {
+					continue
+				}
+				if !ratingAllowed(s.NowPlayingItem.OfficialRating, ratingsFilter) {
 					continue
 				}
 				data.Sessions = append(data.Sessions, jellyfinSessionToPanel(s, integrationID))

@@ -124,9 +124,21 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 	}
 
 	// SeriesFilterV2Dto — empty filter matches everything
+	statements := []interface{}{}
+	// Age rating filter — allowedRatings holds a max AgeRating enum value
+	// (Everyone=3 … X18Plus=14). Two AND'd statements bound the range:
+	// ageRating <= max AND ageRating >= EarlyChildhood(2), which fails closed
+	// on Unknown(0)/NotApplicable(-1)/RatingPending(1) series.
+	// Field 4 = AgeRating; comparison 4 = LessThanEqual, 2 = GreaterThanEqual.
+	if maxRating := stringVal(config, "allowedRatings"); maxRating != "" {
+		statements = append(statements,
+			map[string]interface{}{"comparison": 4, "field": 4, "value": maxRating},
+			map[string]interface{}{"comparison": 2, "field": 4, "value": "2"},
+		)
+	}
 	filterBody := map[string]interface{}{
-		"statements":  []interface{}{},
-		"combination": 1,
+		"statements":  statements,
+		"combination": 1, // And
 		"limitTo":     0,
 	}
 

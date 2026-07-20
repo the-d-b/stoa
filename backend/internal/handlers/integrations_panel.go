@@ -318,17 +318,22 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		integrationID, _ := config["integrationId"].(string)
 		allowedRatings, _ := config["allowedRatings"].(string)
 
-		// Plex session panels with a rating filter always fetch live —
-		// "who's watching" data must be fresh; stale filtered cache causes
-		// stopped streams to persist indefinitely since worker only refreshes
-		// the unfiltered integration cache key, not per-panel filtered keys.
-		plexFiltered := panelType == "plex" && allowedRatings != ""
+		// Session panels (plex/jellyfin/emby) with a rating filter always fetch
+		// live — "who's watching" data must be fresh; stale filtered cache
+		// causes stopped streams to persist indefinitely since worker only
+		// refreshes the unfiltered integration cache key, not per-panel
+		// filtered keys.
+		sessionPanel := panelType == "plex" || panelType == "jellyfin" || panelType == "emby"
+		plexFiltered := sessionPanel && allowedRatings != ""
 
-		// Cache key includes allowedRatings so panels with different filters
+		// Cache key includes filter settings so panels with different filters
 		// get separate cache entries even when sharing the same integration
 		cacheKey := integrationID
 		if allowedRatings != "" {
 			cacheKey = integrationID + "|" + allowedRatings
+		}
+		if hx, _ := config["hideExplicit"].(bool); hx {
+			cacheKey += "|noexplicit"
 		}
 		// Home Assistant: the cache stores the full entity list (fetched by the worker
 		// with no panel-level filter). Each panel request applies its own entity/domain

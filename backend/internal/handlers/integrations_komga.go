@@ -138,6 +138,12 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 	}
 
 	// Recently added series
+	// allowedRatings holds a max age in years — series above it, or without
+	// an age rating set, are hidden (fail closed, like NR elsewhere)
+	maxAge := -1
+	if raw := stringVal(config, "allowedRatings"); raw != "" {
+		fmt.Sscanf(raw, "%d", &maxAge)
+	}
 	recentBody, rerr := komgaGet(apiURL, apiKey, "/api/v1/series/new?page=0&size=30", skipTLS)
 	if rerr == nil {
 		var page struct {
@@ -147,6 +153,9 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 				LibraryID  string `json:"libraryId"`
 				BooksCount int    `json:"booksCount"`
 				Created    string `json:"created"`
+				Metadata   struct {
+					AgeRating *int `json:"ageRating"`
+				} `json:"metadata"`
 			} `json:"content"`
 		}
 		if json.Unmarshal(recentBody, &page) == nil {
@@ -155,6 +164,9 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 				libMap[l.ID] = l.Name
 			}
 			for _, s := range page.Content {
+				if maxAge >= 0 && (s.Metadata.AgeRating == nil || *s.Metadata.AgeRating > maxAge) {
+					continue
+				}
 				data.RecentlyAdded = append(data.RecentlyAdded, KomgaSeries{
 					ID:          s.ID,
 					Name:        s.Name,

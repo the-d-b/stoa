@@ -52,6 +52,12 @@ Library reader showing series and book counts, per-library scrollable cover film
 
 ---
 
+## Ratings filter
+
+Set **Maximum age rating** (years) in the panel config to hide series above it (uses Komga's per-series age rating metadata). Series without a rating set are hidden when a filter is active.
+
+---
+
 ## Notes
 
 - **Auth:** `username:password` sends HTTP Basic auth; a plain API key is sent as the `X-API-Key` header. Both formats are auto-detected by checking for a colon in the secret

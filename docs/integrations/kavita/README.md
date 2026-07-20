@@ -52,6 +52,12 @@ Library reader showing series counts, per-library scrollable cover filmstrips, a
 
 ---
 
+## Ratings filter
+
+Set **Maximum age rating** in the panel config to hide series above it (uses Kavita's per-series age rating, filtered server-side). Series without a rating are hidden when a filter is active.
+
+---
+
 ## Notes
 
 - **Auth:** API key is sent as the `x-api-key` header on every request

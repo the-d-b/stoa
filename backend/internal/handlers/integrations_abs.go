@@ -393,6 +393,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 						AuthorName string  `json:"authorName"` // books
 						Author     string  `json:"author"`     // podcasts
 						Duration   float64 `json:"duration"`
+						Explicit   bool    `json:"explicit"`
 					} `json:"metadata"`
 					NumAudioFiles int `json:"numAudioFiles"` // 0 for ebooks
 				} `json:"media"`
@@ -425,7 +426,11 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 			logErrorf("ABS", "items-in-progress parse error: %v", jerr)
 		} else {
 			logDebugf("ABS", "items-in-progress: %d items before filter", len(resp.LibraryItems))
+			hideExplicit, _ := config["hideExplicit"].(bool)
 			for _, r := range resp.LibraryItems {
+				if hideExplicit && r.Media.Metadata.Explicit {
+					continue
+				}
 				// Determine effective progress — podcasts use episode-level progress
 				currentTime := r.UserMediaProgress.CurrentTime
 				duration := r.UserMediaProgress.Duration

@@ -66,12 +66,13 @@ type embySessionResponse struct {
 }
 
 type embyNowPlaying struct {
-	Id           string `json:"Id"`
-	Name         string `json:"Name"`
-	Type         string `json:"Type"`
-	SeriesName   string `json:"SeriesName"`
-	SeriesId     string `json:"SeriesId"`
-	RunTimeTicks int64  `json:"RunTimeTicks"`
+	Id             string `json:"Id"`
+	Name           string `json:"Name"`
+	Type           string `json:"Type"`
+	SeriesName     string `json:"SeriesName"`
+	SeriesId       string `json:"SeriesId"`
+	RunTimeTicks   int64  `json:"RunTimeTicks"`
+	OfficialRating string `json:"OfficialRating"` // e.g. "PG-13", "TV-MA"
 }
 
 type embyPlayState struct {
@@ -158,8 +159,12 @@ func fetchEmbyPanelData(db *sql.DB, config map[string]interface{}) (*EmbyPanelDa
 	if sessBody, err := embyGet(apiURL, apiKey, "/Sessions", skipTLS); err == nil {
 		var sessions []embySessionResponse
 		if json.Unmarshal(sessBody, &sessions) == nil {
+			ratingsFilter := allowedRatings(config)
 			for _, s := range sessions {
 				if s.NowPlayingItem == nil {
+					continue
+				}
+				if !ratingAllowed(s.NowPlayingItem.OfficialRating, ratingsFilter) {
 					continue
 				}
 				data.Sessions = append(data.Sessions, embySessionToPanel(s, integrationID))

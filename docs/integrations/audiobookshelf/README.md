@@ -75,6 +75,12 @@ Clicking any item in **Continue Listening** opens the mini player inline. The pl
 
 ---
 
+## Explicit filter
+
+Enable **Hide explicit items** in the panel config to hide items flagged explicit in Audiobookshelf from the in-progress list.
+
+---
+
 ## Notes
 
 - **TLS:** If your ABS instance uses a self-signed certificate, enable **Skip TLS Verify** on the integration
