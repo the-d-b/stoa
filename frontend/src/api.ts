@@ -248,7 +248,9 @@ export const googleApi = {
       client_id: clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
-      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email',
+      // calendar.events adds event write; calendar.readonly is still needed
+      // for the calendar-list picker. Must match the backend auth handler.
+      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email',
       access_type: 'offline',
       prompt: 'consent',
       state,
