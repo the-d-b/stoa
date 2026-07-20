@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -33,7 +32,9 @@ func ListNotes(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panelID := mux.Vars(r)["panelId"]
 		sort := r.URL.Query().Get("sort") // "asc" or "desc"
-		if sort != "asc" { sort = "desc" }
+		if sort != "asc" {
+			sort = "desc"
+		}
 		rows, err := db.Query(`
 			SELECT id, panel_id, title, body, created_at, updated_at
 			FROM notes WHERE panel_id = ?
@@ -49,7 +50,9 @@ func ListNotes(db *sql.DB) http.HandlerFunc {
 			rows.Scan(&n.ID, &n.PanelID, &n.Title, &n.Body, &n.CreatedAt, &n.UpdatedAt)
 			notes = append(notes, n)
 		}
-		if notes == nil { notes = []Note{} }
+		if notes == nil {
+			notes = []Note{}
+		}
 		writeJSON(w, http.StatusOK, notes)
 	}
 }
@@ -191,7 +194,7 @@ func GetNoteActivity(db *sql.DB) http.HandlerFunc {
 			ORDER BY u.username ASC
 		`, noteID, panelID, panelID, panelID, panelID, claims.UserID)
 		if err != nil {
-			log.Printf("[NOTES] activity query error: %v", err)
+			logErrorf("NOTES", "activity query error: %v", err)
 			writeError(w, http.StatusInternalServerError, "query failed")
 			return
 		}
@@ -202,12 +205,20 @@ func GetNoteActivity(db *sql.DB) http.HandlerFunc {
 			var u NoteActivityUser
 			var avatarURL, lastRead, lastEdit sql.NullString
 			rows.Scan(&u.UserID, &u.Username, &avatarURL, &lastRead, &lastEdit)
-			if avatarURL.Valid { u.AvatarURL = &avatarURL.String }
-			if lastRead.Valid { u.LastReadAt = &lastRead.String }
-			if lastEdit.Valid { u.LastEditAt = &lastEdit.String }
+			if avatarURL.Valid {
+				u.AvatarURL = &avatarURL.String
+			}
+			if lastRead.Valid {
+				u.LastReadAt = &lastRead.String
+			}
+			if lastEdit.Valid {
+				u.LastEditAt = &lastEdit.String
+			}
 			users = append(users, u)
 		}
-		if users == nil { users = []NoteActivityUser{} }
+		if users == nil {
+			users = []NoteActivityUser{}
+		}
 		writeJSON(w, http.StatusOK, users)
 	}
 }
@@ -248,7 +259,9 @@ func AcquireNoteLock(db *sql.DB) http.HandlerFunc {
 				// Get locker's username for the message
 				var username string
 				db.QueryRow("SELECT username FROM users WHERE id=?", lockedBy.String).Scan(&username)
-				if username == "" { username = "another user" }
+				if username == "" {
+					username = "another user"
+				}
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusConflict)
 				json.NewEncoder(w).Encode(map[string]interface{}{

@@ -3,8 +3,8 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"strings"
 	"fmt"
+	"strings"
 )
 
 type RadarrPanelData struct {
@@ -50,9 +50,13 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 		if records, ok := histResp["records"].([]interface{}); ok {
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
-				if rec == nil { continue }
+				if rec == nil {
+					continue
+				}
 				movie, _ := rec["movie"].(map[string]interface{})
-				if movie == nil { continue }
+				if movie == nil {
+					continue
+				}
 				m := radarrMovieFromMap(movie)
 				m.Date = stringVal(rec, "date")
 				if ratingAllowed(m.Certification, ratingsFilter) {
@@ -87,13 +91,19 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 // Returns nil if empty (no filtering).
 func allowedRatings(config map[string]interface{}) map[string]bool {
 	raw, _ := config["allowedRatings"].(string)
-	if raw == "" { return nil }
+	if raw == "" {
+		return nil
+	}
 	set := map[string]bool{}
 	for _, r := range strings.Split(raw, ",") {
 		r = strings.TrimSpace(strings.ToUpper(r))
-		if r != "" { set[r] = true }
+		if r != "" {
+			set[r] = true
+		}
 	}
-	if len(set) == 0 { return nil }
+	if len(set) == 0 {
+		return nil
+	}
 	return set
 }
 
@@ -101,9 +111,13 @@ func allowedRatings(config map[string]interface{}) map[string]bool {
 // If filter is nil (not configured), everything passes.
 // NR/empty certification is excluded when filter is active.
 func ratingAllowed(certification string, filter map[string]bool) bool {
-	if filter == nil { return true }
+	if filter == nil {
+		return true
+	}
 	c := strings.TrimSpace(strings.ToUpper(certification))
-	if c == "" || c == "NR" || c == "NOT RATED" { return false }
+	if c == "" || c == "NR" || c == "NOT RATED" {
+		return false
+	}
 	return filter[c]
 }
 
@@ -111,8 +125,12 @@ func radarrMovieFromMap(m map[string]interface{}) RadarrMovie {
 	mv := RadarrMovie{}
 	mv.Title, _ = m["title"].(string)
 	mv.TitleSlug, _ = m["titleSlug"].(string)
-	if y, ok := m["year"].(float64); ok { mv.Year = int(y) }
-	if i, ok := m["id"].(float64); ok { mv.ID = int(i) }
+	if y, ok := m["year"].(float64); ok {
+		mv.Year = int(y)
+	}
+	if i, ok := m["id"].(float64); ok {
+		mv.ID = int(i)
+	}
 	mv.HasFile = m["hasFile"] == true
 	mv.DigitalRelease, _ = m["digitalRelease"].(string)
 	mv.PhysicalRelease, _ = m["physicalRelease"].(string)

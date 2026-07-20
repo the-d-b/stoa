@@ -54,13 +54,19 @@ func fetchAndParseRSS(feedURL string) ([]RSSItem, error) {
 	extractTag := func(s, tag string) string {
 		open := "<" + tag
 		i := strings.Index(s, open)
-		if i < 0 { return "" }
+		if i < 0 {
+			return ""
+		}
 		gt := strings.Index(s[i:], ">")
-		if gt < 0 { return "" }
+		if gt < 0 {
+			return ""
+		}
 		start := i + gt + 1
 		close := "</" + tag + ">"
 		end := strings.Index(s[start:], close)
-		if end < 0 { return "" }
+		if end < 0 {
+			return ""
+		}
 		v := strings.TrimSpace(s[start : start+end])
 		if strings.HasPrefix(v, "<![CDATA[") {
 			v = strings.TrimSuffix(strings.TrimPrefix(v, "<![CDATA["), "]]>")
@@ -77,15 +83,22 @@ func fetchAndParseRSS(feedURL string) ([]RSSItem, error) {
 	pos := 0
 	for len(items) < 50 {
 		start := strings.Index(bodyStr[pos:], itemTag)
-		if start < 0 { break }
+		if start < 0 {
+			break
+		}
 		start += pos
 		end := strings.Index(bodyStr[start:], closeTag)
-		if end < 0 { break }
+		if end < 0 {
+			break
+		}
 		end += start + len(closeTag)
 		block := bodyStr[start:end]
 
 		title := extractTag(block, "title")
-		if title == "" { pos = end; continue }
+		if title == "" {
+			pos = end
+			continue
+		}
 
 		link := extractTag(block, "link")
 		if link == "" {
@@ -96,21 +109,29 @@ func fetchAndParseRSS(feedURL string) ([]RSSItem, error) {
 				if hi >= 0 {
 					hi += li + len(hrefAttr)
 					he := strings.Index(block[hi:], `"`)
-					if he >= 0 { link = block[hi : hi+he] }
+					if he >= 0 {
+						link = block[hi : hi+he]
+					}
 				}
 			}
 		}
 		if link == "" {
 			guid := extractTag(block, "guid")
-			if strings.HasPrefix(guid, "http") { link = guid }
+			if strings.HasPrefix(guid, "http") {
+				link = guid
+			}
 		}
 
 		pubDate := extractTag(block, "pubDate")
-		if pubDate == "" { pubDate = extractTag(block, "published") }
+		if pubDate == "" {
+			pubDate = extractTag(block, "published")
+		}
 		items = append(items, RSSItem{Title: title, Link: link, PubDate: pubDate})
 		pos = end
 	}
 
-	if items == nil { items = []RSSItem{} }
+	if items == nil {
+		items = []RSSItem{}
+	}
 	return items, nil
 }

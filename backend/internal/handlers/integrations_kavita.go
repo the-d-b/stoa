@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -153,10 +152,10 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 				data.SeriesCount = meta.TotalCount
 			}
 		} else {
-			log.Printf("[Kavita] series count: missing or unparseable Pagination header: %q", pag)
+			logDebugf("Kavita", "series count: missing or unparseable Pagination header: %q", pag)
 		}
 	} else {
-		log.Printf("[Kavita] series count error: %v", cerr)
+		logErrorf("Kavita", "series count error: %v", cerr)
 	}
 
 	// Libraries — v0.9 path
@@ -172,7 +171,7 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 			}
 		}
 	} else {
-		log.Printf("[Kavita] libraries error: %v", lerr)
+		logErrorf("Kavita", "libraries error: %v", lerr)
 	}
 
 	// Recently added series — v0.9 uses POST with SeriesFilterV2Dto body
@@ -196,10 +195,10 @@ func fetchKavitaPanelData(db *sql.DB, config map[string]interface{}) (*KavitaPan
 				})
 			}
 		} else {
-			log.Printf("[Kavita] recently-added-v2 unmarshal error on body: %s", string(recentBody))
+			logErrorf("Kavita", "recently-added-v2 unmarshal error on body: %s", string(recentBody))
 		}
 	} else {
-		log.Printf("[Kavita] recently-added-v2 error: %v", rerr)
+		logErrorf("Kavita", "recently-added-v2 error: %v", rerr)
 	}
 
 	// Group recently added by library for per-library cover strips

@@ -121,7 +121,9 @@ func omvLogin(baseURL, username, password string, skipTLS bool) (string, error) 
 			Authenticated bool   `json:"authenticated"`
 			SessionID     string `json:"sessionid"`
 		} `json:"response"`
-		Error *struct{ Message string `json:"message"` } `json:"error"`
+		Error *struct {
+			Message string `json:"message"`
+		} `json:"error"`
 	}
 	if json.Unmarshal(respBody, &envelope) != nil {
 		return "", fmt.Errorf("invalid login response from OMV")
@@ -239,10 +241,16 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 		}
 		if json.Unmarshal(raw, &fsList) == nil {
 			for _, fs := range fsList {
-				if fs.Size == 0 { continue }
-				if fs.Type == "tmpfs" || fs.Type == "devtmpfs" || strings.HasPrefix(fs.Type, "dev") { continue }
+				if fs.Size == 0 {
+					continue
+				}
+				if fs.Type == "tmpfs" || fs.Type == "devtmpfs" || strings.HasPrefix(fs.Type, "dev") {
+					continue
+				}
 				label := fs.Label
-				if label == "" { label = fs.DeviceFile }
+				if label == "" {
+					label = fs.DeviceFile
+				}
 				data.Filesystems = append(data.Filesystems, OMVFilesystem{
 					DeviceFile: fs.DeviceFile,
 					Label:      label,
@@ -306,7 +314,9 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 		}
 		if json.Unmarshal(raw, &ifaceList) == nil {
 			for _, iface := range ifaceList {
-				if iface.DeviceName == "lo" { continue }
+				if iface.DeviceName == "lo" {
+					continue
+				}
 				rxMBs, txMBs := 0.0, 0.0
 				if prevNet != nil {
 					if prev, ok := prevNet[iface.DeviceName]; ok {
@@ -354,7 +364,9 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 
 	// ── Shared folders ────────────────────────────────────────────────────
 	if raw, err := omvRPC(apiURL, sessionID, "ShareMgmt", "enumerateSharedFolders", map[string]interface{}{}, skipTLS); err == nil {
-		var shares []struct{ Name string `json:"name"` }
+		var shares []struct {
+			Name string `json:"name"`
+		}
 		if json.Unmarshal(raw, &shares) == nil {
 			for _, s := range shares {
 				if s.Name != "" {
@@ -416,7 +428,9 @@ func testOMVConnection(apiURL, apiKey string, skipTLS bool) error {
 	if err != nil {
 		return err
 	}
-	var info struct{ Hostname string `json:"hostname"` }
+	var info struct {
+		Hostname string `json:"hostname"`
+	}
 	if json.Unmarshal(raw, &info) != nil || info.Hostname == "" {
 		return fmt.Errorf("unexpected response from OMV — check API URL")
 	}

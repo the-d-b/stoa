@@ -67,10 +67,10 @@ type overseerrRequestListResp struct {
 }
 
 type overseerrRequestItemResp struct {
-	ID        int    `json:"id"`
-	Status    int    `json:"status"`
-	Type      string `json:"type"`
-	CreatedAt string `json:"createdAt"`
+	ID          int    `json:"id"`
+	Status      int    `json:"status"`
+	Type        string `json:"type"`
+	CreatedAt   string `json:"createdAt"`
 	RequestedBy struct {
 		DisplayName string `json:"displayName"`
 		Username    string `json:"username"`

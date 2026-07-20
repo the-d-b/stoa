@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -33,7 +32,7 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 		resolveNode := func() bool {
 			apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, ig.id)
 			if err != nil {
-				log.Printf("[PROXMOX] resolve error: %v", err)
+				logErrorf("PROXMOX", "resolve error: %v", err)
 				return false
 			}
 			cachedAPIURL = apiURL
@@ -43,7 +42,7 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 			// Get first node name
 			body, err := proxmoxGet(apiURL, apiKey, "/nodes", skipTLS)
 			if err != nil {
-				log.Printf("[PROXMOX] nodes error: %v", err)
+				logErrorf("PROXMOX", "nodes error: %v", err)
 				return false
 			}
 			var resp struct {
@@ -74,7 +73,7 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 				body, err := proxmoxGet(cachedAPIURL, cachedAPIKey,
 					fmt.Sprintf("/nodes/%s/status", cachedNode), cachedSkipTLS)
 				if err != nil {
-					log.Printf("[PROXMOX] fast poll error: %v", err)
+					logErrorf("PROXMOX", "fast poll error: %v", err)
 					RecordIntegrationError(ig.id, ig.name, err.Error())
 					cachedNode = "" // re-resolve next tick
 					continue
@@ -127,7 +126,7 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 					// Re-resolve node in case it changed
 					resolveNode()
 				} else {
-					log.Printf("[PROXMOX] slow poll error: %v", err)
+					logErrorf("PROXMOX", "slow poll error: %v", err)
 					RecordIntegrationError(ig.id, ig.name, err.Error())
 				}
 			}

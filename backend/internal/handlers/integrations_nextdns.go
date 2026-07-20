@@ -31,21 +31,21 @@ type NextDNSReason struct {
 }
 
 type NextDNSPanelData struct {
-	UIURL          string          `json:"uiUrl"`
-	IntegrationID  string          `json:"integrationId"`
-	ProfileName    string          `json:"profileName"`
-	TotalQueries   int             `json:"totalQueries"`
-	BlockedQueries int             `json:"blockedQueries"`
-	AllowedQueries int             `json:"allowedQueries"`
-	PercentBlocked float64         `json:"percentBlocked"`
-	EncryptedPct   float64         `json:"encryptedPct"`   // 0-100
-	IPv6Pct        float64         `json:"ipv6Pct"`        // 0-100
-	OverTimeTotal  []int           `json:"overTimeTotal"`
-	OverTimeBlocked []int          `json:"overTimeBlocked"`
-	TopDomains     []NextDNSDomain `json:"topDomains"`
-	TopBlocked     []NextDNSDomain `json:"topBlocked"`
-	TopClients     []NextDNSClient `json:"topClients"`
-	Reasons        []NextDNSReason `json:"reasons"`
+	UIURL           string          `json:"uiUrl"`
+	IntegrationID   string          `json:"integrationId"`
+	ProfileName     string          `json:"profileName"`
+	TotalQueries    int             `json:"totalQueries"`
+	BlockedQueries  int             `json:"blockedQueries"`
+	AllowedQueries  int             `json:"allowedQueries"`
+	PercentBlocked  float64         `json:"percentBlocked"`
+	EncryptedPct    float64         `json:"encryptedPct"` // 0-100
+	IPv6Pct         float64         `json:"ipv6Pct"`      // 0-100
+	OverTimeTotal   []int           `json:"overTimeTotal"`
+	OverTimeBlocked []int           `json:"overTimeBlocked"`
+	TopDomains      []NextDNSDomain `json:"topDomains"`
+	TopBlocked      []NextDNSDomain `json:"topBlocked"`
+	TopClients      []NextDNSClient `json:"topClients"`
+	Reasons         []NextDNSReason `json:"reasons"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────

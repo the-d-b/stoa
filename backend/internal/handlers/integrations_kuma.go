@@ -78,9 +78,9 @@ func fetchKumaPanelData(db *sql.DB, config map[string]interface{}) (*KumaPanelDa
 			var sp struct {
 				PublicGroupList []struct {
 					MonitorList []struct {
-						Name            string  `json:"name"`
-						SendURL         int     `json:"sendUrl"`
-						URL             string  `json:"url"`
+						Name    string `json:"name"`
+						SendURL int    `json:"sendUrl"`
+						URL     string `json:"url"`
 					} `json:"monitorList"`
 				} `json:"publicGroupList"`
 			}

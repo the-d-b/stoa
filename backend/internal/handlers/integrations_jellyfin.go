@@ -12,13 +12,13 @@ import (
 // ── Jellyfin types ────────────────────────────────────────────────────────────
 
 type JellyfinPanelData struct {
-	UIURL          string             `json:"uiUrl"`
-	ServerName     string             `json:"serverName"`
-	Version        string             `json:"version"`
-	Libraries      []JellyfinLibrary  `json:"libraries"`
-	Sessions       []JellyfinSession  `json:"sessions"`
-	TranscodeCount int                `json:"transcodeCount"`
-	DirectCount    int                `json:"directCount"`
+	UIURL          string            `json:"uiUrl"`
+	ServerName     string            `json:"serverName"`
+	Version        string            `json:"version"`
+	Libraries      []JellyfinLibrary `json:"libraries"`
+	Sessions       []JellyfinSession `json:"sessions"`
+	TranscodeCount int               `json:"transcodeCount"`
+	DirectCount    int               `json:"directCount"`
 }
 
 type JellyfinLibrary struct {
@@ -57,11 +57,11 @@ type jellyfinItemsResponse struct {
 }
 
 type jellyfinSessionResponse struct {
-	UserName       string              `json:"UserName"`
-	Client         string              `json:"Client"`
-	NowPlayingItem *jellyfinNowPlaying `json:"NowPlayingItem"`
-	PlayState      *jellyfinPlayState  `json:"PlayState"`
-	TranscodingInfo *jellyfinTranscode `json:"TranscodingInfo"`
+	UserName        string              `json:"UserName"`
+	Client          string              `json:"Client"`
+	NowPlayingItem  *jellyfinNowPlaying `json:"NowPlayingItem"`
+	PlayState       *jellyfinPlayState  `json:"PlayState"`
+	TranscodingInfo *jellyfinTranscode  `json:"TranscodingInfo"`
 }
 
 type jellyfinNowPlaying struct {

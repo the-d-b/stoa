@@ -26,12 +26,12 @@ type MaintainerrCollection struct {
 }
 
 type MaintainerrPanelData struct {
-	Collections     []MaintainerrCollection `json:"collections"`
-	ActiveCount     int                     `json:"activeCount"`
-	TotalMediaCount int                     `json:"totalMediaCount"`
-	ReclaimableBytes int64                  `json:"reclaimableBytes"`
-	ItemsHandled    int                     `json:"itemsHandled"`
-	BytesHandled    int64                   `json:"bytesHandled"`
+	Collections      []MaintainerrCollection `json:"collections"`
+	ActiveCount      int                     `json:"activeCount"`
+	TotalMediaCount  int                     `json:"totalMediaCount"`
+	ReclaimableBytes int64                   `json:"reclaimableBytes"`
+	ItemsHandled     int                     `json:"itemsHandled"`
+	BytesHandled     int64                   `json:"bytesHandled"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 	// Collections — metadata (counts, sizes, active state)
 	if b, err := maintainerrGet(baseURL, apiKey, "/api/collections", skipTLS); err == nil {
 		var cols []struct {
-			ID              int   `json:"id"`
+			ID              int    `json:"id"`
 			Title           string `json:"title"`
 			Type            string `json:"type"`
 			IsActive        bool   `json:"isActive"`

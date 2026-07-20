@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -32,9 +31,9 @@ type SparkPoint struct {
 }
 
 type MarketData struct {
-	Quotes    []MarketQuote         `json:"quotes"`
+	Quotes    []MarketQuote           `json:"quotes"`
 	Sparks    map[string][]SparkPoint `json:"sparks"` // symbol -> points for default range
-	FetchedAt string                `json:"fetchedAt"`
+	FetchedAt string                  `json:"fetchedAt"`
 }
 
 // Stocks config — list of ticker symbols
@@ -108,14 +107,14 @@ func fetchYahooQuote(symbol string) (*MarketQuote, error) {
 		Chart struct {
 			Result []struct {
 				Meta struct {
-					Symbol             string  `json:"symbol"`
-					ShortName          string  `json:"shortName"`
-					RegularMarketPrice float64 `json:"regularMarketPrice"`
-					PreviousClose      float64 `json:"chartPreviousClose"`
-					MarketCap          float64 `json:"marketCap"`
+					Symbol              string  `json:"symbol"`
+					ShortName           string  `json:"shortName"`
+					RegularMarketPrice  float64 `json:"regularMarketPrice"`
+					PreviousClose       float64 `json:"chartPreviousClose"`
+					MarketCap           float64 `json:"marketCap"`
 					RegularMarketVolume float64 `json:"regularMarketVolume"`
-					FiftyTwoWeekHigh   float64 `json:"fiftyTwoWeekHigh"`
-					FiftyTwoWeekLow    float64 `json:"fiftyTwoWeekLow"`
+					FiftyTwoWeekHigh    float64 `json:"fiftyTwoWeekHigh"`
+					FiftyTwoWeekLow     float64 `json:"fiftyTwoWeekLow"`
 				} `json:"meta"`
 			} `json:"result"`
 			Error *struct{ Description string } `json:"error"`
@@ -210,7 +209,9 @@ func fetchCoinGeckoQuotes(coinIDs []string, apiKey string) ([]MarketQuote, error
 		ids,
 	)
 	headers := map[string]string{"Accept": "application/json"}
-	if apiKey != "" { headers["x-cg-demo-api-key"] = apiKey }
+	if apiKey != "" {
+		headers["x-cg-demo-api-key"] = apiKey
+	}
 	body, err := marketGet(url, headers)
 	if err != nil {
 		return nil, err
@@ -233,14 +234,14 @@ func fetchCoinGeckoQuotes(coinIDs []string, apiKey string) ([]MarketQuote, error
 	var quotes []MarketQuote
 	for _, c := range raw {
 		quotes = append(quotes, MarketQuote{
-			Symbol:   strings.ToUpper(c.Symbol),
-			Name:     c.Name,
-			Price:    c.CurrentPrice,
-			Delta:    c.PriceChange24h,
-			DeltaP:   c.PriceChangePct24h,
+			Symbol:    strings.ToUpper(c.Symbol),
+			Name:      c.Name,
+			Price:     c.CurrentPrice,
+			Delta:     c.PriceChange24h,
+			DeltaP:    c.PriceChangePct24h,
 			MarketCap: c.MarketCap,
-			Volume:   c.TotalVolume,
-			IsCrypto: true,
+			Volume:    c.TotalVolume,
+			IsCrypto:  true,
 		})
 	}
 	return quotes, nil
@@ -248,17 +249,21 @@ func fetchCoinGeckoQuotes(coinIDs []string, apiKey string) ([]MarketQuote, error
 
 func fetchCoinGeckoSpark(coinID string, days int, apiKey string) ([]SparkPoint, error) {
 	daysStr := fmt.Sprintf("%d", days)
-	if days <= 0 { daysStr = "max" }
+	if days <= 0 {
+		daysStr = "max"
+	}
 	url := fmt.Sprintf(
 		"https://api.coingecko.com/api/v3/coins/%s/market_chart?vs_currency=usd&days=%s",
 		coinID, daysStr,
 	)
 	sparkHeaders := map[string]string{"Accept": "application/json"}
-	if apiKey != "" { sparkHeaders["x-cg-demo-api-key"] = apiKey }
+	if apiKey != "" {
+		sparkHeaders["x-cg-demo-api-key"] = apiKey
+	}
 	// Retry once after 10s if rate limited
 	body, err := marketGet(url, sparkHeaders)
 	if err != nil && strings.Contains(err.Error(), "429") {
-		log.Printf("[CRYPTO] rate limited, waiting 10s before retry for %s", coinID)
+		logDebugf("CRYPTO", "rate limited, waiting 10s before retry for %s", coinID)
 		time.Sleep(10 * time.Second)
 		body, err = marketGet(url, sparkHeaders)
 	}
@@ -300,13 +305,13 @@ func FetchStocksData(db *sql.DB, integrationID string) (*MarketData, error) {
 	for _, sym := range cfg.Symbols {
 		q, err := fetchYahooQuote(sym)
 		if err != nil {
-			log.Printf("[STOCKS] quote error %s: %v", sym, err)
+			logErrorf("STOCKS", "quote error %s: %v", sym, err)
 			continue
 		}
 		data.Quotes = append(data.Quotes, *q)
 		spark, err := fetchYahooSpark(sym, "1d", "1mo")
 		if err != nil {
-			log.Printf("[STOCKS] spark error %s: %v", sym, err)
+			logErrorf("STOCKS", "spark error %s: %v", sym, err)
 		} else if spark != nil {
 			data.Sparks[sym] = spark
 		}
@@ -338,7 +343,7 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 	if len(cfg.Coins) > 0 {
 		quotes, err := fetchCoinGeckoQuotes(cfg.Coins, cgAPIKey)
 		if err != nil {
-			log.Printf("[CRYPTO] quote error: %v", err)
+			logErrorf("CRYPTO", "quote error: %v", err)
 		} else {
 			data.Quotes = append(data.Quotes, quotes...)
 		}
@@ -352,7 +357,10 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 
 		// Fetch all spark ranges per coin with delay between calls
 		// Range label -> CoinGecko days (0 = max)
-		sparkRanges := []struct{ label string; days int }{
+		sparkRanges := []struct {
+			label string
+			days  int
+		}{
 			{"1D", 1}, {"5D", 7}, {"1M", 30}, {"3M", 90}, {"1Y", 365},
 			// 5Y omitted -- CoinGecko Demo plan capped at 365 days (same as 1Y)
 		}
@@ -366,7 +374,7 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 				callCount++
 				spark, err := fetchCoinGeckoSpark(coinID, r.days, cgAPIKey)
 				if err != nil {
-					log.Printf("[CRYPTO] spark error %s %s: %v", coinID, r.label, err)
+					logErrorf("CRYPTO", "spark error %s %s: %v", coinID, r.label, err)
 					continue
 				}
 				// Key by both coinID-RANGE and SYMBOL-RANGE
@@ -377,7 +385,9 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 				// Also store 1M as the default (no range suffix) for QuoteRow mini sparks
 				if r.label == "1M" {
 					data.Sparks[coinID] = spark
-					if sym != "" { data.Sparks[sym] = spark }
+					if sym != "" {
+						data.Sparks[sym] = spark
+					}
 				}
 				cacheSet(integrationID, data)
 			}
@@ -389,13 +399,17 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 // Panel fetcher wrappers
 func fetchStocksPanelData(db *sql.DB, config map[string]interface{}) (interface{}, error) {
 	integrationID := stringVal(config, "integrationId")
-	if integrationID == "" { return nil, fmt.Errorf("no stocks integration configured") }
+	if integrationID == "" {
+		return nil, fmt.Errorf("no stocks integration configured")
+	}
 	return FetchStocksData(db, integrationID)
 }
 
 func fetchCryptoPanelData(db *sql.DB, config map[string]interface{}) (interface{}, error) {
 	integrationID := stringVal(config, "integrationId")
-	if integrationID == "" { return nil, fmt.Errorf("no crypto integration configured") }
+	if integrationID == "" {
+		return nil, fmt.Errorf("no crypto integration configured")
+	}
 	return FetchCryptoData(db, integrationID)
 }
 
@@ -419,7 +433,7 @@ func GetStockSpark(db *sql.DB) http.HandlerFunc {
 
 		points, err := fetchYahooSpark(symbol, interval, rangeStr)
 		if err != nil {
-			log.Printf("[MARKET] spark error %s: %v", symbol, err)
+			logErrorf("MARKET", "spark error %s: %v", symbol, err)
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}

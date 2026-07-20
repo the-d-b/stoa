@@ -91,22 +91,22 @@ type StravaWeek struct {
 }
 
 type StravaPanelData struct {
-	AthleteName      string          `json:"athleteName"`
-	ProfileURL       string          `json:"profileUrl"`
-	City             string          `json:"city"`
-	Country          string          `json:"country"`
-	MeasurementPref  string          `json:"measurementPref"`
-	RecentRunTotals  StravaTotals    `json:"recentRunTotals"`
-	RecentRideTotals StravaTotals    `json:"recentRideTotals"`
-	RecentSwimTotals StravaTotals    `json:"recentSwimTotals"`
-	YTDRunTotals     StravaTotals    `json:"ytdRunTotals"`
-	YTDRideTotals    StravaTotals    `json:"ytdRideTotals"`
-	YTDSwimTotals    StravaTotals    `json:"ytdSwimTotals"`
-	AllRunTotals     StravaTotals    `json:"allRunTotals"`
-	AllRideTotals    StravaTotals    `json:"allRideTotals"`
-	AllSwimTotals    StravaTotals    `json:"allSwimTotals"`
+	AthleteName      string           `json:"athleteName"`
+	ProfileURL       string           `json:"profileUrl"`
+	City             string           `json:"city"`
+	Country          string           `json:"country"`
+	MeasurementPref  string           `json:"measurementPref"`
+	RecentRunTotals  StravaTotals     `json:"recentRunTotals"`
+	RecentRideTotals StravaTotals     `json:"recentRideTotals"`
+	RecentSwimTotals StravaTotals     `json:"recentSwimTotals"`
+	YTDRunTotals     StravaTotals     `json:"ytdRunTotals"`
+	YTDRideTotals    StravaTotals     `json:"ytdRideTotals"`
+	YTDSwimTotals    StravaTotals     `json:"ytdSwimTotals"`
+	AllRunTotals     StravaTotals     `json:"allRunTotals"`
+	AllRideTotals    StravaTotals     `json:"allRideTotals"`
+	AllSwimTotals    StravaTotals     `json:"allSwimTotals"`
 	Activities       []StravaActivity `json:"activities"`
-	WeeklyData       []StravaWeek    `json:"weeklyData"`
+	WeeklyData       []StravaWeek     `json:"weeklyData"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────

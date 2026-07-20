@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -31,7 +30,7 @@ func StartOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			}
 			err := runOPNsenseWorker(db, ig, stop)
 			if err != nil {
-				log.Printf("[OPNSENSE] worker error: %v — reconnecting in %s", err, backoff)
+				logErrorf("OPNSENSE", "worker error: %v — reconnecting in %s", err, backoff)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
@@ -52,14 +51,14 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 		return fmt.Errorf("resolve: %w", err)
 	}
 
-	log.Printf("[OPNSENSE] worker started")
+	logDebugf("OPNSENSE", "worker started")
 
 	// Initial slow data fetch
 	data := &OPNsensePanelData{UIURL: uiURL}
 	opnsenseFetchSlow(apiURL, apiKey, skipTLS, data)
 	cacheSet(ig.id, data)
 	ClearIntegrationError(ig.id, ig.name)
-	log.Printf("[OPNSENSE] initial data cached")
+	logDebugf("OPNSENSE", "initial data cached")
 
 	// ── Traffic stream goroutine ──────────────────────────────────────────
 	trafficCh := make(chan opnsenseTrafficEvent, 32)
@@ -70,9 +69,9 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 	go opnsenseStreamFirewall(apiURL, apiKey, skipTLS, fwCh, stop)
 
 	// ── Firewall event accumulator (rolling 30s window) ─────────────────
-	fwCounts := map[string]int{} // "action|label" -> count
-	fwTicker  := time.NewTicker(5 * time.Second)  // push FW summary every 5s
-	fwReset   := time.NewTicker(30 * time.Second) // reset counts every 30s
+	fwCounts := map[string]int{}                // "action|label" -> count
+	fwTicker := time.NewTicker(5 * time.Second) // push FW summary every 5s
+	fwReset := time.NewTicker(30 * time.Second) // reset counts every 30s
 	defer fwTicker.Stop()
 	defer fwReset.Stop()
 
@@ -98,8 +97,12 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 				}
 				inMbps := float64(iface.InBytes) * 8 / 1_000_000
 				outMbps := float64(iface.OutBytes) * 8 / 1_000_000
-				if inMbps < 0 { inMbps = 0 }
-				if outMbps < 0 { outMbps = 0 }
+				if inMbps < 0 {
+					inMbps = 0
+				}
+				if outMbps < 0 {
+					outMbps = 0
+				}
 				if inMbps > 0 || outMbps > 0 {
 					prev.Interfaces = append(prev.Interfaces, OPNsenseInterface{
 						Name:    name,
@@ -156,7 +159,7 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			opnsenseFetchSlow(apiURL, apiKey, skipTLS, &prev)
 			cacheSet(ig.id, &prev)
 			ClearIntegrationError(ig.id, ig.name)
-			log.Printf("[OPNSENSE] slow data refreshed")
+			logDebugf("OPNSENSE", "slow data refreshed")
 		}
 	}
 }
@@ -204,7 +207,7 @@ func opnsenseStreamTraffic(apiURL, apiKey string, skipTLS bool, ch chan<- opnsen
 			},
 			stop,
 		); err != nil {
-			log.Printf("[OPNSENSE] traffic stream error: %v — reconnecting", err)
+			logErrorf("OPNSENSE", "traffic stream error: %v — reconnecting", err)
 			select {
 			case <-stop:
 				return
@@ -235,7 +238,7 @@ func opnsenseStreamFirewall(apiURL, apiKey string, skipTLS bool, ch chan<- opnse
 			},
 			stop,
 		); err != nil {
-			log.Printf("[OPNSENSE] firewall stream error: %v — reconnecting", err)
+			logErrorf("OPNSENSE", "firewall stream error: %v — reconnecting", err)
 			select {
 			case <-stop:
 				return
@@ -328,13 +331,17 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 	}
 
 	if body, ok := results["firmware"]; ok {
-		var fw struct{ Version string `json:"local_version"` }
+		var fw struct {
+			Version string `json:"local_version"`
+		}
 		if json.Unmarshal(body, &fw) == nil {
 			data.Version = fw.Version
 		}
 	}
 	if body, ok := results["firmware_status"]; ok {
-		var fw struct{ Status string `json:"status"` }
+		var fw struct {
+			Status string `json:"status"`
+		}
 		if json.Unmarshal(body, &fw) == nil {
 			data.UpdateAvail = fw.Status == "update"
 		}
@@ -360,9 +367,13 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 					status = "offline"
 				}
 				rtt := g.RTT
-				if rtt == "~" { rtt = "" }
+				if rtt == "~" {
+					rtt = ""
+				}
 				loss := g.Loss
-				if loss == "~" { loss = "" }
+				if loss == "~" {
+					loss = ""
+				}
 				data.Gateways = append(data.Gateways, OPNsenseGateway{
 					Name: g.Name, Status: status, RTT: rtt, Loss: loss, Address: g.Address,
 				})
@@ -417,7 +428,9 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 		}
 	}
 	if body, ok := results["pf"]; ok {
-		var pf struct{ Current string `json:"current"` }
+		var pf struct {
+			Current string `json:"current"`
+		}
 		if json.Unmarshal(body, &pf) == nil {
 			fmt.Sscanf(pf.Current, "%d", &data.PFStates)
 		}
@@ -435,9 +448,13 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 			data.TopTalkers = nil
 			if wan, ok := res["wan"]; ok {
 				for i, rec := range wan.Records {
-					if i >= 5 { break }
+					if i >= 5 {
+						break
+					}
 					host := strings.TrimSuffix(rec.Rname, ".")
-					if host == "" { host = rec.Address }
+					if host == "" {
+						host = rec.Address
+					}
 					data.TopTalkers = append(data.TopTalkers, OPNsenseTalker{
 						Host:    host,
 						IP:      rec.Address,

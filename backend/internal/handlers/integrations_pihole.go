@@ -32,17 +32,17 @@ type PiHoleUpstream struct {
 }
 
 type PiHolePanelData struct {
-	UIURL           string             `json:"uiUrl"`
-	IntegrationID   string             `json:"integrationId"`
-	Version         string             `json:"version"` // "v5" or "v6"
-	TotalQueries    int                `json:"totalQueries"`
-	BlockedQueries  int                `json:"blockedQueries"`
-	PercentBlocked  float64            `json:"percentBlocked"`
-	UniqueClients   int                `json:"uniqueClients"`
-	UniqueDomains   int                `json:"uniqueDomains"`
-	GravityDomains  int                `json:"gravityDomains"`
-	GravityUpdated  int64              `json:"gravityUpdated"` // unix timestamp; 0 for v5
-	BlockingEnabled bool               `json:"blockingEnabled"`
+	UIURL           string  `json:"uiUrl"`
+	IntegrationID   string  `json:"integrationId"`
+	Version         string  `json:"version"` // "v5" or "v6"
+	TotalQueries    int     `json:"totalQueries"`
+	BlockedQueries  int     `json:"blockedQueries"`
+	PercentBlocked  float64 `json:"percentBlocked"`
+	UniqueClients   int     `json:"uniqueClients"`
+	UniqueDomains   int     `json:"uniqueDomains"`
+	GravityDomains  int     `json:"gravityDomains"`
+	GravityUpdated  int64   `json:"gravityUpdated"` // unix timestamp; 0 for v5
+	BlockingEnabled bool    `json:"blockingEnabled"`
 	// Last 24h in 10-minute buckets (up to 144 entries)
 	OverTimeTotal   []int              `json:"overTimeTotal"`
 	OverTimeBlocked []int              `json:"overTimeBlocked"`

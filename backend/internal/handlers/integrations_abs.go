@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -16,7 +15,7 @@ import (
 // ── ABS types ─────────────────────────────────────────────────────────────────
 
 type ABSTrack struct {
-	Index       int     `json:"index"`       // 1-based track number, used in /public/session/{id}/track/N
+	Index       int     `json:"index"` // 1-based track number, used in /public/session/{id}/track/N
 	Filename    string  `json:"filename"`
 	StartOffset float64 `json:"startOffset"` // seconds from start of book
 	Duration    float64 `json:"duration"`
@@ -186,7 +185,7 @@ func createABSSession(apiURL, token, itemID, episodeID string, skipTLS bool) (st
 		}
 		return "", fmt.Errorf("ABS session create: bad response: %s", trunc)
 	}
-	log.Printf("[ABS] session created: %s (item=%s episode=%s)", session.ID, itemID, episodeID)
+	logDebugf("ABS", "session created: %s (item=%s episode=%s)", session.ID, itemID, episodeID)
 	return session.ID, nil
 }
 
@@ -317,9 +316,9 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 			} `json:"libraries"`
 		}
 		if jerr := json.Unmarshal(libBody, &libResp); jerr != nil {
-			log.Printf("[ABS] libraries parse error: %v", jerr)
+			logErrorf("ABS", "libraries parse error: %v", jerr)
 		} else {
-			log.Printf("[ABS] libraries: %d found", len(libResp.Libraries))
+			logDebugf("ABS", "libraries: %d found", len(libResp.Libraries))
 			for _, lib := range libResp.Libraries {
 				// /api/libraries/{id}/items?limit=0 returns total count without transferring items
 				if itemsBody, ierr := get("/api/libraries/" + lib.ID + "/items?limit=0"); ierr == nil {
@@ -327,7 +326,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 						Total int `json:"total"`
 					}
 					if json.Unmarshal(itemsBody, &page) == nil {
-						log.Printf("[ABS]   library %q type=%q total=%d", lib.Name, lib.MediaType, page.Total)
+						logDebugf("ABS", "  library %q type=%q total=%d", lib.Name, lib.MediaType, page.Total)
 						data.Libraries = append(data.Libraries, ABSLibrary{
 							ID:        lib.ID,
 							Name:      lib.Name,
@@ -336,54 +335,54 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 						})
 					}
 				} else {
-					log.Printf("[ABS]   library %q items error: %v", lib.Name, ierr)
+					logErrorf("ABS", "  library %q items error: %v", lib.Name, ierr)
 				}
 			}
-			log.Printf("[ABS] libraries built: %d", len(data.Libraries))
+			logDebugf("ABS", "libraries built: %d", len(data.Libraries))
 		}
 	} else {
-		log.Printf("[ABS] libraries error: %v", lerr)
+		logErrorf("ABS", "libraries error: %v", lerr)
 	}
 
 	// User — current user ID for stats
 	userID := ""
 	if meBody, merr := get("/api/me"); merr == nil {
-		log.Printf("[ABS] /api/me response (%d bytes): %.200s", len(meBody), meBody)
+		logDebugf("ABS", "/api/me response (%d bytes): %.200s", len(meBody), meBody)
 		var me struct {
 			ID string `json:"id"`
 		}
 		if json.Unmarshal(meBody, &me) == nil {
 			userID = me.ID
-			log.Printf("[ABS] userID=%s", userID)
+			logDebugf("ABS", "userID=%s", userID)
 		}
 	} else {
-		log.Printf("[ABS] /api/me error: %v", merr)
+		logErrorf("ABS", "/api/me error: %v", merr)
 	}
 
 	// User listening stats
 	if userID != "" {
 		if statsBody, serr := get("/api/users/" + userID + "/listening-stats"); serr == nil {
-			log.Printf("[ABS] listening-stats response (%d bytes): %.400s", len(statsBody), statsBody)
+			logDebugf("ABS", "listening-stats response (%d bytes): %.400s", len(statsBody), statsBody)
 			var stats struct {
 				TotalTime     float64 `json:"totalTime"`
 				ItemsFinished int     `json:"numItemsFinished"`
 			}
 			if jerr := json.Unmarshal(statsBody, &stats); jerr != nil {
-				log.Printf("[ABS] listening-stats parse error: %v", jerr)
+				logErrorf("ABS", "listening-stats parse error: %v", jerr)
 			} else {
 				data.TotalListeningTime = stats.TotalTime
 				data.ItemsFinished = stats.ItemsFinished
-				log.Printf("[ABS] listening-stats: totalTime=%.0f finished=%d", stats.TotalTime, stats.ItemsFinished)
+				logDebugf("ABS", "listening-stats: totalTime=%.0f finished=%d", stats.TotalTime, stats.ItemsFinished)
 			}
 		} else {
-			log.Printf("[ABS] listening-stats error: %v", serr)
+			logErrorf("ABS", "listening-stats error: %v", serr)
 		}
 	}
 
 	// In-progress items — ABS returns libraryItems[] with userMediaProgress nested.
 	// For podcasts, progress is per-episode and lives in recentEpisode.userEpisodeProgress.
 	if progBody, perr := get("/api/me/items-in-progress?limit=5"); perr == nil {
-		log.Printf("[ABS] items-in-progress response (%d bytes): %.800s", len(progBody), progBody)
+		logDebugf("ABS", "items-in-progress response (%d bytes): %.800s", len(progBody), progBody)
 		var resp struct {
 			LibraryItems []struct {
 				ID        string `json:"id"`
@@ -405,8 +404,8 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 				} `json:"userMediaProgress"`
 				// Podcast-specific: most recently played episode with per-episode progress
 				RecentEpisode *struct {
-					ID    string `json:"id"`
-					Title string `json:"title"`
+					ID        string `json:"id"`
+					Title     string `json:"title"`
 					AudioFile struct {
 						Metadata struct {
 							Filename string `json:"filename"`
@@ -423,9 +422,9 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 			} `json:"libraryItems"`
 		}
 		if jerr := json.Unmarshal(progBody, &resp); jerr != nil {
-			log.Printf("[ABS] items-in-progress parse error: %v", jerr)
+			logErrorf("ABS", "items-in-progress parse error: %v", jerr)
 		} else {
-			log.Printf("[ABS] items-in-progress: %d items before filter", len(resp.LibraryItems))
+			logDebugf("ABS", "items-in-progress: %d items before filter", len(resp.LibraryItems))
 			for _, r := range resp.LibraryItems {
 				// Determine effective progress — podcasts use episode-level progress
 				currentTime := r.UserMediaProgress.CurrentTime
@@ -453,11 +452,11 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 					if duration == 0 {
 						duration = ep.AudioFile.Duration
 					}
-					log.Printf("[ABS]   podcast episode: id=%s title=%q libProgress=%.1f epProgress=%.1f/%.1f",
+					logDebugf("ABS", "  podcast episode: id=%s title=%q libProgress=%.1f epProgress=%.1f/%.1f",
 						ep.ID, ep.Title, r.UserMediaProgress.CurrentTime, currentTime, duration)
 				}
 
-				log.Printf("[ABS]   item id=%s type=%s title=%q finished=%v progress=%.2f numAudio=%d",
+				logDebugf("ABS", "  item id=%s type=%s title=%q finished=%v progress=%.2f numAudio=%d",
 					r.ID, r.MediaType, r.Media.Metadata.Title, isFinished, progress, r.Media.NumAudioFiles)
 				if isFinished {
 					continue
@@ -498,7 +497,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 							IsFinished    bool    `json:"isFinished"`
 						}
 						if json.Unmarshal(pBody, &prog) == nil {
-							log.Printf("[ABS]   direct progress: time=%.1f/%.1f progress=%.3f ebookProgress=%.3f finished=%v",
+							logDebugf("ABS", "  direct progress: time=%.1f/%.1f progress=%.3f ebookProgress=%.3f finished=%v",
 								prog.CurrentTime, prog.Duration, prog.Progress, prog.EbookProgress, prog.IsFinished)
 							if prog.IsFinished {
 								continue
@@ -508,7 +507,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 							// tracking progress as a ratio. Derive position from progress×duration.
 							if item.CurrentTime == 0 && prog.Progress > 0 && prog.Duration > 0 {
 								item.CurrentTime = prog.Progress * prog.Duration
-								log.Printf("[ABS]   derived currentTime=%.1f from progress*duration", item.CurrentTime)
+								logDebugf("ABS", "  derived currentTime=%.1f from progress*duration", item.CurrentTime)
 							}
 							// Ebooks use ebookProgress (0–1); audio items use progress.
 							if !item.HasAudio && prog.EbookProgress > 0 {
@@ -521,7 +520,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 							}
 						}
 					} else {
-						log.Printf("[ABS]   direct progress fetch error: %v", perr2)
+						logErrorf("ABS", "  direct progress fetch error: %v", perr2)
 					}
 				}
 
@@ -529,18 +528,18 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 				// can seek to the right track when resuming.
 				if item.EpisodeID == "" && r.Media.NumAudioFiles > 1 {
 					item.Tracks = absGetTracks(apiURL, token, r.ID, skipTLS)
-					log.Printf("[ABS]   tracks for %q: %d tracks fetched", item.Title, len(item.Tracks))
+					logDebugf("ABS", "  tracks for %q: %d tracks fetched", item.Title, len(item.Tracks))
 				}
 
-				log.Printf("[ABS]   → added: %q by %q time=%.1f/%.1f hasAudio=%v episode=%q tracks=%d",
+				logDebugf("ABS", "  → added: %q by %q time=%.1f/%.1f hasAudio=%v episode=%q tracks=%d",
 					item.Title, item.Author, item.CurrentTime, item.Duration, item.HasAudio, item.EpisodeID, len(item.Tracks))
 
 				data.InProgress = append(data.InProgress, item)
 			}
-			log.Printf("[ABS] items-in-progress: %d items after filter", len(data.InProgress))
+			logDebugf("ABS", "items-in-progress: %d items after filter", len(data.InProgress))
 		}
 	} else {
-		log.Printf("[ABS] items-in-progress error: %v", perr)
+		logErrorf("ABS", "items-in-progress error: %v", perr)
 	}
 
 	return data, nil
@@ -578,7 +577,7 @@ func ProxyABSCover(db *sql.DB) http.HandlerFunc {
 
 		resp, err := proxyABSCover(token)
 		if err != nil {
-			log.Printf("[ABS] cover proxy error: GET %s → %v", coverURL, err)
+			logErrorf("ABS", "cover proxy error: GET %s → %v", coverURL, err)
 			http.Error(w, "cover fetch failed", http.StatusBadGateway)
 			return
 		}
@@ -593,13 +592,13 @@ func ProxyABSCover(db *sql.DB) http.HandlerFunc {
 			}
 			resp, err = proxyABSCover(token)
 			if err != nil {
-				log.Printf("[ABS] cover proxy error (retry): GET %s → %v", coverURL, err)
+				logErrorf("ABS", "cover proxy error (retry): GET %s → %v", coverURL, err)
 				http.Error(w, "cover fetch failed", http.StatusBadGateway)
 				return
 			}
 		}
 		defer resp.Body.Close()
-		log.Printf("[ABS] cover proxy: GET %s → HTTP %d", coverURL, resp.StatusCode)
+		logDebugf("ABS", "cover proxy: GET %s → HTTP %d", coverURL, resp.StatusCode)
 
 		// Forward ABS status directly (404 = no cover art, not our error)
 		if resp.StatusCode >= 400 {
@@ -654,7 +653,7 @@ func ProxyABSStream(db *sql.DB) http.HandlerFunc {
 		if sessionID == "" {
 			sessionID, err = createABSSession(apiURL, token, itemID, episodeID, skipTLS)
 			if err != nil {
-				log.Printf("[ABS] stream: session create failed: %v", err)
+				logErrorf("ABS", "stream: session create failed: %v", err)
 				http.Error(w, "session create failed", http.StatusBadGateway)
 				return
 			}
@@ -665,7 +664,7 @@ func ProxyABSStream(db *sql.DB) http.HandlerFunc {
 
 		doProxy := func(sID string) (*http.Response, error) {
 			streamURL := strings.TrimRight(apiURL, "/") + "/public/session/" + sID + "/track/" + trackNum
-			log.Printf("[ABS] stream proxy: GET %s (Range: %s)", streamURL, r.Header.Get("Range"))
+			logDebugf("ABS", "stream proxy: GET %s (Range: %s)", streamURL, r.Header.Get("Range"))
 			req, rerr := http.NewRequest("GET", streamURL, nil)
 			if rerr != nil {
 				return nil, rerr
@@ -679,7 +678,7 @@ func ProxyABSStream(db *sql.DB) http.HandlerFunc {
 
 		resp, err := doProxy(sessionID)
 		if err != nil {
-			log.Printf("[ABS] stream proxy error: %v", err)
+			logErrorf("ABS", "stream proxy error: %v", err)
 			http.Error(w, "stream fetch failed", http.StatusBadGateway)
 			return
 		}
@@ -693,7 +692,7 @@ func ProxyABSStream(db *sql.DB) http.HandlerFunc {
 
 			sessionID, err = createABSSession(apiURL, token, itemID, episodeID, skipTLS)
 			if err != nil {
-				log.Printf("[ABS] stream: session refresh failed: %v", err)
+				logErrorf("ABS", "stream: session refresh failed: %v", err)
 				http.Error(w, "session refresh failed", http.StatusBadGateway)
 				return
 			}
@@ -708,7 +707,7 @@ func ProxyABSStream(db *sql.DB) http.HandlerFunc {
 			}
 		}
 		defer resp.Body.Close()
-		log.Printf("[ABS] stream proxy: HTTP %d (Content-Type: %s, Content-Length: %s)",
+		logDebugf("ABS", "stream proxy: HTTP %d (Content-Type: %s, Content-Length: %s)",
 			resp.StatusCode, resp.Header.Get("Content-Type"), resp.Header.Get("Content-Length"))
 
 		for _, h := range []string{

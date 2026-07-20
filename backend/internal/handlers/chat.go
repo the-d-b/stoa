@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -34,10 +33,10 @@ type TypingEvent struct {
 }
 
 var (
-	chatBroadcastMu   sync.Mutex
-	chatListenerSeq   uint64
-	chatBroadcast     = map[uint64]func(ChatMessage){}
-	typingBroadcast   = map[uint64]func(TypingEvent){}
+	chatBroadcastMu sync.Mutex
+	chatListenerSeq uint64
+	chatBroadcast   = map[uint64]func(ChatMessage){}
+	typingBroadcast = map[uint64]func(TypingEvent){}
 )
 
 func RegisterChatListener(fn func(ChatMessage)) func() {
@@ -85,7 +84,7 @@ func broadcastChat(msg ChatMessage) {
 		fns = append(fns, fn)
 	}
 	chatBroadcastMu.Unlock()
-	log.Printf("[CHAT] broadcasting to %d listeners", len(fns))
+	logDebugf("CHAT", "broadcasting to %d listeners", len(fns))
 	for _, fn := range fns {
 		fn(msg)
 	}
@@ -104,7 +103,9 @@ func chatID() string {
 func SendTyping(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		var req struct{ Typing bool `json:"typing"` }
+		var req struct {
+			Typing bool `json:"typing"`
+		}
 		json.NewDecoder(r.Body).Decode(&req)
 		var username, avatarURL string
 		db.QueryRow(`SELECT username FROM users WHERE id=?`, claims.UserID).Scan(&username)
@@ -127,11 +128,11 @@ func MarkChatRead(db *sql.DB) http.HandlerFunc {
 			claims.UserID)
 		if _, err := db.Exec(`UPDATE user_preferences SET last_chat_read_message_id = ? WHERE user_id = ?`,
 			now, claims.UserID); err != nil {
-			log.Printf("[CHAT] markRead error: %v", err)
+			logErrorf("CHAT", "markRead error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to mark read")
 			return
 		}
-		log.Printf("[CHAT] markRead user=%s at=%s", claims.UserID, now)
+		logDebugf("CHAT", "markRead user=%s at=%s", claims.UserID, now)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -156,7 +157,7 @@ func GetUnreadCount(db *sql.DB) http.HandlerFunc {
 				claims.UserID, lastReadAt).Scan(&count)
 		}
 
-		log.Printf("[CHAT] unreadCount user=%s lastReadAt=%q count=%d", claims.UserID, lastReadAt, count)
+		logDebugf("CHAT", "unreadCount user=%s lastReadAt=%q count=%d", claims.UserID, lastReadAt, count)
 		writeJSON(w, http.StatusOK, map[string]int{"count": count})
 	}
 }
@@ -183,7 +184,7 @@ func GetChatMessages(db *sql.DB) http.HandlerFunc {
 			rows, err = db.Query(msgSelect + ` ORDER BY m.created_at DESC LIMIT 100`)
 		}
 		if err != nil {
-			log.Printf("[CHAT] list error: %v", err)
+			logErrorf("CHAT", "list error: %v", err)
 			writeError(w, http.StatusInternalServerError, "query failed")
 			return
 		}
@@ -210,7 +211,9 @@ func GetChatMessages(db *sql.DB) http.HandlerFunc {
 		for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 {
 			msgs[i], msgs[j] = msgs[j], msgs[i]
 		}
-		if msgs == nil { msgs = []ChatMessage{} }
+		if msgs == nil {
+			msgs = []ChatMessage{}
+		}
 		writeJSON(w, http.StatusOK, msgs)
 	}
 }

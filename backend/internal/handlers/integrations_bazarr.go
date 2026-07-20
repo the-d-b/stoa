@@ -20,20 +20,20 @@ type BazarrProvider struct {
 }
 
 type BazarrPanelData struct {
-	UIURL           string           `json:"uiUrl"`
-	IntegrationID   string           `json:"integrationId"`
-	Version         string           `json:"version"`
-	MissingEpisodes int              `json:"missingEpisodes"`
-	MissingMovies   int              `json:"missingMovies"`
-	HealthIssues    int              `json:"healthIssues"`
-	Providers       []BazarrProvider `json:"providers"`
-	ProvidersTotal  int              `json:"providersTotal"`
-	ProvidersOk     int              `json:"providersOk"`
-	ProvidersIssues int              `json:"providersIssues"`
-	DownloadedSeries int             `json:"downloadedSeries"` // last month
-	DownloadedMovies int             `json:"downloadedMovies"` // last month
-	SonarrLive      bool             `json:"sonarrLive"`
-	RadarrLive      bool             `json:"radarrLive"`
+	UIURL            string           `json:"uiUrl"`
+	IntegrationID    string           `json:"integrationId"`
+	Version          string           `json:"version"`
+	MissingEpisodes  int              `json:"missingEpisodes"`
+	MissingMovies    int              `json:"missingMovies"`
+	HealthIssues     int              `json:"healthIssues"`
+	Providers        []BazarrProvider `json:"providers"`
+	ProvidersTotal   int              `json:"providersTotal"`
+	ProvidersOk      int              `json:"providersOk"`
+	ProvidersIssues  int              `json:"providersIssues"`
+	DownloadedSeries int              `json:"downloadedSeries"` // last month
+	DownloadedMovies int              `json:"downloadedMovies"` // last month
+	SonarrLive       bool             `json:"sonarrLive"`
+	RadarrLive       bool             `json:"radarrLive"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -152,8 +152,12 @@ func fetchBazarrPanelData(db *sql.DB, config map[string]interface{}) (*BazarrPan
 	// ── History stats (last month) ────────────────────────────────────────────
 	if body, err := bazarrGet(baseURL, apiKey, "/api/history/stats?timeframe=month", skipTLS); err == nil {
 		var r struct {
-			Series []struct{ Count int `json:"count"` } `json:"series"`
-			Movies []struct{ Count int `json:"count"` } `json:"movies"`
+			Series []struct {
+				Count int `json:"count"`
+			} `json:"series"`
+			Movies []struct {
+				Count int `json:"count"`
+			} `json:"movies"`
 		}
 		if json.Unmarshal(body, &r) == nil {
 			for _, d := range r.Series {

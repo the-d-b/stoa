@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"net/http"
 	"net/url"
@@ -72,31 +71,31 @@ func windDir(deg float64) string {
 // ── Open-Meteo types ──────────────────────────────────────────────────────────
 
 type WeatherCurrent struct {
-	TempC        float64 `json:"tempC"`
-	TempF        float64 `json:"tempF"`
-	FeelsLikeC   float64 `json:"feelsLikeC"`
-	FeelsLikeF   float64 `json:"feelsLikeF"`
-	Humidity     float64 `json:"humidity"`
-	WindKph      float64 `json:"windKph"`
-	WindMph      float64 `json:"windMph"`
-	WindDir      string  `json:"windDir"`
-	PrecipMm     float64 `json:"precipMm"`
-	WeatherCode  int     `json:"weatherCode"`
-	Icon         string  `json:"icon"`
-	Label        string  `json:"label"`
-	IsDay        int     `json:"isDay"`
+	TempC       float64 `json:"tempC"`
+	TempF       float64 `json:"tempF"`
+	FeelsLikeC  float64 `json:"feelsLikeC"`
+	FeelsLikeF  float64 `json:"feelsLikeF"`
+	Humidity    float64 `json:"humidity"`
+	WindKph     float64 `json:"windKph"`
+	WindMph     float64 `json:"windMph"`
+	WindDir     string  `json:"windDir"`
+	PrecipMm    float64 `json:"precipMm"`
+	WeatherCode int     `json:"weatherCode"`
+	Icon        string  `json:"icon"`
+	Label       string  `json:"label"`
+	IsDay       int     `json:"isDay"`
 }
 
 type WeatherDay struct {
-	Date      string  `json:"date"`
-	MaxC      float64 `json:"maxC"`
-	MaxF      float64 `json:"maxF"`
-	MinC      float64 `json:"minC"`
-	MinF      float64 `json:"minF"`
-	PrecipMm  float64 `json:"precipMm"`
-	WeatherCode int   `json:"weatherCode"`
-	Icon      string  `json:"icon"`
-	Label     string  `json:"label"`
+	Date        string  `json:"date"`
+	MaxC        float64 `json:"maxC"`
+	MaxF        float64 `json:"maxF"`
+	MinC        float64 `json:"minC"`
+	MinF        float64 `json:"minF"`
+	PrecipMm    float64 `json:"precipMm"`
+	WeatherCode int     `json:"weatherCode"`
+	Icon        string  `json:"icon"`
+	Label       string  `json:"label"`
 }
 
 type WeatherHour struct {
@@ -119,11 +118,11 @@ type WeatherPanelData struct {
 // ── Geocoding ─────────────────────────────────────────────────────────────────
 
 type GeoResult struct {
-	Name      string  `json:"name"`
-	Lat       float64 `json:"latitude"`
-	Lon       float64 `json:"longitude"`
-	Country   string  `json:"country"`
-	Admin1    string  `json:"admin1"`
+	Name    string  `json:"name"`
+	Lat     float64 `json:"latitude"`
+	Lon     float64 `json:"longitude"`
+	Country string  `json:"country"`
+	Admin1  string  `json:"admin1"`
 }
 
 // GeocodeLookup handles GET /api/weather/geocode?q=city
@@ -161,7 +160,9 @@ func fetchWeatherPanel(config map[string]interface{}) (*WeatherPanelData, error)
 	lon, _ := config["lon"].(string)
 	city, _ := config["city"].(string)
 	unit, _ := config["unit"].(string)
-	if unit == "" { unit = "c" }
+	if unit == "" {
+		unit = "c"
+	}
 	if lat == "" || lon == "" {
 		return nil, fmt.Errorf("lat/lon not configured")
 	}
@@ -221,20 +222,28 @@ func fetchWeatherPanel(config map[string]interface{}) (*WeatherPanelData, error)
 		precip, _ := daily["precipitation_sum"].([]interface{})
 		for i := range dates {
 			wc := 0
-			if i < len(codes) { wc = int(toFloat(codes[i])) }
+			if i < len(codes) {
+				wc = int(toFloat(codes[i]))
+			}
 			mx, mn, pp := 0.0, 0.0, 0.0
-			if i < len(maxC) { mx = toFloat(maxC[i]) }
-			if i < len(minC) { mn = toFloat(minC[i]) }
-			if i < len(precip) { pp = toFloat(precip[i]) }
+			if i < len(maxC) {
+				mx = toFloat(maxC[i])
+			}
+			if i < len(minC) {
+				mn = toFloat(minC[i])
+			}
+			if i < len(precip) {
+				pp = toFloat(precip[i])
+			}
 			dateStr, _ := dates[i].(string)
 			data.Daily = append(data.Daily, WeatherDay{
-				Date:       dateStr,
-				MaxC:       round1(mx), MaxF: round1(cToF(mx)),
-				MinC:       round1(mn), MinF: round1(cToF(mn)),
-				PrecipMm:   round1(pp),
+				Date: dateStr,
+				MaxC: round1(mx), MaxF: round1(cToF(mx)),
+				MinC: round1(mn), MinF: round1(cToF(mn)),
+				PrecipMm:    round1(pp),
 				WeatherCode: wc,
-				Icon:       wmoIcon(wc),
-				Label:      wmoLabel(wc),
+				Icon:        wmoIcon(wc),
+				Label:       wmoLabel(wc),
 			})
 		}
 	}
@@ -248,16 +257,26 @@ func fetchWeatherPanel(config map[string]interface{}) (*WeatherPanelData, error)
 		now := time.Now()
 		count := 0
 		for i := range times {
-			if count >= 24 { break }
+			if count >= 24 {
+				break
+			}
 			ts, _ := times[i].(string)
 			t, err := time.Parse("2006-01-02T15:04", ts)
-			if err != nil || t.Before(now) { continue }
+			if err != nil || t.Before(now) {
+				continue
+			}
 			tc := 0.0
-			if i < len(temps) { tc = toFloat(temps[i]) }
+			if i < len(temps) {
+				tc = toFloat(temps[i])
+			}
 			wc := 0
-			if i < len(codes) { wc = int(toFloat(codes[i])) }
+			if i < len(codes) {
+				wc = int(toFloat(codes[i]))
+			}
 			pp := 0.0
-			if i < len(precips) { pp = toFloat(precips[i]) }
+			if i < len(precips) {
+				pp = toFloat(precips[i])
+			}
 			data.Hourly = append(data.Hourly, WeatherHour{
 				Time: ts, TempC: round1(tc), TempF: round1(cToF(tc)),
 				WeatherCode: wc, Icon: wmoIcon(wc), PrecipMm: round1(pp),
@@ -266,7 +285,7 @@ func fetchWeatherPanel(config map[string]interface{}) (*WeatherPanelData, error)
 		}
 	}
 
-	log.Printf("[WEATHER] fetched for %s (lat=%s lon=%s)", city, lat, lon)
+	logDebugf("WEATHER", "fetched for %s (lat=%s lon=%s)", city, lat, lon)
 	return data, nil
 }
 
@@ -325,8 +344,12 @@ func FetchWeatherForIntegration(db *sql.DB, config map[string]interface{}) (inte
 		if len(parts) >= 2 {
 			wConfig["lat"] = strings.TrimSpace(parts[0])
 			wConfig["lon"] = strings.TrimSpace(parts[1])
-			if len(parts) >= 3 { wConfig["city"] = strings.TrimSpace(parts[2]) }
-			if len(parts) >= 4 { wConfig["unit"] = strings.TrimSpace(parts[3]) }
+			if len(parts) >= 3 {
+				wConfig["city"] = strings.TrimSpace(parts[2])
+			}
+			if len(parts) >= 4 {
+				wConfig["unit"] = strings.TrimSpace(parts[3])
+			}
 		}
 	}
 
@@ -338,11 +361,13 @@ func FetchWeatherForIntegration(db *sql.DB, config map[string]interface{}) (inte
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-func cToF(c float64) float64 { return c*9/5 + 32 }
+func cToF(c float64) float64   { return c*9/5 + 32 }
 func round1(f float64) float64 { return math.Round(f*10) / 10 }
 func floatVal(m map[string]interface{}, k string) float64 {
-	v, _ := m[k].(float64); return v
+	v, _ := m[k].(float64)
+	return v
 }
 func toFloat(v interface{}) float64 {
-	f, _ := v.(float64); return f
+	f, _ := v.(float64)
+	return f
 }

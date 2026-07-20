@@ -54,12 +54,20 @@ func ListChecklistItems(db *sql.DB) http.HandlerFunc {
 			rows.Scan(&item.ID, &item.PanelID, &item.Text, &dueDate, &completed,
 				&completedAt, &createdBy, &item.CreatedAt)
 			item.Completed = completed == 1
-			if dueDate.Valid { item.DueDate = &dueDate.String }
-			if completedAt.Valid { item.CompletedAt = &completedAt.String }
-			if createdBy.Valid { item.CreatedBy = &createdBy.String }
+			if dueDate.Valid {
+				item.DueDate = &dueDate.String
+			}
+			if completedAt.Valid {
+				item.CompletedAt = &completedAt.String
+			}
+			if createdBy.Valid {
+				item.CreatedBy = &createdBy.String
+			}
 			items = append(items, item)
 		}
-		if items == nil { items = []ChecklistItem{} }
+		if items == nil {
+			items = []ChecklistItem{}
+		}
 		writeJSON(w, http.StatusOK, items)
 	}
 }

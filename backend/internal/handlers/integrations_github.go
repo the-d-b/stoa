@@ -78,8 +78,8 @@ type ghRepoRaw struct {
 }
 
 type ghEventRaw struct {
-	Type    string `json:"type"`
-	Repo    struct {
+	Type string `json:"type"`
+	Repo struct {
 		Name string `json:"name"`
 	} `json:"repo"`
 	Payload   json.RawMessage `json:"payload"`

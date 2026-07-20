@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -164,7 +163,7 @@ func fetchNavidromePanelData(db *sql.DB, config map[string]interface{}) (*Navidr
 		songBody, serr := navidromeGet(apiURL, authQuery,
 			"/rest/getPlaylist.view?id="+url.QueryEscape(playlistID), skipTLS)
 		if serr != nil {
-			log.Printf("[Navidrome] playlist songs error: %v", serr)
+			logErrorf("Navidrome", "playlist songs error: %v", serr)
 		} else {
 			var songResp struct {
 				Response struct {

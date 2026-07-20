@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -95,7 +94,7 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		sseMu.RLock()
 		clientCount := len(sseClients)
 		sseMu.RUnlock()
-		log.Printf("[SSE] connect  user=%s client=%s total=%d ip=%s",
+		logDebugf("SSE", "connect  user=%s client=%s total=%d ip=%s",
 			claims.Username, clientID, clientCount, r.RemoteAddr)
 
 		// Track presence and update last_seen
@@ -113,7 +112,9 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 
 		unregisterTyping := RegisterTypingListener(func(ev TypingEvent) {
 			// Don't send typing events back to the user who is typing
-			if ev.UserID == claims.UserID { return }
+			if ev.UserID == claims.UserID {
+				return
+			}
 			b, _ := json.Marshal(ev)
 			select {
 			case client.ch <- sseEvent{Event: "typing", RawData: string(b)}:
@@ -142,7 +143,7 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 			delete(sseClients, clientID)
 			remainingClients := len(sseClients)
 			sseMu.Unlock()
-			log.Printf("[SSE] disconnect user=%s client=%s remaining=%d",
+			logDebugf("SSE", "disconnect user=%s client=%s remaining=%d",
 				claims.Username, clientID, remainingClients)
 			MarkUserOffline(claims.UserID)
 			go UpdateLastSeen(db, claims.UserID)
@@ -184,7 +185,7 @@ func SSEHandler(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 		for {
 			select {
 			case <-r.Context().Done():
-				log.Printf("[SSE] context done user=%s client=%s", claims.Username, clientID)
+				logDebugf("SSE", "context done user=%s client=%s", claims.Username, clientID)
 				return
 			case <-heartbeat.C:
 				// Named ping event — client uses this to detect dead connections

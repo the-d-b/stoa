@@ -5,32 +5,31 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"log"
 )
 
 // ── Readarr types ─────────────────────────────────────────────────────────────
 
 type ReadarrPanelData struct {
-	UIURL      string        `json:"uiUrl"`
-	History    []ReadarrBook `json:"history"`
-	Missing    []ReadarrBook `json:"missing"`
-	MissingCount int         `json:"missingCount"`
-	BookCount  int           `json:"bookCount"`
-	OnDiskCount int          `json:"onDiskCount"`
-	AuthorCount int          `json:"authorCount"`
+	UIURL        string        `json:"uiUrl"`
+	History      []ReadarrBook `json:"history"`
+	Missing      []ReadarrBook `json:"missing"`
+	MissingCount int           `json:"missingCount"`
+	BookCount    int           `json:"bookCount"`
+	OnDiskCount  int           `json:"onDiskCount"`
+	AuthorCount  int           `json:"authorCount"`
 }
 
 type ReadarrBook struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	TitleSlug   string `json:"titleSlug"`
-	AuthorName  string `json:"authorName"`
-	AuthorSlug  string `json:"authorSlug"`
-	Year        int    `json:"year"`
-	HasFile     bool   `json:"hasFile"`
-	Date        string `json:"date,omitempty"`
-	CoverURL    string `json:"coverUrl,omitempty"`
-	Isbn        string `json:"isbn,omitempty"`
+	ID         int    `json:"id"`
+	Title      string `json:"title"`
+	TitleSlug  string `json:"titleSlug"`
+	AuthorName string `json:"authorName"`
+	AuthorSlug string `json:"authorSlug"`
+	Year       int    `json:"year"`
+	HasFile    bool   `json:"hasFile"`
+	Date       string `json:"date,omitempty"`
+	CoverURL   string `json:"coverUrl,omitempty"`
+	Isbn       string `json:"isbn,omitempty"`
 }
 
 // ── Fetcher ───────────────────────────────────────────────────────────────────
@@ -60,12 +59,20 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 			seenBookId := map[int]bool{}
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
-				if rec == nil { continue }
+				if rec == nil {
+					continue
+				}
 				// History records have bookId + sourceTitle but no nested book object
 				bookId := 0
-				if bid, ok := rec["bookId"].(float64); ok { bookId = int(bid) }
-				if bookId == 0 { continue }
-				if seenBookId[bookId] { continue } // deduplicate same book
+				if bid, ok := rec["bookId"].(float64); ok {
+					bookId = int(bid)
+				}
+				if bookId == 0 {
+					continue
+				}
+				if seenBookId[bookId] {
+					continue
+				} // deduplicate same book
 				seenBookId[bookId] = true
 				b := ReadarrBook{
 					ID:    bookId,
@@ -81,16 +88,20 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 						b.AuthorName = full.AuthorName
 						b.CoverURL = full.CoverURL
 						b.TitleSlug = full.TitleSlug
-						if full.Title != "" { b.Title = full.Title }
+						if full.Title != "" {
+							b.Title = full.Title
+						}
 					}
 				}
 				data.History = append(data.History, b)
-				if len(data.History) >= 10 { break }
+				if len(data.History) >= 10 {
+					break
+				}
 			}
 		} else {
-			}
+		}
 	} else {
-		log.Printf("[READARR] history fetch error: %v", err)
+		logErrorf("READARR", "history fetch error: %v", err)
 	}
 
 	// ── Book library — all books, monitored and unmonitored ─────────────────
@@ -102,27 +113,27 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 	json.Unmarshal(bookRaw, &bookList)
 	data.BookCount = len(bookList)
 	for _, b := range bookList {
-			bk := readarrBookFromMap(b)
-			// Use statistics.bookFileCount to determine if file exists
-			hasFile := false
-			if stats, ok := b["statistics"].(map[string]interface{}); ok {
-				if bfc, ok := stats["bookFileCount"].(float64); ok {
-					hasFile = bfc > 0
-				}
-			}
-			// Also check top-level grabbed as fallback
-			if !hasFile {
-				if grabbed, ok := b["grabbed"].(bool); ok && grabbed {
-					hasFile = true
-				}
-			}
-			bk.HasFile = hasFile
-			if hasFile {
-				data.OnDiskCount++
-			} else {
-				data.Missing = append(data.Missing, bk)
+		bk := readarrBookFromMap(b)
+		// Use statistics.bookFileCount to determine if file exists
+		hasFile := false
+		if stats, ok := b["statistics"].(map[string]interface{}); ok {
+			if bfc, ok := stats["bookFileCount"].(float64); ok {
+				hasFile = bfc > 0
 			}
 		}
+		// Also check top-level grabbed as fallback
+		if !hasFile {
+			if grabbed, ok := b["grabbed"].(bool); ok && grabbed {
+				hasFile = true
+			}
+		}
+		bk.HasFile = hasFile
+		if hasFile {
+			data.OnDiskCount++
+		} else {
+			data.Missing = append(data.Missing, bk)
+		}
+	}
 	data.MissingCount = len(data.Missing)
 
 	// ── Author count ──────────────────────────────────────────────────────────
@@ -143,7 +154,9 @@ func readarrBookFromMap(m map[string]interface{}) ReadarrBook {
 	if y, ok := m["releaseDate"].(string); ok && len(y) >= 4 {
 		fmt.Sscanf(y[:4], "%d", &bk.Year)
 	}
-	if i, ok := m["id"].(float64); ok { bk.ID = int(i) }
+	if i, ok := m["id"].(float64); ok {
+		bk.ID = int(i)
+	}
 	// Cover image — Readarr uses images array with coverType="cover"
 	if images, ok := m["images"].([]interface{}); ok {
 		for _, img := range images {

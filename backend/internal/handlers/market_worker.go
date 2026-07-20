@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"log"
 	"time"
 )
 
@@ -11,13 +10,13 @@ import (
 // Crypto: every 15min always (24/7 market)
 func StartMarketWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 	go func() {
-		log.Printf("[MARKET] worker started: %s", ig.name)
+		logDebugf("MARKET", "worker started: %s", ig.name)
 		for {
 			interval := marketRefreshAndGetInterval(db, ig)
 			select {
 			case <-time.After(interval):
 			case <-stop:
-				log.Printf("[MARKET] worker stopped: %s", ig.name)
+				logDebugf("MARKET", "worker stopped: %s", ig.name)
 				return
 			}
 		}
@@ -45,13 +44,13 @@ func marketRefreshAndGetInterval(db *sql.DB, ig integrationMeta) time.Duration {
 		data, err = FetchStocksData(db, ig.id)
 	}
 	if err != nil {
-		log.Printf("[MARKET] fetch error %s: %v", ig.name, err)
+		logErrorf("MARKET", "fetch error %s: %v", ig.name, err)
 		RecordIntegrationError(ig.id, ig.name, err.Error())
 		return 5 * time.Minute
 	}
 	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
-	log.Printf("[MARKET] refreshed %s (%s) -- %d quotes", ig.name, ig.igType, len(data.Quotes))
+	logDebugf("MARKET", "refreshed %s (%s) -- %d quotes", ig.name, ig.igType, len(data.Quotes))
 
 	if ig.igType == "crypto" {
 		return 15 * time.Minute

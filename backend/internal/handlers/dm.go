@@ -16,15 +16,15 @@ import (
 // ── DM broadcast (per-user listeners) ─────────────────────────────────────────
 
 type DMMessagePayload struct {
-	ID             string          `json:"id"`
-	ConversationID string          `json:"conversationId"`
-	SenderID       string          `json:"senderId"`
-	SenderUsername string          `json:"senderUsername"`
-	SenderAvatarURL string         `json:"senderAvatarUrl,omitempty"`
-	Text           string          `json:"text"`
-	Attachment     *ChatAttachment `json:"attachment,omitempty"`
-	CreatedAt      string          `json:"createdAt"`
-	Own            bool            `json:"own,omitempty"`
+	ID              string          `json:"id"`
+	ConversationID  string          `json:"conversationId"`
+	SenderID        string          `json:"senderId"`
+	SenderUsername  string          `json:"senderUsername"`
+	SenderAvatarURL string          `json:"senderAvatarUrl,omitempty"`
+	Text            string          `json:"text"`
+	Attachment      *ChatAttachment `json:"attachment,omitempty"`
+	CreatedAt       string          `json:"createdAt"`
+	Own             bool            `json:"own,omitempty"`
 }
 
 type DMEvent struct {
@@ -71,15 +71,15 @@ func broadcastDMToUser(userID string, ev DMEvent) {
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type DMConversationResp struct {
-	ID            string            `json:"id"`
-	OtherUserID   string            `json:"otherUserId"`
-	OtherUsername string            `json:"otherUsername"`
-	OtherAvatarURL string           `json:"otherAvatarUrl,omitempty"`
-	OtherOnline   bool              `json:"otherOnline"`
-	OtherStatus   string            `json:"otherStatus"`
-	LastMessage   *DMMessagePayload `json:"lastMessage,omitempty"`
-	UnreadCount   int               `json:"unreadCount"`
-	CreatedAt     string            `json:"createdAt"`
+	ID             string            `json:"id"`
+	OtherUserID    string            `json:"otherUserId"`
+	OtherUsername  string            `json:"otherUsername"`
+	OtherAvatarURL string            `json:"otherAvatarUrl,omitempty"`
+	OtherOnline    bool              `json:"otherOnline"`
+	OtherStatus    string            `json:"otherStatus"`
+	LastMessage    *DMMessagePayload `json:"lastMessage,omitempty"`
+	UnreadCount    int               `json:"unreadCount"`
+	CreatedAt      string            `json:"createdAt"`
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -175,9 +175,9 @@ func ListDMConversations(db *sql.DB) http.HandlerFunc {
 		result := make([]DMConversationResp, 0, len(convRows))
 		for _, c := range convRows {
 			conv := DMConversationResp{
-				ID:        c.id,
+				ID:          c.id,
 				OtherUserID: c.otherID,
-				CreatedAt: c.createdAt,
+				CreatedAt:   c.createdAt,
 			}
 
 			var avatarURL sql.NullString

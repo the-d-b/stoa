@@ -110,7 +110,9 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 
 	// ── Org name ──────────────────────────────────────────────────────────────
 	if body, err := grafanaGet(baseURL, apiKey, "/api/org", skipTLS); err == nil {
-		var r struct{ Name string `json:"name"` }
+		var r struct {
+			Name string `json:"name"`
+		}
 		if json.Unmarshal(body, &r) == nil {
 			out.OrgName = r.Name
 		}
@@ -172,9 +174,12 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 			sort.Slice(out.Datasources, func(i, j int) bool {
 				rank := func(h string) int {
 					switch h {
-					case "error":   return 0
-					case "unknown": return 1
-					default:        return 2
+					case "error":
+						return 0
+					case "unknown":
+						return 1
+					default:
+						return 2
 					}
 				}
 				ri, rj := rank(out.Datasources[i].Health), rank(out.Datasources[j].Health)
@@ -197,11 +202,16 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 		if json.Unmarshal(body, &rawAlerts) == nil {
 			sevOrder := func(s string) int {
 				switch strings.ToLower(s) {
-				case "critical": return 0
-				case "error":   return 1
-				case "warning": return 2
-				case "info":    return 3
-				default:        return 4
+				case "critical":
+					return 0
+				case "error":
+					return 1
+				case "warning":
+					return 2
+				case "info":
+					return 3
+				default:
+					return 4
 				}
 			}
 			for _, a := range rawAlerts {

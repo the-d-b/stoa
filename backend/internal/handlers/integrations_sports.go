@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -31,31 +30,31 @@ type SportsPlay struct {
 }
 
 type SportsGame struct {
-	ID          string `json:"id"`
-	League      string `json:"league"`
-	ShortName   string `json:"shortName"`
-	HomeTeam    string `json:"homeTeam"`
-	AwayTeam    string `json:"awayTeam"`
-	HomeAbbr    string `json:"homeAbbr"`
-	AwayAbbr    string `json:"awayAbbr"`
-	HomeLogo    string `json:"homeLogo"`
-	AwayLogo    string `json:"awayLogo"`
-	HomeScore   string `json:"homeScore"`
-	AwayScore   string `json:"awayScore"`
-	HomeColor   string `json:"homeColor"`
-	AwayColor   string `json:"awayColor"`
-	Status      string `json:"status"`  // "pre" | "in" | "post"
-	StatusText  string `json:"statusText"`
-	Clock       string `json:"clock"`
-	Period      int    `json:"period"`
-	StartTime   string `json:"startTime"`
-	IsFavorite  bool         `json:"isFavorite"`
-	Plays       []SportsPlay `json:"plays,omitempty"`
+	ID         string       `json:"id"`
+	League     string       `json:"league"`
+	ShortName  string       `json:"shortName"`
+	HomeTeam   string       `json:"homeTeam"`
+	AwayTeam   string       `json:"awayTeam"`
+	HomeAbbr   string       `json:"homeAbbr"`
+	AwayAbbr   string       `json:"awayAbbr"`
+	HomeLogo   string       `json:"homeLogo"`
+	AwayLogo   string       `json:"awayLogo"`
+	HomeScore  string       `json:"homeScore"`
+	AwayScore  string       `json:"awayScore"`
+	HomeColor  string       `json:"homeColor"`
+	AwayColor  string       `json:"awayColor"`
+	Status     string       `json:"status"` // "pre" | "in" | "post"
+	StatusText string       `json:"statusText"`
+	Clock      string       `json:"clock"`
+	Period     int          `json:"period"`
+	StartTime  string       `json:"startTime"`
+	IsFavorite bool         `json:"isFavorite"`
+	Plays      []SportsPlay `json:"plays,omitempty"`
 }
 
 type SportsStanding struct {
-	League   string `json:"league"`
-	Division string `json:"division"`
+	League   string               `json:"league"`
+	Division string               `json:"division"`
 	Teams    []SportsStandingTeam `json:"teams"`
 }
 
@@ -90,12 +89,12 @@ type LeagueStatus struct {
 }
 
 type SportsPanelData struct {
-	Games         []SportsGame         `json:"games"`
-	Standings     []SportsStanding     `json:"standings"`
-	Schedule      []SportsScheduleGame `json:"schedule"`
-	LeagueStatus  []LeagueStatus       `json:"leagueStatus"`
-	HasLive       bool                 `json:"hasLive"`
-	FetchedAt     string               `json:"fetchedAt"`
+	Games        []SportsGame         `json:"games"`
+	Standings    []SportsStanding     `json:"standings"`
+	Schedule     []SportsScheduleGame `json:"schedule"`
+	LeagueStatus []LeagueStatus       `json:"leagueStatus"`
+	HasLive      bool                 `json:"hasLive"`
+	FetchedAt    string               `json:"fetchedAt"`
 }
 
 // espnSeasonWindow is the current season's date range from the scoreboard
@@ -111,9 +110,13 @@ type espnSeasonWindow struct {
 func isLeagueOffSeason(league string, games []SportsGame, schedule []SportsScheduleGame) bool {
 	// If there are any games today or upcoming, not off-season
 	for _, g := range games {
-		if g.Status == "pre" || g.Status == "in" { return false }
+		if g.Status == "pre" || g.Status == "in" {
+			return false
+		}
 	}
-	if len(schedule) > 0 { return false }
+	if len(schedule) > 0 {
+		return false
+	}
 	// All games are post or there are none, and no schedule - likely off-season
 	return true
 }
@@ -138,7 +141,9 @@ func nextRegularSeasonStart(league string) string {
 	nextSeasonCacheMu.Lock()
 	if c, ok := nextSeasonCache[league]; ok {
 		ttl := 24 * time.Hour
-		if c.value == "" { ttl = time.Hour }
+		if c.value == "" {
+			ttl = time.Hour
+		}
 		if time.Since(c.fetchedAt) < ttl {
 			nextSeasonCacheMu.Unlock()
 			return c.value
@@ -161,7 +166,7 @@ func fetchNextRegularSeasonStart(league string) string {
 	// Latest season (ESPN lists seasons newest-first, including upcoming ones)
 	body, err := espnGet(fmt.Sprintf("https://sports.core.api.espn.com/v2/sports/%s/seasons?limit=1", corePath))
 	if err != nil {
-		log.Printf("[SPORTS] seasons list error %s: %v", league, err)
+		logErrorf("SPORTS", "seasons list error %s: %v", league, err)
 		return ""
 	}
 	var seasons struct {
@@ -183,7 +188,7 @@ func fetchNextRegularSeasonStart(league string) string {
 	// Type 2 = regular season; its startDate is opening night / kickoff
 	body, err = espnGet(fmt.Sprintf("https://sports.core.api.espn.com/v2/sports/%s/seasons/%s/types/2", corePath, year))
 	if err != nil {
-		log.Printf("[SPORTS] season type error %s: %v", league, err)
+		logErrorf("SPORTS", "season type error %s: %v", league, err)
 		return ""
 	}
 	var seasonType struct {
@@ -202,9 +207,9 @@ func fetchNextRegularSeasonStart(league string) string {
 // -- Config helpers
 
 type SportsConfig struct {
-	Leagues  []string `json:"leagues"`
-	Teams    []string `json:"teams"` // abbreviations e.g. ["COL","SJS","DEN","DAL","DEN","DAL","KC"]
-	DaysAhead int     `json:"daysAhead"`
+	Leagues   []string `json:"leagues"`
+	Teams     []string `json:"teams"` // abbreviations e.g. ["COL","SJS","DEN","DAL","DEN","DAL","KC"]
+	DaysAhead int      `json:"daysAhead"`
 }
 
 func parseSportsConfig(apiURL string) SportsConfig {
@@ -386,7 +391,9 @@ func fetchSportsScoreboard(league string, favTeams []string) ([]SportsGame, bool
 
 	for _, ev := range raw.Events {
 		st := ev.Date
-		if t, err := parseESPNTime(ev.Date); err == nil { st = t.Format(time.RFC3339) }
+		if t, err := parseESPNTime(ev.Date); err == nil {
+			st = t.Format(time.RFC3339)
+		}
 		g := SportsGame{
 			ID:         ev.ID,
 			League:     leagueUpper,
@@ -445,7 +452,7 @@ func fetchSportsStandings(league string, favTeams []string) ([]SportsStanding, e
 
 	var raw struct {
 		Children []struct {
-			Name     string `json:"name"`
+			Name      string `json:"name"`
 			Standings struct {
 				Entries []struct {
 					Team struct {
@@ -538,15 +545,15 @@ func fetchSportsSchedule(league string, daysAhead int, favTeams []string) ([]Spo
 		)
 		body, err := espnGet(url)
 		if err != nil {
-			log.Printf("[SPORTS] schedule chunk error %s %s: %v", league, dateParam, err)
+			logErrorf("SPORTS", "schedule chunk error %s %s: %v", league, dateParam, err)
 			continue
 		}
 
 		var raw2 struct {
 			Events []struct {
-				Date      string `json:"date"`
-				Name      string `json:"name"`
-				Status    struct {
+				Date   string `json:"date"`
+				Name   string `json:"name"`
+				Status struct {
 					Type struct {
 						State       string `json:"state"`
 						Description string `json:"description"`
@@ -554,7 +561,7 @@ func fetchSportsSchedule(league string, daysAhead int, favTeams []string) ([]Spo
 					} `json:"type"`
 				} `json:"status"`
 				Competitions []struct {
-					TimeValid   bool   `json:"timeValid"`
+					TimeValid   bool `json:"timeValid"`
 					Competitors []struct {
 						HomeAway string `json:"homeAway"`
 						Team     struct {
@@ -567,39 +574,41 @@ func fetchSportsSchedule(league string, daysAhead int, favTeams []string) ([]Spo
 			} `json:"events"`
 		}
 		if err := json.Unmarshal(body, &raw2); err != nil {
-			log.Printf("[SPORTS] schedule parse error %s: %v", league, err)
+			logErrorf("SPORTS", "schedule parse error %s: %v", league, err)
 			continue
 		}
 		leagueUpper := strings.ToUpper(league)
 		for _, ev := range raw2.Events {
-		if ev.Status.Type.State == "post" {
-			continue // skip completed games
-		}
-		// timeValid is inside competitions[0] -- false means no confirmed time yet
-		isTBD := len(ev.Competitions) > 0 && !ev.Competitions[0].TimeValid
-		schSt := ev.Date
-		if t, err := parseESPNTime(ev.Date); err == nil { schSt = t.Format(time.RFC3339) }
-		g := SportsScheduleGame{
-			League:    leagueUpper,
-			StartTime: schSt,
-		}
-		if len(ev.Competitions) > 0 {
-			for _, comp := range ev.Competitions[0].Competitors {
-				logo := comp.Team.Logo
-				if logo == "" {
-					logo = logoURL("", league, comp.Team.Abbreviation)
-				}
-				if comp.HomeAway == "home" {
-					g.HomeTeam = comp.Team.DisplayName
-					g.HomeAbbr = comp.Team.Abbreviation
-					g.HomeLogo = logo
-				} else {
-					g.AwayTeam = comp.Team.DisplayName
-					g.AwayAbbr = comp.Team.Abbreviation
-					g.AwayLogo = logo
+			if ev.Status.Type.State == "post" {
+				continue // skip completed games
+			}
+			// timeValid is inside competitions[0] -- false means no confirmed time yet
+			isTBD := len(ev.Competitions) > 0 && !ev.Competitions[0].TimeValid
+			schSt := ev.Date
+			if t, err := parseESPNTime(ev.Date); err == nil {
+				schSt = t.Format(time.RFC3339)
+			}
+			g := SportsScheduleGame{
+				League:    leagueUpper,
+				StartTime: schSt,
+			}
+			if len(ev.Competitions) > 0 {
+				for _, comp := range ev.Competitions[0].Competitors {
+					logo := comp.Team.Logo
+					if logo == "" {
+						logo = logoURL("", league, comp.Team.Abbreviation)
+					}
+					if comp.HomeAway == "home" {
+						g.HomeTeam = comp.Team.DisplayName
+						g.HomeAbbr = comp.Team.Abbreviation
+						g.HomeLogo = logo
+					} else {
+						g.AwayTeam = comp.Team.DisplayName
+						g.AwayAbbr = comp.Team.Abbreviation
+						g.AwayLogo = logo
+					}
 				}
 			}
-		}
 			g.IsFavorite = isFavoriteTeam(g.HomeAbbr, favTeams) || isFavoriteTeam(g.AwayAbbr, favTeams)
 			g.IsTBD = isTBD
 			// Deduplicate by start time + teams
@@ -637,7 +646,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		// Scores / today's games
 		games, hasLive, seasonWin, err := fetchSportsScoreboard(league, cfg.Teams)
 		if err != nil {
-			log.Printf("[SPORTS] scoreboard error %s: %v", league, err)
+			logErrorf("SPORTS", "scoreboard error %s: %v", league, err)
 		} else {
 			data.Games = append(data.Games, games...)
 			leagueGames[strings.ToUpper(league)] = games
@@ -649,7 +658,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		// Standings
 		standings, err := fetchSportsStandings(league, cfg.Teams)
 		if err != nil {
-			log.Printf("[SPORTS] standings error %s: %v", league, err)
+			logErrorf("SPORTS", "standings error %s: %v", league, err)
 		} else {
 			data.Standings = append(data.Standings, standings...)
 		}
@@ -657,7 +666,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		// Schedule (upcoming only)
 		schedule, err := fetchSportsSchedule(league, cfg.DaysAhead, cfg.Teams)
 		if err != nil {
-			log.Printf("[SPORTS] schedule error %s: %v", league, err)
+			logErrorf("SPORTS", "schedule error %s: %v", league, err)
 		} else {
 			data.Schedule = append(data.Schedule, schedule...)
 			leagueSchedule[strings.ToUpper(league)] = schedule
@@ -693,7 +702,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		}
 		plays, perr := fetchGamePlays(strings.ToLower(g.League), g.ID, 4)
 		if perr != nil {
-			log.Printf("[SPORTS] plays error %s %s: %v", g.League, g.ID, perr)
+			logErrorf("SPORTS", "plays error %s %s: %v", g.League, g.ID, perr)
 			continue
 		}
 		data.Games[i].Plays = plays

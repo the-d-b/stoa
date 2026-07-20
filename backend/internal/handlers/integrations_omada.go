@@ -19,8 +19,8 @@ import (
 type OmadaDevice struct {
 	Name        string `json:"name"`
 	Model       string `json:"model"`
-	DeviceType  int    `json:"type"`        // 1=AP, 2=GW, 3=Switch
-	Status      int    `json:"status"`      // 1=online, 0=offline
+	DeviceType  int    `json:"type"`   // 1=AP, 2=GW, 3=Switch
+	Status      int    `json:"status"` // 1=online, 0=offline
 	ClientCount int    `json:"clientCount"`
 	UpTime      int64  `json:"upTime"` // seconds
 }
@@ -28,8 +28,8 @@ type OmadaDevice struct {
 type OmadaClient struct {
 	Name        string  `json:"name"`
 	MAC         string  `json:"mac"`
-	ClientType  int     `json:"type"`        // 0=wireless, 1=wired
-	Band        string  `json:"band"`        // "2.4GHz" / "5GHz"
+	ClientType  int     `json:"type"` // 0=wireless, 1=wired
+	Band        string  `json:"band"` // "2.4GHz" / "5GHz"
 	SSID        string  `json:"ssid"`
 	SignalLevel int     `json:"signalLevel"` // 0-4 bars
 	RxRate      float64 `json:"rxRate"`      // Mbps

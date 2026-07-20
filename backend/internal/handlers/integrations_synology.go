@@ -19,19 +19,19 @@ var errSynoUnauth = errors.New("synology: session invalid")
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type SynologyPanelData struct {
-	UIURL      string          `json:"uiUrl"`
-	Hostname   string          `json:"hostname"`
-	Model      string          `json:"model"`
-	DSMVersion string          `json:"dsmVersion"`
-	UptimeSecs int64           `json:"uptimeSecs"`
-	CPUPercent float64         `json:"cpuPercent"`
-	RAMPercent float64         `json:"ramPercent"`
-	RAMTotalGB float64         `json:"ramTotalGb"`
-	RAMUsedGB  float64         `json:"ramUsedGb"`
-	Volumes    []SynoVolume    `json:"volumes"`
-	Disks      []SynoDisk      `json:"disks"`
-	NetIfaces  []SynoNetIface  `json:"netIfaces"`
-	Shares     []string        `json:"shares"`
+	UIURL      string         `json:"uiUrl"`
+	Hostname   string         `json:"hostname"`
+	Model      string         `json:"model"`
+	DSMVersion string         `json:"dsmVersion"`
+	UptimeSecs int64          `json:"uptimeSecs"`
+	CPUPercent float64        `json:"cpuPercent"`
+	RAMPercent float64        `json:"ramPercent"`
+	RAMTotalGB float64        `json:"ramTotalGb"`
+	RAMUsedGB  float64        `json:"ramUsedGb"`
+	Volumes    []SynoVolume   `json:"volumes"`
+	Disks      []SynoDisk     `json:"disks"`
+	NetIfaces  []SynoNetIface `json:"netIfaces"`
+	Shares     []string       `json:"shares"`
 }
 
 type SynoVolume struct {
@@ -46,9 +46,9 @@ type SynoVolume struct {
 }
 
 type SynoDisk struct {
-	Name        string  `json:"name"`        // "Disk 1"
-	Device      string  `json:"device"`      // "sda"
-	Model       string  `json:"model"`       // "WDC WD40EFRX"
+	Name        string  `json:"name"`   // "Disk 1"
+	Device      string  `json:"device"` // "sda"
+	Model       string  `json:"model"`  // "WDC WD40EFRX"
 	SizeGB      float64 `json:"sizeGb"`
 	TempC       int     `json:"tempC"`
 	Status      string  `json:"status"`      // "normal", "damaged"
@@ -114,9 +114,13 @@ func synoLogin(baseURL, username, password string, skipTLS bool) (string, error)
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		Data    *struct{ SID string `json:"sid"` }  `json:"data"`
-		Error   *struct{ Code int  `json:"code"` }  `json:"error"`
-		Success bool                                 `json:"success"`
+		Data *struct {
+			SID string `json:"sid"`
+		} `json:"data"`
+		Error *struct {
+			Code int `json:"code"`
+		} `json:"error"`
+		Success bool `json:"success"`
 	}
 	if json.Unmarshal(body, &result) != nil {
 		return "", fmt.Errorf("invalid response from Synology — check API URL and port")
@@ -171,9 +175,11 @@ func synoGet(baseURL, sid, api, method string, version int, extra map[string]str
 	body, _ := io.ReadAll(resp.Body)
 
 	var result struct {
-		Data    json.RawMessage                    `json:"data"`
-		Error   *struct{ Code int `json:"code"` } `json:"error"`
-		Success bool                               `json:"success"`
+		Data  json.RawMessage `json:"data"`
+		Error *struct {
+			Code int `json:"code"`
+		} `json:"error"`
+		Success bool `json:"success"`
 	}
 	if json.Unmarshal(body, &result) != nil {
 		return nil, fmt.Errorf("invalid JSON from Synology")
@@ -352,7 +358,9 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 	if raw, err := synoGet(apiURL, sid, "SYNO.Core.Share", "list", 1,
 		map[string]string{"limit": "200", "offset": "0"}, skipTLS); err == nil {
 		var resp struct {
-			Shares []struct{ Name string `json:"name"` } `json:"shares"`
+			Shares []struct {
+				Name string `json:"name"`
+			} `json:"shares"`
 		}
 		if json.Unmarshal(raw, &resp) == nil {
 			for _, s := range resp.Shares {
@@ -414,7 +422,9 @@ func testSynologyConnection(apiURL, apiKey string, skipTLS bool) error {
 	if err != nil {
 		return err
 	}
-	var info struct{ Model string `json:"model"` }
+	var info struct {
+		Model string `json:"model"`
+	}
 	if json.Unmarshal(raw, &info) != nil || info.Model == "" {
 		return fmt.Errorf("unexpected response from Synology — check API URL and port")
 	}

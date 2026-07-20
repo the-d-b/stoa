@@ -45,7 +45,9 @@ func GetAIHistory(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		provider := r.URL.Query().Get("provider")
-		if provider == "" { provider = "claude" }
+		if provider == "" {
+			provider = "claude"
+		}
 		rows, err := db.Query(`
 			SELECT id, role, content, created_at
 			FROM ai_messages WHERE user_id = ? AND provider = ?
@@ -69,7 +71,9 @@ func GetAIHistory(db *sql.DB) http.HandlerFunc {
 			rows.Scan(&m.ID, &m.Role, &m.Content, &m.CreatedAt)
 			msgs = append(msgs, m)
 		}
-		if msgs == nil { msgs = []msg{} }
+		if msgs == nil {
+			msgs = []msg{}
+		}
 		writeJSON(w, http.StatusOK, msgs)
 	}
 }
@@ -79,7 +83,9 @@ func ClearAIHistory(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		provider := r.URL.Query().Get("provider")
-		if provider == "" { provider = "claude" }
+		if provider == "" {
+			provider = "claude"
+		}
 		db.Exec(`DELETE FROM ai_messages WHERE user_id = ? AND provider = ?`, claims.UserID, provider)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "cleared"})
 	}
@@ -98,7 +104,9 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "message required")
 			return
 		}
-		if req.Provider == "" { req.Provider = "claude" }
+		if req.Provider == "" {
+			req.Provider = "claude"
+		}
 
 		// Get API key for the requested provider
 		var secretName, friendlyName string
@@ -156,7 +164,9 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 		if req.Provider == "gemini" {
 			// ── Gemini API ───────────────────────────────────────────────────────
 			// Convert history to Gemini format (role: user/model, parts array)
-			type geminiPart struct { Text string `json:"text"` }
+			type geminiPart struct {
+				Text string `json:"text"`
+			}
 			type geminiContent struct {
 				Role  string       `json:"role"`
 				Parts []geminiPart `json:"parts"`
@@ -164,14 +174,16 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 			var geminiHistory []geminiContent
 			for _, m := range history {
 				role := m.Role
-				if role == "assistant" { role = "model" }
+				if role == "assistant" {
+					role = "model"
+				}
 				geminiHistory = append(geminiHistory, geminiContent{
 					Role:  role,
 					Parts: []geminiPart{{Text: m.Content}},
 				})
 			}
 			body, _ := json.Marshal(map[string]interface{}{
-				"contents":          geminiHistory,
+				"contents": geminiHistory,
 				"systemInstruction": map[string]interface{}{
 					"parts": []geminiPart{{Text: aiSystemPrompt}},
 				},
@@ -196,10 +208,14 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 			scanner.Buffer(make([]byte, 512*1024), 512*1024)
 			for scanner.Scan() {
 				line := scanner.Text()
-				if !strings.HasPrefix(line, "data: ") { continue }
+				if !strings.HasPrefix(line, "data: ") {
+					continue
+				}
 				data := strings.TrimPrefix(line, "data: ")
 				var event map[string]interface{}
-				if json.Unmarshal([]byte(data), &event) != nil { continue }
+				if json.Unmarshal([]byte(data), &event) != nil {
+					continue
+				}
 				if candidates, ok := event["candidates"].([]interface{}); ok && len(candidates) > 0 {
 					if c, ok := candidates[0].(map[string]interface{}); ok {
 						if content, ok := c["content"].(map[string]interface{}); ok {
@@ -209,7 +225,9 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 										fullContent.WriteString(text)
 										chunk, _ := json.Marshal(map[string]string{"text": text})
 										fmt.Fprintf(w, "data: %s\n\n", chunk)
-										if flusher != nil { flusher.Flush() }
+										if flusher != nil {
+											flusher.Flush()
+										}
 									}
 								}
 							}
@@ -246,11 +264,17 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 			scanner.Buffer(make([]byte, 512*1024), 512*1024)
 			for scanner.Scan() {
 				line := scanner.Text()
-				if !strings.HasPrefix(line, "data: ") { continue }
+				if !strings.HasPrefix(line, "data: ") {
+					continue
+				}
 				data := strings.TrimPrefix(line, "data: ")
-				if data == "[DONE]" { break }
+				if data == "[DONE]" {
+					break
+				}
 				var event map[string]interface{}
-				if json.Unmarshal([]byte(data), &event) != nil { continue }
+				if json.Unmarshal([]byte(data), &event) != nil {
+					continue
+				}
 				evType, _ := event["type"].(string)
 				if evType == "content_block_delta" {
 					if delta, ok := event["delta"].(map[string]interface{}); ok {
@@ -258,7 +282,9 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 							fullContent.WriteString(text)
 							chunk, _ := json.Marshal(map[string]string{"text": text})
 							fmt.Fprintf(w, "data: %s\n\n", chunk)
-							if flusher != nil { flusher.Flush() }
+							if flusher != nil {
+								flusher.Flush()
+							}
 						}
 					}
 				}
@@ -272,6 +298,8 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 		}
 
 		fmt.Fprintf(w, "data: %s\n\n", `{"done":true}`)
-		if flusher != nil { flusher.Flush() }
+		if flusher != nil {
+			flusher.Flush()
+		}
 	}
 }

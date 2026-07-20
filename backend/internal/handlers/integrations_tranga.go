@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 
@@ -75,7 +74,7 @@ func fetchTrangaPanelData(db *sql.DB, config map[string]interface{}) (*TrangaPan
 	// ── Currently downloading ─────────────────────────────────────────────────
 	body, err = arrGet(apiURL, apiKey, "/v2/Manga/Downloading", skipTLS)
 	if err != nil {
-		log.Printf("[TRANGA] Downloading error: %v", err)
+		logErrorf("TRANGA", "Downloading error: %v", err)
 	} else {
 		var arr []map[string]interface{}
 		if json.Unmarshal(body, &arr) == nil {

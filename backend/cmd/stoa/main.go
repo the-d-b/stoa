@@ -30,6 +30,9 @@ func main() {
 		log.Fatalf("failed to run migrations: %v", err)
 	}
 
+	// Logging level: STOA_LOG_LEVEL env → persisted admin setting → error
+	handlers.InitLogLevel(database)
+
 	// Initialise secret encryption key and upgrade any legacy plaintext secrets.
 	handlers.InitSecretKey(database)
 	handlers.ReencryptLegacySecrets(database)
@@ -338,6 +341,8 @@ func main() {
 	admin.HandleFunc("/mail-config/test", handlers.TestMailConfig(database)).Methods("POST")
 	admin.HandleFunc("/session-config", handlers.GetSessionConfig(database)).Methods("GET")
 	admin.HandleFunc("/session-config", handlers.SaveSessionConfig(database)).Methods("PUT")
+	admin.HandleFunc("/log-config", handlers.GetLogConfig()).Methods("GET")
+	admin.HandleFunc("/log-config", handlers.SaveLogConfig(database)).Methods("PUT")
 	admin.HandleFunc("/attachment-config", handlers.GetAttachmentConfig(database)).Methods("GET")
 	admin.HandleFunc("/attachment-config", handlers.SaveAttachmentConfig(database)).Methods("PUT")
 
@@ -458,7 +463,7 @@ func main() {
 	// Worker manager — cold start, spins up on first SSE client, down after 600s idle
 	handlers.NewWorkerManager(database, 600*time.Second)
 	log.Printf("Stoa listening on :%s", port)
-	if err := http.ListenAndServe(":"+port, c.Handler(r)); err != nil {
+	if err := http.ListenAndServe(":"+port, handlers.AccessLogMiddleware(c.Handler(r))); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

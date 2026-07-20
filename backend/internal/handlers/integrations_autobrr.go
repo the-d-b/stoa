@@ -23,14 +23,14 @@ type AutobrrIRCNetwork struct {
 }
 
 type AutobrrRelease struct {
-	ID         int    `json:"id"`
-	Name       string `json:"name"`
-	Indexer    string `json:"indexer"`
-	Filter     string `json:"filter"`
-	Status     string `json:"status"`     // "grabbed", "rejected", "push_error", "filtered"
-	Action     string `json:"action"`     // download client / *arr name
-	Rejection  string `json:"rejection"`  // first rejection reason
-	Timestamp  string `json:"timestamp"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	Indexer   string `json:"indexer"`
+	Filter    string `json:"filter"`
+	Status    string `json:"status"`    // "grabbed", "rejected", "push_error", "filtered"
+	Action    string `json:"action"`    // download client / *arr name
+	Rejection string `json:"rejection"` // first rejection reason
+	Timestamp string `json:"timestamp"`
 }
 
 type AutobrrPanelData struct {
@@ -212,7 +212,9 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 
 			// Indexer: may be object or string
 			if len(r.Indexer) > 0 && r.Indexer[0] == '{' {
-				var obj struct{ Name string `json:"name"` }
+				var obj struct {
+					Name string `json:"name"`
+				}
 				if json.Unmarshal(r.Indexer, &obj) == nil {
 					rel.Indexer = obj.Name
 				}
@@ -222,7 +224,9 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 
 			// Filter: may be object or string
 			if len(r.Filter) > 0 && r.Filter[0] == '{' {
-				var obj struct{ Name string `json:"name"` }
+				var obj struct {
+					Name string `json:"name"`
+				}
 				if json.Unmarshal(r.Filter, &obj) == nil {
 					rel.Filter = obj.Name
 				}

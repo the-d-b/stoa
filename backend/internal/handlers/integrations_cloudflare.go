@@ -23,7 +23,7 @@ type CloudflareZone struct {
 	// Analytics (last 24h)
 	Requests       int64 `json:"requests"`
 	CachedRequests int64 `json:"cachedRequests"`
-	Bandwidth      int64 `json:"bandwidth"`   // bytes
+	Bandwidth      int64 `json:"bandwidth"` // bytes
 	Threats        int64 `json:"threats"`
 	Uniques        int64 `json:"uniques"`
 	PageViews      int64 `json:"pageViews"`
@@ -126,11 +126,11 @@ func cfFetchZones(apiKey string) ([]CloudflareZone, string, error) {
 		return nil, "", err
 	}
 	var raw []struct {
-		ID      string `json:"id"`
-		Name    string `json:"name"`
-		Status  string `json:"status"`
-		Paused  bool   `json:"paused"`
-		Plan    struct {
+		ID     string `json:"id"`
+		Name   string `json:"name"`
+		Status string `json:"status"`
+		Paused bool   `json:"paused"`
+		Plan   struct {
 			Name string `json:"name"`
 		} `json:"plan"`
 		Account struct {
@@ -396,7 +396,9 @@ func testCloudflareConnection(_, apiKey string, _ bool) error {
 		if err2 != nil {
 			return fmt.Errorf("authentication failed: %w", err)
 		}
-		var check struct{ Success bool `json:"success"` }
+		var check struct {
+			Success bool `json:"success"`
+		}
 		if json.Unmarshal(body2, &check) != nil || !check.Success {
 			return fmt.Errorf("invalid response from Cloudflare API")
 		}

@@ -14,9 +14,9 @@ import (
 // Package-level HTTP clients with connection pooling and TLS session reuse.
 // Creating a new client per request defeats keep-alive and TLS resumption.
 var (
-	_httpClient *http.Client
-	_httpClientSkipTLS *http.Client
-	_httpClientOnce    sync.Once
+	_httpClient            *http.Client
+	_httpClientSkipTLS     *http.Client
+	_httpClientOnce        sync.Once
 	_httpClientSkipTLSOnce sync.Once
 )
 
@@ -25,13 +25,13 @@ func httpClient(skipTLS bool) *http.Client {
 		_httpClientSkipTLSOnce.Do(func() {
 			_httpClientSkipTLS = &http.Client{
 				Timeout: 15 * time.Second,
-				Transport: &http.Transport{
+				Transport: loggingTransport{base: &http.Transport{
 					TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 					MaxIdleConns:        50,
 					MaxIdleConnsPerHost: 10,
 					IdleConnTimeout:     90 * time.Second,
 					TLSHandshakeTimeout: 10 * time.Second,
-				},
+				}},
 			}
 		})
 		return _httpClientSkipTLS
@@ -39,12 +39,12 @@ func httpClient(skipTLS bool) *http.Client {
 	_httpClientOnce.Do(func() {
 		_httpClient = &http.Client{
 			Timeout: 15 * time.Second,
-			Transport: &http.Transport{
+			Transport: loggingTransport{base: &http.Transport{
 				MaxIdleConns:        50,
 				MaxIdleConnsPerHost: 10,
 				IdleConnTimeout:     90 * time.Second,
 				TLSHandshakeTimeout: 10 * time.Second,
-			},
+			}},
 		}
 	})
 	return _httpClient
@@ -98,4 +98,3 @@ func arrGet(apiURL, apiKey, path string, skipTLS ...bool) ([]byte, error) {
 	}
 	return io.ReadAll(resp.Body)
 }
-

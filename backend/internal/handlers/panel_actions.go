@@ -275,9 +275,12 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 
 			switch srcType {
 			case "google":
+				// Not 401 — the frontend treats 401 as an expired Stoa session
+				// and redirects to login; this is an upstream problem
 				accessToken, err := GetValidAccessToken(db, req.IntegrationID)
 				if err != nil {
-					writeError(w, http.StatusUnauthorized, "Google account token unavailable: "+err.Error())
+					writeError(w, http.StatusBadGateway,
+						"Google account unavailable — reconnect it (Profile → Google) and re-add the calendar source if it was removed: "+err.Error())
 					return
 				}
 				if err := CreateGoogleCalendarEvent(accessToken, req.CalendarID, req.Title, req.Date, req.StartDT, req.EndDT); err != nil {

@@ -9,12 +9,12 @@ import (
 func TestDueSoonEvents(t *testing.T) {
 	now := time.Date(2026, 7, 19, 8, 0, 0, 0, time.Local)
 	items := []dueItem{
-		{Title: "Electric", DueDate: "2026-07-28"},  // due in 9d → event on 25th
-		{Title: "Rent", DueDate: "2026-07-20"},      // due tomorrow → lead clamps to today
-		{Title: "Water", DueDate: "2026-07-19"},     // due today → clamps to today
-		{Title: "Old bill", DueDate: "2026-07-18"},  // past due → dropped
-		{Title: "Far out", DueDate: "2026-09-01"},   // beyond 30d window → dropped
-		{Title: "Bad date", DueDate: "not-a-date"},  // unparseable → dropped
+		{Title: "Electric", DueDate: "2026-07-28"}, // due in 9d → event on 25th
+		{Title: "Rent", DueDate: "2026-07-20"},     // due tomorrow → lead clamps to today
+		{Title: "Water", DueDate: "2026-07-19"},    // due today → clamps to today
+		{Title: "Old bill", DueDate: "2026-07-18"}, // past due → dropped
+		{Title: "Far out", DueDate: "2026-09-01"},  // beyond 30d window → dropped
+		{Title: "Bad date", DueDate: "not-a-date"}, // unparseable → dropped
 	}
 
 	events := dueSoonEvents(items, "My Budget", "http://actual.local", "#14b8a6", 30, now)

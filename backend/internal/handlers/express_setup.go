@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 
@@ -106,7 +105,7 @@ func ExpressSetupRun(db *sql.DB) http.HandlerFunc {
 			entry := resultEntry{Type: svc.Type}
 			integID, err := createExpressBundle(db, svc, req.PanelHeight, ownerID)
 			if err != nil {
-				log.Printf("[EXPRESS SETUP] %s error: %v", svc.Type, err)
+				logErrorf("EXPRESS SETUP", "%s error: %v", svc.Type, err)
 				entry.Error = err.Error()
 			} else {
 				entry.Created = true

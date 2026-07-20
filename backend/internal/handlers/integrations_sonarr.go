@@ -9,24 +9,24 @@ import (
 )
 
 type SonarrPanelData struct {
-	UIURL          string          `json:"uiUrl"`
-	Upcoming       []SonarrEpisode `json:"upcoming"`
-	History        []SonarrHistory `json:"history"`
-	ZeroByte       []SonarrSeries  `json:"zeroByte"`
-	ZeroByteCount  int             `json:"zeroByteCount"`
-	SeriesCount    int             `json:"seriesCount"`
-	EpisodeCount   int             `json:"episodeCount"`
-	OnDiskCount    int             `json:"onDiskCount"`
+	UIURL         string          `json:"uiUrl"`
+	Upcoming      []SonarrEpisode `json:"upcoming"`
+	History       []SonarrHistory `json:"history"`
+	ZeroByte      []SonarrSeries  `json:"zeroByte"`
+	ZeroByteCount int             `json:"zeroByteCount"`
+	SeriesCount   int             `json:"seriesCount"`
+	EpisodeCount  int             `json:"episodeCount"`
+	OnDiskCount   int             `json:"onDiskCount"`
 }
 
 type SonarrEpisode struct {
-	ID          int    `json:"id"`
-	SeriesTitle string `json:"seriesTitle"`
-	TitleSlug   string `json:"titleSlug"`
-	Title       string `json:"title"`
-	Season      int    `json:"season"`
-	Episode     int    `json:"episode"`
-	AirDate     string `json:"airDate"`
+	ID            int    `json:"id"`
+	SeriesTitle   string `json:"seriesTitle"`
+	TitleSlug     string `json:"titleSlug"`
+	Title         string `json:"title"`
+	Season        int    `json:"season"`
+	Episode       int    `json:"episode"`
+	AirDate       string `json:"airDate"`
 	HasFile       bool   `json:"hasFile"`
 	PosterURL     string `json:"posterUrl,omitempty"`
 	Certification string `json:"certification,omitempty"`
@@ -57,20 +57,30 @@ type SonarrSeries struct {
 // allowedRatings parses comma-separated ratings config. Returns nil = no filter.
 func sonarrAllowedRatings(config map[string]interface{}) map[string]bool {
 	raw, _ := config["allowedRatings"].(string)
-	if raw == "" { return nil }
+	if raw == "" {
+		return nil
+	}
 	set := map[string]bool{}
 	for _, r := range strings.Split(raw, ",") {
 		r = strings.TrimSpace(strings.ToUpper(r))
-		if r != "" { set[r] = true }
+		if r != "" {
+			set[r] = true
+		}
 	}
-	if len(set) == 0 { return nil }
+	if len(set) == 0 {
+		return nil
+	}
 	return set
 }
 
 func sonarrRatingAllowed(certification string, filter map[string]bool) bool {
-	if filter == nil { return true }
+	if filter == nil {
+		return true
+	}
 	c := strings.TrimSpace(strings.ToUpper(certification))
-	if c == "" || c == "NR" || c == "NOT RATED" { return false }
+	if c == "" || c == "NR" || c == "NOT RATED" {
+		return false
+	}
 	return filter[c]
 }
 
@@ -130,10 +140,18 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				PosterURL:     posterURL,
 				Certification: certification,
 			}
-			if t, ok := ep["title"].(string); ok { e.Title = t }
-			if s, ok := ep["seasonNumber"].(float64); ok { e.Season = int(s) }
-			if n, ok := ep["episodeNumber"].(float64); ok { e.Episode = int(n) }
-			if i, ok := ep["id"].(float64); ok { e.ID = int(i) }
+			if t, ok := ep["title"].(string); ok {
+				e.Title = t
+			}
+			if s, ok := ep["seasonNumber"].(float64); ok {
+				e.Season = int(s)
+			}
+			if n, ok := ep["episodeNumber"].(float64); ok {
+				e.Episode = int(n)
+			}
+			if i, ok := ep["id"].(float64); ok {
+				e.ID = int(i)
+			}
 			if sonarrRatingAllowed(e.Certification, sonarrAllowedRatings(config)) {
 				data.Upcoming = append(data.Upcoming, e)
 			}
@@ -149,7 +167,9 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		if records, ok := histResp["records"].([]interface{}); ok {
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
-				if rec == nil { continue }
+				if rec == nil {
+					continue
+				}
 				series, _ := rec["series"].(map[string]interface{})
 				episode, _ := rec["episode"].(map[string]interface{})
 				seriesTitle, titleSlug := "", ""
@@ -164,8 +184,12 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				season, epNum := 0, 0
 				if episode != nil {
 					epTitle, _ = episode["title"].(string)
-					if s, ok := episode["seasonNumber"].(float64); ok { season = int(s) }
-					if n, ok := episode["episodeNumber"].(float64); ok { epNum = int(n) }
+					if s, ok := episode["seasonNumber"].(float64); ok {
+						season = int(s)
+					}
+					if n, ok := episode["episodeNumber"].(float64); ok {
+						epNum = int(n)
+					}
 				}
 				hPoster := ""
 				if series != nil {
@@ -189,7 +213,9 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				if series != nil {
 					histCert, _ = series["certification"].(string)
 				}
-				if !sonarrRatingAllowed(histCert, sonarrAllowedRatings(config)) { continue }
+				if !sonarrRatingAllowed(histCert, sonarrAllowedRatings(config)) {
+					continue
+				}
 				data.History = append(data.History, SonarrHistory{
 					SeriesTitle:   seriesTitle,
 					TitleSlug:     titleSlug,
@@ -216,15 +242,25 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 		statistics, _ := s["statistics"].(map[string]interface{})
 		episodeFileCount := 0
 		if statistics != nil {
-			if v, ok := statistics["episodeFileCount"].(float64); ok { episodeFileCount = int(v) }
-			if v, ok := statistics["episodeCount"].(float64); ok { data.EpisodeCount += int(v) }
+			if v, ok := statistics["episodeFileCount"].(float64); ok {
+				episodeFileCount = int(v)
+			}
+			if v, ok := statistics["episodeCount"].(float64); ok {
+				data.EpisodeCount += int(v)
+			}
 			data.OnDiskCount += episodeFileCount
 		}
 		ss := SonarrSeries{}
 		ss.Title, _ = s["title"].(string)
-		if y, ok := s["year"].(float64); ok { ss.Year = int(y) }
-		if i, ok := s["id"].(float64); ok { ss.ID = int(i) }
-		if slug, ok := s["titleSlug"].(string); ok { ss.TitleSlug = slug }
+		if y, ok := s["year"].(float64); ok {
+			ss.Year = int(y)
+		}
+		if i, ok := s["id"].(float64); ok {
+			ss.ID = int(i)
+		}
+		if slug, ok := s["titleSlug"].(string); ok {
+			ss.TitleSlug = slug
+		}
 		ss.Certification, _ = s["certification"].(string)
 		// Extract poster URL from library
 		if images, ok := s["images"].([]interface{}); ok {

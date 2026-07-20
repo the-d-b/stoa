@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -122,7 +121,7 @@ func fetchMylar3PanelData(db *sql.DB, config map[string]interface{}) (*Mylar3Pan
 	// Fields: ComicID, ComicName, Issue_Number, IssueName, ReleaseDate
 	body, err = mylar3Get(apiURL, apiKey, "getWanted", nil, skipTLS)
 	if err != nil {
-		log.Printf("[MYLAR3] getWanted error: %v", err)
+		logErrorf("MYLAR3", "getWanted error: %v", err)
 	} else {
 		var wantedResp struct {
 			Issues []map[string]interface{} `json:"issues"`
@@ -147,7 +146,7 @@ func fetchMylar3PanelData(db *sql.DB, config map[string]interface{}) (*Mylar3Pan
 	// ── getUpcoming — bare array [], not wrapped in an object
 	body, err = mylar3Get(apiURL, apiKey, "getUpcoming", nil, skipTLS)
 	if err != nil {
-		log.Printf("[MYLAR3] getUpcoming error: %v", err)
+		logErrorf("MYLAR3", "getUpcoming error: %v", err)
 	} else {
 		var upcomingArr []map[string]interface{}
 		if json.Unmarshal(body, &upcomingArr) == nil {

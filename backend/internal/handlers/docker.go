@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"sync"
@@ -46,9 +45,9 @@ type DockerHostData struct {
 }
 
 type DockerConfig struct {
-	Enabled  bool            `json:"enabled"`
-	Groups   []models.Group  `json:"groups"`
-	GroupIDs []string        `json:"groupIds"`
+	Enabled  bool           `json:"enabled"`
+	Groups   []models.Group `json:"groups"`
+	GroupIDs []string       `json:"groupIds"`
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -100,11 +99,11 @@ func fetchContainersWithStats(client *http.Client, baseURL string) ([]DockerCont
 	}
 
 	var raw []struct {
-		ID    string   `json:"Id"`
-		Names []string `json:"Names"`
-		Image string   `json:"Image"`
-		State string   `json:"State"`
-		Status string  `json:"Status"`
+		ID     string   `json:"Id"`
+		Names  []string `json:"Names"`
+		Image  string   `json:"Image"`
+		State  string   `json:"State"`
+		Status string   `json:"Status"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
 		return nil, fmt.Errorf("decode: %w", err)
@@ -452,7 +451,7 @@ func GetDockerContainers(db *sql.DB) http.HandlerFunc {
 				containers, err := fetchContainersWithStats(client, baseURL)
 				entry := DockerHostData{DockerHostRow: host}
 				if err != nil {
-					log.Printf("[DOCKER] host %s (%s) error: %v", host.Name, host.Type, err)
+					logErrorf("DOCKER", "host %s (%s) error: %v", host.Name, host.Type, err)
 					entry.Error = err.Error()
 					entry.Containers = []DockerContainer{}
 				} else {
@@ -532,7 +531,7 @@ func DockerContainerAction(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		log.Printf("[DOCKER] %s container %s on host %s by user %s", action, containerID[:12], host.Name, claims.Username)
+		logDebugf("DOCKER", "%s container %s on host %s by user %s", action, containerID[:12], host.Name, claims.Username)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }

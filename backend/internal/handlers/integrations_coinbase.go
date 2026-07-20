@@ -109,9 +109,9 @@ func normalizePEM(input string) string {
 // Coinbase CDP issues EC P-256 keys (ES256) or Ed25519 keys (EdDSA) depending
 // on the portal; the newer cdp.coinbase.com portal issues Ed25519.
 type coinbaseKey struct {
-	alg     string
-	ecKey   *ecdsa.PrivateKey
-	edKey   ed25519.PrivateKey
+	alg   string
+	ecKey *ecdsa.PrivateKey
+	edKey ed25519.PrivateKey
 }
 
 // parseCoinbaseKey accepts the secret portion of the Coinbase CDP credential

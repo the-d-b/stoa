@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -73,7 +72,7 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 			data.Hostname = ip.Hostname
 		}
 	} else {
-		log.Printf("[GLUETUN] publicip error: %v", err)
+		logErrorf("GLUETUN", "publicip error: %v", err)
 		if gluetunAuthDenied(err) {
 			if apiKey == "" {
 				data.Warning = "Public IP needs an API key — Gluetun v3.40+ restricts this route. See the Gluetun integration docs."
@@ -107,7 +106,7 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 			data.ServerName = settings.ServerName
 		}
 	} else {
-		log.Printf("[GLUETUN] vpn/settings error: %v", err)
+		logErrorf("GLUETUN", "vpn/settings error: %v", err)
 	}
 
 	return data, nil

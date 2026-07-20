@@ -12,34 +12,34 @@ import (
 // ── TrueNAS types ─────────────────────────────────────────────────────────────
 
 type TrueNASPanelData struct {
-	UIURL        string         `json:"uiUrl"`
-	Hostname     string         `json:"hostname"`
-	Version      string         `json:"version"`
-	TotalRAM     string         `json:"totalRam"`
-	CPUModel     string         `json:"cpuModel"`
-	CPUCores     int            `json:"cpuCores"`
-	CPUPercent   float64        `json:"cpuPercent"`
-	CPUTempC     float64        `json:"cpuTempC"`
-	RAMUsedGB    float64        `json:"ramUsedGb"`
-	RAMTotalGB   float64        `json:"ramTotalGb"`
-	RAMPercent   float64        `json:"ramPercent"`
-	ARCUsedGB    float64        `json:"arcUsedGb"`
-	DiskReadMBs  float64        `json:"diskReadMbs"`
-	DiskWriteMBs float64        `json:"diskWriteMbs"`
-	DiskBusy     float64        `json:"diskBusy"`
+	UIURL         string         `json:"uiUrl"`
+	Hostname      string         `json:"hostname"`
+	Version       string         `json:"version"`
+	TotalRAM      string         `json:"totalRam"`
+	CPUModel      string         `json:"cpuModel"`
+	CPUCores      int            `json:"cpuCores"`
+	CPUPercent    float64        `json:"cpuPercent"`
+	CPUTempC      float64        `json:"cpuTempC"`
+	RAMUsedGB     float64        `json:"ramUsedGb"`
+	RAMTotalGB    float64        `json:"ramTotalGb"`
+	RAMPercent    float64        `json:"ramPercent"`
+	ARCUsedGB     float64        `json:"arcUsedGb"`
+	DiskReadMBs   float64        `json:"diskReadMbs"`
+	DiskWriteMBs  float64        `json:"diskWriteMbs"`
+	DiskBusy      float64        `json:"diskBusy"`
 	NetInterfaces []TrueNASIface `json:"netInterfaces"`
-	Pools        []TrueNASPool  `json:"pools"`
-	Alerts       []TrueNASAlert `json:"alerts"`
-	Disks        []TrueNASDisk  `json:"disks"`
-	VMs          []TrueNASVM    `json:"vms"`
-	Apps         []TrueNASApp   `json:"apps"`
+	Pools         []TrueNASPool  `json:"pools"`
+	Alerts        []TrueNASAlert `json:"alerts"`
+	Disks         []TrueNASDisk  `json:"disks"`
+	VMs           []TrueNASVM    `json:"vms"`
+	Apps          []TrueNASApp   `json:"apps"`
 }
 
 type TrueNASIface struct {
-	Name     string  `json:"name"`
-	RxMBs    float64 `json:"rxMbs"`
-	TxMBs    float64 `json:"txMbs"`
-	LinkUp   bool    `json:"linkUp"`
+	Name   string  `json:"name"`
+	RxMBs  float64 `json:"rxMbs"`
+	TxMBs  float64 `json:"txMbs"`
+	LinkUp bool    `json:"linkUp"`
 }
 
 type TrueNASPool struct {

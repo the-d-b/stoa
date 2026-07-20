@@ -58,11 +58,11 @@ type embyItemsResponse struct {
 }
 
 type embySessionResponse struct {
-	UserName        string           `json:"UserName"`
-	Client          string           `json:"Client"`
-	NowPlayingItem  *embyNowPlaying  `json:"NowPlayingItem"`
-	PlayState       *embyPlayState   `json:"PlayState"`
-	TranscodingInfo *embyTranscode   `json:"TranscodingInfo"`
+	UserName        string          `json:"UserName"`
+	Client          string          `json:"Client"`
+	NowPlayingItem  *embyNowPlaying `json:"NowPlayingItem"`
+	PlayState       *embyPlayState  `json:"PlayState"`
+	TranscodingInfo *embyTranscode  `json:"TranscodingInfo"`
 }
 
 type embyNowPlaying struct {

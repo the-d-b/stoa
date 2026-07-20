@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 
@@ -125,7 +124,7 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 			}
 		}
 	} else {
-		log.Printf("[Komga] libraries error: %v", lerr)
+		logErrorf("Komga", "libraries error: %v", lerr)
 	}
 
 	// Series count (size=1 to avoid transferring full result set)
@@ -167,7 +166,7 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 			}
 		}
 	} else {
-		log.Printf("[Komga] recently-added error: %v", rerr)
+		logErrorf("Komga", "recently-added error: %v", rerr)
 	}
 
 	// Group recently added by library for per-library cover strips

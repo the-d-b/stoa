@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -30,7 +29,7 @@ func getOrCreateVAPIDKeys(db *sql.DB) (privateKey, publicKey string, err error) 
 		ON CONFLICT(key) DO UPDATE SET value=excluded.value`, privateKey)
 	db.Exec(`INSERT INTO app_config (key, value) VALUES ('vapid_public_key', ?)
 		ON CONFLICT(key) DO UPDATE SET value=excluded.value`, publicKey)
-	log.Printf("[PUSH] generated new VAPID key pair")
+	logDebugf("PUSH", "generated new VAPID key pair")
 	return privateKey, publicKey, nil
 }
 
@@ -69,11 +68,11 @@ func SubscribePush(db *sql.DB) http.HandlerFunc {
 		`, id, claims.UserID, req.Endpoint, req.Keys.P256dh, req.Keys.Auth,
 			time.Now().UTC().Format(time.RFC3339))
 		if err != nil {
-			log.Printf("[PUSH] subscribe error: %v", err)
+			logErrorf("PUSH", "subscribe error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to save subscription")
 			return
 		}
-		log.Printf("[PUSH] user=%s subscribed endpoint=%s", claims.UserID, req.Endpoint[:min(40, len(req.Endpoint))])
+		logDebugf("PUSH", "user=%s subscribed endpoint=%s", claims.UserID, req.Endpoint[:min(40, len(req.Endpoint))])
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -82,7 +81,9 @@ func SubscribePush(db *sql.DB) http.HandlerFunc {
 func UnsubscribePush(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		var req struct{ Endpoint string `json:"endpoint"` }
+		var req struct {
+			Endpoint string `json:"endpoint"`
+		}
 		json.NewDecoder(r.Body).Decode(&req)
 		if req.Endpoint != "" {
 			db.Exec(`DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?`,
@@ -144,7 +145,7 @@ func SendPushToUser(db *sql.DB, userID, title, body string) {
 func SendPushToOfflineUsers(db *sql.DB, senderID, title, body string) {
 	privateKey, publicKey, err := getOrCreateVAPIDKeys(db)
 	if err != nil {
-		log.Printf("[PUSH] VAPID key error: %v", err)
+		logErrorf("PUSH", "VAPID key error: %v", err)
 		return
 	}
 
@@ -154,7 +155,7 @@ func SendPushToOfflineUsers(db *sql.DB, senderID, title, body string) {
 		WHERE user_id != ?
 	`, senderID)
 	if err != nil {
-		log.Printf("[PUSH] query error: %v", err)
+		logErrorf("PUSH", "query error: %v", err)
 		return
 	}
 	defer rows.Close()
@@ -187,14 +188,14 @@ func SendPushToOfflineUsers(db *sql.DB, senderID, title, body string) {
 				TTL:             60,
 			})
 			if err != nil {
-				log.Printf("[PUSH] send error user=%s: %v", s.userID, err)
+				logErrorf("PUSH", "send error user=%s: %v", s.userID, err)
 				if resp != nil && (resp.StatusCode == 410 || resp.StatusCode == 404) {
 					db.Exec(`DELETE FROM push_subscriptions WHERE endpoint = ?`, s.endpoint)
 				}
 				return
 			}
 			resp.Body.Close()
-			log.Printf("[PUSH] sent to user=%s status=%d", s.userID, resp.StatusCode)
+			logDebugf("PUSH", "sent to user=%s status=%d", s.userID, resp.StatusCode)
 		}(s)
 	}
 }

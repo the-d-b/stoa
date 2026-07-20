@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sort"
 )
@@ -13,19 +12,19 @@ import (
 // ── Steam types ───────────────────────────────────────────────────────────────
 
 type SteamPlayer struct {
-	SteamID      string `json:"steamId"`
-	Username     string `json:"username"`
-	AvatarURL    string `json:"avatarUrl"`
-	ProfileURL   string `json:"profileUrl"`
-	OnlineState  string `json:"onlineState"` // "online","offline","in-game"
-	GamePlaying  string `json:"gamePlaying,omitempty"`
+	SteamID     string `json:"steamId"`
+	Username    string `json:"username"`
+	AvatarURL   string `json:"avatarUrl"`
+	ProfileURL  string `json:"profileUrl"`
+	OnlineState string `json:"onlineState"` // "online","offline","in-game"
+	GamePlaying string `json:"gamePlaying,omitempty"`
 }
 
 type SteamGame struct {
 	AppID       int    `json:"appId"`
 	Name        string `json:"name"`
 	PlaytimeMin int    `json:"playtimeMin"` // total lifetime minutes
-	Recent2Wk  int    `json:"recent2wk"`  // minutes last 2 weeks
+	Recent2Wk   int    `json:"recent2wk"`   // minutes last 2 weeks
 	IconURL     string `json:"iconUrl,omitempty"`
 	HeaderURL   string `json:"headerUrl"`
 }
@@ -48,21 +47,23 @@ type SteamFeatured struct {
 }
 
 type SteamPanelData struct {
-	Player      SteamPlayer      `json:"player"`
-	TotalGames  int              `json:"totalGames"`
-	TotalHours  float64          `json:"totalHours"`
-	TopPlayed   []SteamGame      `json:"topPlayed"`     // top 10 by playtime
-	Recent      []SteamGame      `json:"recent"`        // played last 2 weeks
+	Player       SteamPlayer        `json:"player"`
+	TotalGames   int                `json:"totalGames"`
+	TotalHours   float64            `json:"totalHours"`
+	TopPlayed    []SteamGame        `json:"topPlayed"`    // top 10 by playtime
+	Recent       []SteamGame        `json:"recent"`       // played last 2 weeks
 	Achievements []SteamAchievement `json:"achievements"` // recent unlocks from top 3 played
-	Featured    []SteamFeatured  `json:"featured"`      // store sales
-	NewReleases []SteamFeatured  `json:"newReleases"`   // new on Steam
+	Featured     []SteamFeatured    `json:"featured"`     // store sales
+	NewReleases  []SteamFeatured    `json:"newReleases"`  // new on Steam
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
 func steamGet(url string) ([]byte, error) {
 	resp, err := http.Get(url)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	defer resp.Body.Close()
 	return io.ReadAll(resp.Body)
 }
@@ -114,7 +115,9 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 	body, err := steamGet(fmt.Sprintf(
 		"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key=%s&steamids=%s",
 		apiKey, steamID))
-	if err != nil { return nil, fmt.Errorf("player summary: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("player summary: %w", err)
+	}
 	var ps struct {
 		Response struct {
 			Players []struct {
@@ -131,8 +134,12 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 	if len(ps.Response.Players) > 0 {
 		p := ps.Response.Players[0]
 		state := "offline"
-		if p.PersonaState == 1 { state = "online" }
-		if p.GameExtraInfo != "" { state = "in-game" }
+		if p.PersonaState == 1 {
+			state = "online"
+		}
+		if p.GameExtraInfo != "" {
+			state = "in-game"
+		}
 		data.Player = SteamPlayer{
 			SteamID:     p.SteamID,
 			Username:    p.PersonaName,
@@ -148,7 +155,9 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 		"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=%s&steamid=%s"+
 			"&include_appinfo=true&include_played_free_games=true",
 		apiKey, steamID))
-	if err != nil { return nil, fmt.Errorf("owned games: %w", err) }
+	if err != nil {
+		return nil, fmt.Errorf("owned games: %w", err)
+	}
 	var og struct {
 		Response struct {
 			GameCount int `json:"game_count"`
@@ -184,7 +193,11 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 
 	// Top 10 by playtime
 	sort.Slice(games, func(i, j int) bool { return games[i].PlaytimeMin > games[j].PlaytimeMin })
-	if len(games) > 10 { data.TopPlayed = games[:10] } else { data.TopPlayed = games }
+	if len(games) > 10 {
+		data.TopPlayed = games[:10]
+	} else {
+		data.TopPlayed = games
+	}
 
 	// ── Recent activity (last 2 weeks) ────────────────────────────────────────
 	body, err = steamGet(fmt.Sprintf(
@@ -203,34 +216,40 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 		json.Unmarshal(body, &rp)
 		for _, g := range rp.Response.Games {
 			data.Recent = append(data.Recent, SteamGame{
-				AppID:      g.AppID,
-				Name:       g.Name,
+				AppID:     g.AppID,
+				Name:      g.Name,
 				Recent2Wk: g.Playtime2weeks,
-				HeaderURL:  fmt.Sprintf("https://cdn.cloudflare.steamstatic.com/steam/apps/%d/header.jpg", g.AppID),
+				HeaderURL: fmt.Sprintf("https://cdn.cloudflare.steamstatic.com/steam/apps/%d/header.jpg", g.AppID),
 			})
 		}
 	}
 
 	// ── Achievements — only for top 3 most played (avoid API flood) ───────────
 	top3 := data.TopPlayed
-	if len(top3) > 3 { top3 = top3[:3] }
+	if len(top3) > 3 {
+		top3 = top3[:3]
+	}
 	for _, g := range top3 {
 		body, err = steamGet(fmt.Sprintf(
 			"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key=%s&steamid=%s&appid=%d&l=en",
 			apiKey, steamID, g.AppID))
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		var ach struct {
 			PlayerStats struct {
 				Achievements []struct {
-					APIName    string `json:"apiname"`
-					Achieved   int    `json:"achieved"`
-					UnlockTime int64  `json:"unlocktime"`
-					Name       string `json:"name"`
+					APIName     string `json:"apiname"`
+					Achieved    int    `json:"achieved"`
+					UnlockTime  int64  `json:"unlocktime"`
+					Name        string `json:"name"`
 					Description string `json:"description"`
 				} `json:"achievements"`
 			} `json:"playerstats"`
 		}
-		if json.Unmarshal(body, &ach) != nil { continue }
+		if json.Unmarshal(body, &ach) != nil {
+			continue
+		}
 		// Only recently unlocked, newest first
 		var unlocked []SteamAchievement
 		for _, a := range ach.PlayerStats.Achievements {
@@ -246,12 +265,16 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 			}
 		}
 		sort.Slice(unlocked, func(i, j int) bool { return unlocked[i].Unlocked > unlocked[j].Unlocked })
-		if len(unlocked) > 5 { unlocked = unlocked[:5] }
+		if len(unlocked) > 5 {
+			unlocked = unlocked[:5]
+		}
 		data.Achievements = append(data.Achievements, unlocked...)
 	}
 	// Sort all achievements by unlock time, keep top 10
 	sort.Slice(data.Achievements, func(i, j int) bool { return data.Achievements[i].Unlocked > data.Achievements[j].Unlocked })
-	if len(data.Achievements) > 10 { data.Achievements = data.Achievements[:10] }
+	if len(data.Achievements) > 10 {
+		data.Achievements = data.Achievements[:10]
+	}
 
 	// ── Featured/sales + new releases from Steam store ──────────────────────
 	body, err = steamGet("https://store.steampowered.com/api/featuredcategories?cc=us&l=en")
@@ -262,25 +285,37 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 			extractItems := func(category string, limit int) []SteamFeatured {
 				var out []SteamFeatured
 				cat, ok := fc[category].(map[string]interface{})
-				if !ok { return out }
+				if !ok {
+					return out
+				}
 				items, ok := cat["items"].([]interface{})
-				if !ok { return out }
+				if !ok {
+					return out
+				}
 				for _, item := range items {
 					m, ok := item.(map[string]interface{})
-					if !ok { continue }
+					if !ok {
+						continue
+					}
 					appID := int(toFloat(m["id"]))
 					name, _ := m["name"].(string)
 					header, _ := m["large_capsule_image"].(string)
-					if header == "" { header, _ = m["header_image"].(string) }
+					if header == "" {
+						header, _ = m["header_image"].(string)
+					}
 					discountPct := int(toFloat(m["discount_percent"]))
 					finalPriceCents := int(toFloat(m["final_price"]))
-					if appID == 0 || name == "" { continue }
+					if appID == 0 || name == "" {
+						continue
+					}
 					out = append(out, SteamFeatured{
 						AppID: appID, Name: name, HeaderURL: header,
 						DiscountPct: discountPct,
 						FinalPrice:  float64(finalPriceCents) / 100,
 					})
-					if len(out) >= limit { break }
+					if len(out) >= limit {
+						break
+					}
 				}
 				return out
 			}
@@ -290,13 +325,23 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 	}
 
 	// Ensure slices are never nil (marshal to [] not null)
-	if data.Recent == nil { data.Recent = []SteamGame{} }
-	if data.Achievements == nil { data.Achievements = []SteamAchievement{} }
-	if data.Featured == nil { data.Featured = []SteamFeatured{} }
-	if data.NewReleases == nil { data.NewReleases = []SteamFeatured{} }
-	if data.TopPlayed == nil { data.TopPlayed = []SteamGame{} }
+	if data.Recent == nil {
+		data.Recent = []SteamGame{}
+	}
+	if data.Achievements == nil {
+		data.Achievements = []SteamAchievement{}
+	}
+	if data.Featured == nil {
+		data.Featured = []SteamFeatured{}
+	}
+	if data.NewReleases == nil {
+		data.NewReleases = []SteamFeatured{}
+	}
+	if data.TopPlayed == nil {
+		data.TopPlayed = []SteamGame{}
+	}
 
-	log.Printf("[STEAM] fetched for steamId=%s games=%d recent=%d achievements=%d featured=%d",
+	logDebugf("STEAM", "fetched for steamId=%s games=%d recent=%d achievements=%d featured=%d",
 		steamID, data.TotalGames, len(data.Recent), len(data.Achievements), len(data.Featured))
 	return data, nil
 }
@@ -334,5 +379,3 @@ func FetchSteamForIntegration(db *sql.DB, config map[string]interface{}) (interf
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-

@@ -142,10 +142,10 @@ func fetchDocspellPanelData(db *sql.DB, config map[string]interface{}) (*Docspel
 		var r struct {
 			Groups []struct {
 				Items []struct {
-					ID         string `json:"id"`
-					Name       string `json:"name"`
-					Date       *int64 `json:"date"`
-					CorrOrg    *struct {
+					ID      string `json:"id"`
+					Name    string `json:"name"`
+					Date    *int64 `json:"date"`
+					CorrOrg *struct {
 						Name string `json:"name"`
 					} `json:"corrOrg"`
 					CorrPerson *struct {

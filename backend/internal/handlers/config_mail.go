@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strconv"
 )
@@ -11,9 +10,9 @@ import (
 // ── GET /api/admin/mail-config ────────────────────────────────────────────────
 func GetMailConfig(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[MAIL] GET /admin/mail-config called")
+		logDebugf("MAIL", "GET /admin/mail-config called")
 		cfg := getMailConfig(db)
-		log.Printf("[MAIL] config loaded: host=%q port=%q tls=%q user=%q from=%q hasPassword=%v",
+		logDebugf("MAIL", "config loaded: host=%q port=%q tls=%q user=%q from=%q hasPassword=%v",
 			cfg.Host, cfg.Port, cfg.TLSMode, cfg.Username, cfg.From, cfg.Password != "")
 		cfg.Password = "" // never expose stored password
 		writeJSON(w, http.StatusOK, cfg)
@@ -23,21 +22,21 @@ func GetMailConfig(db *sql.DB) http.HandlerFunc {
 // ── PUT /api/admin/mail-config ────────────────────────────────────────────────
 func SaveMailConfig(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[MAIL] PUT /admin/mail-config called")
+		logDebugf("MAIL", "PUT /admin/mail-config called")
 		var cfg MailConfig
 		if err := json.NewDecoder(r.Body).Decode(&cfg); err != nil {
-			log.Printf("[MAIL] decode error: %v", err)
+			logErrorf("MAIL", "decode error: %v", err)
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
-		log.Printf("[MAIL] saving: host=%q port=%q tls=%q user=%q from=%q hasPassword=%v",
+		logDebugf("MAIL", "saving: host=%q port=%q tls=%q user=%q from=%q hasPassword=%v",
 			cfg.Host, cfg.Port, cfg.TLSMode, cfg.Username, cfg.From, cfg.Password != "")
 		if err := saveMailConfig(db, cfg); err != nil {
-			log.Printf("[MAIL] save error: %v", err)
+			logErrorf("MAIL", "save error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to save: "+err.Error())
 			return
 		}
-		log.Printf("[MAIL] save OK")
+		logDebugf("MAIL", "save OK")
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -45,37 +44,49 @@ func SaveMailConfig(db *sql.DB) http.HandlerFunc {
 // ── POST /api/admin/mail-config/test ─────────────────────────────────────────
 func TestMailConfig(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("[MAIL] POST /admin/mail-config/test called")
+		logDebugf("MAIL", "POST /admin/mail-config/test called")
 		var req struct {
-			To  string     `json:"to"`
+			To  string      `json:"to"`
 			Cfg *MailConfig `json:"cfg"` // optional inline config — uses current form values
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.To == "" {
-			log.Printf("[MAIL] test: missing recipient")
+			logDebugf("MAIL", "test: missing recipient")
 			writeError(w, http.StatusBadRequest, "recipient email required")
 			return
 		}
 		// Use inline config if provided, fall back to saved DB config
 		cfg := getMailConfig(db)
 		if req.Cfg != nil {
-			if req.Cfg.Host != "" { cfg.Host = req.Cfg.Host }
-			if req.Cfg.Port != "" { cfg.Port = req.Cfg.Port }
-			if req.Cfg.TLSMode != "" { cfg.TLSMode = req.Cfg.TLSMode }
-			if req.Cfg.Username != "" { cfg.Username = req.Cfg.Username }
-			if req.Cfg.Password != "" { cfg.Password = req.Cfg.Password }
-			if req.Cfg.From != "" { cfg.From = req.Cfg.From }
+			if req.Cfg.Host != "" {
+				cfg.Host = req.Cfg.Host
+			}
+			if req.Cfg.Port != "" {
+				cfg.Port = req.Cfg.Port
+			}
+			if req.Cfg.TLSMode != "" {
+				cfg.TLSMode = req.Cfg.TLSMode
+			}
+			if req.Cfg.Username != "" {
+				cfg.Username = req.Cfg.Username
+			}
+			if req.Cfg.Password != "" {
+				cfg.Password = req.Cfg.Password
+			}
+			if req.Cfg.From != "" {
+				cfg.From = req.Cfg.From
+			}
 		}
 		html := `<div style="font-family:sans-serif;padding:20px">
 			<h2 style="color:#7c6fff">Stoa mail test</h2>
 			<p>If you're reading this, your mail configuration is working correctly.</p>
 		</div>`
-		log.Printf("[MAIL] test: sending to %q via %q", req.To, cfg.Host)
+		logDebugf("MAIL", "test: sending to %q via %q", req.To, cfg.Host)
 		if err := sendMailWithConfig(cfg, req.To, "Stoa mail test", html); err != nil {
-			log.Printf("[MAIL] test send failed: %v", err)
+			logErrorf("MAIL", "test send failed: %v", err)
 			writeError(w, http.StatusBadRequest, "mail send failed: "+err.Error())
 			return
 		}
-		log.Printf("[MAIL] test send OK to %q", req.To)
+		logDebugf("MAIL", "test send OK to %q", req.To)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -88,7 +99,7 @@ func GetSessionConfig(db *sql.DB) http.HandlerFunc {
 		if hours == "" {
 			hours = "24"
 		}
-		log.Printf("[MAIL] session_duration_hours = %q", hours)
+		logDebugf("MAIL", "session_duration_hours = %q", hours)
 		writeJSON(w, http.StatusOK, map[string]string{"sessionDurationHours": hours})
 	}
 }
@@ -108,7 +119,7 @@ func SaveSessionConfig(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid session duration")
 			return
 		}
-		log.Printf("[MAIL] saving session_duration_hours = %q", req.SessionDurationHours)
+		logDebugf("MAIL", "saving session_duration_hours = %q", req.SessionDurationHours)
 		db.Exec(`INSERT INTO app_config (key, value) VALUES ('session_duration_hours', ?)
 			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, req.SessionDurationHours)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})

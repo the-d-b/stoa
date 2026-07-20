@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"log"
 	"time"
 )
 
@@ -21,7 +20,7 @@ func StartNZBWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[NZB] worker panic %s: %v", ig.id, r)
+				logErrorf("NZB", "worker panic %s: %v", ig.id, r)
 			}
 		}()
 
@@ -37,7 +36,7 @@ func StartNZBWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 			case "sabnzbd":
 				data, err := fetchSABnzbdPanelData(db, config)
 				if err != nil {
-					log.Printf("[NZB] refresh error %s: %v", ig.id, err)
+					logErrorf("NZB", "refresh error %s: %v", ig.id, err)
 					RecordIntegrationError(ig.id, ig.name, err.Error())
 					consecutiveErrors++
 					return false
@@ -52,7 +51,7 @@ func StartNZBWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 			case "nzbget":
 				data, err := fetchNZBGetPanelData(db, config)
 				if err != nil {
-					log.Printf("[NZB] refresh error %s: %v", ig.id, err)
+					logErrorf("NZB", "refresh error %s: %v", ig.id, err)
 					RecordIntegrationError(ig.id, ig.name, err.Error())
 					consecutiveErrors++
 					return false
@@ -91,7 +90,7 @@ func StartNZBWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 				}
 				timer.Reset(nextInterval(active))
 			case <-stop:
-				log.Printf("[NZB] worker stopped: %s", ig.id)
+				logDebugf("NZB", "worker stopped: %s", ig.id)
 				return
 			}
 		}

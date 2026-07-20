@@ -243,8 +243,8 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 	}
 
 	data := &LastFmPanelData{
-		Username:   username,
-		ProfileURL: "https://www.last.fm/user/" + username,
+		Username:     username,
+		ProfileURL:   "https://www.last.fm/user/" + username,
 		RecentTracks: []LastFmTrack{},
 		TopArtists:   []LastFmTopArtist{},
 		TopTracks:    []LastFmTopTrack{},

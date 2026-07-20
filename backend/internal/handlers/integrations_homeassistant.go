@@ -122,7 +122,7 @@ func fetchHAPanelData(db *sql.DB, config map[string]interface{}) (*HAFullData, e
 // panel with no filter see the full list (sorted by the worker at fetch time).
 func filterHAData(full *HAFullData, config map[string]interface{}) *HAFullData {
 	entityIDsStr := stringVal(config, "entityIds")
-	domainsStr   := stringVal(config, "domains")
+	domainsStr := stringVal(config, "domains")
 
 	if entityIDsStr == "" && domainsStr == "" {
 		return full // no filter — serve everything

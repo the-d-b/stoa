@@ -44,21 +44,19 @@ type PlexSession struct {
 	ThumbURL          string  `json:"thumbUrl,omitempty"`
 }
 
-
-
 // ── Plex XML response types ───────────────────────────────────────────────────
 
 type plexMediaContainer struct {
-	XMLName         xml.Name     `xml:"MediaContainer"`
-	Size            int          `xml:"size,attr"`
-	TotalSize       int          `xml:"totalSize,attr"`
-	Version         string       `xml:"version,attr"`
-	FriendlyName    string       `xml:"friendlyName,attr"`
-	CanInstallUpdate string      `xml:"canInstallUpdate,attr"`
-	Directories     []plexDir    `xml:"Directory"`
-	Videos          []plexVideo  `xml:"Video"`
-	Tracks          []plexTrack  `xml:"Track"`
-	Releases        []plexRelease `xml:"Release"`
+	XMLName          xml.Name      `xml:"MediaContainer"`
+	Size             int           `xml:"size,attr"`
+	TotalSize        int           `xml:"totalSize,attr"`
+	Version          string        `xml:"version,attr"`
+	FriendlyName     string        `xml:"friendlyName,attr"`
+	CanInstallUpdate string        `xml:"canInstallUpdate,attr"`
+	Directories      []plexDir     `xml:"Directory"`
+	Videos           []plexVideo   `xml:"Video"`
+	Tracks           []plexTrack   `xml:"Track"`
+	Releases         []plexRelease `xml:"Release"`
 }
 
 type plexRelease struct {
@@ -67,40 +65,40 @@ type plexRelease struct {
 }
 
 type plexDir struct {
-	Title  string `xml:"title,attr"`
-	Type   string `xml:"type,attr"`
-	Count  int    `xml:"count,attr"`
-	Key    string `xml:"key,attr"`
+	Title string `xml:"title,attr"`
+	Type  string `xml:"type,attr"`
+	Count int    `xml:"count,attr"`
+	Key   string `xml:"key,attr"`
 }
 
 type plexVideo struct {
-	Title             string         `xml:"title,attr"`
-	GrandparentTitle  string         `xml:"grandparentTitle,attr"`
-	GrandparentThumb  string         `xml:"grandparentThumb,attr"`
-	Type              string         `xml:"type,attr"`
-	AddedAt           int64          `xml:"addedAt,attr"`
-	Year              int            `xml:"year,attr"`
-	Thumb             string         `xml:"thumb,attr"`
-	ContentRating     string         `xml:"contentRating,attr"`
-	ViewOffset        int64          `xml:"viewOffset,attr"`
-	Duration          int64          `xml:"duration,attr"`
-	User              *plexUser      `xml:"User"`
-	Player            *plexPlayer    `xml:"Player"`
-	TranscodeSession  *plexTranscode `xml:"TranscodeSession"`
-	Media             []plexMediaItem `xml:"Media"`
+	Title            string          `xml:"title,attr"`
+	GrandparentTitle string          `xml:"grandparentTitle,attr"`
+	GrandparentThumb string          `xml:"grandparentThumb,attr"`
+	Type             string          `xml:"type,attr"`
+	AddedAt          int64           `xml:"addedAt,attr"`
+	Year             int             `xml:"year,attr"`
+	Thumb            string          `xml:"thumb,attr"`
+	ContentRating    string          `xml:"contentRating,attr"`
+	ViewOffset       int64           `xml:"viewOffset,attr"`
+	Duration         int64           `xml:"duration,attr"`
+	User             *plexUser       `xml:"User"`
+	Player           *plexPlayer     `xml:"Player"`
+	TranscodeSession *plexTranscode  `xml:"TranscodeSession"`
+	Media            []plexMediaItem `xml:"Media"`
 }
 
 type plexTrack struct {
-	Title            string      `xml:"title,attr"`
-	GrandparentTitle string      `xml:"grandparentTitle,attr"`
-	Thumb            string      `xml:"thumb,attr"`
-	ParentThumb      string      `xml:"parentThumb,attr"`
-	Type             string      `xml:"type,attr"`
-	AddedAt          int64       `xml:"addedAt,attr"`
-	ViewOffset       int64       `xml:"viewOffset,attr"`
-	Duration         int64       `xml:"duration,attr"`
-	User             *plexUser   `xml:"User"`
-	Player           *plexPlayer `xml:"Player"`
+	Title            string         `xml:"title,attr"`
+	GrandparentTitle string         `xml:"grandparentTitle,attr"`
+	Thumb            string         `xml:"thumb,attr"`
+	ParentThumb      string         `xml:"parentThumb,attr"`
+	Type             string         `xml:"type,attr"`
+	AddedAt          int64          `xml:"addedAt,attr"`
+	ViewOffset       int64          `xml:"viewOffset,attr"`
+	Duration         int64          `xml:"duration,attr"`
+	User             *plexUser      `xml:"User"`
+	Player           *plexPlayer    `xml:"Player"`
 	TranscodeSession *plexTranscode `xml:"TranscodeSession"`
 }
 
@@ -115,7 +113,7 @@ type plexPlayer struct {
 }
 
 type plexTranscode struct {
-	Decision    string `xml:"decision,attr"`
+	Decision      string `xml:"decision,attr"`
 	VideoDecision string `xml:"videoDecision,attr"`
 }
 
@@ -125,20 +123,30 @@ type plexMediaItem struct {
 
 func allowedPlexRatings(config map[string]interface{}) map[string]bool {
 	raw, _ := config["allowedRatings"].(string)
-	if raw == "" { return nil }
+	if raw == "" {
+		return nil
+	}
 	set := map[string]bool{}
 	for _, r := range strings.Split(raw, ",") {
 		r = strings.TrimSpace(strings.ToUpper(r))
-		if r != "" { set[r] = true }
+		if r != "" {
+			set[r] = true
+		}
 	}
-	if len(set) == 0 { return nil }
+	if len(set) == 0 {
+		return nil
+	}
 	return set
 }
 
 func plexRatingAllowed(rating string, filter map[string]bool) bool {
-	if filter == nil { return true }
+	if filter == nil {
+		return true
+	}
 	c := strings.TrimSpace(strings.ToUpper(rating))
-	if c == "" || c == "NR" || c == "NOT RATED" { return false }
+	if c == "" || c == "NR" || c == "NOT RATED" {
+		return false
+	}
 	return filter[c]
 }
 
@@ -238,7 +246,9 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 }
 
 func plexThumbURL(integrationID, thumb string) string {
-	if thumb == "" || integrationID == "" { return "" }
+	if thumb == "" || integrationID == "" {
+		return ""
+	}
 	return "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(thumb)
 }
 
@@ -249,7 +259,9 @@ func plexSessionFromVideo(v plexVideo, integrationID string) PlexSession {
 		Type:             v.Type,
 		ContentRating:    v.ContentRating,
 	}
-	if v.User != nil { sess.User = v.User.Title }
+	if v.User != nil {
+		sess.User = v.User.Title
+	}
 	if v.Player != nil {
 		sess.Player = v.Player.Product
 		sess.State = v.Player.State
@@ -269,7 +281,9 @@ func plexSessionFromVideo(v plexVideo, integrationID string) PlexSession {
 		sess.Quality = v.Media[0].VideoResolution
 	}
 	thumb := v.Thumb
-	if v.GrandparentThumb != "" { thumb = v.GrandparentThumb }
+	if v.GrandparentThumb != "" {
+		thumb = v.GrandparentThumb
+	}
 	sess.ThumbURL = plexThumbURL(integrationID, thumb)
 	return sess
 }
@@ -282,7 +296,9 @@ func plexSessionFromTrack(t plexTrack, integrationID string) PlexSession {
 		State:             "playing",
 		TranscodeDecision: "directplay",
 	}
-	if t.User != nil { sess.User = t.User.Title }
+	if t.User != nil {
+		sess.User = t.User.Title
+	}
 	if t.Player != nil {
 		sess.Player = t.Player.Product
 		sess.State = t.Player.State
@@ -294,7 +310,9 @@ func plexSessionFromTrack(t plexTrack, integrationID string) PlexSession {
 		sess.TranscodeDecision = t.TranscodeSession.Decision
 	}
 	thumb := t.ParentThumb
-	if thumb == "" { thumb = t.Thumb }
+	if thumb == "" {
+		thumb = t.Thumb
+	}
 	sess.ThumbURL = plexThumbURL(integrationID, thumb)
 	return sess
 }

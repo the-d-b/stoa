@@ -14,8 +14,8 @@ import (
 
 type LubeLoggerReminder struct {
 	Description string  `json:"description"`
-	Urgency     string  `json:"urgency"`    // "Not Urgent", "Urgent", "Very Urgent", "Past Due"
-	DueDate     string  `json:"dueDate"`    // empty for mileage-only reminders
+	Urgency     string  `json:"urgency"`     // "Not Urgent", "Urgent", "Very Urgent", "Past Due"
+	DueDate     string  `json:"dueDate"`     // empty for mileage-only reminders
 	DueOdometer float64 `json:"dueOdometer"` // 0 for date-only reminders
 	Metric      string  `json:"metric"`
 }

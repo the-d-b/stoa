@@ -11,13 +11,13 @@ import (
 // ── Tautulli types ────────────────────────────────────────────────────────────
 
 type TautulliPanelData struct {
-	UIURL            string              `json:"uiUrl"`
-	TotalPlays       int                 `json:"totalPlays"`
-	TotalDurationSecs int                `json:"totalDurationSecs"`
-	UniqueUsers      int                 `json:"uniqueUsers"`
-	MostPlayed       []TautulliMediaStat `json:"mostPlayed"`
-	UserStats        []TautulliUserStat  `json:"userStats"`
-	History          []TautulliHistory   `json:"history"`
+	UIURL             string              `json:"uiUrl"`
+	TotalPlays        int                 `json:"totalPlays"`
+	TotalDurationSecs int                 `json:"totalDurationSecs"`
+	UniqueUsers       int                 `json:"uniqueUsers"`
+	MostPlayed        []TautulliMediaStat `json:"mostPlayed"`
+	UserStats         []TautulliUserStat  `json:"userStats"`
+	History           []TautulliHistory   `json:"history"`
 }
 
 type TautulliMediaStat struct {
@@ -100,7 +100,9 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 					rk := ""
 					switch v := row.RatingKey.(type) {
 					case float64:
-						if v > 0 { rk = fmt.Sprintf("%.0f", v) }
+						if v > 0 {
+							rk = fmt.Sprintf("%.0f", v)
+						}
 					case string:
 						rk = v
 					}
@@ -142,7 +144,9 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		}
 		if json.Unmarshal(userStatsBody, &resp) == nil {
 			for _, stat := range resp.Response.Data {
-				if stat.StatID != "top_users" { continue }
+				if stat.StatID != "top_users" {
+					continue
+				}
 				for _, row := range stat.Rows {
 					data.UserStats = append(data.UserStats, TautulliUserStat{
 						User:          row.FriendlyName,
@@ -163,7 +167,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 			Response struct {
 				Data struct {
 					RecordsFiltered int `json:"records_filtered"`
-					Data []struct {
+					Data            []struct {
 						FriendlyName     string  `json:"friendly_name"`
 						Title            string  `json:"title"`
 						GrandparentTitle string  `json:"grandparent_title"`
@@ -180,7 +184,9 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 			data.TotalPlays = resp.Response.Data.RecordsFiltered
 			for _, row := range resp.Response.Data.Data {
 				hrk := ""
-				if row.RatingKey > 0 { hrk = fmt.Sprintf("%d", row.RatingKey) }
+				if row.RatingKey > 0 {
+					hrk = fmt.Sprintf("%d", row.RatingKey)
+				}
 				data.History = append(data.History, TautulliHistory{
 					User:             row.FriendlyName,
 					Title:            row.Title,

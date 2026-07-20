@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -29,8 +28,8 @@ func GetGoogleOAuthConfig(db *sql.DB) http.HandlerFunc {
 		db.QueryRow("SELECT client_id FROM google_oauth_config WHERE id='singleton'").Scan(&clientID)
 		// Never return the secret to the frontend
 		writeJSON(w, http.StatusOK, map[string]interface{}{
-			"clientId":    clientID,
-			"configured":  clientID != "",
+			"clientId":   clientID,
+			"configured": clientID != "",
 		})
 	}
 }
@@ -84,10 +83,10 @@ func GoogleOAuthRedirect(db *sql.DB) http.HandlerFunc {
 			"response_type": {"code"},
 			// calendar.events adds event write; calendar.readonly is still needed
 			// for the calendar-list picker, which calendar.events does not grant
-			"scope":         {"https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email"},
-			"access_type":   {"offline"},
-			"prompt":        {"consent"}, // force refresh_token every time
-			"state":         {state},
+			"scope":       {"https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email"},
+			"access_type": {"offline"},
+			"prompt":      {"consent"}, // force refresh_token every time
+			"state":       {state},
 		}.Encode()
 
 		http.Redirect(w, r, authURL, http.StatusTemporaryRedirect)
@@ -135,20 +134,39 @@ func GoogleOAuthCallback(db *sql.DB) http.HandlerFunc {
 			email = "unknown"
 		}
 
-		// Store token
-		id := generateID()
-		storedUserID := sql.NullString{}
-		if scope == "personal" {
-			storedUserID = sql.NullString{String: userID, Valid: true}
+		// Store token. Reconnecting an already-connected account must UPDATE
+		// its existing row in place — the row id is what calendar sources
+		// reference as integrationId, so a fresh id on every re-auth would
+		// leave sources pointing at a stale grant (or a deleted row) and
+		// newly consented scopes would never take effect.
+		expiresAt := time.Now().Add(time.Duration(token.ExpiresIn) * time.Second)
+		var existingID string
+		db.QueryRow(`SELECT id FROM google_oauth_tokens WHERE scope=? AND email=? AND COALESCE(user_id,'')=?`,
+			scope, email, userID).Scan(&existingID)
+		if existingID != "" {
+			if token.RefreshToken != "" {
+				_, err = db.Exec(`UPDATE google_oauth_tokens SET access_token=?, refresh_token=?, expires_at=? WHERE id=?`,
+					token.AccessToken, token.RefreshToken, expiresAt, existingID)
+			} else {
+				// No new refresh token issued — keep the stored one
+				_, err = db.Exec(`UPDATE google_oauth_tokens SET access_token=?, expires_at=? WHERE id=?`,
+					token.AccessToken, expiresAt, existingID)
+			}
+			logDebugf("AUTH", "google: updated existing token %s for %s (%s)", existingID, email, scope)
+		} else {
+			id := generateID()
+			storedUserID := sql.NullString{}
+			if scope == "personal" {
+				storedUserID = sql.NullString{String: userID, Valid: true}
+			}
+			_, err = db.Exec(`
+				INSERT INTO google_oauth_tokens
+					(id, scope, user_id, email, access_token, refresh_token, expires_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?)`,
+				id, scope, storedUserID,
+				email, token.AccessToken, token.RefreshToken, expiresAt,
+			)
 		}
-		_, err = db.Exec(`
-			INSERT OR REPLACE INTO google_oauth_tokens
-				(id, scope, user_id, email, access_token, refresh_token, expires_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			id, scope, storedUserID,
-			email, token.AccessToken, token.RefreshToken,
-			time.Now().Add(time.Duration(token.ExpiresIn)*time.Second),
-		)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
@@ -217,7 +235,7 @@ func googleRefreshToken(db *sql.DB, tokenID string) (string, error) {
 	body, _ := io.ReadAll(resp.Body)
 	var token googleTokenResponse
 	if err := json.Unmarshal(body, &token); err != nil || token.AccessToken == "" {
-		log.Printf("[GOOGLE] refresh token response (status %d): %s", resp.StatusCode, string(body))
+		logDebugf("GOOGLE", "refresh token response (status %d): %s", resp.StatusCode, string(body))
 		return "", fmt.Errorf("refresh failed: %s", string(body))
 	}
 

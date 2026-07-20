@@ -32,12 +32,12 @@ type WGEasyClient struct {
 	Name              string `json:"name"`
 	Address           string `json:"address"`
 	Enabled           bool   `json:"enabled"`
-	Connected         bool   `json:"connected"`  // handshake within 3 minutes
+	Connected         bool   `json:"connected"`         // handshake within 3 minutes
 	LastHandshake     string `json:"lastHandshake"`     // ISO timestamp or ""
 	LastHandshakeSecs int64  `json:"lastHandshakeSecs"` // seconds since handshake; -1 = never
-	TransferRx        int64  `json:"transferRx"` // bytes server received from client
-	TransferTx        int64  `json:"transferTx"` // bytes server sent to client
-	Endpoint          string `json:"endpoint"`   // client's real IP:port, empty if offline
+	TransferRx        int64  `json:"transferRx"`        // bytes server received from client
+	TransferTx        int64  `json:"transferTx"`        // bytes server sent to client
+	Endpoint          string `json:"endpoint"`          // client's real IP:port, empty if offline
 }
 
 type WGEasyPanelData struct {

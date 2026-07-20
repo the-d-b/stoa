@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -102,7 +101,7 @@ func fetchWgerPanelData(db *sql.DB, config map[string]interface{}) (*WgerPanelDa
 			}
 		}
 	} else {
-		log.Printf("[wger] workoutsession error: %v", err)
+		logErrorf("wger", "workoutsession error: %v", err)
 	}
 
 	// Recent weight entries for trend (newest-first, last 10)
@@ -122,7 +121,7 @@ func fetchWgerPanelData(db *sql.DB, config map[string]interface{}) (*WgerPanelDa
 			}
 		}
 	} else {
-		log.Printf("[wger] weightentry error: %v", err)
+		logErrorf("wger", "weightentry error: %v", err)
 	}
 
 	return out, nil

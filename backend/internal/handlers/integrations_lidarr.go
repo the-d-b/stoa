@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 )
 
 type LidarrPanelData struct {
@@ -25,9 +24,9 @@ type LidarrAlbum struct {
 	ForeignAlbumId  string `json:"foreignAlbumId,omitempty"`
 	ForeignArtistId string `json:"foreignArtistId,omitempty"`
 	CoverURL        string `json:"coverUrl,omitempty"`
-	ReleaseDate  string `json:"releaseDate,omitempty"`
-	HasFile      bool   `json:"hasFile"`
-	Date         string `json:"date,omitempty"`
+	ReleaseDate     string `json:"releaseDate,omitempty"`
+	HasFile         bool   `json:"hasFile"`
+	Date            string `json:"date,omitempty"`
 }
 
 func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPanelData, error) {
@@ -63,9 +62,13 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 		if records, ok := histResp["records"].([]interface{}); ok {
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
-				if rec == nil { continue }
+				if rec == nil {
+					continue
+				}
 				album, _ := rec["album"].(map[string]interface{})
-				if album == nil { continue }
+				if album == nil {
+					continue
+				}
 				a := lidarrAlbumFromMap(album)
 				a.Date = stringVal(rec, "date")
 				data.History = append(data.History, a)
@@ -80,14 +83,18 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 		json.Unmarshal(artistsRaw, &artists)
 	}
 	if err != nil {
-		log.Printf("[LIDARR] artist fetch error: %v", err)
+		logErrorf("LIDARR", "artist fetch error: %v", err)
 	} else {
 		data.ArtistCount = len(artists)
 		for _, a := range artists {
 			stats, _ := a["statistics"].(map[string]interface{})
 			if stats != nil {
-				if v, ok := stats["albumCount"].(float64); ok { data.AlbumCount += int(v) }
-				if v, ok := stats["trackFileCount"].(float64); ok { data.OnDiskCount += int(v) }
+				if v, ok := stats["albumCount"].(float64); ok {
+					data.AlbumCount += int(v)
+				}
+				if v, ok := stats["trackFileCount"].(float64); ok {
+					data.OnDiskCount += int(v)
+				}
 			}
 		}
 	}
@@ -100,7 +107,9 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 		if records, ok := wantedResp["records"].([]interface{}); ok {
 			for _, r := range records {
 				rec, _ := r.(map[string]interface{})
-				if rec == nil { continue }
+				if rec == nil {
+					continue
+				}
 				data.Missing = append(data.Missing, lidarrAlbumFromMap(rec))
 			}
 		}
@@ -114,7 +123,9 @@ func lidarrAlbumFromMap(a map[string]interface{}) LidarrAlbum {
 	al.Title, _ = a["title"].(string)
 	al.ReleaseDate, _ = a["releaseDate"].(string)
 	al.ForeignAlbumId, _ = a["foreignAlbumId"].(string)
-	if i, ok := a["id"].(float64); ok { al.ID = int(i) }
+	if i, ok := a["id"].(float64); ok {
+		al.ID = int(i)
+	}
 	al.HasFile = a["statistics"] != nil
 	// Extract album cover from images — use remoteUrl first, fall back to url
 	if images, ok := a["images"].([]interface{}); ok {

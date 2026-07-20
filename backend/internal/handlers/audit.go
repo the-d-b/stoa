@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 )
 
@@ -33,7 +32,7 @@ func RecordAudit(db *sql.DB, actorID, actorName, action, targetID, targetName st
 		INSERT INTO audit_log (id, actor_id, actor_name, action, target_id, target_name, metadata)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 	`, id, nullStr(actorID), actorName, action, nullStr(targetID), targetName, metaJSON); err != nil {
-		log.Printf("[AUDIT] failed to record %s: %v", action, err)
+		logErrorf("AUDIT", "failed to record %s: %v", action, err)
 	}
 }
 
@@ -59,7 +58,7 @@ func GetAuditLog(db *sql.DB) http.HandlerFunc {
 			`)
 		}
 		if err != nil {
-			log.Printf("[AUDIT] query error: %v", err)
+			logErrorf("AUDIT", "query error: %v", err)
 			writeError(w, http.StatusInternalServerError, "query failed")
 			return
 		}

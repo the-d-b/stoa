@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -277,7 +276,7 @@ func CreateSecret(db *sql.DB) http.HandlerFunc {
 
 		encrypted, err := encryptSecret(req.Value)
 		if err != nil {
-			log.Printf("[SECRETS] encrypt error: %v", err)
+			logErrorf("SECRETS", "encrypt error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to encrypt secret")
 			return
 		}
@@ -482,7 +481,9 @@ func SavePreferences(db *sql.DB) http.HandlerFunc {
 		}
 		if req.Density != nil {
 			valid := *req.Density == "compact" || *req.Density == "normal" || *req.Density == "comfortable"
-			if !valid { *req.Density = "normal" }
+			if !valid {
+				*req.Density = "normal"
+			}
 			db.Exec(`UPDATE user_preferences SET density = ? WHERE user_id = ?`,
 				*req.Density, claims.UserID)
 		}

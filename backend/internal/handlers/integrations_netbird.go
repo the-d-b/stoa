@@ -14,16 +14,16 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type NetbirdPeer struct {
-	ID          string   `json:"id"`
-	Name        string   `json:"name"`
-	IP          string   `json:"ip"`
-	OS          string   `json:"os"`
-	Version     string   `json:"version"`
-	Connected   bool     `json:"connected"`
-	LastSeen    string   `json:"lastSeen"` // RFC3339
-	SSHEnabled  bool     `json:"sshEnabled"`
-	Groups      []string `json:"groups"`
-	LoginExpired bool    `json:"loginExpired"`
+	ID           string   `json:"id"`
+	Name         string   `json:"name"`
+	IP           string   `json:"ip"`
+	OS           string   `json:"os"`
+	Version      string   `json:"version"`
+	Connected    bool     `json:"connected"`
+	LastSeen     string   `json:"lastSeen"` // RFC3339
+	SSHEnabled   bool     `json:"sshEnabled"`
+	Groups       []string `json:"groups"`
+	LoginExpired bool     `json:"loginExpired"`
 }
 
 type NetbirdGroup struct {

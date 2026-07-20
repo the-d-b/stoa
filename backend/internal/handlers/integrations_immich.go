@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -63,10 +62,10 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 	statsBody, statsErr := immichGet(apiURL, apiKey, "/api/server/statistics", skipTLS)
 	if statsErr == nil {
 		var stats struct {
-			Photos        int   `json:"photos"`
-			Videos        int   `json:"videos"`
-			Usage         int64 `json:"usage"`
-			UsageByUser   []struct {
+			Photos      int   `json:"photos"`
+			Videos      int   `json:"videos"`
+			Usage       int64 `json:"usage"`
+			UsageByUser []struct {
 				UserName string `json:"userName"`
 				Photos   int    `json:"photos"`
 				Videos   int    `json:"videos"`
@@ -76,8 +75,8 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 		if json.Unmarshal(statsBody, &stats) == nil {
 			data.Photos = stats.Photos
 			data.Videos = stats.Videos
-			data.Usage  = stats.Usage
-			data.Users  = len(stats.UsageByUser)
+			data.Usage = stats.Usage
+			data.Users = len(stats.UsageByUser)
 		}
 	} else {
 		// Fallback: user-scoped asset statistics
@@ -147,7 +146,7 @@ func immichGetPreviewPhotos(apiURL, apiKey, integID string, skipTLS bool) []Immi
 	body := []byte(`{"size":6,"type":"IMAGE"}`)
 	resp, err := immichPost(apiURL, apiKey, "/api/search/random", body, skipTLS)
 	if err != nil {
-		log.Printf("[Immich] random photo fetch error: %v", err)
+		logErrorf("Immich", "random photo fetch error: %v", err)
 		return nil
 	}
 

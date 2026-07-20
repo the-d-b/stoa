@@ -364,11 +364,11 @@ func traktFetchHistory(clientID, username string, limit int) []TraktCard {
 		return nil
 	}
 	var raw []struct {
-		Type      string          `json:"type"`
-		WatchedAt string          `json:"watched_at"`
-		Movie     *traktMedia     `json:"movie"`
+		Type      string           `json:"type"`
+		WatchedAt string           `json:"watched_at"`
+		Movie     *traktMedia      `json:"movie"`
 		Episode   *traktEpisodeRaw `json:"episode"`
-		Show      *traktMedia     `json:"show"`
+		Show      *traktMedia      `json:"show"`
 	}
 	if json.Unmarshal(b, &raw) != nil {
 		return nil
@@ -407,11 +407,11 @@ func traktFetchHistory(clientID, username string, limit int) []TraktCard {
 
 func parseTraktWatching(b []byte) *TraktWatching {
 	var raw struct {
-		Type      string          `json:"type"`
-		ExpiresAt string          `json:"expires_at"`
-		Movie     *traktMedia     `json:"movie"`
+		Type      string           `json:"type"`
+		ExpiresAt string           `json:"expires_at"`
+		Movie     *traktMedia      `json:"movie"`
 		Episode   *traktEpisodeRaw `json:"episode"`
-		Show      *traktMedia     `json:"show"`
+		Show      *traktMedia      `json:"show"`
 	}
 	if json.Unmarshal(b, &raw) != nil {
 		return nil
@@ -557,7 +557,9 @@ func fetchTraktPanelData(db *sql.DB, config map[string]interface{}) (*TraktPanel
 		code, b, err2 := traktGet(clientID, "/users/"+username+"/watching")
 		if err2 == nil && code == 200 {
 			if w := parseTraktWatching(b); w != nil {
-				mu.Lock(); out.Watching = w; mu.Unlock()
+				mu.Lock()
+				out.Watching = w
+				mu.Unlock()
 			}
 		}
 	})
@@ -565,20 +567,45 @@ func fetchTraktPanelData(db *sql.DB, config map[string]interface{}) (*TraktPanel
 		code, b, err2 := traktGet(clientID, "/users/"+username+"/stats")
 		if err2 == nil && code == 200 {
 			s := parseTraktStats(b)
-			mu.Lock(); out.Stats = s; mu.Unlock()
+			mu.Lock()
+			out.Stats = s
+			mu.Unlock()
 		}
 	})
 	launch(func() { c := traktFetchTrending(clientID, "movie", 15); mu.Lock(); out.TrendingMovies = c; mu.Unlock() })
 	launch(func() { c := traktFetchTrending(clientID, "show", 15); mu.Lock(); out.TrendingShows = c; mu.Unlock() })
 	launch(func() { c := traktFetchPopular(clientID, "movie", 15); mu.Lock(); out.PopularMovies = c; mu.Unlock() })
 	launch(func() { c := traktFetchPopular(clientID, "show", 15); mu.Lock(); out.PopularShows = c; mu.Unlock() })
-	launch(func() { c := traktFetchAnticipated(clientID, "movie", 15); mu.Lock(); out.AnticipatedMovies = c; mu.Unlock() })
-	launch(func() { c := traktFetchAnticipated(clientID, "show", 15); mu.Lock(); out.AnticipatedShows = c; mu.Unlock() })
-	launch(func() { c := traktFetchWatchlist(clientID, username, "movie"); mu.Lock(); out.WatchlistMovies = c; mu.Unlock() })
-	launch(func() { c := traktFetchWatchlist(clientID, username, "show"); mu.Lock(); out.WatchlistShows = c; mu.Unlock() })
+	launch(func() {
+		c := traktFetchAnticipated(clientID, "movie", 15)
+		mu.Lock()
+		out.AnticipatedMovies = c
+		mu.Unlock()
+	})
+	launch(func() {
+		c := traktFetchAnticipated(clientID, "show", 15)
+		mu.Lock()
+		out.AnticipatedShows = c
+		mu.Unlock()
+	})
+	launch(func() {
+		c := traktFetchWatchlist(clientID, username, "movie")
+		mu.Lock()
+		out.WatchlistMovies = c
+		mu.Unlock()
+	})
+	launch(func() {
+		c := traktFetchWatchlist(clientID, username, "show")
+		mu.Lock()
+		out.WatchlistShows = c
+		mu.Unlock()
+	})
 	launch(func() {
 		l, listsErr := traktFetchUserLists(clientID, username)
-		mu.Lock(); out.UserLists = l; out.ListsError = listsErr; mu.Unlock()
+		mu.Lock()
+		out.UserLists = l
+		out.ListsError = listsErr
+		mu.Unlock()
 	})
 	launch(func() { c := traktFetchHistory(clientID, username, 40); mu.Lock(); out.History = c; mu.Unlock() })
 
@@ -587,26 +614,44 @@ func fetchTraktPanelData(db *sql.DB, config map[string]interface{}) (*TraktPanel
 	// Apply rating filters before TMDB enrichment to skip poster fetches for filtered items.
 	movieRatings := traktRatingFilter(config, "movieRatings")
 	showRatings := traktRatingFilter(config, "showRatings")
-	out.TrendingMovies    = filterTraktCards(out.TrendingMovies,    movieRatings)
-	out.TrendingShows     = filterTraktCards(out.TrendingShows,     showRatings)
-	out.PopularMovies     = filterTraktCards(out.PopularMovies,     movieRatings)
-	out.PopularShows      = filterTraktCards(out.PopularShows,      showRatings)
+	out.TrendingMovies = filterTraktCards(out.TrendingMovies, movieRatings)
+	out.TrendingShows = filterTraktCards(out.TrendingShows, showRatings)
+	out.PopularMovies = filterTraktCards(out.PopularMovies, movieRatings)
+	out.PopularShows = filterTraktCards(out.PopularShows, showRatings)
 	out.AnticipatedMovies = filterTraktCards(out.AnticipatedMovies, movieRatings)
-	out.AnticipatedShows  = filterTraktCards(out.AnticipatedShows,  showRatings)
-	out.WatchlistMovies   = filterTraktCards(out.WatchlistMovies,   movieRatings)
-	out.WatchlistShows    = filterTraktCards(out.WatchlistShows,    showRatings)
-	out.History           = filterTraktHistory(out.History,          movieRatings, showRatings)
+	out.AnticipatedShows = filterTraktCards(out.AnticipatedShows, showRatings)
+	out.WatchlistMovies = filterTraktCards(out.WatchlistMovies, movieRatings)
+	out.WatchlistShows = filterTraktCards(out.WatchlistShows, showRatings)
+	out.History = filterTraktHistory(out.History, movieRatings, showRatings)
 
 	var allCards []*TraktCard
-	for i := range out.TrendingMovies    { allCards = append(allCards, &out.TrendingMovies[i]) }
-	for i := range out.TrendingShows     { allCards = append(allCards, &out.TrendingShows[i]) }
-	for i := range out.PopularMovies     { allCards = append(allCards, &out.PopularMovies[i]) }
-	for i := range out.PopularShows      { allCards = append(allCards, &out.PopularShows[i]) }
-	for i := range out.AnticipatedMovies { allCards = append(allCards, &out.AnticipatedMovies[i]) }
-	for i := range out.AnticipatedShows  { allCards = append(allCards, &out.AnticipatedShows[i]) }
-	for i := range out.WatchlistMovies   { allCards = append(allCards, &out.WatchlistMovies[i]) }
-	for i := range out.WatchlistShows    { allCards = append(allCards, &out.WatchlistShows[i]) }
-	for i := range out.History           { allCards = append(allCards, &out.History[i]) }
+	for i := range out.TrendingMovies {
+		allCards = append(allCards, &out.TrendingMovies[i])
+	}
+	for i := range out.TrendingShows {
+		allCards = append(allCards, &out.TrendingShows[i])
+	}
+	for i := range out.PopularMovies {
+		allCards = append(allCards, &out.PopularMovies[i])
+	}
+	for i := range out.PopularShows {
+		allCards = append(allCards, &out.PopularShows[i])
+	}
+	for i := range out.AnticipatedMovies {
+		allCards = append(allCards, &out.AnticipatedMovies[i])
+	}
+	for i := range out.AnticipatedShows {
+		allCards = append(allCards, &out.AnticipatedShows[i])
+	}
+	for i := range out.WatchlistMovies {
+		allCards = append(allCards, &out.WatchlistMovies[i])
+	}
+	for i := range out.WatchlistShows {
+		allCards = append(allCards, &out.WatchlistShows[i])
+	}
+	for i := range out.History {
+		allCards = append(allCards, &out.History[i])
+	}
 	tmdbEnrichCards(allCards, tmdbKey)
 
 	return out, nil

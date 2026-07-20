@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { sessionsApi, sessionConfigApi, SessionRow, integrationHealthApi, IntegrationHealthItem, auditApi, AuditEntry, chatAuditApi, DMAuditConversation, AIAuditUser, adminIntegrationsApi, AdminIntegrationRow } from '../../api'
+import { sessionsApi, sessionConfigApi, logConfigApi, SessionRow, integrationHealthApi, IntegrationHealthItem, auditApi, AuditEntry, chatAuditApi, DMAuditConversation, AIAuditUser, adminIntegrationsApi, AdminIntegrationRow } from '../../api'
 
 function timeAgo(iso: string | null) {
   if (!iso) return 'never'
@@ -640,9 +640,13 @@ export default function SessionsPanel() {
   const [sessionHours, setSessionHours] = useState('24')
   const [savingSession, setSavingSession] = useState(false)
   const [savedSession, setSavedSession] = useState(false)
+  const [logLevel, setLogLevel] = useState('error')
+  const [savingLog, setSavingLog] = useState(false)
+  const [savedLog, setSavedLog] = useState(false)
 
   useEffect(() => {
     sessionConfigApi.get().then((r: any) => setSessionHours(r.data.sessionDurationHours || '24')).catch(() => {})
+    logConfigApi.get().then((r: any) => setLogLevel(r.data.logLevel || 'error')).catch(() => {})
   }, [])
 
   const saveSession = async () => {
@@ -651,6 +655,14 @@ export default function SessionsPanel() {
       await sessionConfigApi.save(sessionHours)
       setSavedSession(true); setTimeout(() => setSavedSession(false), 3000)
     } finally { setSavingSession(false) }
+  }
+
+  const saveLog = async () => {
+    setSavingLog(true); setSavedLog(false)
+    try {
+      await logConfigApi.save(logLevel)
+      setSavedLog(true); setTimeout(() => setSavedLog(false), 3000)
+    } finally { setSavingLog(false) }
   }
 
   const load = async (f: TimeFilter = filter) => {
@@ -731,6 +743,29 @@ export default function SessionsPanel() {
           </select>
           <button className="btn btn-primary" onClick={saveSession} disabled={savingSession}>
             {savingSession ? <span className="spinner" /> : savedSession ? '✓ Saved' : 'Save'}
+          </button>
+        </div>
+      </div>
+
+      {/* Backend log level */}
+      <div style={{ marginBottom: 24, padding: '16px 20px', background: 'var(--surface2)',
+        borderRadius: 10, border: '1px solid var(--border)' }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Backend log level</div>
+        <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 12, lineHeight: 1.6 }}>
+          <strong>error</strong> shows only problems (failed fetches, non-2xx responses).{' '}
+          <strong>debug</strong> adds cache activity and worker lifecycle.{' '}
+          <strong>trace</strong> adds every HTTP request in and out, with status and duration.
+          Applies immediately — no restart. The <code>STOA_LOG_LEVEL</code> container variable sets the boot default.
+        </div>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          <select className="input" value={logLevel} onChange={e => setLogLevel(e.target.value)}
+            style={{ cursor: 'pointer', maxWidth: 240 }}>
+            <option value="error">error (default)</option>
+            <option value="debug">debug</option>
+            <option value="trace">trace</option>
+          </select>
+          <button className="btn btn-primary" onClick={saveLog} disabled={savingLog}>
+            {savingLog ? <span className="spinner" /> : savedLog ? '✓ Saved' : 'Save'}
           </button>
         </div>
       </div>

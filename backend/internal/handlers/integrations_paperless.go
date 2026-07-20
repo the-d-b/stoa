@@ -33,22 +33,22 @@ type PaperlessDocType struct {
 }
 
 type PaperlessDocument struct {
-	ID           int    `json:"id"`
-	Title        string `json:"title"`
-	Created      string `json:"created"`
+	ID            int    `json:"id"`
+	Title         string `json:"title"`
+	Created       string `json:"created"`
 	Correspondent string `json:"correspondent"` // resolved name
-	DocumentType string `json:"documentType"`   // resolved name
+	DocumentType  string `json:"documentType"`  // resolved name
 }
 
 type PaperlessPanelData struct {
-	UIURL            string                   `json:"uiUrl"`
-	IntegrationID    string                   `json:"integrationId"`
-	TotalDocuments   int                      `json:"totalDocuments"`
-	InboxCount       int                      `json:"inboxCount"`
-	RecentDocuments  []PaperlessDocument      `json:"recentDocuments"`
-	Tags             []PaperlessTag           `json:"tags"`
-	Correspondents   []PaperlessCorrespondent `json:"correspondents"`
-	DocumentTypes    []PaperlessDocType       `json:"documentTypes"`
+	UIURL           string                   `json:"uiUrl"`
+	IntegrationID   string                   `json:"integrationId"`
+	TotalDocuments  int                      `json:"totalDocuments"`
+	InboxCount      int                      `json:"inboxCount"`
+	RecentDocuments []PaperlessDocument      `json:"recentDocuments"`
+	Tags            []PaperlessTag           `json:"tags"`
+	Correspondents  []PaperlessCorrespondent `json:"correspondents"`
+	DocumentTypes   []PaperlessDocType       `json:"documentTypes"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -98,7 +98,9 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 
 	// ── Total document count ──────────────────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/documents/?page_size=1", skipTLS); err == nil {
-		var r struct{ Count int `json:"count"` }
+		var r struct {
+			Count int `json:"count"`
+		}
 		if json.Unmarshal(body, &r) == nil {
 			out.TotalDocuments = r.Count
 		}
@@ -106,7 +108,9 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 
 	// ── Inbox count (untagged documents) ──────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/documents/?tags__isnull=true&page_size=1", skipTLS); err == nil {
-		var r struct{ Count int `json:"count"` }
+		var r struct {
+			Count int `json:"count"`
+		}
 		if json.Unmarshal(body, &r) == nil {
 			out.InboxCount = r.Count
 		}
@@ -207,9 +211,9 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 	if body, err := paperlessGet(baseURL, apiKey, "/api/documents/?ordering=-created&page_size=10", skipTLS); err == nil {
 		var r struct {
 			Results []struct {
-				ID           int     `json:"id"`
-				Title        string  `json:"title"`
-				Created      string  `json:"created"`
+				ID            int    `json:"id"`
+				Title         string `json:"title"`
+				Created       string `json:"created"`
 				Correspondent *int   `json:"correspondent"`
 				DocumentType  *int   `json:"document_type"`
 			} `json:"results"`

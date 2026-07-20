@@ -261,12 +261,12 @@ func fetchTailscalePanelData(db *sql.DB, config map[string]interface{}) (*Tailsc
 	if keysBody, kErr := tailscaleGet(apiKey, fmt.Sprintf("/api/v2/tailnet/%s/keys", tailnet)); kErr == nil {
 		var rawKeys struct {
 			Keys []struct {
-				ID          string `json:"id"`
-				Description string `json:"description"`
-				Created     string `json:"created"`
-				Expires     string `json:"expires"`
-				Revoked     string `json:"revoked"`
-				Invalid     bool   `json:"invalid"`
+				ID           string `json:"id"`
+				Description  string `json:"description"`
+				Created      string `json:"created"`
+				Expires      string `json:"expires"`
+				Revoked      string `json:"revoked"`
+				Invalid      bool   `json:"invalid"`
 				Capabilities struct {
 					Devices struct {
 						Create struct {

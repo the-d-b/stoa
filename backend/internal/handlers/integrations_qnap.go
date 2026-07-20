@@ -192,12 +192,12 @@ func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, erro
 		var info struct {
 			XMLName xml.Name `xml:"QDocRoot"`
 			// Top-level fields (QTS 5.x)
-			CPUFlat  int    `xml:"CPU_Usage"`
-			MemSizeF int64  `xml:"Memory_Size"`
-			MemFreeF int64  `xml:"Memory_Free"`
-			UptimeF  int64  `xml:"uptime"`
-			NetRxF   int64  `xml:"net_rx"` // bytes/sec aggregate; may be absent
-			NetTxF   int64  `xml:"net_tx"`
+			CPUFlat  int   `xml:"CPU_Usage"`
+			MemSizeF int64 `xml:"Memory_Size"`
+			MemFreeF int64 `xml:"Memory_Free"`
+			UptimeF  int64 `xml:"uptime"`
+			NetRxF   int64 `xml:"net_rx"` // bytes/sec aggregate; may be absent
+			NetTxF   int64 `xml:"net_tx"`
 			// Nested under func > ownContent (QTS 4.x)
 			CPUNest  int   `xml:"func>ownContent>CPU_Usage"`
 			MemSizeN int64 `xml:"func>ownContent>Memory_Size"`
@@ -265,7 +265,7 @@ func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, erro
 				RAIDType string `xml:"raid_type"`
 				FSType   string `xml:"fs_type"`
 				Capacity int64  `xml:"capacity"` // bytes
-				Free     int64  `xml:"free"`      // bytes
+				Free     int64  `xml:"free"`     // bytes
 			} `xml:"volume_list>volume"`
 		}
 		if xml.Unmarshal(body, &resp) == nil {

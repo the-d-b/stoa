@@ -461,6 +461,10 @@ export const sessionConfigApi = {
   get: () => api.get<{ sessionDurationHours: string }>('/session-config'),
   save: (hours: string) => api.put('/session-config', { sessionDurationHours: hours }),
 }
+export const logConfigApi = {
+  get: () => api.get<{ logLevel: string }>('/log-config'),
+  save: (level: string) => api.put('/log-config', { logLevel: level }),
+}
 export const adminUsersApi = {
   updateEmail: (id: string, email: string) => api.put(`/users/${id}/email`, { email }),
   sendReset: (id: string) => api.post(`/users/${id}/send-reset`, {}),

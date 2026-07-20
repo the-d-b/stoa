@@ -10,12 +10,12 @@ import (
 )
 
 type SearchResult struct {
-	Type    string `json:"type"`    // "note" | "checklist"
-	ID      string `json:"id"`
-	Title   string `json:"title"`
-	Excerpt string `json:"excerpt,omitempty"`
-	URL     string `json:"url,omitempty"`     // for bookmarks
-	IconURL string `json:"iconUrl,omitempty"` // for bookmarks
+	Type      string `json:"type"` // "note" | "checklist"
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	Excerpt   string `json:"excerpt,omitempty"`
+	URL       string `json:"url,omitempty"`     // for bookmarks
+	IconURL   string `json:"iconUrl,omitempty"` // for bookmarks
 	PanelID   string `json:"panelId,omitempty"`
 	PorticoID string `json:"porticoId,omitempty"`
 	Path      string `json:"path,omitempty"`
@@ -32,8 +32,7 @@ func Search(db *sql.DB) http.HandlerFunc {
 		like := "%" + q + "%"
 		var results []SearchResult
 
-
-				// ── Notes (user's own panels only) ────────────────────────────────────
+		// ── Notes (user's own panels only) ────────────────────────────────────
 		noteRows, err := db.Query(`
 			SELECT n.id, n.title, SUBSTR(n.body, 1, 120), p.id,
 				COALESCE((SELECT ppp.portico_id FROM personal_panel_porticos ppp WHERE ppp.panel_id = p.id LIMIT 1), 'home')

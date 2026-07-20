@@ -128,7 +128,9 @@ func UploadChatAttachment(db *sql.DB, attachDir string) http.HandlerFunc {
 func FetchURLAttachment(db *sql.DB, attachDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		var req struct{ URL string `json:"url"` }
+		var req struct {
+			URL string `json:"url"`
+		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.URL == "" {
 			writeError(w, http.StatusBadRequest, "url required")
 			return

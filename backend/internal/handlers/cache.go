@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"log"
 	"strings"
 	"sync"
 	"time"
@@ -52,7 +51,7 @@ func cacheDeletePrefix(prefix string) {
 	for k := range panelCache {
 		if strings.HasPrefix(k, prefix) {
 			delete(panelCache, k)
-			log.Printf("[CACHE] busted %s", k)
+			logDebugf("CACHE", "busted %s", k)
 		}
 	}
 }
@@ -102,7 +101,7 @@ func NewWorkerManager(db *sql.DB, gracePeriod time.Duration) *WorkerManager {
 		gracePeriod: gracePeriod,
 	}
 	GlobalWorkerManager = m
-	log.Printf("[CACHE] worker manager ready — cold start, waiting for first SSE client")
+	logDebugf("CACHE", "worker manager ready — cold start, waiting for first SSE client")
 	return m
 }
 
@@ -111,12 +110,12 @@ func (m *WorkerManager) ClientConnected() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clientCount++
-	log.Printf("[CACHE] SSE client connected (total: %d)", m.clientCount)
+	logDebugf("CACHE", "SSE client connected (total: %d)", m.clientCount)
 	// Cancel any pending spin-down
 	if m.cancelSpin != nil {
 		m.cancelSpin()
 		m.cancelSpin = nil
-		log.Printf("[CACHE] spin-down cancelled — client reconnected")
+		logDebugf("CACHE", "spin-down cancelled — client reconnected")
 	}
 	// Spin up if not already running
 	if !m.running {
@@ -132,12 +131,12 @@ func (m *WorkerManager) ClientDisconnected() {
 	count := m.clientCount
 	if count > 0 {
 		m.mu.Unlock()
-		log.Printf("[CACHE] SSE client disconnected (remaining: %d)", count)
+		logDebugf("CACHE", "SSE client disconnected (remaining: %d)", count)
 		return
 	}
 	// Last client — schedule spin-down with cancellable timer
-	log.Printf("[CACHE] SSE client disconnected (remaining: 0)")
-	log.Printf("[CACHE] no SSE clients — spinning down in %s", m.gracePeriod)
+	logDebugf("CACHE", "SSE client disconnected (remaining: 0)")
+	logDebugf("CACHE", "no SSE clients — spinning down in %s", m.gracePeriod)
 	cancel := make(chan struct{})
 	m.cancelSpin = func() { close(cancel) }
 	m.mu.Unlock()
@@ -151,7 +150,7 @@ func (m *WorkerManager) ClientDisconnected() {
 				m.running = false
 				m.cancelSpin = nil
 				m.stopAllWorkers()
-				log.Printf("[CACHE] all workers stopped — no active sessions")
+				logDebugf("CACHE", "all workers stopped — no active sessions")
 			}
 		case <-cancel:
 			// Cancelled by ClientConnected
@@ -162,13 +161,13 @@ func (m *WorkerManager) ClientDisconnected() {
 func (m *WorkerManager) startAllWorkers() {
 	integrations, err := loadAllIntegrations(m.db)
 	if err != nil {
-		log.Printf("[CACHE] failed to load integrations: %v", err)
+		logErrorf("CACHE", "failed to load integrations: %v", err)
 		return
 	}
 	for _, ig := range integrations {
 		startWorker(m.db, ig)
 	}
-	log.Printf("[CACHE] started %d workers (SSE client connected)", len(integrations))
+	logDebugf("CACHE", "started %d workers (SSE client connected)", len(integrations))
 }
 
 func (m *WorkerManager) stopAllWorkers() {
@@ -178,7 +177,7 @@ func (m *WorkerManager) stopAllWorkers() {
 		close(ch)
 		delete(workerStop, id)
 	}
-	log.Printf("[CACHE] all workers stopped")
+	logDebugf("CACHE", "all workers stopped")
 }
 
 // StartCacheManager kept for compatibility — now delegates to WorkerManager.
@@ -193,7 +192,7 @@ func StartWorkerForIntegration(db *sql.DB, integrationID string) {
 	StopWorkerForIntegration(integrationID)
 	// Only start if sessions are active
 	if GlobalWorkerManager != nil && !GlobalWorkerManager.running {
-		log.Printf("[CACHE] skipping worker start for %s — no active sessions", integrationID)
+		logDebugf("CACHE", "skipping worker start for %s — no active sessions", integrationID)
 		return
 	}
 	igs, err := loadAllIntegrations(db)
@@ -217,7 +216,7 @@ func StopWorkerForIntegration(integrationID string) {
 		close(ch)
 		delete(workerStop, integrationID)
 		cacheDelete(integrationID)
-		log.Printf("[CACHE] stopped worker for %s", integrationID)
+		logDebugf("CACHE", "stopped worker for %s", integrationID)
 	}
 }
 
@@ -265,7 +264,7 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	workerStop[ig.id] = stop
 	workerStopMu.Unlock()
 
-	log.Printf("[CACHE] worker started: %s (%s) every %ds", ig.id, ig.igType, ig.refreshSecs)
+	logDebugf("CACHE", "worker started: %s (%s) every %ds", ig.id, ig.igType, ig.refreshSecs)
 
 	// TrueNAS uses a persistent WebSocket connection instead of polling
 	if ig.igType == "truenas" {
@@ -336,7 +335,7 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				log.Printf("[CACHE] worker panic %s: %v", ig.id, r)
+				logErrorf("CACHE", "worker panic %s: %v", ig.id, r)
 			}
 		}()
 		base := time.Duration(ig.refreshSecs) * time.Second
@@ -357,11 +356,11 @@ func startWorker(db *sql.DB, ig integrationMeta) {
 				} else {
 					consecutiveErrors++
 					next := workerBackoff(base, consecutiveErrors)
-					log.Printf("[CACHE] backoff %s: %d consecutive errors, retry in %s", ig.id, consecutiveErrors, next)
+					logErrorf("CACHE", "backoff %s: %d consecutive errors, retry in %s", ig.id, consecutiveErrors, next)
 					timer.Reset(next)
 				}
 			case <-stop:
-				log.Printf("[CACHE] worker stopped: %s", ig.id)
+				logDebugf("CACHE", "worker stopped: %s", ig.id)
 				return
 			}
 		}
@@ -383,13 +382,13 @@ func refreshCache(db *sql.DB, ig integrationMeta) bool {
 
 	data, err := fetcher(db, config)
 	if err != nil {
-		log.Printf("[CACHE] refresh error %s (%s): %v", ig.id, ig.igType, err)
+		logErrorf("CACHE", "refresh error %s (%s): %v", ig.id, ig.igType, err)
 		RecordIntegrationError(ig.id, ig.name, err.Error())
 		return false
 	}
 	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
-	log.Printf("[CACHE] refreshed %s (%s)", ig.id, ig.igType)
+	logDebugf("CACHE", "refreshed %s (%s)", ig.id, ig.igType)
 	return true
 }
 

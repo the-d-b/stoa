@@ -14,15 +14,15 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type GhostfolioHolding struct {
-	Name                  string  `json:"name"`
-	Symbol                string  `json:"symbol"`
-	Currency              string  `json:"currency"`
-	Value                 float64 `json:"value"`
-	AllocationCurrent     float64 `json:"allocationCurrent"` // fraction 0-1
-	NetPerformancePct     float64 `json:"netPerformancePct"` // fraction 0-1
-	NetPerformance        float64 `json:"netPerformance"`
-	Quantity              float64 `json:"quantity"`
-	MarketPrice           float64 `json:"marketPrice"`
+	Name              string  `json:"name"`
+	Symbol            string  `json:"symbol"`
+	Currency          string  `json:"currency"`
+	Value             float64 `json:"value"`
+	AllocationCurrent float64 `json:"allocationCurrent"` // fraction 0-1
+	NetPerformancePct float64 `json:"netPerformancePct"` // fraction 0-1
+	NetPerformance    float64 `json:"netPerformance"`
+	Quantity          float64 `json:"quantity"`
+	MarketPrice       float64 `json:"marketPrice"`
 }
 
 type GhostfolioPanelData struct {
@@ -31,8 +31,8 @@ type GhostfolioPanelData struct {
 	Currency         string              `json:"currency"`
 	CurrentValue     float64             `json:"currentValue"`
 	TotalInvestment  float64             `json:"totalInvestment"`
-	TodayChangePct   float64             `json:"todayChangePct"`   // fraction
-	TodayChangeAmt   float64             `json:"todayChangeAmt"`   // currency amount
+	TodayChangePct   float64             `json:"todayChangePct"` // fraction
+	TodayChangeAmt   float64             `json:"todayChangeAmt"` // currency amount
 	YearChangePct    float64             `json:"yearChangePct"`
 	AllTimeChangePct float64             `json:"allTimeChangePct"`
 	AllTimeChangeAmt float64             `json:"allTimeChangeAmt"`
@@ -94,13 +94,13 @@ func ghostfolioGet(baseURL, jwt, path string, skipTLS bool) ([]byte, error) {
 func perfFromBody(body []byte) (changePct, changeAmt, currentValue, totalInvestment float64) {
 	var r struct {
 		Performance struct {
-			CurrentNetWorth                          float64 `json:"currentNetWorth"`
-			CurrentValueInBaseCurrency               float64 `json:"currentValueInBaseCurrency"`
-			NetPerformance                           float64 `json:"netPerformance"`
-			NetPerformancePercentage                 float64 `json:"netPerformancePercentage"`
-			NetPerformanceWithCurrencyEffect         float64 `json:"netPerformanceWithCurrencyEffect"`
+			CurrentNetWorth                            float64 `json:"currentNetWorth"`
+			CurrentValueInBaseCurrency                 float64 `json:"currentValueInBaseCurrency"`
+			NetPerformance                             float64 `json:"netPerformance"`
+			NetPerformancePercentage                   float64 `json:"netPerformancePercentage"`
+			NetPerformanceWithCurrencyEffect           float64 `json:"netPerformanceWithCurrencyEffect"`
 			NetPerformancePercentageWithCurrencyEffect float64 `json:"netPerformancePercentageWithCurrencyEffect"`
-			TotalInvestment                          float64 `json:"totalInvestment"`
+			TotalInvestment                            float64 `json:"totalInvestment"`
 		} `json:"performance"`
 	}
 	json.Unmarshal(body, &r)

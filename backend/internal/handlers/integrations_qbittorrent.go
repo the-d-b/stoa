@@ -236,12 +236,12 @@ func qbtFetchAll(apiURL, uiURL, sid, authKey string, skipTLS bool) (*QBTPanelDat
 			data.Seeding++
 			totalSeedBytes += t.Size
 			allSeeding = append(allSeeding, QBTTorrent{
-				Name:   t.Name,
-				State:  t.State,
+				Name:     t.Name,
+				State:    t.State,
 				Progress: 100,
-				SizeMB: float64(t.Size) / 1048576,
-				UpMbps: float64(t.UpSpeed) / 1000000,
-				Ratio:  t.Ratio,
+				SizeMB:   float64(t.Size) / 1048576,
+				UpMbps:   float64(t.UpSpeed) / 1000000,
+				Ratio:    t.Ratio,
 			})
 		case "pausedDL", "pausedUP", "stalledDL", "queuedDL", "moving":
 			data.Paused++

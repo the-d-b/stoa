@@ -126,9 +126,9 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 	// ── Volatile stock (expiring/expired) ─────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/stock/volatile", skipTLS); err == nil {
 		var r struct {
-			DueProducts      []json.RawMessage `json:"due_products"`
-			OverdueProducts  []json.RawMessage `json:"overdue_products"`
-			ExpiredProducts  []json.RawMessage `json:"expired_products"`
+			DueProducts     []json.RawMessage `json:"due_products"`
+			OverdueProducts []json.RawMessage `json:"overdue_products"`
+			ExpiredProducts []json.RawMessage `json:"expired_products"`
 		}
 		if json.Unmarshal(body, &r) == nil {
 			type stockEntry struct {
@@ -189,9 +189,9 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 	// ── Chores ────────────────────────────────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/chores", skipTLS); err == nil {
 		var chores []struct {
-			ChoreName                 string `json:"chore_name"`
+			ChoreName                  string `json:"chore_name"`
 			NextEstimatedExecutionTime string `json:"next_estimated_execution_time"`
-			LastTrackedTime           string `json:"last_tracked_time"`
+			LastTrackedTime            string `json:"last_tracked_time"`
 		}
 		if json.Unmarshal(body, &chores) == nil {
 			for _, c := range chores {
@@ -229,9 +229,9 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 	// ── Tasks ─────────────────────────────────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/tasks", skipTLS); err == nil {
 		var tasks []struct {
-			Name      string          `json:"name"`
-			DueDate   string          `json:"due_date"`
-			Done      json.RawMessage `json:"done"`
+			Name       string          `json:"name"`
+			DueDate    string          `json:"due_date"`
+			Done       json.RawMessage `json:"done"`
 			CategoryID json.RawMessage `json:"category_id"`
 		}
 		if json.Unmarshal(body, &tasks) == nil {

@@ -12,34 +12,34 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type NextcloudPanelData struct {
-	UIURL             string   `json:"uiUrl"`
-	IntegrationID     string   `json:"integrationId"`
-	Version           string   `json:"version"`
+	UIURL         string `json:"uiUrl"`
+	IntegrationID string `json:"integrationId"`
+	Version       string `json:"version"`
 	// Storage
-	FreeSpaceBytes    int64    `json:"freeSpaceBytes"`
-	NumFiles          int      `json:"numFiles"`
-	NumUsers          int      `json:"numUsers"`
-	NumDisabledUsers  int      `json:"numDisabledUsers"`
-	NumStorages       int      `json:"numStorages"`
+	FreeSpaceBytes   int64 `json:"freeSpaceBytes"`
+	NumFiles         int   `json:"numFiles"`
+	NumUsers         int   `json:"numUsers"`
+	NumDisabledUsers int   `json:"numDisabledUsers"`
+	NumStorages      int   `json:"numStorages"`
 	// Active users
-	ActiveLast5m      int      `json:"activeLast5m"`
-	ActiveLast1h      int      `json:"activeLast1h"`
-	ActiveLast24h     int      `json:"activeLast24h"`
+	ActiveLast5m  int `json:"activeLast5m"`
+	ActiveLast1h  int `json:"activeLast1h"`
+	ActiveLast24h int `json:"activeLast24h"`
 	// Shares
-	NumShares         int      `json:"numShares"`
-	NumSharesLink     int      `json:"numSharesLink"`
-	NumSharesUser     int      `json:"numSharesUser"`
-	NumSharesGroup    int      `json:"numSharesGroup"`
+	NumShares      int `json:"numShares"`
+	NumSharesLink  int `json:"numSharesLink"`
+	NumSharesUser  int `json:"numSharesUser"`
+	NumSharesGroup int `json:"numSharesGroup"`
 	// Apps
-	NumAppsInstalled  int      `json:"numAppsInstalled"`
-	NumAppUpdates     int      `json:"numAppUpdates"`
+	NumAppsInstalled int `json:"numAppsInstalled"`
+	NumAppUpdates    int `json:"numAppUpdates"`
 	// Server
-	PHPVersion        string   `json:"phpVersion"`
-	DBType            string   `json:"dbType"`
-	DBVersion         string   `json:"dbVersion"`
-	MemTotalKB        int64    `json:"memTotalKb"`
-	MemFreeKB         int64    `json:"memFreeKb"`
-	Webserver         string   `json:"webserver"`
+	PHPVersion string `json:"phpVersion"`
+	DBType     string `json:"dbType"`
+	DBVersion  string `json:"dbVersion"`
+	MemTotalKB int64  `json:"memTotalKb"`
+	MemFreeKB  int64  `json:"memFreeKb"`
+	Webserver  string `json:"webserver"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -130,13 +130,13 @@ func fetchNextcloudPanelData(db *sql.DB, config map[string]interface{}) (*Nextcl
 	var info struct {
 		Nextcloud struct {
 			System struct {
-				Version    string    `json:"version"`
-				FreeSpace  int64     `json:"freespace"`
-				CPULoad    []float64 `json:"cpuload"`
-				MemTotal   int64     `json:"mem_total"`
-				MemFree    int64     `json:"mem_free"`
-				Apps       *struct {
-					NumInstalled      int `json:"num_installed"`
+				Version   string    `json:"version"`
+				FreeSpace int64     `json:"freespace"`
+				CPULoad   []float64 `json:"cpuload"`
+				MemTotal  int64     `json:"mem_total"`
+				MemFree   int64     `json:"mem_free"`
+				Apps      *struct {
+					NumInstalled        int `json:"num_installed"`
 					NumUpdatesAvailable int `json:"num_updates_available"`
 				} `json:"apps"`
 			} `json:"system"`

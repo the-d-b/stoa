@@ -44,13 +44,13 @@ type UniFiSpeedtest struct {
 }
 
 type UniFiWAN struct {
-	Name      string         `json:"name"`
-	IP        string         `json:"ip"`
-	Up        bool           `json:"up"`
-	Type      string         `json:"type"` // "dhcp", "pppoe", etc.
-	TxMBs     float64        `json:"txMBs"`
-	RxMBs     float64        `json:"rxMBs"`
-	LatencyMs float64        `json:"latencyMs"`
+	Name      string          `json:"name"`
+	IP        string          `json:"ip"`
+	Up        bool            `json:"up"`
+	Type      string          `json:"type"` // "dhcp", "pppoe", etc.
+	TxMBs     float64         `json:"txMBs"`
+	RxMBs     float64         `json:"rxMBs"`
+	LatencyMs float64         `json:"latencyMs"`
 	Speedtest *UniFiSpeedtest `json:"speedtest,omitempty"`
 }
 
@@ -78,19 +78,19 @@ type UniFiDevice struct {
 }
 
 type UniFiClient struct {
-	MAC        string  `json:"mac"`
-	Hostname   string  `json:"hostname"`
-	IP         string  `json:"ip"`
-	IsWired    bool    `json:"wired"`
-	IsGuest    bool    `json:"guest"`
-	Band       string  `json:"band"` // "2.4G", "5G", "6G", "" for wired
-	RSSI       int     `json:"rssi"`
-	Satisfaction int   `json:"satisfaction"` // 0-100
-	TxRateMbps float64 `json:"txRate"`
-	RxRateMbps float64 `json:"rxRate"`
-	Uptime     int64   `json:"uptime"`
-	SSID       string  `json:"ssid"`
-	APIP       string  `json:"apIp"`
+	MAC          string  `json:"mac"`
+	Hostname     string  `json:"hostname"`
+	IP           string  `json:"ip"`
+	IsWired      bool    `json:"wired"`
+	IsGuest      bool    `json:"guest"`
+	Band         string  `json:"band"` // "2.4G", "5G", "6G", "" for wired
+	RSSI         int     `json:"rssi"`
+	Satisfaction int     `json:"satisfaction"` // 0-100
+	TxRateMbps   float64 `json:"txRate"`
+	RxRateMbps   float64 `json:"rxRate"`
+	Uptime       int64   `json:"uptime"`
+	SSID         string  `json:"ssid"`
+	APIP         string  `json:"apIp"`
 }
 
 type UniFiEvent struct {
@@ -286,17 +286,17 @@ type unifiAPIResp struct {
 }
 
 type rawUniFiDevice struct {
-	MAC     string `json:"mac"`
-	Type    string `json:"type"`
-	Name    string `json:"name"`
-	Model   string `json:"model"`
-	IP      string `json:"ip"`
-	State   int    `json:"state"`
-	Uptime  int64  `json:"uptime"`
-	Version string `json:"version"`
-	NumSta  int    `json:"num_sta"`
-	TxBytes int64  `json:"tx_bytes"`
-	RxBytes int64  `json:"rx_bytes"`
+	MAC      string `json:"mac"`
+	Type     string `json:"type"`
+	Name     string `json:"name"`
+	Model    string `json:"model"`
+	IP       string `json:"ip"`
+	State    int    `json:"state"`
+	Uptime   int64  `json:"uptime"`
+	Version  string `json:"version"`
+	NumSta   int    `json:"num_sta"`
+	TxBytes  int64  `json:"tx_bytes"`
+	RxBytes  int64  `json:"rx_bytes"`
 	SysStats struct {
 		CPU json.Number `json:"cpu"`
 		Mem json.Number `json:"mem"`
@@ -328,9 +328,9 @@ type rawUniFiDevice struct {
 		Latency json.Number `json:"latency"`
 	} `json:"wan1"`
 	WAN2 *struct {
-		IP      string `json:"ip"`
-		Type    string `json:"type"`
-		Up      bool   `json:"up"`
+		IP   string `json:"ip"`
+		Type string `json:"type"`
+		Up   bool   `json:"up"`
 	} `json:"wan2"`
 	SpeedtestStatus *struct {
 		Download json.Number `json:"download"`

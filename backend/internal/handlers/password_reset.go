@@ -71,7 +71,9 @@ func ResetRequest(db *sql.DB) http.HandlerFunc {
 		}
 		if appURL == "" {
 			scheme := "http"
-			if r.TLS != nil { scheme = "https" }
+			if r.TLS != nil {
+				scheme = "https"
+			}
 			appURL = scheme + "://" + r.Host
 		}
 		resetURL := appURL + "/reset-password?token=" + token
@@ -200,7 +202,9 @@ func AdminSendResetLink(db *sql.DB) http.HandlerFunc {
 		}
 		if appURL == "" {
 			scheme := "http"
-			if r.TLS != nil { scheme = "https" }
+			if r.TLS != nil {
+				scheme = "https"
+			}
 			appURL = scheme + "://" + r.Host
 		}
 		resetURL := appURL + "/reset-password?token=" + token

@@ -198,19 +198,26 @@ func fetchTracearrPanelData(db *sql.DB, config map[string]interface{}) (*Tracear
 			}
 			data.TotalDurationMs = totalDurMs
 			data.UniqueUsers = len(userPlays)
-			type userEntry struct{ name string; plays int }
+			type userEntry struct {
+				name  string
+				plays int
+			}
 			var users []userEntry
 			for name, plays := range userPlays {
 				users = append(users, userEntry{name, plays})
 			}
 			sort.Slice(users, func(i, j int) bool { return users[i].plays > users[j].plays })
 			for i, u := range users {
-				if i >= 5 { break }
+				if i >= 5 {
+					break
+				}
 				data.TopUsers = append(data.TopUsers, TracearrUser{Username: u.name, Plays: u.plays})
 			}
 			// Recent history (first 10 = most recent)
 			for i, h := range resp.Data {
-				if i >= 10 { break }
+				if i >= 10 {
+					break
+				}
 				data.RecentHistory = append(data.RecentHistory, TracearrHistoryItem{
 					Username:    h.User.Username,
 					MediaTitle:  h.MediaTitle,

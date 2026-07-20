@@ -33,10 +33,10 @@ type OpenWrtPanelData struct {
 	UIURL         string          `json:"uiUrl"`
 	IntegrationID string          `json:"integrationId"`
 	Hostname      string          `json:"hostname"`
-	Uptime        int64           `json:"uptime"`    // seconds
-	Load1         float64         `json:"load1"`     // 1-min load average
-	MemTotal      int64           `json:"memTotal"`  // bytes
-	MemFree       int64           `json:"memFree"`   // bytes
+	Uptime        int64           `json:"uptime"`   // seconds
+	Load1         float64         `json:"load1"`    // 1-min load average
+	MemTotal      int64           `json:"memTotal"` // bytes
+	MemFree       int64           `json:"memFree"`  // bytes
 	MemBuffered   int64           `json:"memBuffered"`
 	Interfaces    []OpenWrtIface  `json:"interfaces"`
 	Clients       []OpenWrtClient `json:"clients"`
@@ -84,7 +84,7 @@ func owrtPost(baseURL, body string, skipTLS bool) ([]byte, error) {
 // owrtUnwrap extracts data from a ubus JSON-RPC response: {"result":[code, data]}.
 func owrtUnwrap(body []byte) ([]byte, error) {
 	var envelope struct {
-		Error  *struct {
+		Error *struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
 		} `json:"error"`

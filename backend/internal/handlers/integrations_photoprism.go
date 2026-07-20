@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -92,10 +91,10 @@ func fetchPhotoPrismPanelData(db *sql.DB, config map[string]interface{}) (*Photo
 		return nil, fmt.Errorf("failed to fetch PhotoPrism config: %v", err)
 	}
 	var cfg struct {
-		Version      string `json:"version"`
-		PreviewToken string `json:"previewToken"`
+		Version       string `json:"version"`
+		PreviewToken  string `json:"previewToken"`
 		DownloadToken string `json:"downloadToken"`
-		Count        struct {
+		Count         struct {
 			Photos  int `json:"photos"`
 			Videos  int `json:"videos"`
 			Albums  int `json:"albums"`
@@ -107,15 +106,15 @@ func fetchPhotoPrismPanelData(db *sql.DB, config map[string]interface{}) (*Photo
 		} `json:"count"`
 	}
 	if err := json.Unmarshal(cfgBody, &cfg); err == nil {
-		data.Version  = cfg.Version
-		data.Photos   = cfg.Count.Photos
-		data.Videos   = cfg.Count.Videos
-		data.Albums   = cfg.Count.Albums
-		data.Folders  = cfg.Count.Folders
-		data.Moments  = cfg.Count.Moments
-		data.People   = cfg.Count.People
-		data.Places   = cfg.Count.Places
-		data.Labels   = cfg.Count.Labels
+		data.Version = cfg.Version
+		data.Photos = cfg.Count.Photos
+		data.Videos = cfg.Count.Videos
+		data.Albums = cfg.Count.Albums
+		data.Folders = cfg.Count.Folders
+		data.Moments = cfg.Count.Moments
+		data.People = cfg.Count.People
+		data.Places = cfg.Count.Places
+		data.Labels = cfg.Count.Labels
 
 		// Cache the preview token
 		pt := cfg.PreviewToken
@@ -154,7 +153,7 @@ func ppGetPreviewPhotos(apiURL, token, integID string, skipTLS bool) []PhotoPris
 
 	body, err := ppGet(apiURL, token, "/api/v1/photos?count=6&order=random&photos=true&merged=true", skipTLS)
 	if err != nil {
-		log.Printf("[PhotoPrism] photo fetch error: %v", err)
+		logErrorf("PhotoPrism", "photo fetch error: %v", err)
 		return nil
 	}
 

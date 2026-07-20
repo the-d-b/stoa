@@ -16,26 +16,26 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type BlueIrisCamera struct {
-	ShortName    string  `json:"shortName"`
-	Name         string  `json:"name"`
-	FPS          float64 `json:"fps"`
-	Width        int     `json:"width"`
-	Height       int     `json:"height"`
-	IsOnline     bool    `json:"isOnline"`
-	IsEnabled    bool    `json:"isEnabled"`
-	IsRecording  bool    `json:"isRecording"`
-	IsMotion     bool    `json:"isMotion"`
-	IsAlerting   bool    `json:"isAlerting"`
-	IsTriggered  bool    `json:"isTriggered"`
-	IsPaused     bool    `json:"isPaused"`
-	IsNoSignal   bool    `json:"isNoSignal"`
-	IsGroup      bool    `json:"isGroup"`
-	HasPTZ       bool    `json:"hasPtz"`
-	HasAudio     bool    `json:"hasAudio"`
-	NClips       int     `json:"nClips"`
-	NTriggers    int     `json:"nTriggers"`
-	NAlerts      int     `json:"nAlerts"`
-	NNoSignal    int     `json:"nNoSignal"`
+	ShortName   string  `json:"shortName"`
+	Name        string  `json:"name"`
+	FPS         float64 `json:"fps"`
+	Width       int     `json:"width"`
+	Height      int     `json:"height"`
+	IsOnline    bool    `json:"isOnline"`
+	IsEnabled   bool    `json:"isEnabled"`
+	IsRecording bool    `json:"isRecording"`
+	IsMotion    bool    `json:"isMotion"`
+	IsAlerting  bool    `json:"isAlerting"`
+	IsTriggered bool    `json:"isTriggered"`
+	IsPaused    bool    `json:"isPaused"`
+	IsNoSignal  bool    `json:"isNoSignal"`
+	IsGroup     bool    `json:"isGroup"`
+	HasPTZ      bool    `json:"hasPtz"`
+	HasAudio    bool    `json:"hasAudio"`
+	NClips      int     `json:"nClips"`
+	NTriggers   int     `json:"nTriggers"`
+	NAlerts     int     `json:"nAlerts"`
+	NNoSignal   int     `json:"nNoSignal"`
 }
 
 type BlueIrisAlert struct {
@@ -51,7 +51,7 @@ type BlueIrisPanelData struct {
 	IntegrationID    string           `json:"integrationId"`
 	SystemName       string           `json:"systemName"`
 	Version          string           `json:"version"`
-	Signal           int              `json:"signal"`          // 0=red,1=green,2=yellow
+	Signal           int              `json:"signal"` // 0=red,1=green,2=yellow
 	ActiveProfile    int              `json:"activeProfile"`
 	Profiles         []string         `json:"profiles"`
 	IsAdmin          bool             `json:"isAdmin"`
@@ -128,11 +128,11 @@ func biLogin(baseURL, username, password string, skipTLS bool) (session, hash st
 	}
 
 	out = &BlueIrisPanelData{
-		SystemName:  step2.Data.Name,
-		Version:     step2.Data.Version,
-		Profiles:    step2.Data.Profiles,
-		IsAdmin:     step2.Data.Admin,
-		Signal:      1, // default green
+		SystemName:    step2.Data.Name,
+		Version:       step2.Data.Version,
+		Profiles:      step2.Data.Profiles,
+		IsAdmin:       step2.Data.Admin,
+		Signal:        1, // default green
 		ActiveProfile: -1,
 	}
 	return step1.Session, hash, out, client, nil
@@ -241,26 +241,26 @@ func fetchBlueIrisPanelData(db *sql.DB, config map[string]interface{}) (*BlueIri
 					continue
 				}
 				cam := BlueIrisCamera{
-					ShortName:    c.ShortName,
-					Name:         c.Name,
-					FPS:          c.FPS,
-					Width:        c.Width,
-					Height:       c.Height,
-					IsOnline:     c.IsOnline,
-					IsEnabled:    c.IsEnabled,
-					IsRecording:  c.IsRecording,
-					IsMotion:     c.IsMotion,
-					IsAlerting:   c.IsAlerting,
-					IsTriggered:  c.IsTriggered,
-					IsPaused:     c.IsPaused,
-					IsNoSignal:   c.IsNoSignal,
-					IsGroup:      c.Group,
-					HasPTZ:       c.PTZ,
-					HasAudio:     c.Audio,
-					NClips:       c.ClipsCreated,
-					NTriggers:    c.NTriggers,
-					NAlerts:      c.NAlerts,
-					NNoSignal:    c.NNoSignal,
+					ShortName:   c.ShortName,
+					Name:        c.Name,
+					FPS:         c.FPS,
+					Width:       c.Width,
+					Height:      c.Height,
+					IsOnline:    c.IsOnline,
+					IsEnabled:   c.IsEnabled,
+					IsRecording: c.IsRecording,
+					IsMotion:    c.IsMotion,
+					IsAlerting:  c.IsAlerting,
+					IsTriggered: c.IsTriggered,
+					IsPaused:    c.IsPaused,
+					IsNoSignal:  c.IsNoSignal,
+					IsGroup:     c.Group,
+					HasPTZ:      c.PTZ,
+					HasAudio:    c.Audio,
+					NClips:      c.ClipsCreated,
+					NTriggers:   c.NTriggers,
+					NAlerts:     c.NAlerts,
+					NNoSignal:   c.NNoSignal,
 				}
 				out.TotalCameras++
 				if c.IsOnline {
@@ -277,12 +277,18 @@ func fetchBlueIrisPanelData(db *sql.DB, config map[string]interface{}) (*BlueIri
 			// Sort: alerting → no-signal → offline → online; then alpha
 			sort.Slice(out.Cameras, func(i, j int) bool {
 				rank := func(c BlueIrisCamera) int {
-					if c.IsAlerting || c.IsNoSignal { return 0 }
-					if !c.IsOnline || !c.IsEnabled { return 2 }
+					if c.IsAlerting || c.IsNoSignal {
+						return 0
+					}
+					if !c.IsOnline || !c.IsEnabled {
+						return 2
+					}
 					return 1
 				}
 				ri, rj := rank(out.Cameras[i]), rank(out.Cameras[j])
-				if ri != rj { return ri < rj }
+				if ri != rj {
+					return ri < rj
+				}
 				return out.Cameras[i].Name < out.Cameras[j].Name
 			})
 		}

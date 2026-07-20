@@ -3,7 +3,6 @@ package handlers
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -66,7 +65,7 @@ func ListPanels(db *sql.DB) http.HandlerFunc {
 		}
 
 		if err != nil {
-			log.Printf("[PANELS] list error: %v", err)
+			logErrorf("PANELS", "list error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to query panels")
 			return
 		}
@@ -163,7 +162,7 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?)
 		`, id, req.Type, req.Title, req.Config, ownerID)
 		if err != nil {
-			log.Printf("[PANELS] create error: %v", err)
+			logErrorf("PANELS", "create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create panel")
 			return
 		}
@@ -327,7 +326,7 @@ func UpdatePanelOrder(db *sql.DB) http.HandlerFunc {
 
 		var req struct {
 			PorticoID *string `json:"porticoId"` // null = Home, string = named wall
-			Order  []struct {
+			Order     []struct {
 				PanelID  string `json:"panelId"`
 				Position int    `json:"position"`
 			} `json:"order"`
@@ -483,7 +482,6 @@ func ListMyPanels(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-
 // ListPorticoConfigPanels returns panels for a portico's configure-columns UI,
 // LEFT JOINed with the user's saved order and column assignments for this
 // portico. Must return the same panel set the dashboard shows for the portico.
@@ -538,10 +536,10 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 				)
 			ORDER BY COALESCE(upo.position, 99999), p.created_at, p.id
 		`, claims.UserID, porticoID, claims.UserID, porticoID,
-		   claims.UserID, claims.UserID, porticoID)
+			claims.UserID, claims.UserID, porticoID)
 
 		if err != nil {
-			log.Printf("[PANELS] portico config panels error: %v", err)
+			logErrorf("PANELS", "portico config panels error: %v", err)
 			writeError(w, http.StatusInternalServerError, "query failed")
 			return
 		}
@@ -564,7 +562,9 @@ func ListPorticoConfigPanels(db *sql.DB) http.HandlerFunc {
 				&p.CreatedBy, &p.Position, &p.CustomColumn)
 			panels = append(panels, p)
 		}
-		if panels == nil { panels = []ConfigPanel{} }
+		if panels == nil {
+			panels = []ConfigPanel{}
+		}
 		writeJSON(w, http.StatusOK, panels)
 	}
 }
@@ -589,7 +589,7 @@ func ListPorticoPanels(db *sql.DB) http.HandlerFunc {
 			ORDER BY upo.position ASC, p.created_at ASC
 		`, claims.UserID, porticoID)
 		if err != nil {
-			log.Printf("[PANELS] portico panels error: %v", err)
+			logErrorf("PANELS", "portico panels error: %v", err)
 			writeError(w, http.StatusInternalServerError, "query failed")
 			return
 		}
@@ -612,7 +612,9 @@ func ListPorticoPanels(db *sql.DB) http.HandlerFunc {
 				&p.CreatedBy, &p.CreatedAt, &p.Position, &p.CustomColumn)
 			panels = append(panels, p)
 		}
-		if panels == nil { panels = []PorticoPanel{} }
+		if panels == nil {
+			panels = []PorticoPanel{}
+		}
 		writeJSON(w, http.StatusOK, panels)
 	}
 }

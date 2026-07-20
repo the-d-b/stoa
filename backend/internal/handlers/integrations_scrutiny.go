@@ -15,7 +15,7 @@ import (
 type ScrutinyDevice struct {
 	DeviceName      string `json:"deviceName"`
 	ModelName       string `json:"modelName"`
-	DeviceProtocol  string `json:"deviceProtocol"` // ATA, NVMe, SCSI
+	DeviceProtocol  string `json:"deviceProtocol"`  // ATA, NVMe, SCSI
 	Capacity        int64  `json:"capacity"`        // bytes
 	RotationalSpeed int    `json:"rotationalSpeed"` // RPM; 0 = SSD/NVMe
 	Status          string `json:"status"`          // passed, warning, failed, unknown

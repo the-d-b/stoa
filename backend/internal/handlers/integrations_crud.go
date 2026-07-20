@@ -4,9 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"strings"
-	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -164,21 +163,27 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		req.UIURL = strings.TrimSpace(req.UIURL)
-		if req.Config == "" { req.Config = "{}" }
-		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs(req.Type) }
+		if req.Config == "" {
+			req.Config = "{}"
+		}
+		if req.RefreshSecs < 15 {
+			req.RefreshSecs = defaultRefreshSecs(req.Type)
+		}
 		id := generateID()
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
 			secretID = *req.SecretID
 		}
 		skipTLSInt := 0
-		if req.SkipTLS { skipTLSInt = 1 }
+		if req.SkipTLS {
+			skipTLSInt = 1
+		}
 		_, err := db.Exec(`
 			INSERT INTO integrations (id, name, type, api_url, ui_url, config, secret_id, skip_tls, refresh_secs, created_by)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`, id, req.Name, req.Type, req.APIURL, req.UIURL, req.Config, secretID, skipTLSInt, req.RefreshSecs, ownerID)
 		if err != nil {
-			log.Printf("[INTEGRATIONS] create error: %v", err)
+			logErrorf("INTEGRATIONS", "create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create integration")
 			return
 		}
@@ -206,18 +211,24 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 		json.NewDecoder(r.Body).Decode(&req)
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		req.UIURL = strings.TrimSpace(req.UIURL)
-		if req.Config == "" { req.Config = "{}" }
-		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs("") }
+		if req.Config == "" {
+			req.Config = "{}"
+		}
+		if req.RefreshSecs < 15 {
+			req.RefreshSecs = defaultRefreshSecs("")
+		}
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
 			secretID = *req.SecretID
 		}
 		skipTLSInt := 0
-		if req.SkipTLS { skipTLSInt = 1 }
+		if req.SkipTLS {
+			skipTLSInt = 1
+		}
 		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, config=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=?`,
 			req.Name, req.APIURL, req.UIURL, req.Config, secretID, skipTLSInt, req.RefreshSecs, id)
 		if uerr != nil {
-			log.Printf("[INTEGRATIONS] update error: %v", uerr)
+			logErrorf("INTEGRATIONS", "update error: %v", uerr)
 			writeError(w, http.StatusInternalServerError, "update failed")
 			return
 		}
@@ -433,9 +444,9 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			// to detect self-signed cert issues
 			if !req.SkipTLS && isTLSError(err) {
 				writeJSON(w, http.StatusOK, map[string]interface{}{
-					"ok":          false,
-					"error":       err.Error(),
-					"tlsError":    true,
+					"ok":       false,
+					"error":    err.Error(),
+					"tlsError": true,
 					"skipTlsWorks": func() bool {
 						var retryErr error
 						switch req.Type {
@@ -706,12 +717,20 @@ func UpdateMyIntegration(db *sql.DB) http.HandlerFunc {
 		json.NewDecoder(r.Body).Decode(&req)
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		req.UIURL = strings.TrimSpace(req.UIURL)
-		if req.Config == "" { req.Config = "{}" }
-		if req.RefreshSecs < 15 { req.RefreshSecs = defaultRefreshSecs("") }
+		if req.Config == "" {
+			req.Config = "{}"
+		}
+		if req.RefreshSecs < 15 {
+			req.RefreshSecs = defaultRefreshSecs("")
+		}
 		var secretID interface{} = nil
-		if req.SecretID != nil && *req.SecretID != "" { secretID = *req.SecretID }
+		if req.SecretID != nil && *req.SecretID != "" {
+			secretID = *req.SecretID
+		}
 		skipTLSInt := 0
-		if req.SkipTLS { skipTLSInt = 1 }
+		if req.SkipTLS {
+			skipTLSInt = 1
+		}
 		_, uerr := db.Exec(`UPDATE integrations SET name=?, api_url=?, ui_url=?, config=?, secret_id=?, skip_tls=?, refresh_secs=? WHERE id=? AND created_by=?`,
 			req.Name, req.APIURL, req.UIURL, req.Config, secretID, skipTLSInt, req.RefreshSecs, id, claims.UserID)
 		if uerr != nil {

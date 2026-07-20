@@ -80,8 +80,12 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 				Count int `json:"count"`
 			} `json:"pagination"`
 			Results []struct {
-				User    struct{ Username string `json:"username"` } `json:"user"`
-				Context struct{ Username string `json:"username"` } `json:"context"`
+				User struct {
+					Username string `json:"username"`
+				} `json:"user"`
+				Context struct {
+					Username string `json:"username"`
+				} `json:"context"`
 				ClientIP  string `json:"client_ip"`
 				CreatedAt string `json:"created"`
 			} `json:"results"`
@@ -95,8 +99,8 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 			}
 			return 0
 		}
-		data.Logins         = parseCount("logins")
-		data.Failures       = parseCount("failures")
+		data.Logins = parseCount("logins")
+		data.Failures = parseCount("failures")
 		data.ActiveSessions = parseCount("sessions")
 
 		if body, ok := results["failures_recent"]; ok {
@@ -124,9 +128,9 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 
 	// Use large page sizes to cover the window — 500 covers most realistic scenarios
 	endpoints := map[string]string{
-		"logins":          "/api/v3/events/events/?action=login&page_size=500&ordering=-created",
-		"failures":        "/api/v3/events/events/?action=login_failed&page_size=500&ordering=-created",
-		"sessions":        "/api/v3/core/authenticated_sessions/?page_size=1",
+		"logins":   "/api/v3/events/events/?action=login&page_size=500&ordering=-created",
+		"failures": "/api/v3/events/events/?action=login_failed&page_size=500&ordering=-created",
+		"sessions": "/api/v3/core/authenticated_sessions/?page_size=1",
 	}
 
 	results := make(map[string][]byte, len(endpoints))
@@ -148,8 +152,12 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	wg.Wait()
 
 	type eventItem struct {
-		User    struct{ Username string `json:"username"` } `json:"user"`
-		Context struct{ Username string `json:"username"` } `json:"context"`
+		User struct {
+			Username string `json:"username"`
+		} `json:"user"`
+		Context struct {
+			Username string `json:"username"`
+		} `json:"context"`
 		ClientIP  string `json:"client_ip"`
 		CreatedAt string `json:"created"`
 	}
@@ -167,9 +175,13 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 
 	countInWindow := func(key string) int {
 		body, ok := results[key]
-		if !ok { return 0 }
+		if !ok {
+			return 0
+		}
 		var r eventResp
-		if json.Unmarshal(body, &r) != nil { return 0 }
+		if json.Unmarshal(body, &r) != nil {
+			return 0
+		}
 		count := 0
 		for _, item := range r.Results {
 			t, err := parseTime(item.CreatedAt)

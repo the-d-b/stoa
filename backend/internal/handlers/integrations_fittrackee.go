@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 )
@@ -139,7 +138,7 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 			}
 		}
 	} else {
-		log.Printf("[Fittrackee] sports error: %v", err)
+		logErrorf("Fittrackee", "sports error: %v", err)
 	}
 
 	// Profile stats
@@ -161,7 +160,7 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 			out.TotalAscent = resp.Data.TotalAscent
 		}
 	} else {
-		log.Printf("[Fittrackee] profile error: %v", err)
+		logErrorf("Fittrackee", "profile error: %v", err)
 	}
 
 	// Recent workouts
@@ -200,7 +199,7 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 			}
 		}
 	} else {
-		log.Printf("[Fittrackee] workouts error: %v", err)
+		logErrorf("Fittrackee", "workouts error: %v", err)
 	}
 
 	return out, nil

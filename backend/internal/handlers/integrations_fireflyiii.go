@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -14,34 +13,34 @@ import (
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type FireflyAccount struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Type         string `json:"type"`
-	Balance      string `json:"balance"`
-	CurrencyCode string `json:"currencyCode"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Type           string `json:"type"`
+	Balance        string `json:"balance"`
+	CurrencyCode   string `json:"currencyCode"`
 	CurrencySymbol string `json:"currencySymbol"`
-	Active       bool   `json:"active"`
+	Active         bool   `json:"active"`
 }
 
 type FireflySummaryItem struct {
-	Key          string `json:"key"`
-	Title        string `json:"title"`
-	Value        string `json:"value"`     // monetary_value raw
-	ValueParsed  string `json:"valueParsed"` // formatted
-	CurrencyCode string `json:"currencyCode"`
+	Key            string `json:"key"`
+	Title          string `json:"title"`
+	Value          string `json:"value"`       // monetary_value raw
+	ValueParsed    string `json:"valueParsed"` // formatted
+	CurrencyCode   string `json:"currencyCode"`
 	CurrencySymbol string `json:"currencySymbol"`
-	Icon         string `json:"icon"`
+	Icon           string `json:"icon"`
 }
 
 type FireflyPanelData struct {
-	UIURL         string               `json:"uiUrl"`
-	IntegrationID string               `json:"integrationId"`
-	Version       string               `json:"version"`
-	APIVersion    string               `json:"apiVersion"`
+	UIURL         string `json:"uiUrl"`
+	IntegrationID string `json:"integrationId"`
+	Version       string `json:"version"`
+	APIVersion    string `json:"apiVersion"`
 	// Summary items (current month)
-	Summary       []FireflySummaryItem `json:"summary"`
+	Summary []FireflySummaryItem `json:"summary"`
 	// Asset accounts
-	Accounts      []FireflyAccount     `json:"accounts"`
+	Accounts []FireflyAccount `json:"accounts"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
@@ -120,13 +119,13 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 		if json.Unmarshal(body, &raw) == nil {
 			// Priority order for display
 			priority := map[string]int{
-				"net-worth":           0,
-				"earned":              1,
-				"spent":               2,
-				"bills-paid":          3,
-				"bills-unpaid":        4,
-				"left-to-spend":       5,
-				"net-savings":         6,
+				"net-worth":     0,
+				"earned":        1,
+				"spent":         2,
+				"bills-paid":    3,
+				"bills-unpaid":  4,
+				"left-to-spend": 5,
+				"net-savings":   6,
 			}
 			for k, v := range raw {
 				// Derive a clean key prefix (strip currency suffix like -in-EUR)
@@ -155,7 +154,9 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 					"net-worth": 0, "earned": 1, "spent": 2,
 					"bills-paid": 3, "bills-unpaid": 4, "left-to-spend": 5, "net-savings": 6,
 				}
-				if r, ok := p[key]; ok { return r }
+				if r, ok := p[key]; ok {
+					return r
+				}
 				return 99
 			}
 			for i := 0; i < len(out.Summary); i++ {
@@ -227,7 +228,7 @@ func ffFetchBillItems(baseURL, apiKey string, skipTLS bool) ([]dueItem, error) {
 	recurrences, err := ffFetchRecurrences(baseURL, apiKey, skipTLS)
 	if err != nil {
 		// Bills succeeded — keep them rather than failing the whole source
-		log.Printf("[CAL] fireflyiii recurrences fetch error: %v", err)
+		logErrorf("CAL", "fireflyiii recurrences fetch error: %v", err)
 		return items, nil
 	}
 	// Dedupe on title+date across both features in case the same obligation

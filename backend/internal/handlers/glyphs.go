@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -86,7 +85,7 @@ func CreateGlyph(db *sql.DB) http.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?, 1)
 		`, id, claims.UserID, req.Type, req.Zone, req.Position, req.Config)
 		if err != nil {
-			log.Printf("[GLYPHS] create error: %v", err)
+			logErrorf("GLYPHS", "create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create glyph")
 			return
 		}
@@ -158,7 +157,7 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 		case "weather":
 			data, err := fetchWeather(db, config)
 			if err != nil {
-				log.Printf("[GLYPHS] weather fetch error: %v", err)
+				logErrorf("GLYPHS", "weather fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -171,7 +170,7 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 		case "kuma":
 			data, err := fetchKumaGlyphData(db, config)
 			if err != nil {
-				log.Printf("[GLYPHS] kuma fetch error: %v", err)
+				logErrorf("GLYPHS", "kuma fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -179,7 +178,7 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 		case "truenas":
 			data, err := fetchTrueNASGlyphData(db, config)
 			if err != nil {
-				log.Printf("[GLYPHS] truenas fetch error: %v", err)
+				logErrorf("GLYPHS", "truenas fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -187,7 +186,7 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 		case "opnsense":
 			data, err := fetchOPNsenseGlyphData(db, config)
 			if err != nil {
-				log.Printf("[GLYPHS] opnsense fetch error: %v", err)
+				logErrorf("GLYPHS", "opnsense fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -195,7 +194,7 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 		case "proxmox":
 			data, err := fetchProxmoxGlyphData(db, config)
 			if err != nil {
-				log.Printf("[GLYPHS] proxmox fetch error: %v", err)
+				logErrorf("GLYPHS", "proxmox fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -203,7 +202,7 @@ func GetGlyphData(db *sql.DB) http.HandlerFunc {
 		case "ping":
 			data, err := fetchPingGlyphData(config)
 			if err != nil {
-				log.Printf("[GLYPHS] ping fetch error: %v", err)
+				logErrorf("GLYPHS", "ping fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -229,15 +228,21 @@ func getWeatherData(db *sql.DB, integrationID string, config map[string]interfac
 		default:
 			b, _ := json.Marshal(v)
 			wd := &WeatherPanelData{}
-			if json.Unmarshal(b, wd) == nil && wd.City != "" { return wd, nil }
+			if json.Unmarshal(b, wd) == nil && wd.City != "" {
+				return wd, nil
+			}
 		}
 	}
 	// Cache miss — fetch live via integration
 	cfg := map[string]interface{}{"integrationId": integrationID}
 	result, err := FetchWeatherForIntegration(db, cfg)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	wd, ok := result.(*WeatherPanelData)
-	if !ok { return nil, fmt.Errorf("unexpected weather data type") }
+	if !ok {
+		return nil, fmt.Errorf("unexpected weather data type")
+	}
 	cacheSet(integrationID, wd)
 	return wd, nil
 }
@@ -248,10 +253,14 @@ func fetchWeather(db *sql.DB, config map[string]interface{}) (interface{}, error
 		return nil, fmt.Errorf("no weather integration configured")
 	}
 	wd, err := getWeatherData(db, integrationID, config)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	cur := wd.Current
 	temp := cur.TempF
-	if wd.Unit == "c" { temp = cur.TempC }
+	if wd.Unit == "c" {
+		temp = cur.TempC
+	}
 	return map[string]interface{}{
 		"temp":        temp,
 		"unit":        wd.Unit,
@@ -264,7 +273,6 @@ func fetchWeather(db *sql.DB, config map[string]interface{}) (interface{}, error
 	}, nil
 }
 
-
 // ── Utility helpers ───────────────────────────────────────────────────────────
 
 func stringVal(m map[string]interface{}, key string) string {
@@ -273,7 +281,9 @@ func stringVal(m map[string]interface{}, key string) string {
 }
 
 func boolToInt(b bool) int {
-	if b { return 1 }
+	if b {
+		return 1
+	}
 	return 0
 }
 
@@ -288,12 +298,12 @@ func decryptSecret(val string) string {
 		key := secretEncKey
 		secretEncKeyMu.RUnlock()
 		if len(key) == 0 {
-			log.Printf("[SECRETS] cannot decrypt: key not initialised")
+			logErrorf("SECRETS", "cannot decrypt: key not initialised")
 			return ""
 		}
 		data, err := base64.StdEncoding.DecodeString(val[4:])
 		if err != nil {
-			log.Printf("[SECRETS] base64 decode error: %v", err)
+			logErrorf("SECRETS", "base64 decode error: %v", err)
 			return ""
 		}
 		block, err := aes.NewCipher(key)
@@ -310,7 +320,7 @@ func decryptSecret(val string) string {
 		}
 		plaintext, err := gcm.Open(nil, data[:nonceSize], data[nonceSize:], nil)
 		if err != nil {
-			log.Printf("[SECRETS] AES-GCM decrypt error: %v", err)
+			logErrorf("SECRETS", "AES-GCM decrypt error: %v", err)
 			return ""
 		}
 		return string(plaintext)
@@ -480,7 +490,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 				data, ferr = FetchStocksData(db, integrationID)
 			}
 			if ferr != nil {
-				log.Printf("[TICKERS] market fetch error: %v", ferr)
+				logErrorf("TICKERS", "market fetch error: %v", ferr)
 				writeError(w, http.StatusInternalServerError, ferr.Error())
 				return
 			}
@@ -489,7 +499,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 		case "weather":
 			data, err := fetchWeatherTicker(db, config)
 			if err != nil {
-				log.Printf("[TICKERS] weather fetch error: %v", err)
+				logErrorf("TICKERS", "weather fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -501,7 +511,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 				// Legacy: fall back to direct fetch
 				data, err := fetchSportsTicker(config)
 				if err != nil {
-					log.Printf("[TICKERS] sports fetch error: %v", err)
+					logErrorf("TICKERS", "sports fetch error: %v", err)
 					writeError(w, http.StatusInternalServerError, err.Error())
 					return
 				}
@@ -515,7 +525,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 			// Cache miss — fetch live and cache
 			data, err := FetchSportsData(db, integrationID)
 			if err != nil {
-				log.Printf("[TICKERS] sports fetch error: %v", err)
+				logErrorf("TICKERS", "sports fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -524,7 +534,7 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 		case "rss":
 			data, err := fetchRSSTicker(db, config)
 			if err != nil {
-				log.Printf("[TICKERS] rss fetch error: %v", err)
+				logErrorf("TICKERS", "rss fetch error: %v", err)
 				writeError(w, http.StatusInternalServerError, err.Error())
 				return
 			}
@@ -550,19 +560,19 @@ func fetchStockQuotes(symbols []string, apiKey string) ([]Quote, error) {
 		url := fmt.Sprintf("https://finnhub.io/api/v1/quote?symbol=%s&token=%s", sym, apiKey)
 		resp, err := client.Get(url)
 		if err != nil {
-			log.Printf("[TICKERS] finnhub error for %s: %v", sym, err)
+			logErrorf("TICKERS", "finnhub error for %s: %v", sym, err)
 			continue
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			log.Printf("[TICKERS] finnhub %d for %s", resp.StatusCode, sym)
+			logDebugf("TICKERS", "finnhub %d for %s", resp.StatusCode, sym)
 			continue
 		}
 
 		var result struct {
-			C float64 `json:"c"` // current price
-			D float64 `json:"d"` // change
+			C  float64 `json:"c"`  // current price
+			D  float64 `json:"d"`  // change
 			Dp float64 `json:"dp"` // percent change
 		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8*1024))
@@ -769,7 +779,7 @@ func fetchPingGlyphData(config map[string]interface{}) (interface{}, error) {
 		host = scheme + "://" + host
 	}
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Timeout:   5 * time.Second,
 		Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}},
 	}
 	start := time.Now()
@@ -787,11 +797,15 @@ func fetchWeatherTicker(db *sql.DB, config map[string]interface{}) (interface{},
 	var ids []string
 	if arr, ok := config["integrationIds"].([]interface{}); ok {
 		for _, v := range arr {
-			if s, ok := v.(string); ok && s != "" { ids = append(ids, s) }
+			if s, ok := v.(string); ok && s != "" {
+				ids = append(ids, s)
+			}
 		}
 	}
 	if len(ids) == 0 {
-		if id := stringVal(config, "integrationId"); id != "" { ids = []string{id} }
+		if id := stringVal(config, "integrationId"); id != "" {
+			ids = []string{id}
+		}
 	}
 	if len(ids) == 0 {
 		return nil, fmt.Errorf("no weather integration configured")
@@ -800,11 +814,16 @@ func fetchWeatherTicker(db *sql.DB, config map[string]interface{}) (interface{},
 	var results []weatherResult
 	for _, id := range ids {
 		wd, err := getWeatherData(db, id, config)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		cur := wd.Current
 		temp := cur.TempF
 		unitLabel := "°F"
-		if wd.Unit == "c" { temp = cur.TempC; unitLabel = "°C" }
+		if wd.Unit == "c" {
+			temp = cur.TempC
+			unitLabel = "°C"
+		}
 		results = append(results, weatherResult{
 			"city":      wd.City,
 			"temp":      fmt.Sprintf("%.0f%s", temp, unitLabel),
@@ -815,8 +834,12 @@ func fetchWeatherTicker(db *sql.DB, config map[string]interface{}) (interface{},
 			"windSpeed": cur.WindKph,
 		})
 	}
-	if len(results) == 0 { return nil, fmt.Errorf("no weather data available") }
-	if len(results) == 1 { return results[0], nil }
+	if len(results) == 0 {
+		return nil, fmt.Errorf("no weather data available")
+	}
+	if len(results) == 1 {
+		return results[0], nil
+	}
 	return results, nil
 }
 
@@ -864,11 +887,15 @@ func fetchSportsTicker(config map[string]interface{}) (interface{}, error) {
 
 	for _, league := range leagues {
 		path, ok := espnPath[league]
-		if !ok { continue }
+		if !ok {
+			continue
+		}
 
 		url := fmt.Sprintf("https://site.api.espn.com/apis/site/v2/sports/%s/scoreboard", path)
 		resp, err := client.Get(url)
-		if err != nil { continue }
+		if err != nil {
+			continue
+		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
 		resp.Body.Close()
 
@@ -876,7 +903,9 @@ func fetchSportsTicker(config map[string]interface{}) (interface{}, error) {
 			Events []struct {
 				ShortName string `json:"shortName"`
 				Status    struct {
-					Type         struct{ Description string `json:"description"` } `json:"type"`
+					Type struct {
+						Description string `json:"description"`
+					} `json:"type"`
 					DisplayClock string `json:"displayClock"`
 					Period       int    `json:"period"`
 				} `json:"status"`
@@ -884,12 +913,16 @@ func fetchSportsTicker(config map[string]interface{}) (interface{}, error) {
 					Competitors []struct {
 						HomeAway string `json:"homeAway"`
 						Score    string `json:"score"`
-						Team     struct{ Abbreviation string `json:"abbreviation"` } `json:"team"`
+						Team     struct {
+							Abbreviation string `json:"abbreviation"`
+						} `json:"team"`
 					} `json:"competitors"`
 				} `json:"competitions"`
 			} `json:"events"`
 		}
-		if json.Unmarshal(body, &raw) != nil { continue }
+		if json.Unmarshal(body, &raw) != nil {
+			continue
+		}
 
 		for _, ev := range raw.Events {
 			g := GameResult{
@@ -926,11 +959,11 @@ func fetchSportsTicker(config map[string]interface{}) (interface{}, error) {
 // decodeHTMLEntities replaces common HTML entities with their unicode equivalents.
 func decodeHTMLEntities(s string) string {
 	replacer := strings.NewReplacer(
-		"&amp;",  "&",
-		"&lt;",   "<",
-		"&gt;",   ">",
+		"&amp;", "&",
+		"&lt;", "<",
+		"&gt;", ">",
 		"&quot;", `"`,
-		"&#39;",  "'",
+		"&#39;", "'",
 		"&apos;", "'",
 		"&ndash;", "–",
 		"&mdash;", "—",
@@ -938,7 +971,7 @@ func decodeHTMLEntities(s string) string {
 		"&rsquo;", "'",
 		"&ldquo;", "\"",
 		"&rdquo;", "\"",
-		"&nbsp;",  " ",
+		"&nbsp;", " ",
 		"&hellip;", "…",
 		"&#8220;", "\"",
 		"&#8221;", "\"",
@@ -946,7 +979,7 @@ func decodeHTMLEntities(s string) string {
 		"&#8217;", "'",
 		"&#8211;", "–",
 		"&#8212;", "—",
-		"&#38;",   "&",
+		"&#38;", "&",
 	)
 	return replacer.Replace(s)
 }
@@ -973,7 +1006,9 @@ func fetchRSSTicker(db *sql.DB, config map[string]interface{}) (interface{}, err
 	// Cache miss — fetch live
 	cfg := map[string]interface{}{"integrationId": integrationID}
 	result, err := fetchRSSPanelData(db, cfg)
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 	cacheSet(integrationID, result)
 	return map[string]interface{}{"items": result.Items, "feedUrl": result.FeedURL}, nil
 }

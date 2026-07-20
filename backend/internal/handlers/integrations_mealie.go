@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -26,9 +25,9 @@ type MealieRecipe struct {
 }
 
 type MealieMealEntry struct {
-	Date     string       `json:"date"`
-	MealType string       `json:"mealType"`
-	Title    string       `json:"title"`   // custom title (no recipe)
+	Date     string        `json:"date"`
+	MealType string        `json:"mealType"`
+	Title    string        `json:"title"`  // custom title (no recipe)
 	Recipe   *MealieRecipe `json:"recipe"` // nil if entry has no recipe
 }
 
@@ -116,7 +115,9 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 
 	// ── Recipe count ──────────────────────────────────────────────────────────
 	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?perPage=1&page=1", skipTLS); err == nil {
-		var r struct{ Total int `json:"total"` }
+		var r struct {
+			Total int `json:"total"`
+		}
 		if json.Unmarshal(body, &r) == nil {
 			out.TotalRecipes = r.Total
 		}
@@ -168,10 +169,10 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 	if body, err := mealieGet(baseURL, apiKey, path, skipTLS); err == nil {
 		var r struct {
 			Items []struct {
-				Date     string `json:"date"`
+				Date      string `json:"date"`
 				EntryType string `json:"entryType"`
-				Title    string `json:"title"`
-				Recipe   *struct {
+				Title     string `json:"title"`
+				Recipe    *struct {
 					Name      string  `json:"name"`
 					Slug      string  `json:"slug"`
 					Rating    float64 `json:"rating"`
@@ -201,13 +202,13 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 
 	// ── Shopping lists ────────────────────────────────────────────────────────
 	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err != nil {
-		log.Printf("[MEALIE] shopping lists error: %v", err)
+		logErrorf("MEALIE", "shopping lists error: %v", err)
 	} else {
 		preview := string(body)
 		if len(preview) > 300 {
 			preview = preview[:300]
 		}
-		log.Printf("[MEALIE] shopping lists response: %s", preview)
+		logDebugf("MEALIE", "shopping lists response: %s", preview)
 	}
 	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err == nil {
 		var r struct {
@@ -217,7 +218,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 			} `json:"items"`
 		}
 		if json.Unmarshal(body, &r) == nil {
-			log.Printf("[MEALIE] shopping lists parsed: %d lists", len(r.Items))
+			logDebugf("MEALIE", "shopping lists parsed: %d lists", len(r.Items))
 			for _, list := range r.Items {
 				sl := MealieShoppingList{ID: list.ID, Name: list.Name}
 				// Fetch items for this list
@@ -228,9 +229,15 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 							Note     string  `json:"note"`
 							Quantity float64 `json:"quantity"`
 							Checked  bool    `json:"checked"`
-							Food     *struct{ Name string `json:"name"` }  `json:"food"`
-							Unit     *struct{ Name string `json:"name"` }  `json:"unit"`
-							Label    *struct{ Name string `json:"name"` }  `json:"label"`
+							Food     *struct {
+								Name string `json:"name"`
+							} `json:"food"`
+							Unit *struct {
+								Name string `json:"name"`
+							} `json:"unit"`
+							Label *struct {
+								Name string `json:"name"`
+							} `json:"label"`
 						} `json:"items"`
 					}
 					if json.Unmarshal(ibody, &ir) == nil {

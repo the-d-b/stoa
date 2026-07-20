@@ -186,8 +186,12 @@ func youtubeGetSubscriptionFeed(accessToken string) ([]YouTubeVideo, error) {
 					PublishedAt string `json:"publishedAt"`
 					Title       string `json:"title"`
 					Thumbnails  struct {
-						Medium struct{ URL string `json:"url"` } `json:"medium"`
-						High   struct{ URL string `json:"url"` } `json:"high"`
+						Medium struct {
+							URL string `json:"url"`
+						} `json:"medium"`
+						High struct {
+							URL string `json:"url"`
+						} `json:"high"`
 					} `json:"thumbnails"`
 					ResourceID struct {
 						VideoID string `json:"videoId"`

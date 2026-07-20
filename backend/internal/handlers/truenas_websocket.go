@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -20,12 +19,12 @@ import (
 // Method call results are dispatched to pending callers via a response map.
 
 type tnMessage struct {
-	ID         interface{}     `json:"id,omitempty"`
-	Msg        string          `json:"msg"`
-	Method     string          `json:"method,omitempty"`
-	Params     json.RawMessage `json:"params,omitempty"`
-	Result     json.RawMessage `json:"result,omitempty"`
-	Error      *struct {
+	ID     interface{}     `json:"id,omitempty"`
+	Msg    string          `json:"msg"`
+	Method string          `json:"method,omitempty"`
+	Params json.RawMessage `json:"params,omitempty"`
+	Result json.RawMessage `json:"result,omitempty"`
+	Error  *struct {
 		Error string `json:"error"`
 	} `json:"error,omitempty"`
 	Collection string          `json:"collection,omitempty"`
@@ -60,7 +59,7 @@ func StartTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			}
 			err := runTrueNASWorker(db, ig, stop)
 			if err != nil {
-				log.Printf("[TRUENAS] worker error: %v — reconnecting in %s", err, backoff)
+				logErrorf("TRUENAS", "worker error: %v — reconnecting in %s", err, backoff)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
@@ -92,7 +91,7 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 	}
 	if skipTLS {
 		tlsCfg.InsecureSkipVerify = true //nolint:gosec
-		log.Printf("[TRUENAS] skipTLS enabled")
+		logDebugf("TRUENAS", "skipTLS enabled")
 	}
 
 	dialer := websocket.Dialer{
@@ -102,14 +101,14 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 		TLSClientConfig:  tlsCfg,
 	}
 
-	log.Printf("[TRUENAS] connecting to %s", wsURL)
+	logDebugf("TRUENAS", "connecting to %s", wsURL)
 	rawConn, _, err := dialer.Dial(wsURL, http.Header{"User-Agent": []string{"Stoa/1.0"}})
 	if err != nil {
 		return fmt.Errorf("dial: %w", err)
 	}
 	defer rawConn.Close()
 	rawConn.SetReadLimit(1 << 20)
-	log.Printf("[TRUENAS] connected")
+	logDebugf("TRUENAS", "connected")
 
 	c := &tnConn{conn: rawConn}
 
@@ -188,16 +187,16 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 	if !authOK {
 		return fmt.Errorf("auth failed — check API key")
 	}
-	log.Printf("[TRUENAS] authenticated")
+	logDebugf("TRUENAS", "authenticated")
 
 	// ── Initial slow data — using shared reader ───────────────────────────
 	data := &TrueNASPanelData{UIURL: uiURL}
 	if err := tnFetchSlowData(c, data, readMsg); err != nil {
-		log.Printf("[TRUENAS] slow data error: %v", err)
+		logErrorf("TRUENAS", "slow data error: %v", err)
 	}
 	cacheSet(ig.id, data)
 	ClearIntegrationError(ig.id, ig.name)
-	log.Printf("[TRUENAS] initial data cached")
+	logDebugf("TRUENAS", "initial data cached")
 
 	// ── Subscribe to realtime reporting ───────────────────────────────────
 	if err := c.send(map[string]interface{}{
@@ -237,17 +236,22 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 				pendingMu.Lock()
 				entry, ok := pending[id]
 				if ok {
-					if msg.Error == nil { entry.fn(msg.Result) }
+					if msg.Error == nil {
+						entry.fn(msg.Result)
+					}
 					delete(pending, id)
 					// Check if all results for this data object arrived
 					allDone := true
 					for _, e := range pending {
-						if e.data == entry.data { allDone = false; break }
+						if e.data == entry.data {
+							allDone = false
+							break
+						}
 					}
 					if allDone {
 						cacheSet(ig.id, entry.data)
 						ClearIntegrationError(ig.id, ig.name)
-						log.Printf("[TRUENAS] slow data refreshed")
+						logDebugf("TRUENAS", "slow data refreshed")
 					}
 				}
 				pendingMu.Unlock()
@@ -322,49 +326,89 @@ func tnSlowCalls(data *TrueNASPanelData) []tnCall {
 	return []tnCall{
 		{method: "pool.query", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
 			var pools []struct {
-				Name string `json:"name"`; Status string `json:"status"`
-				Size int64  `json:"size"`; Allocated int64 `json:"allocated"`
+				Name      string `json:"name"`
+				Status    string `json:"status"`
+				Size      int64  `json:"size"`
+				Allocated int64  `json:"allocated"`
 			}
-			if json.Unmarshal(r, &pools) != nil { return }
+			if json.Unmarshal(r, &pools) != nil {
+				return
+			}
 			data.Pools = nil
 			for _, p := range pools {
 				totalGB := float64(p.Size) / 1073741824
 				usedGB := float64(p.Allocated) / 1073741824
 				pct := 0.0
-				if totalGB > 0 { pct = usedGB / totalGB * 100 }
+				if totalGB > 0 {
+					pct = usedGB / totalGB * 100
+				}
 				data.Pools = append(data.Pools, TrueNASPool{Name: p.Name, Status: p.Status, UsedGB: usedGB, TotalGB: totalGB, Percent: pct})
 			}
 		}},
 		{method: "alert.list", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
-			var alerts []struct{ Level string `json:"level"`; Formatted string `json:"formatted"`; Dismissed bool `json:"dismissed"` }
-			if json.Unmarshal(r, &alerts) != nil { return }
+			var alerts []struct {
+				Level     string `json:"level"`
+				Formatted string `json:"formatted"`
+				Dismissed bool   `json:"dismissed"`
+			}
+			if json.Unmarshal(r, &alerts) != nil {
+				return
+			}
 			data.Alerts = nil
 			for _, a := range alerts {
-				if a.Dismissed { continue }
+				if a.Dismissed {
+					continue
+				}
 				msg := a.Formatted
-				if len(msg) > 120 { msg = msg[:120] + "…" }
+				if len(msg) > 120 {
+					msg = msg[:120] + "…"
+				}
 				data.Alerts = append(data.Alerts, TrueNASAlert{Level: a.Level, Message: msg})
 			}
 		}},
 		{method: "disk.query", params: json.RawMessage(`[[],{"extra":{"include_expired":false,"supports_smart":true}}]`), handle: func(r json.RawMessage) {
-			var disks []struct{ Name string `json:"name"`; Temperature float64 `json:"temperature"` }
-			if json.Unmarshal(r, &disks) != nil { return }
+			var disks []struct {
+				Name        string  `json:"name"`
+				Temperature float64 `json:"temperature"`
+			}
+			if json.Unmarshal(r, &disks) != nil {
+				return
+			}
 			data.Disks = nil
 			for _, d := range disks {
-				if d.Temperature > 0 { data.Disks = append(data.Disks, TrueNASDisk{Name: d.Name, TempC: d.Temperature}) }
+				if d.Temperature > 0 {
+					data.Disks = append(data.Disks, TrueNASDisk{Name: d.Name, TempC: d.Temperature})
+				}
 			}
 		}},
 		{method: "vm.query", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
-			var vms []struct{ Name string `json:"name"`; Status struct{ State string `json:"state"` } `json:"status"` }
-			if json.Unmarshal(r, &vms) != nil { return }
+			var vms []struct {
+				Name   string `json:"name"`
+				Status struct {
+					State string `json:"state"`
+				} `json:"status"`
+			}
+			if json.Unmarshal(r, &vms) != nil {
+				return
+			}
 			data.VMs = nil
-			for _, v := range vms { data.VMs = append(data.VMs, TrueNASVM{Name: v.Name, Status: v.Status.State}) }
+			for _, v := range vms {
+				data.VMs = append(data.VMs, TrueNASVM{Name: v.Name, Status: v.Status.State})
+			}
 		}},
 		{method: "app.query", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
-			var apps []struct{ Name string `json:"name"`; State string `json:"state"`; UpdateAvailable bool `json:"update_available"` }
-			if json.Unmarshal(r, &apps) != nil { return }
+			var apps []struct {
+				Name            string `json:"name"`
+				State           string `json:"state"`
+				UpdateAvailable bool   `json:"update_available"`
+			}
+			if json.Unmarshal(r, &apps) != nil {
+				return
+			}
 			data.Apps = nil
-			for _, a := range apps { data.Apps = append(data.Apps, TrueNASApp{Name: a.Name, Status: a.State, UpdateAvailable: a.UpdateAvailable}) }
+			for _, a := range apps {
+				data.Apps = append(data.Apps, TrueNASApp{Name: a.Name, Status: a.State, UpdateAvailable: a.UpdateAvailable})
+			}
 		}},
 	}
 }
@@ -393,7 +437,9 @@ func tnHandleRealtime(integrationID string, fields json.RawMessage) {
 			SentBytes     float64 `json:"sent_bytes_rate"`
 		} `json:"interfaces"`
 	}
-	if json.Unmarshal(fields, &rt) != nil { return }
+	if json.Unmarshal(fields, &rt) != nil {
+		return
+	}
 
 	// Copy by value so we never mutate the cached pointer
 	var fresh TrueNASPanelData

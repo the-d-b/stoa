@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"database/sql"
-	"log"
 	"time"
 )
 
@@ -13,14 +12,14 @@ import (
 // - Off-season (no games in next 7 days): refresh once daily
 func StartSportsWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 	go func() {
-		log.Printf("[SPORTS] worker started: %s", ig.name)
+		logDebugf("SPORTS", "worker started: %s", ig.name)
 		for {
 			interval := sportsRefreshAndGetInterval(db, ig)
 			select {
 			case <-time.After(interval):
 				// loop again
 			case <-stop:
-				log.Printf("[SPORTS] worker stopped: %s", ig.name)
+				logDebugf("SPORTS", "worker stopped: %s", ig.name)
 				return
 			}
 		}
@@ -30,13 +29,13 @@ func StartSportsWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 func sportsRefreshAndGetInterval(db *sql.DB, ig integrationMeta) time.Duration {
 	data, err := FetchSportsData(db, ig.id)
 	if err != nil {
-		log.Printf("[SPORTS] fetch error %s: %v", ig.name, err)
+		logErrorf("SPORTS", "fetch error %s: %v", ig.name, err)
 		RecordIntegrationError(ig.id, ig.name, err.Error())
 		return 5 * time.Minute // retry in 5 min on error
 	}
 	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
-	log.Printf("[SPORTS] refreshed %s — %d games, live=%v", ig.name, len(data.Games), data.HasLive)
+	logDebugf("SPORTS", "refreshed %s — %d games, live=%v", ig.name, len(data.Games), data.HasLive)
 
 	// Determine next interval based on game state
 	if data.HasLive {

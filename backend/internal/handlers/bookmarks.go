@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,7 +29,7 @@ func ListBookmarkTree(db *sql.DB) http.HandlerFunc {
 			ORDER BY CASE WHEN type='section' THEN 0 ELSE 1 END ASC, name ASC
 		`)
 		if err != nil {
-			log.Printf("[BOOKMARKS] list error: %v", err)
+			logErrorf("BOOKMARKS", "list error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to query bookmarks")
 			return
 		}
@@ -130,7 +129,7 @@ func CreateBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 				if localURL, err := downloadAndCacheIcon(remoteIcon, iconsDir); err == nil {
 					iconURL = localURL
 				} else {
-					log.Printf("[ICONS] cache failed, using remote: %v", err)
+					logErrorf("ICONS", "cache failed, using remote: %v", err)
 					iconURL = remoteIcon
 				}
 			} else {
@@ -149,7 +148,7 @@ func CreateBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'shared', ?)
 		`, id, parentIDVal, path, req.Name, req.Type, nullStr(req.URL), nullStr(iconURL), claims.UserID)
 		if err != nil {
-			log.Printf("[BOOKMARKS] create error: %v", err)
+			logErrorf("BOOKMARKS", "create error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create node")
 			return
 		}
@@ -290,7 +289,7 @@ func MoveBookmarkNode(db *sql.DB) http.HandlerFunc {
 		oldPrefix := node.Path
 		err = updatePathsRecursively(db, id, oldPrefix, newPath)
 		if err != nil {
-			log.Printf("[BOOKMARKS] move error: %v", err)
+			logErrorf("BOOKMARKS", "move error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to move node")
 			return
 		}
@@ -420,7 +419,7 @@ func CacheIcon(iconsDir string) http.HandlerFunc {
 
 		localURL, err := downloadAndCacheIcon(req.URL, iconsDir)
 		if err != nil {
-			log.Printf("[ICONS] cache error: %v", err)
+			logErrorf("ICONS", "cache error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to cache icon")
 			return
 		}
@@ -666,7 +665,7 @@ func CreatePersonalBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 			VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'personal', ?)
 		`, id, parentIDVal, path, req.Name, req.Type, nullStr(req.URL), nullStr(iconURL), claims.UserID)
 		if err != nil {
-			log.Printf("[BOOKMARKS] create personal error: %v", err)
+			logErrorf("BOOKMARKS", "create personal error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to create node")
 			return
 		}

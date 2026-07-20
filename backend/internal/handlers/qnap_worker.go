@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -19,7 +18,7 @@ func StartQNAPWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			}
 			err := runQNAPWorker(db, ig, stop)
 			if err != nil {
-				log.Printf("[QNAP] worker error: %v — reconnecting in %s", err, backoff)
+				logErrorf("QNAP", "worker error: %v — reconnecting in %s", err, backoff)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
@@ -46,7 +45,7 @@ func runQNAPWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error {
 		return fmt.Errorf("login: %w", err)
 	}
 	qnapSetSession(ig.id, sid)
-	log.Printf("[QNAP] authenticated for %s", ig.id)
+	logDebugf("QNAP", "authenticated for %s", ig.id)
 
 	data, err := qnapFetchAll(apiURL, sid, uiURL, skipTLS)
 	if err != nil {
@@ -54,7 +53,7 @@ func runQNAPWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error {
 	}
 	cacheSet(ig.id, data)
 	ClearIntegrationError(ig.id, ig.name)
-	log.Printf("[QNAP] initial data cached for %s (%s %s)", ig.id, data.Model, data.Hostname)
+	logDebugf("QNAP", "initial data cached for %s (%s %s)", ig.id, data.Model, data.Hostname)
 
 	ticker := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)
 	defer ticker.Stop()
@@ -67,30 +66,30 @@ func runQNAPWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error {
 			fresh, fetchErr := qnapFetchAll(apiURL, sid, uiURL, skipTLS)
 			if fetchErr != nil {
 				if errors.Is(fetchErr, errQNAPUnauth) {
-					log.Printf("[QNAP] session expired for %s — re-authenticating", ig.id)
+					logErrorf("QNAP", "session expired for %s — re-authenticating", ig.id)
 					qnapClearSession(ig.id)
 					sid, err = qnapLogin(apiURL, username, password, skipTLS)
 					if err != nil {
-						log.Printf("[QNAP] re-auth failed for %s: %v", ig.id, err)
+						logErrorf("QNAP", "re-auth failed for %s: %v", ig.id, err)
 						RecordIntegrationError(ig.id, ig.name, err.Error())
 						continue
 					}
 					qnapSetSession(ig.id, sid)
 					fresh, fetchErr = qnapFetchAll(apiURL, sid, uiURL, skipTLS)
 					if fetchErr != nil {
-						log.Printf("[QNAP] fetch error after re-auth for %s: %v", ig.id, fetchErr)
+						logErrorf("QNAP", "fetch error after re-auth for %s: %v", ig.id, fetchErr)
 						RecordIntegrationError(ig.id, ig.name, fetchErr.Error())
 						continue
 					}
 				} else {
-					log.Printf("[QNAP] fetch error for %s: %v", ig.id, fetchErr)
+					logErrorf("QNAP", "fetch error for %s: %v", ig.id, fetchErr)
 					RecordIntegrationError(ig.id, ig.name, fetchErr.Error())
 					continue
 				}
 			}
 			ClearIntegrationError(ig.id, ig.name)
 			cacheSet(ig.id, fresh)
-			log.Printf("[QNAP] refreshed %s (%s)", ig.id, ig.name)
+			logDebugf("QNAP", "refreshed %s (%s)", ig.id, ig.name)
 		}
 	}
 }

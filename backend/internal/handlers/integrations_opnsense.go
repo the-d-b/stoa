@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"sort"
 	"strings"
@@ -17,17 +16,17 @@ import (
 // ── OPNsense types ────────────────────────────────────────────────────────────
 
 type OPNsensePanelData struct {
-	UIURL        string               `json:"uiUrl"`
-	Version      string               `json:"version"`
-	UpdateAvail  bool                 `json:"updateAvail"`
-	Gateways     []OPNsenseGateway    `json:"gateways"`
-	Interfaces   []OPNsenseInterface  `json:"interfaces"`
-	TopTalkers   []OPNsenseTalker     `json:"topTalkers"`
-	FWEvents     []OPNsenseFWEvent    `json:"fwEvents"`
-	DNSQueries   int                  `json:"dnsQueries"`
-	DNSCacheHits int                  `json:"dnsCacheHits"`
-	DNSCacheMiss int                  `json:"dnsCacheMiss"`
-	PFStates     int                  `json:"pfStates"`
+	UIURL        string              `json:"uiUrl"`
+	Version      string              `json:"version"`
+	UpdateAvail  bool                `json:"updateAvail"`
+	Gateways     []OPNsenseGateway   `json:"gateways"`
+	Interfaces   []OPNsenseInterface `json:"interfaces"`
+	TopTalkers   []OPNsenseTalker    `json:"topTalkers"`
+	FWEvents     []OPNsenseFWEvent   `json:"fwEvents"`
+	DNSQueries   int                 `json:"dnsQueries"`
+	DNSCacheHits int                 `json:"dnsCacheHits"`
+	DNSCacheMiss int                 `json:"dnsCacheMiss"`
+	PFStates     int                 `json:"pfStates"`
 }
 
 type OPNsenseFWEvent struct {
@@ -99,7 +98,7 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 			defer wg.Done()
 			body, ferr := opnsenseGet(apiURL, apiKey, path, skipTLS)
 			if ferr != nil {
-				log.Printf("[OPNSENSE] %s err: %v", k, ferr)
+				logErrorf("OPNSENSE", "%s err: %v", k, ferr)
 				return
 			}
 			mu.Lock()
@@ -111,7 +110,9 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 
 	// ── Parse firmware version ─────────────────────────────────────────────
 	if body, ok := results["firmware"]; ok {
-		var fw struct{ Version string `json:"local_version"` }
+		var fw struct {
+			Version string `json:"local_version"`
+		}
 		if json.Unmarshal(body, &fw) == nil {
 			data.Version = fw.Version
 		}
@@ -119,7 +120,9 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 
 	// ── Parse update status ────────────────────────────────────────────────
 	if body, ok := results["firmware_status"]; ok {
-		var fw struct{ Status string `json:"status"` }
+		var fw struct {
+			Status string `json:"status"`
+		}
 		if json.Unmarshal(body, &fw) == nil {
 			data.UpdateAvail = fw.Status == "update"
 		}
@@ -146,9 +149,13 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 					status = "offline"
 				}
 				rtt := g.RTT
-				if rtt == "~" { rtt = "" }
+				if rtt == "~" {
+					rtt = ""
+				}
 				loss := g.Loss
-				if loss == "~" { loss = "" }
+				if loss == "~" {
+					loss = ""
+				}
 				data.Gateways = append(data.Gateways, OPNsenseGateway{
 					Name: g.Name, Status: status, RTT: rtt, Loss: loss, Address: g.Address,
 				})
@@ -185,13 +192,13 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 
 	// Fetch traffic for all interfaces concurrently — use short timeout, live packet inspection is slow
 	type ifaceResult struct {
-		id   string
-		in   float64
-		out  float64
+		id  string
+		in  float64
+		out float64
 	}
 	ifaceCh := make(chan ifaceResult, len(ifaceNames))
 	trafficClient := &http.Client{
-		Timeout: 4 * time.Second, // traffic/top does live inspection — cap it
+		Timeout:   4 * time.Second, // traffic/top does live inspection — cap it
 		Transport: httpClient(skipTLS).Transport,
 	}
 	for id := range ifaceNames {
@@ -220,9 +227,13 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 					if ifID == "wan" {
 						mu.Lock()
 						for i, rec := range ifData.Records {
-							if i >= 5 { break }
+							if i >= 5 {
+								break
+							}
 							host := strings.TrimSuffix(rec.Rname, ".")
-							if host == "" { host = rec.Address }
+							if host == "" {
+								host = rec.Address
+							}
 							data.TopTalkers = append(data.TopTalkers, OPNsenseTalker{
 								Host:    host,
 								IP:      rec.Address,
@@ -276,7 +287,9 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 
 	// ── Parse PF states ────────────────────────────────────────────────────
 	if body, ok := results["pf"]; ok {
-		var pf struct{ Current string `json:"current"` }
+		var pf struct {
+			Current string `json:"current"`
+		}
 		if json.Unmarshal(body, &pf) == nil {
 			fmt.Sscanf(pf.Current, "%d", &data.PFStates)
 		}
@@ -330,7 +343,7 @@ func opnsenseGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)
-		log.Printf("[OPNSENSE] HTTP %d for %s body=%s", resp.StatusCode, path, string(body[:min(200, len(body))]))
+		logDebugf("OPNSENSE", "HTTP %d for %s body=%s", resp.StatusCode, path, string(body[:min(200, len(body))]))
 		return nil, fmt.Errorf("HTTP %d from OPNsense", resp.StatusCode)
 	}
 	return io.ReadAll(resp.Body)

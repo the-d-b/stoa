@@ -17,10 +17,10 @@ type ProwlarrIndexer struct {
 	ID            int    `json:"id"`
 	Name          string `json:"name"`
 	Enable        bool   `json:"enable"`
-	Protocol      string `json:"protocol"`      // "torrent", "usenet"
-	Privacy       string `json:"privacy"`       // "public", "semiPrivate", "private"
-	Health        string `json:"health"`        // "ok", "degraded", "blocked", "disabled"
-	DisabledTill  string `json:"disabledTill"`  // ISO timestamp if auto-blocked
+	Protocol      string `json:"protocol"`     // "torrent", "usenet"
+	Privacy       string `json:"privacy"`      // "public", "semiPrivate", "private"
+	Health        string `json:"health"`       // "ok", "degraded", "blocked", "disabled"
+	DisabledTill  string `json:"disabledTill"` // ISO timestamp if auto-blocked
 	Queries       int    `json:"queries"`
 	Grabs         int    `json:"grabs"`
 	FailedQueries int    `json:"failedQueries"`
@@ -148,10 +148,10 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 	if body, err := prowlarrGet(baseURL, apiKey, "/api/v1/indexerstats", skipTLS); err == nil {
 		var r struct {
 			Indexers []struct {
-				IndexerID           int `json:"indexerId"`
-				AverageResponseTime int `json:"averageResponseTime"`
-				NumberOfQueries     int `json:"numberOfQueries"`
-				NumberOfGrabs       int `json:"numberOfGrabs"`
+				IndexerID             int `json:"indexerId"`
+				AverageResponseTime   int `json:"averageResponseTime"`
+				NumberOfQueries       int `json:"numberOfQueries"`
+				NumberOfGrabs         int `json:"numberOfGrabs"`
 				NumberOfFailedQueries int `json:"numberOfFailedQueries"`
 			} `json:"indexers"`
 		}
@@ -178,7 +178,7 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 			Protocol string `json:"protocol"`
 			Privacy  string `json:"privacy"`
 			Status   *struct {
-				DisabledTill    *string `json:"disabledTill"`
+				DisabledTill      *string `json:"disabledTill"`
 				MostRecentFailure *string `json:"mostRecentFailure"`
 			} `json:"status"`
 		}
@@ -240,10 +240,14 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 			// Sort: blocked → degraded → ok → disabled; then alphabetical
 			healthRank := func(h string) int {
 				switch h {
-				case "blocked":  return 0
-				case "degraded": return 1
-				case "ok":       return 2
-				default:         return 3
+				case "blocked":
+					return 0
+				case "degraded":
+					return 1
+				case "ok":
+					return 2
+				default:
+					return 3
 				}
 			}
 			sort.Slice(out.Indexers, func(i, j int) bool {

@@ -196,7 +196,9 @@ func buildUnraidPanelData(raw json.RawMessage) *UnraidPanelData {
 
 	var resp struct {
 		Info struct {
-			OS  struct{ Hostname string `json:"hostname"` } `json:"os"`
+			OS struct {
+				Hostname string `json:"hostname"`
+			} `json:"os"`
 			CPU struct {
 				Brand   string `json:"brand"`
 				Cores   int    `json:"cores"`
@@ -243,10 +245,14 @@ func buildUnraidPanelData(raw json.RawMessage) *UnraidPanelData {
 		} `json:"docker"`
 		VMs struct {
 			Domain []struct {
-				State struct{ Name string `json:"name"` } `json:"state"`
+				State struct {
+					Name string `json:"name"`
+				} `json:"state"`
 			} `json:"domain"`
 		} `json:"vms"`
-		Shares  []struct{ Name string `json:"name"` } `json:"shares"`
+		Shares []struct {
+			Name string `json:"name"`
+		} `json:"shares"`
 		Network struct {
 			Iface []struct {
 				Name   string       `json:"name"`
@@ -369,7 +375,9 @@ func testUnraidConnection(apiURL, apiKey string, skipTLS bool) error {
 		return err
 	}
 	var resp struct {
-		Info struct{ Version string `json:"version"` } `json:"info"`
+		Info struct {
+			Version string `json:"version"`
+		} `json:"info"`
 	}
 	if json.Unmarshal(raw, &resp) != nil || resp.Info.Version == "" {
 		return fmt.Errorf("unexpected response from Unraid — check API key and URL")

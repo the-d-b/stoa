@@ -14,15 +14,15 @@ import (
 // ── Transmission types ────────────────────────────────────────────────────────
 
 type TransmissionPanelData struct {
-	UIURL         string               `json:"uiUrl"`
-	Downloading   int                  `json:"downloading"`
-	Seeding       int                  `json:"seeding"`
-	Paused        int                  `json:"paused"`
-	Checking      int                  `json:"checking"`
-	DownSpeedMbps float64              `json:"downSpeedMbps"`
-	UpSpeedMbps   float64              `json:"upSpeedMbps"`
-	SeedSizeGB    float64              `json:"seedSizeGB"`
-	FreeSpaceGB   float64              `json:"freeSpaceGB"`
+	UIURL         string                `json:"uiUrl"`
+	Downloading   int                   `json:"downloading"`
+	Seeding       int                   `json:"seeding"`
+	Paused        int                   `json:"paused"`
+	Checking      int                   `json:"checking"`
+	DownSpeedMbps float64               `json:"downSpeedMbps"`
+	UpSpeedMbps   float64               `json:"upSpeedMbps"`
+	SeedSizeGB    float64               `json:"seedSizeGB"`
+	FreeSpaceGB   float64               `json:"freeSpaceGB"`
 	Trackers      []TransmissionTracker `json:"trackers"`
 	Active        []TransmissionTorrent `json:"active"`
 	SeedingList   []TransmissionTorrent `json:"seedingList"`
@@ -115,12 +115,12 @@ func fetchTransmissionPanelData(db *sql.DB, config map[string]interface{}) (*Tra
 			data.Seeding++
 			totalSeedBytes += t.TotalSize
 			allSeeding = append(allSeeding, TransmissionTorrent{
-				Name:   t.Name,
-				Status: 6,
+				Name:     t.Name,
+				Status:   6,
 				Progress: 100,
-				SizeMB: float64(t.TotalSize) / 1048576,
-				UpMbps: float64(t.RateUp) / 1000000,
-				Ratio:  t.UploadRatio,
+				SizeMB:   float64(t.TotalSize) / 1048576,
+				UpMbps:   float64(t.RateUp) / 1000000,
+				Ratio:    t.UploadRatio,
 			})
 		case 2:
 			data.Checking++

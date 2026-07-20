@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -31,7 +30,7 @@ func StartUniFiWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			}
 			err := runUniFiWorker(db, ig, stop)
 			if err != nil {
-				log.Printf("[UNIFI] worker error: %v — reconnecting in %s", err, backoff)
+				logErrorf("UNIFI", "worker error: %v — reconnecting in %s", err, backoff)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
@@ -74,7 +73,7 @@ func runUniFiWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error 
 	}
 	cacheSet(ig.id, data)
 	ClearIntegrationError(ig.id, ig.name)
-	log.Printf("[UNIFI] initial data cached for %s (%d devices, %d clients)", ig.id, data.TotalDevices, data.TotalClients)
+	logDebugf("UNIFI", "initial data cached for %s (%d devices, %d clients)", ig.id, data.TotalDevices, data.TotalClients)
 
 	// Open WebSocket for real-time events (best-effort)
 	wsConn, wsErr := unifiDialWS(sess, skipTLS)
@@ -82,7 +81,7 @@ func runUniFiWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error 
 	wsErrCh := make(chan error, 1)
 
 	if wsErr == nil {
-		log.Printf("[UNIFI] WebSocket connected for %s", ig.id)
+		logDebugf("UNIFI", "WebSocket connected for %s", ig.id)
 		go func() {
 			defer func() {
 				if r := recover(); r != nil {
@@ -99,7 +98,7 @@ func runUniFiWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error 
 			}
 		}()
 	} else {
-		log.Printf("[UNIFI] WebSocket unavailable for %s (%v) — REST-only mode", ig.id, wsErr)
+		logErrorf("UNIFI", "WebSocket unavailable for %s (%v) — REST-only mode", ig.id, wsErr)
 	}
 
 	restInterval := time.Duration(ig.refreshSecs) * time.Second
@@ -135,7 +134,7 @@ func runUniFiWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error 
 			if !sess.isAPIKey && time.Now().After(sess.expiresAt.Add(-5*time.Minute)) {
 				newSess, err := unifiLogin(apiURL, apiKey, skipTLS)
 				if err != nil {
-					log.Printf("[UNIFI] session refresh failed for %s: %v", ig.id, err)
+					logErrorf("UNIFI", "session refresh failed for %s: %v", ig.id, err)
 				} else {
 					sess = newSess
 					unifiSessionsMu.Lock()
@@ -145,7 +144,7 @@ func runUniFiWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error 
 			}
 			fresh, err := unifiFullFetch(sess, uiURL, ig.id)
 			if err != nil {
-				log.Printf("[UNIFI] REST refresh error for %s: %v", ig.id, err)
+				logErrorf("UNIFI", "REST refresh error for %s: %v", ig.id, err)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 				if unifiIsAuthErr(err) {
 					unifiInvalidateSession(ig.id)

@@ -5,13 +5,12 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
-	"path/filepath"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -73,7 +72,7 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		authSvc := auth.New(cfg, db)
 		hash, err := authSvc.HashPassword(req.AdminPassword)
 		if err != nil {
-			log.Printf("[SETUP] failed to hash password: %v", err)
+			logErrorf("SETUP", "failed to hash password: %v", err)
 			writeError(w, http.StatusInternalServerError, "setup failed")
 			return
 		}
@@ -93,7 +92,7 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		`, userID, req.AdminUsername, req.AdminEmail, hash)
 		if err != nil {
 			tx.Rollback()
-			log.Printf("[SETUP] failed to create admin user: %v", err)
+			logErrorf("SETUP", "failed to create admin user: %v", err)
 			writeError(w, http.StatusInternalServerError, "setup failed")
 			return
 		}
@@ -146,7 +145,7 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			groupID := generateID()
 			_, gerr := tx.Exec(`INSERT OR IGNORE INTO groups (id, name, description) VALUES (?, ?, '')`, groupID, g.Name)
 			if gerr != nil {
-				log.Printf("[SETUP] failed to create group %q: %v", g.Name, gerr)
+				logErrorf("SETUP", "failed to create group %q: %v", g.Name, gerr)
 				continue
 			}
 			// Add admin user to every group created at setup
@@ -160,7 +159,7 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 		}
 
 		if err := tx.Commit(); err != nil {
-			log.Printf("[SETUP] failed to commit: %v", err)
+			logErrorf("SETUP", "failed to commit: %v", err)
 			writeError(w, http.StatusInternalServerError, "setup failed")
 			return
 		}
@@ -178,7 +177,7 @@ func SetupInit(db *sql.DB, cfg *config.Config) http.HandlerFunc {
 			if req.OAuthClientSecret != "" {
 				upsertConfig("oauth_client_secret", req.OAuthClientSecret)
 			}
-			log.Printf("[SETUP] OAuth config saved: issuer=%q clientId=%q", req.OAuthIssuerURL, req.OAuthClientID)
+			logDebugf("SETUP", "OAuth config saved: issuer=%q clientId=%q", req.OAuthIssuerURL, req.OAuthClientID)
 		}
 
 		logger.SetupComplete(req.AdminUsername)
@@ -216,7 +215,7 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		`, req.Username).Scan(&user.ID, &user.Username, &email, &user.Role, &user.AuthProvider, &hash)
 
 		if err != nil {
-			log.Printf("[AUTH] local login: user not found: %q err=%v", req.Username, err)
+			logErrorf("AUTH", "local login: user not found: %q err=%v", req.Username, err)
 			logger.LoginFailure(r, req.Username, "user_not_found")
 			RecordAudit(db, "", "", "auth.login_fail", "", req.Username, map[string]string{"ip": sessionIP, "reason": "user_not_found"})
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
@@ -228,7 +227,7 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 		}
 
 		if !authSvc.CheckPassword(hash, req.Password) {
-			log.Printf("[AUTH] local login: password mismatch user=%q", req.Username)
+			logDebugf("AUTH", "local login: password mismatch user=%q", req.Username)
 			logger.LoginFailure(r, req.Username, "invalid_password")
 			RecordAudit(db, "", "", "auth.login_fail", user.ID, user.Username, map[string]string{"ip": sessionIP, "reason": "invalid_password"})
 			writeError(w, http.StatusUnauthorized, "invalid credentials")
@@ -239,7 +238,7 @@ func LocalLogin(authSvc *auth.Service) http.HandlerFunc {
 
 		token, err := authSvc.GenerateToken(&user)
 		if err != nil {
-			log.Printf("[AUTH] failed to generate token: %v", err)
+			logErrorf("AUTH", "failed to generate token: %v", err)
 			writeError(w, http.StatusInternalServerError, "authentication error")
 			return
 		}
@@ -268,7 +267,7 @@ func OAuthLogin(authSvc *auth.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		url, state, err := authSvc.GetOAuthLoginURL(r.Context())
 		if err != nil {
-			log.Printf("[AUTH] oauth login init failed: %v", err)
+			logErrorf("AUTH", "oauth login init failed: %v", err)
 			writeError(w, http.StatusServiceUnavailable, "OAuth not configured")
 			return
 		}
@@ -288,13 +287,13 @@ func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cookie, err := r.Cookie("oauth_state")
 		if err != nil {
-			log.Printf("[AUTH] oauth callback: state cookie missing")
+			logDebugf("AUTH", "oauth callback: state cookie missing")
 			logger.OAuthFailure(r, "state_validation", "cookie_missing")
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
 		if cookie.Value != r.URL.Query().Get("state") {
-			log.Printf("[AUTH] oauth callback: state mismatch")
+			logDebugf("AUTH", "oauth callback: state mismatch")
 			logger.OAuthFailure(r, "state_validation", "state_mismatch")
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
@@ -303,7 +302,7 @@ func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 		code := r.URL.Query().Get("code")
 		user, isNew, err := authSvc.HandleOAuthCallback(r.Context(), code)
 		if err != nil {
-			log.Printf("[AUTH] oauth callback failed: %v", err)
+			logErrorf("AUTH", "oauth callback failed: %v", err)
 			logger.OAuthFailure(r, "token_exchange", err.Error())
 			// Redirect to login with a human-readable error
 			http.Redirect(w, r, "/login?error="+url.QueryEscape(err.Error()), http.StatusFound)
@@ -312,7 +311,7 @@ func OAuthCallback(authSvc *auth.Service, db *sql.DB) http.HandlerFunc {
 
 		token, err := authSvc.GenerateToken(user)
 		if err != nil {
-			log.Printf("[AUTH] oauth: failed to generate token: %v", err)
+			logErrorf("AUTH", "oauth: failed to generate token: %v", err)
 			writeError(w, http.StatusInternalServerError, "authentication error")
 			return
 		}
@@ -347,7 +346,7 @@ func Me(authSvc *auth.Service) http.HandlerFunc {
 			&user.Role, &user.AuthProvider, &user.CreatedAt, &lastLogin,
 		)
 		if err != nil {
-			log.Printf("[AUTH] me: user not found id=%s err=%v", claims.UserID, err)
+			logErrorf("AUTH", "me: user not found id=%s err=%v", claims.UserID, err)
 			writeError(w, http.StatusNotFound, "user not found")
 			return
 		}
@@ -444,7 +443,7 @@ func SaveOAuthConfig(db *sql.DB, cfg *config.Config, authSvc *auth.Service) http
 			upsert("oauth_client_secret", req.ClientSecret)
 		}
 		authSvc.ResetOAuth()
-		log.Printf("[ADMIN] oauth_config_updated")
+		logDebugf("ADMIN", "oauth_config_updated")
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
@@ -459,7 +458,7 @@ func ListUsers(db *sql.DB) http.HandlerFunc {
 			FROM users WHERE id != 'SYSTEM' ORDER BY created_at ASC
 		`)
 		if err != nil {
-			log.Printf("[API] list_users error: %v", err)
+			logErrorf("API", "list_users error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to query users")
 			return
 		}
@@ -527,7 +526,7 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 		var targetName string
 		db.QueryRow("SELECT username FROM users WHERE id=?", id).Scan(&targetName)
 		db.Exec("UPDATE users SET role = ? WHERE id = ?", req.Role, id)
-		log.Printf("[ADMIN] role_update user_id=%s new_role=%s", id, req.Role)
+		logDebugf("ADMIN", "role_update user_id=%s new_role=%s", id, req.Role)
 		RecordAudit(db, claims.UserID, claims.Username, "user.role_change", id, targetName, map[string]string{"role": string(req.Role)})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -558,7 +557,7 @@ func UpdateUserEmail(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to update email")
 			return
 		}
-		log.Printf("[ADMIN] email_update user_id=%s", id)
+		logDebugf("ADMIN", "email_update user_id=%s", id)
 		RecordAudit(db, claims.UserID, claims.Username, "user.email_change", id, targetName, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -580,7 +579,7 @@ func DeleteUser(db *sql.DB) http.HandlerFunc {
 		db.QueryRow("SELECT username FROM users WHERE id=?", id).Scan(&deletedUsername)
 		// Allow deleting both local and OAuth users (but not SYSTEM or self)
 		db.Exec("DELETE FROM users WHERE id = ?", id)
-		log.Printf("[ADMIN] user_deleted user_id=%s by=%s", id, claims.UserID)
+		logDebugf("ADMIN", "user_deleted user_id=%s by=%s", id, claims.UserID)
 		RecordAudit(db, claims.UserID, claims.Username, "user.delete", id, deletedUsername, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -618,7 +617,9 @@ func ListGroups(db *sql.DB) http.HandlerFunc {
 				}
 				uRows.Close()
 			}
-			if g.Users == nil { g.Users = []models.User{} }
+			if g.Users == nil {
+				g.Users = []models.User{}
+			}
 			groups = append(groups, g)
 		}
 		writeJSON(w, http.StatusOK, groups)
@@ -696,7 +697,7 @@ func SetDefaultGroup(db *sql.DB) http.HandlerFunc {
 		}
 		db.Exec(`INSERT INTO app_config (key, value) VALUES ('default_group', ?)
 			ON CONFLICT(key) DO UPDATE SET value=excluded.value`, name)
-		log.Printf("[ADMIN] default_group set to %q", name)
+		logDebugf("ADMIN", "default_group set to %q", name)
 		RecordAudit(db, claims.UserID, claims.Username, "group.default_set", id, name, nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -1119,10 +1120,10 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 		if req.Role != "admin" && req.Role != "user" {
 			req.Role = "user"
 		}
-		log.Printf("[USERS] creating local user username=%q role=%s", req.Username, req.Role)
+		logDebugf("USERS", "creating local user username=%q role=%s", req.Username, req.Role)
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 		if err != nil {
-			log.Printf("[USERS] bcrypt error: %v", err)
+			logErrorf("USERS", "bcrypt error: %v", err)
 			writeError(w, http.StatusInternalServerError, "failed to hash password")
 			return
 		}
@@ -1138,7 +1139,7 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 			"INSERT INTO users (id, username, email, role, auth_provider, password_hash) VALUES (?, ?, ?, ?, 'local', ?)",
 			id, req.Username, req.Email, req.Role, string(hash))
 		if err != nil {
-			log.Printf("[USERS] insert error: %v", err)
+			logErrorf("USERS", "insert error: %v", err)
 			if strings.Contains(err.Error(), "UNIQUE") {
 				writeError(w, http.StatusConflict, "username or email already exists")
 			} else {
@@ -1146,7 +1147,7 @@ func CreateLocalUser(db *sql.DB) http.HandlerFunc {
 			}
 			return
 		}
-		log.Printf("[USERS] created local user id=%s username=%q", id, req.Username)
+		logDebugf("USERS", "created local user id=%s username=%q", id, req.Username)
 		RecordAudit(db, claims.UserID, claims.Username, "user.create", id, req.Username, map[string]string{"role": req.Role})
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "username": req.Username, "role": req.Role})
 	}
@@ -1216,8 +1217,12 @@ func AutoLogin(db *sql.DB, authSvc *auth.Service) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "auto-login user not found")
 			return
 		}
-		if email.Valid { user.Email = email.String }
-		if lastLogin.Valid { user.LastLogin = &lastLogin.Time }
+		if email.Valid {
+			user.Email = email.String
+		}
+		if lastLogin.Valid {
+			user.LastLogin = &lastLogin.Time
+		}
 
 		token, err := authSvc.GenerateToken(&user)
 		if err != nil {
@@ -1328,7 +1333,7 @@ func UploadCSSSheet(db *sql.DB, cssDir string) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to save record")
 			return
 		}
-		log.Printf("[CSS] uploaded sheet name=%q user=%s", name, claims.UserID)
+		logDebugf("CSS", "uploaded sheet name=%q user=%s", name, claims.UserID)
 		writeJSON(w, http.StatusCreated, map[string]string{"id": id, "name": name, "filename": filename})
 	}
 }

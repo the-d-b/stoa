@@ -38,26 +38,26 @@ type NZBPeriodStats struct {
 }
 
 type SABnzbdPanelData struct {
-	UIURL          string           `json:"uiUrl"`
-	IntegrationID  string           `json:"integrationId"`
-	Speed          string           `json:"speed"`
-	SpeedKBPS      float64          `json:"speedKbps"`
-	MBLeft         float64          `json:"mbLeft"`
-	TimeLeft       string           `json:"timeLeft"`
-	Status         string           `json:"status"`
-	Paused         bool             `json:"paused"`
-	QueueCount     int              `json:"queueCount"`
-	Downloading    int              `json:"downloading"`
-	Queued         int              `json:"queued"`
-	PausedCount    int              `json:"pausedCount"`
-	Failed         int              `json:"failed"`
-	FreeDiskGB     float64          `json:"freeDiskGb"`
-	SpeedHistory   []float64        `json:"speedHistory"`
-	Stats1d        NZBPeriodStats   `json:"stats1d"`
-	Stats7d        NZBPeriodStats   `json:"stats7d"`
-	Stats30d       NZBPeriodStats   `json:"stats30d"`
-	Slots          []SABSlot        `json:"slots"`
-	History        []SABHistorySlot `json:"history"`
+	UIURL         string           `json:"uiUrl"`
+	IntegrationID string           `json:"integrationId"`
+	Speed         string           `json:"speed"`
+	SpeedKBPS     float64          `json:"speedKbps"`
+	MBLeft        float64          `json:"mbLeft"`
+	TimeLeft      string           `json:"timeLeft"`
+	Status        string           `json:"status"`
+	Paused        bool             `json:"paused"`
+	QueueCount    int              `json:"queueCount"`
+	Downloading   int              `json:"downloading"`
+	Queued        int              `json:"queued"`
+	PausedCount   int              `json:"pausedCount"`
+	Failed        int              `json:"failed"`
+	FreeDiskGB    float64          `json:"freeDiskGb"`
+	SpeedHistory  []float64        `json:"speedHistory"`
+	Stats1d       NZBPeriodStats   `json:"stats1d"`
+	Stats7d       NZBPeriodStats   `json:"stats7d"`
+	Stats30d      NZBPeriodStats   `json:"stats30d"`
+	Slots         []SABSlot        `json:"slots"`
+	History       []SABHistorySlot `json:"history"`
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────

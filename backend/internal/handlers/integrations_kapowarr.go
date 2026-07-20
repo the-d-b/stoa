@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -98,7 +97,7 @@ func fetchKapowarrPanelData(db *sql.DB, config map[string]interface{}) (*Kapowar
 	// ── Volumes list ──────────────────────────────────────────────────────────
 	body, err = kapowarrGet(apiURL, apiKey, "/volumes", skipTLS)
 	if err != nil {
-		log.Printf("[KAPOWARR] volumes error: %v", err)
+		logErrorf("KAPOWARR", "volumes error: %v", err)
 	} else {
 		arr := kapowarrUnwrapArray(body)
 		for _, v := range arr {
@@ -121,7 +120,7 @@ func fetchKapowarrPanelData(db *sql.DB, config map[string]interface{}) (*Kapowar
 	// ── Download queue ────────────────────────────────────────────────────────
 	body, err = kapowarrGet(apiURL, apiKey, "/activity/queue", skipTLS)
 	if err != nil {
-		log.Printf("[KAPOWARR] queue error: %v", err)
+		logErrorf("KAPOWARR", "queue error: %v", err)
 	} else {
 		volTitles := map[int]string{}
 		for _, v := range data.VolumeList {
@@ -169,7 +168,7 @@ func kapowarrFetchReleaseItems(apiURL, uiURL, apiKey string, skipTLS bool) ([]du
 			continue
 		}
 		if checked >= 300 {
-			log.Printf("[KAPOWARR] releases: volume cap reached, skipping remainder")
+			logDebugf("KAPOWARR", "releases: volume cap reached, skipping remainder")
 			break
 		}
 		checked++
@@ -177,7 +176,7 @@ func kapowarrFetchReleaseItems(apiURL, uiURL, apiKey string, skipTLS bool) ([]du
 
 		dBody, derr := kapowarrGet(apiURL, apiKey, fmt.Sprintf("/volumes/%d", volID), skipTLS)
 		if derr != nil {
-			log.Printf("[KAPOWARR] releases: volume %d detail error: %v", volID, derr)
+			logErrorf("KAPOWARR", "releases: volume %d detail error: %v", volID, derr)
 			continue
 		}
 		var wrapper struct {

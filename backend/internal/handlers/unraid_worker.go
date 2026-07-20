@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -52,7 +51,7 @@ func StartUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			}
 			err := runUnraidWorker(db, ig, stop)
 			if err != nil {
-				log.Printf("[UNRAID] worker error: %v — reconnecting in %s", err, backoff)
+				logErrorf("UNRAID", "worker error: %v — reconnecting in %s", err, backoff)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
@@ -82,12 +81,12 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 	initial.UIURL = uiURL
 	cacheSet(ig.id, initial)
 	ClearIntegrationError(ig.id, ig.name)
-	log.Printf("[UNRAID] initial data cached for %s (%s)", ig.id, initial.Hostname)
+	logDebugf("UNRAID", "initial data cached for %s (%s)", ig.id, initial.Hostname)
 
 	// Attempt WebSocket for live CPU/memory/network metrics
 	wsBase, err := toWebSocketURL(apiURL)
 	if err != nil {
-		log.Printf("[UNRAID] cannot build WS URL — using HTTP poll: %v", err)
+		logErrorf("UNRAID", "cannot build WS URL — using HTTP poll: %v", err)
 		return unraidPollLoop(db, ig, apiURL, uiURL, apiKey, skipTLS, stop)
 	}
 	wsURL := strings.TrimRight(wsBase, "/") + "/graphql"
@@ -107,12 +106,12 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 
 	rawConn, _, dialErr := dialer.Dial(wsURL, http.Header{"User-Agent": []string{"Stoa/1.0"}})
 	if dialErr != nil {
-		log.Printf("[UNRAID] WebSocket unavailable (%v) — using HTTP poll", dialErr)
+		logErrorf("UNRAID", "WebSocket unavailable (%v) — using HTTP poll", dialErr)
 		return unraidPollLoop(db, ig, apiURL, uiURL, apiKey, skipTLS, stop)
 	}
 	defer rawConn.Close()
 	rawConn.SetReadLimit(1 << 20)
-	log.Printf("[UNRAID] WebSocket connected to %s", wsURL)
+	logDebugf("UNRAID", "WebSocket connected to %s", wsURL)
 
 	c := &unraidConn{conn: rawConn}
 
@@ -169,14 +168,14 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 		"type":    "connection_init",
 		"payload": json.RawMessage(initPayload),
 	}); err != nil {
-		log.Printf("[UNRAID] WebSocket init send failed (%v) — using HTTP poll", err)
+		logErrorf("UNRAID", "WebSocket init send failed (%v) — using HTTP poll", err)
 		return unraidPollLoop(db, ig, apiURL, uiURL, apiKey, skipTLS, stop)
 	}
 	if _, err := readUntilType("connection_ack"); err != nil {
-		log.Printf("[UNRAID] WebSocket ack failed (%v) — using HTTP poll", err)
+		logErrorf("UNRAID", "WebSocket ack failed (%v) — using HTTP poll", err)
 		return unraidPollLoop(db, ig, apiURL, uiURL, apiKey, skipTLS, stop)
 	}
-	log.Printf("[UNRAID] WebSocket authenticated for %s", ig.id)
+	logDebugf("UNRAID", "WebSocket authenticated for %s", ig.id)
 
 	// ── Subscribe to live metrics ─────────────────────────────────────────
 	cpuSubID := c.nextID()
@@ -209,7 +208,9 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 		cpuSubID: func(data json.RawMessage, fresh *UnraidPanelData) bool {
 			var d struct {
 				SystemMetricsCpu struct {
-					CpuUsage []struct{ Main float64 `json:"main"` } `json:"cpuUsage"`
+					CpuUsage []struct {
+						Main float64 `json:"main"`
+					} `json:"cpuUsage"`
 				} `json:"systemMetricsCpu"`
 			}
 			if json.Unmarshal(data, &d) == nil && len(d.SystemMetricsCpu.CpuUsage) > 0 {
@@ -312,7 +313,7 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 					cacheSet(ig.id, &fresh)
 				}
 			case "error":
-				log.Printf("[UNRAID] subscription error id=%s", msg.ID)
+				logErrorf("UNRAID", "subscription error id=%s", msg.ID)
 			}
 		case <-pingTicker.C:
 			c.mu.Lock()
@@ -322,7 +323,7 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 			// Re-poll slow-changing data (array state, disks, docker, VMs, shares)
 			pollRaw, pollErr := unraidHTTPQuery(apiURL, apiKey, unraidFullQuery, skipTLS)
 			if pollErr != nil {
-				log.Printf("[UNRAID] slow refresh error: %v", pollErr)
+				logErrorf("UNRAID", "slow refresh error: %v", pollErr)
 				RecordIntegrationError(ig.id, ig.name, pollErr.Error())
 				continue
 			}
@@ -342,7 +343,7 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 			}
 			ClearIntegrationError(ig.id, ig.name)
 			cacheSet(ig.id, rebuilt)
-			log.Printf("[UNRAID] slow data refreshed for %s", ig.id)
+			logDebugf("UNRAID", "slow data refreshed for %s", ig.id)
 		}
 	}
 }
@@ -358,7 +359,7 @@ func unraidPollLoop(db *sql.DB, ig integrationMeta, apiURL, uiURL, apiKey string
 		case <-ticker.C:
 			raw, err := unraidHTTPQuery(apiURL, apiKey, unraidFullQuery, skipTLS)
 			if err != nil {
-				log.Printf("[UNRAID] poll error: %v", err)
+				logErrorf("UNRAID", "poll error: %v", err)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 				continue
 			}
@@ -366,7 +367,7 @@ func unraidPollLoop(db *sql.DB, ig integrationMeta, apiURL, uiURL, apiKey string
 			fresh.UIURL = uiURL
 			ClearIntegrationError(ig.id, ig.name)
 			cacheSet(ig.id, fresh)
-			log.Printf("[UNRAID] polled %s (%s)", ig.id, ig.name)
+			logDebugf("UNRAID", "polled %s (%s)", ig.id, ig.name)
 		}
 	}
 }

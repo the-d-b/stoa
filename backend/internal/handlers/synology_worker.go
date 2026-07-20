@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"time"
 )
 
@@ -19,7 +18,7 @@ func StartSynologyWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 			}
 			err := runSynologyWorker(db, ig, stop)
 			if err != nil {
-				log.Printf("[Synology] worker error: %v — reconnecting in %s", err, backoff)
+				logErrorf("Synology", "worker error: %v — reconnecting in %s", err, backoff)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 			}
 			select {
@@ -46,7 +45,7 @@ func runSynologyWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 		return fmt.Errorf("login: %w", err)
 	}
 	synoSetSession(ig.id, sid)
-	log.Printf("[Synology] authenticated for %s", ig.id)
+	logDebugf("Synology", "authenticated for %s", ig.id)
 
 	data, err := synoFetchAll(apiURL, sid, uiURL, skipTLS)
 	if err != nil {
@@ -54,7 +53,7 @@ func runSynologyWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 	}
 	cacheSet(ig.id, data)
 	ClearIntegrationError(ig.id, ig.name)
-	log.Printf("[Synology] initial data cached for %s (%s %s)", ig.id, data.Model, data.Hostname)
+	logDebugf("Synology", "initial data cached for %s (%s %s)", ig.id, data.Model, data.Hostname)
 
 	ticker := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)
 	defer ticker.Stop()
@@ -67,30 +66,30 @@ func runSynologyWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			fresh, fetchErr := synoFetchAll(apiURL, sid, uiURL, skipTLS)
 			if fetchErr != nil {
 				if errors.Is(fetchErr, errSynoUnauth) {
-					log.Printf("[Synology] session expired for %s — re-authenticating", ig.id)
+					logErrorf("Synology", "session expired for %s — re-authenticating", ig.id)
 					synoClearSession(ig.id)
 					sid, err = synoLogin(apiURL, username, password, skipTLS)
 					if err != nil {
-						log.Printf("[Synology] re-auth failed for %s: %v", ig.id, err)
+						logErrorf("Synology", "re-auth failed for %s: %v", ig.id, err)
 						RecordIntegrationError(ig.id, ig.name, err.Error())
 						continue
 					}
 					synoSetSession(ig.id, sid)
 					fresh, fetchErr = synoFetchAll(apiURL, sid, uiURL, skipTLS)
 					if fetchErr != nil {
-						log.Printf("[Synology] fetch error after re-auth for %s: %v", ig.id, fetchErr)
+						logErrorf("Synology", "fetch error after re-auth for %s: %v", ig.id, fetchErr)
 						RecordIntegrationError(ig.id, ig.name, fetchErr.Error())
 						continue
 					}
 				} else {
-					log.Printf("[Synology] fetch error for %s: %v", ig.id, fetchErr)
+					logErrorf("Synology", "fetch error for %s: %v", ig.id, fetchErr)
 					RecordIntegrationError(ig.id, ig.name, fetchErr.Error())
 					continue
 				}
 			}
 			ClearIntegrationError(ig.id, ig.name)
 			cacheSet(ig.id, fresh)
-			log.Printf("[Synology] refreshed %s (%s)", ig.id, ig.name)
+			logDebugf("Synology", "refreshed %s (%s)", ig.id, ig.name)
 		}
 	}
 }
