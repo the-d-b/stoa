@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -56,6 +57,119 @@ func maintainerrGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) 
 		return nil, fmt.Errorf("maintainerr: HTTP %d", resp.StatusCode)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+// ── Scheduled actions (calendar source) ───────────────────────────────────────
+
+// maintainerrActionLabel maps a collection's arrAction (ServarrAction enum in
+// Maintainerr's contracts) to a short label, mirroring Maintainerr's own
+// calendar page.
+func maintainerrActionLabel(action int) string {
+	switch action {
+	case 0:
+		return "Delete"
+	case 1:
+		return "Unmonitor/Delete"
+	case 2:
+		return "Unmonitor/Delete Existing"
+	case 3:
+		return "Unmonitor/Keep"
+	case 5:
+		return "Delete Empty Show"
+	case 6:
+		return "Unmonitor Empty Show"
+	case 7:
+		return "Change Quality"
+	}
+	return "Scheduled Action"
+}
+
+// maintainerrParseAddDate parses the addDate timestamp, tolerating the ISO
+// and SQL-ish formats Maintainerr may emit.
+func maintainerrParseAddDate(raw string) (time.Time, bool) {
+	for _, layout := range []string{time.RFC3339, "2006-01-02 15:04:05", "2006-01-02"} {
+		if t, err := time.Parse(layout, raw); err == nil {
+			return t, true
+		}
+	}
+	if len(raw) >= 10 {
+		if t, err := time.Parse("2006-01-02", raw[:10]); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
+}
+
+// maintainerrFetchActionItems builds upcoming scheduled-action items from
+// /api/collections/overlay-data — the same endpoint and date math Maintainerr's
+// own calendar page uses: each media item's action date is its addDate (start
+// of day) plus the collection's deleteAfterDays. Items are aggregated per
+// collection per day ("Old Movies: 3 items (Delete)"); collections with action
+// "Do nothing" or without deleteAfterDays are skipped.
+func maintainerrFetchActionItems(baseURL, uiURL, apiKey string, skipTLS bool) ([]dueItem, error) {
+	body, err := maintainerrGet(baseURL, apiKey, "/api/collections/overlay-data", skipTLS)
+	if err != nil {
+		return nil, err
+	}
+	var cols []struct {
+		ID              int    `json:"id"`
+		Title           string `json:"title"`
+		ArrAction       int    `json:"arrAction"`
+		DeleteAfterDays *int   `json:"deleteAfterDays"`
+		Media           []struct {
+			AddDate string `json:"addDate"`
+		} `json:"media"`
+	}
+	if err := json.Unmarshal(body, &cols); err != nil {
+		return nil, fmt.Errorf("parsing overlay-data: %w", err)
+	}
+
+	type dayKey struct {
+		colID int
+		date  string
+	}
+	counts := map[dayKey]int{}
+	titles := map[int]string{}
+	actions := map[int]int{}
+	var order []dayKey
+
+	for _, c := range cols {
+		if c.ArrAction == 4 || c.DeleteAfterDays == nil { // 4 = DO_NOTHING
+			continue
+		}
+		titles[c.ID] = c.Title
+		actions[c.ID] = c.ArrAction
+		for _, m := range c.Media {
+			if m.AddDate == "" {
+				continue
+			}
+			added, ok := maintainerrParseAddDate(m.AddDate)
+			if !ok {
+				continue
+			}
+			date := added.Local().AddDate(0, 0, *c.DeleteAfterDays).Format("2006-01-02")
+			k := dayKey{c.ID, date}
+			if counts[k] == 0 {
+				order = append(order, k)
+			}
+			counts[k]++
+		}
+	}
+
+	var items []dueItem
+	for _, k := range order {
+		n := counts[k]
+		noun := "items"
+		if n == 1 {
+			noun = "item"
+		}
+		items = append(items, dueItem{
+			Title:   fmt.Sprintf("%s: %d %s (%s)", titles[k.colID], n, noun, maintainerrActionLabel(actions[k.colID])),
+			DueDate: k.date,
+			Link:    strings.TrimRight(uiURL, "/") + fmt.Sprintf("/collections/%d", k.colID),
+		})
+	}
+	return items, nil
 }
 
 // ── Connection test ───────────────────────────────────────────────────────────

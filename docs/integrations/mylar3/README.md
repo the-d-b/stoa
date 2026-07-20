@@ -52,6 +52,12 @@ Western comics manager showing your series library, wanted missing issues, upcom
 
 ---
 
+## Calendar
+
+Add Mylar3 as a calendar source (Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**) to see upcoming comic issue release dates on the calendar. Events appear on the release date as `Series Name #issue` and click through to the series page in Mylar3. A single `getUpcoming` API call covers all monitored series; results are cached for 15 minutes. See [Calendar](../calendar/README.md#mylar3) for details.
+
+---
+
 ## Notes
 
 - **Auth:** API key is appended as the `apikey` query parameter on all requests (`/api/v3?apikey=...&cmd=...`)

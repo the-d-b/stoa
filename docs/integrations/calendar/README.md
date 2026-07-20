@@ -10,12 +10,15 @@ A multi-source calendar that aggregates events from any combination of:
 
 - **Sonarr / Radarr / Lidarr / Readarr** — upcoming episode/movie/music/book releases
 - **Google Calendar** — personal or shared Google calendars (via OAuth)
-- **ICS / Outlook Calendar** — any calendar published as an `.ics` feed, including Outlook (Microsoft 365 / Outlook.com)
+- **ICS / Outlook / Nextcloud** — any calendar published as an `.ics` feed, including Outlook (Microsoft 365 / Outlook.com) and Nextcloud
 - **Checklist panels** — due dates from Stoa checklist items
 - **Kanban panels** — due dates from Stoa kanban cards
 - **LubeLogger** — upcoming vehicle maintenance reminders
 - **Actual Budget** — upcoming scheduled transactions (bills), surfaced 3 days before their due date
 - **Firefly III** — upcoming bill payment dates and recurring transactions, surfaced 3 days before their due date
+- **Kapowarr** — upcoming comic issue release dates for monitored volumes
+- **Mylar3** — upcoming comic issue release dates for monitored series
+- **Maintainerr** — scheduled media cleanup actions (deletions, unmonitors) per collection
 - **Weather** — daily forecast events
 
 Each source is configured independently with its own label, color, and days-ahead window (7–90 days).
@@ -27,6 +30,10 @@ Each source is configured independently with its own label, color, and days-ahea
 | 1x | Today's event count + next upcoming event |
 | 2-3x | Week-at-a-glance with event list |
 | 4x+ | Full month calendar with event detail |
+
+### Full-screen view
+
+At 2x+ heights, the ⛶ button next to the month navigation opens a full-screen calendar overlay (desktop only): a large month grid with in-cell event chips and weather icons, free navigation to any month past or future, a day agenda beside the grid, and per-source filter pills. Months outside the sources' fetch windows render as an empty calendar — handy for just looking up dates. Press Escape or click the backdrop to close.
 
 ### Screenshots
 
@@ -44,7 +51,7 @@ Sources are managed per panel: **Profile → Calendar panel → Edit → Calenda
 
 ---
 
-### ICS / Outlook Calendar
+### ICS / Outlook / Nextcloud
 
 No integration required — just a URL.
 
@@ -57,7 +64,7 @@ Stoa fetches the `.ics` feed from the URL on each poll, parses events, and appli
 3. Under **Publish a calendar**, select the calendar you want to share
 4. Set permissions to **"Can view all details"**
 5. Click **Publish** — two links appear; copy the **ICS** link (ends in `/calendar.ics`)
-6. In Stoa: add source → **ICS / Outlook Calendar** → paste the URL, give it a label, pick a days-ahead window
+6. In Stoa: add source → **ICS / Outlook / Nextcloud** → paste the URL, give it a label, pick a days-ahead window
 
 > **Note:** The published ICS URL contains a secret token — treat it like a password. Anyone with the URL can read your calendar. Stoa fetches it server-side only; it is never exposed to the browser.
 
@@ -108,6 +115,32 @@ Requires a Firefly III integration. Add source → **Stoa integration** → sele
 Upcoming payment dates from both Firefly's **Bills / Subscriptions** and **Recurring transactions** features appear as all-day events **3 days before** their due date, same behavior as Actual Budget above. Unlike Actual, recurring bills show **every** expected occurrence in the window — Firefly computes the full payment schedule. Inactive bills/recurrences and bill payment dates already matched to a transaction are skipped, and an obligation modeled as both a bill and a recurrence is deduplicated. Polled at most once per 15 minutes.
 
 > **Note:** Firefly only exposes the next few upcoming fire dates per recurring transaction, so with a large days-ahead window a frequent recurrence (e.g. daily) may not show occurrences all the way to the end of the window. Bills always cover the full window.
+
+---
+
+### Kapowarr
+
+Requires a Kapowarr integration. Add source → **Stoa integration** → select the integration.
+
+Upcoming comic issue release dates appear as all-day events on their release date, titled `Volume Title #issue`. Clicking an event opens the volume's page in Kapowarr. The event pill is labeled with the integration's name.
+
+Kapowarr has no calendar API, so Stoa scans each **monitored** volume's issue list for future release dates (unmonitored volumes are skipped, capped at 300 volumes). Because this is one request per volume, results are cached for **1 hour** rather than the 15 minutes used by other sources.
+
+---
+
+### Mylar3
+
+Requires a Mylar3 integration. Add source → **Stoa integration** → select the integration.
+
+Upcoming comic issue release dates (Mylar's **Upcoming** view, via the `getUpcoming` API command — a single call, no per-series scanning) appear as all-day events on their release date, titled `Series Name #issue`. Clicking an event opens the series page in Mylar3. The event pill is labeled with the integration's name. Polled at most once per 15 minutes.
+
+---
+
+### Maintainerr
+
+Requires a Maintainerr integration. Add source → **Stoa integration** → select the integration.
+
+Upcoming scheduled media cleanup actions appear as all-day events, aggregated per collection per day — e.g. `Old Movies: 3 items (Delete)`. The date is each media item's collection-add date plus the collection's *Take action after days* setting, and the action label reflects the collection's configured arr action (Delete, Unmonitor/Delete, Unmonitor/Keep, Change Quality, …) — the same data and date math Maintainerr's own calendar page uses (`/api/collections/overlay-data`, a single call). Collections set to "Do nothing" or without a delete-after window are skipped. Clicking an event opens the collection's page in Maintainerr. Polled at most once per 15 minutes.
 
 ---
 

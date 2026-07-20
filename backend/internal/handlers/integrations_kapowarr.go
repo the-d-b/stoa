@@ -143,6 +143,70 @@ func fetchKapowarrPanelData(db *sql.DB, config map[string]interface{}) (*Kapowar
 	return data, nil
 }
 
+// ── Upcoming releases (calendar source) ───────────────────────────────────────
+
+// kapowarrFetchReleaseItems collects future issue release dates as dueItems.
+// Kapowarr has no calendar endpoint, so this lists volumes and fetches each
+// monitored volume's detail (which includes its issues with release dates).
+// Capped at 300 volumes as a safety bound; results are cached for an hour by
+// the caller since release dates change rarely.
+func kapowarrFetchReleaseItems(apiURL, uiURL, apiKey string, skipTLS bool) ([]dueItem, error) {
+	body, err := kapowarrGet(apiURL, apiKey, "/volumes", skipTLS)
+	if err != nil {
+		return nil, err
+	}
+	vols := kapowarrUnwrapArray(body)
+	today := timeNow().Format("2006-01-02")
+
+	var items []dueItem
+	checked := 0
+	for _, v := range vols {
+		if mon, ok := v["monitored"].(bool); ok && !mon {
+			continue
+		}
+		idF, ok := v["id"].(float64)
+		if !ok {
+			continue
+		}
+		if checked >= 300 {
+			log.Printf("[KAPOWARR] releases: volume cap reached, skipping remainder")
+			break
+		}
+		checked++
+		volID := int(idF)
+
+		dBody, derr := kapowarrGet(apiURL, apiKey, fmt.Sprintf("/volumes/%d", volID), skipTLS)
+		if derr != nil {
+			log.Printf("[KAPOWARR] releases: volume %d detail error: %v", volID, derr)
+			continue
+		}
+		var wrapper struct {
+			Result struct {
+				Title  string `json:"title"`
+				Issues []struct {
+					IssueNumber string  `json:"issue_number"`
+					Date        *string `json:"date"`
+				} `json:"issues"`
+			} `json:"result"`
+		}
+		if json.Unmarshal(dBody, &wrapper) != nil {
+			continue
+		}
+		link := strings.TrimRight(uiURL, "/") + fmt.Sprintf("/volumes/%d", volID)
+		for _, is := range wrapper.Result.Issues {
+			if is.Date == nil || *is.Date < today {
+				continue
+			}
+			title := wrapper.Result.Title
+			if is.IssueNumber != "" {
+				title = fmt.Sprintf("%s #%s", title, is.IssueNumber)
+			}
+			items = append(items, dueItem{Title: title, DueDate: *is.Date, Link: link})
+		}
+	}
+	return items, nil
+}
+
 // kapowarrInt reads an integer from a map, trying multiple candidate keys.
 func kapowarrInt(m map[string]interface{}, keys ...string) int {
 	for _, k := range keys {

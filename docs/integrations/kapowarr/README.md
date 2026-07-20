@@ -52,6 +52,12 @@ Western comics downloader showing collection stats, issue download progress, vol
 
 ---
 
+## Calendar
+
+Add Kapowarr as a calendar source (Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**) to see upcoming comic issue release dates on the calendar. Events appear on the release date as `Volume Title #issue` and click through to the volume's page in Kapowarr. Only monitored volumes are scanned; results are cached for 1 hour. See [Calendar](../calendar/README.md#kapowarr) for details.
+
+---
+
 ## Notes
 
 - **Auth:** API key is appended as the `api_key` query parameter on all requests

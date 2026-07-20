@@ -28,11 +28,14 @@ func icsFetch(icsURL string) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
-// dueItem is one upcoming payment obligation from a finance source
-// (Actual Budget schedule, Firefly III bill), cached per integration.
+// dueItem is one upcoming dated item from an integration (Actual Budget
+// schedule, Firefly III bill, Kapowarr issue release), cached per integration.
+// Link optionally deep-links the event; sources without one fall back to the
+// integration UI URL.
 type dueItem struct {
 	Title   string `json:"title"`
 	DueDate string `json:"dueDate"` // YYYY-MM-DD
+	Link    string `json:"link,omitempty"`
 }
 
 // dueSoonEvents converts due items into calendar events. Each item due within
@@ -65,10 +68,11 @@ func dueSoonEvents(items []dueItem, intName, uiURL, color string, daysAhead int,
 	return events
 }
 
-// cachedDueItems returns due items from the 15-minute cache, fetching on miss.
-// On fetch failure it falls back to stale cache rather than dropping the source.
-func cachedDueItems(cacheKey string, fetch func() ([]dueItem, error)) ([]dueItem, bool) {
-	if cached, ok := cacheGetFresh(cacheKey, 15*time.Minute); ok {
+// cachedDueItems returns due items from the cache if younger than maxAge,
+// fetching on miss. On fetch failure it falls back to stale cache rather than
+// dropping the source.
+func cachedDueItems(cacheKey string, maxAge time.Duration, fetch func() ([]dueItem, error)) ([]dueItem, bool) {
+	if cached, ok := cacheGetFresh(cacheKey, maxAge); ok {
 		if items, ok2 := cached.([]dueItem); ok2 {
 			return items, true
 		}
@@ -464,7 +468,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			if uiURL == "" {
 				uiURL = apiURL
 			}
-			items, ok := cachedDueItems("abschedules:"+integrationID, func() ([]dueItem, error) {
+			items, ok := cachedDueItems("abschedules:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
 				return abFetchScheduleItems(apiURL, apiKey, skipTLS)
 			})
 			if !ok {
@@ -482,7 +486,7 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			if uiURL == "" {
 				uiURL = apiURL
 			}
-			items, ok := cachedDueItems("ffbills:"+integrationID, func() ([]dueItem, error) {
+			items, ok := cachedDueItems("ffbills:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
 				return ffFetchBillItems(apiURL, apiKey, skipTLS)
 			})
 			if !ok {
@@ -490,6 +494,107 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 			intName := integrationName(db, integrationID, "Firefly III")
 			events = append(events, dueSoonEvents(items, intName, uiURL, "#ec4899", daysAhead, timeNow())...)
+
+		case "kapowarr":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] kapowarr resolveIntegration error: %v", err)
+				continue
+			}
+			if uiURL == "" {
+				uiURL = apiURL
+			}
+			// Hourly cache — one detail request per monitored volume, and
+			// comic release dates change rarely
+			items, ok := cachedDueItems("kapreleases:"+integrationID, time.Hour, func() ([]dueItem, error) {
+				return kapowarrFetchReleaseItems(apiURL, uiURL, apiKey, skipTLS)
+			})
+			if !ok {
+				continue
+			}
+			intName := integrationName(db, integrationID, "Kapowarr")
+			for _, it := range items {
+				if it.DueDate < calStart || it.DueDate > calEnd {
+					continue
+				}
+				link := it.Link
+				if link == "" {
+					link = uiURL
+				}
+				events = append(events, map[string]interface{}{
+					"source": intName,
+					"date":   it.DueDate,
+					"title":  it.Title,
+					"color":  "#facc15",
+					"uiUrl":  link,
+				})
+			}
+
+		case "mylar3":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] mylar3 resolveIntegration error: %v", err)
+				continue
+			}
+			if uiURL == "" {
+				uiURL = apiURL
+			}
+			items, ok := cachedDueItems("mylarupcoming:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
+				return mylar3FetchReleaseItems(apiURL, uiURL, apiKey, skipTLS)
+			})
+			if !ok {
+				continue
+			}
+			intName := integrationName(db, integrationID, "Mylar3")
+			for _, it := range items {
+				if it.DueDate < calStart || it.DueDate > calEnd {
+					continue
+				}
+				link := it.Link
+				if link == "" {
+					link = uiURL
+				}
+				events = append(events, map[string]interface{}{
+					"source": intName,
+					"date":   it.DueDate,
+					"title":  it.Title,
+					"color":  "#84cc16",
+					"uiUrl":  link,
+				})
+			}
+
+		case "maintainerr":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] maintainerr resolveIntegration error: %v", err)
+				continue
+			}
+			if uiURL == "" {
+				uiURL = apiURL
+			}
+			items, ok := cachedDueItems("mtractions:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
+				return maintainerrFetchActionItems(apiURL, uiURL, apiKey, skipTLS)
+			})
+			if !ok {
+				continue
+			}
+			intName := integrationName(db, integrationID, "Maintainerr")
+			for _, it := range items {
+				if it.DueDate < calStart || it.DueDate > calEnd {
+					continue
+				}
+				link := it.Link
+				if link == "" {
+					link = uiURL
+				}
+				events = append(events, map[string]interface{}{
+					"source": intName,
+					"date":   it.DueDate,
+					"title":  it.Title,
+					"color":  "#ef4444",
+					"uiUrl":  link,
+				})
+			}
 
 		case "ical":
 			icsURL := stringVal(source, "icsUrl")

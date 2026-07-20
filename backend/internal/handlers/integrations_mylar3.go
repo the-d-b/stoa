@@ -170,6 +170,40 @@ func fetchMylar3PanelData(db *sql.DB, config map[string]interface{}) (*Mylar3Pan
 	return data, nil
 }
 
+// ── Upcoming releases (calendar source) ───────────────────────────────────────
+
+// mylar3FetchReleaseItems returns upcoming issue release dates as dueItems via
+// the getUpcoming API command (bare array of issues for monitored series).
+// Deep links go to the series detail page (/comicDetails?ComicID=...).
+func mylar3FetchReleaseItems(apiURL, uiURL, apiKey string, skipTLS bool) ([]dueItem, error) {
+	body, err := mylar3Get(apiURL, apiKey, "getUpcoming", nil, skipTLS)
+	if err != nil {
+		return nil, err
+	}
+	var upcoming []map[string]interface{}
+	if err := json.Unmarshal(body, &upcoming); err != nil {
+		return nil, fmt.Errorf("parsing getUpcoming: %w", err)
+	}
+	var items []dueItem
+	for _, m := range upcoming {
+		date := stringVal(m, "ReleaseDate")
+		name := stringVal(m, "ComicName")
+		if date == "" || name == "" {
+			continue
+		}
+		title := name
+		if num := mylar3StringOrNum(m, "Issue_Number"); num != "" {
+			title = fmt.Sprintf("%s #%s", name, num)
+		}
+		item := dueItem{Title: title, DueDate: date}
+		if comicID := stringVal(m, "ComicID"); comicID != "" {
+			item.Link = strings.TrimRight(uiURL, "/") + "/comicDetails?ComicID=" + url.QueryEscape(comicID)
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 // mylar3StringOrNum returns a string field or formats a float64 field as a string.
 func mylar3StringOrNum(m map[string]interface{}, key string) string {
 	if s, ok := m[key].(string); ok {

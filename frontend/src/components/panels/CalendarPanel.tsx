@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { integrationsApi } from '../../api'
 import { Panel } from '../../api'
+import CalendarOverlay from './CalendarOverlay'
 
 interface CalendarConfig {
   firstDay: 0 | 1
@@ -80,6 +81,14 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   const [viewDate, setViewDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate())
   const [events, setEvents] = useState<CalendarEvent[]>([])
+  const [overlayOpen, setOverlayOpen] = useState(false)
+  // Full-screen overlay is desktop-only — no expand affordance on mobile
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
   const hasSources = (config as any).sources?.length > 0
   const [allForecasts, setAllForecasts] = useState<{ city: string; unit: string; days: DayForecast[] }[]>([])
@@ -239,9 +248,22 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
       <NavBtn onClick={() => setViewDate(new Date(year, month-1, 1))} label="‹" />
       <span style={{ fontSize: 12, fontWeight: 600 }}>{MONTHS[month]} {year}</span>
-      <NavBtn onClick={() => setViewDate(new Date(year, month+1, 1))} label="›" />
+      <span style={{ display: 'flex', alignItems: 'center' }}>
+        <NavBtn onClick={() => setViewDate(new Date(year, month+1, 1))} label="›" />
+        {!isMobile && (
+          <button onClick={() => setOverlayOpen(true)} title="Expand calendar"
+            style={{ background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-dim)', fontSize: 12, padding: '2px 4px',
+              borderRadius: 4, lineHeight: 1 }}>⛶</button>
+        )}
+      </span>
     </div>
   )
+
+  const overlay = overlayOpen && !isMobile ? (
+    <CalendarOverlay events={events} firstDay={config.firstDay}
+      getSourceLabel={getSourceLabel} onClose={() => setOverlayOpen(false)} />
+  ) : null
 
   const dayHeaderRow = (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', marginBottom: 2 }}>
@@ -312,6 +334,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         {monthHeader}
         {dayHeaderRow}
         {dayGrid}
+        {overlay}
       </div>
     )
   }
@@ -426,6 +449,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
           )
         })}
       </div>
+      {overlay}
       </div>
   )
 }

@@ -10,7 +10,7 @@ import { panelsApi, myPanelsApi, googleApi, Panel } from '../../api'
 
 const DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // Source types where daysAhead controls the fetch window
-const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii'])
+const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii', 'kapowarr', 'mylar3', 'maintainerr'])
 
 export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
   panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
@@ -36,7 +36,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
 
   // Integrations eligible as calendar sources
   const calIntegrations = integrations.filter((i: any) =>
-    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger','actualbudget','fireflyiii'].includes(i.type)
+    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger','actualbudget','fireflyiii','kapowarr','mylar3','maintainerr'].includes(i.type)
   )
 
   useEffect(() => {
@@ -131,6 +131,9 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     if (src.type === 'lubelogger') return `🔧 ${src.label || ig?.name || 'LubeLogger'}`
     if (src.type === 'actualbudget') return `💰 ${src.label || ig?.name || 'Actual Budget'}`
     if (src.type === 'fireflyiii') return `💸 ${src.label || ig?.name || 'Firefly III'}`
+    if (src.type === 'kapowarr') return `🦸 ${src.label || ig?.name || 'Kapowarr'}`
+    if (src.type === 'mylar3') return `🗯 ${src.label || ig?.name || 'Mylar3'}`
+    if (src.type === 'maintainerr') return `🗑 ${src.label || ig?.name || 'Maintainerr'}`
     return ig?.name ?? src.label ?? src.type
   }
 
@@ -174,7 +177,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
           <option value="">+ Add source...</option>
           {calIntegrations.length > 0 && <option value="integration">Stoa integration</option>}
           {googleTokens.length > 0 && <option value="google">Google Calendar</option>}
-          <option value="ical">ICS / Outlook Calendar</option>
+          <option value="ical">ICS / Outlook / Nextcloud</option>
           {checklistPanels.length > 0 && <option value="checklist">Checklist</option>}
           {kanbanPanels.length > 0 && <option value="kanban">Kanban</option>}
         </select>
@@ -256,8 +259,9 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
         {sourceKind === 'ical' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1 }}>
             <div style={{ fontSize: 11, color: 'var(--text-dim)', lineHeight: 1.5 }}>
-              In Outlook web: <strong>Settings → Calendar → Shared calendars → Publish a calendar</strong>.
-              Select your calendar, set visibility to "Can view all details", then copy the ICS link.
+              Outlook web: <strong>Settings → Calendar → Shared calendars → Publish a calendar</strong>,
+              set "Can view all details", copy the ICS link.
+              Nextcloud: <strong>Calendar → share icon → Copy private link</strong> (URL ends in <code>?export</code>).
             </div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
               <input className="input" value={icsUrl} onChange={e => setIcsUrl(e.target.value)}

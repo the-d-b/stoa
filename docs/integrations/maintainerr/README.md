@@ -62,6 +62,12 @@ Collection cards showing what's queued for deletion — with poster filmstrips, 
 
 ---
 
+## Calendar
+
+Add Maintainerr as a calendar source (Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**) to see upcoming scheduled cleanup actions on the calendar, aggregated per collection per day — e.g. `Old Movies: 3 items (Delete)`. Events click through to the collection's page in Maintainerr. Uses the same `/api/collections/overlay-data` endpoint and date math as Maintainerr's own calendar page; results are cached for 15 minutes. See [Calendar](../calendar/README.md#maintainerr) for details.
+
+---
+
 ## Notes
 
 - **Polling and SSE:** Stoa polls Maintainerr every 5 minutes. Results are cached and pushed to all connected browsers via SSE — no manual refresh needed
