@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { integrationsApi } from '../../api'
 import { Panel } from '../../api'
 import CalendarOverlay from './CalendarOverlay'
+import AddEventModal, { WritableCalSource } from './AddEventModal'
 
 interface CalendarConfig {
   firstDay: 0 | 1
@@ -82,6 +83,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDate())
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [overlayOpen, setOverlayOpen] = useState(false)
+  const [addEventOpen, setAddEventOpen] = useState(false)
   // Full-screen overlay is desktop-only — no expand affordance on mobile
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
   useEffect(() => {
@@ -91,6 +93,10 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
   }, [])
 
   const hasSources = (config as any).sources?.length > 0
+  // Sources that accept event creation
+  const writableSources: WritableCalSource[] = ((config as any).sources || [])
+    .filter((s: any) => s.type === 'google' || s.type === 'caldav')
+    .map((s: any) => ({ integrationId: s.integrationId, calendarId: s.calendarId, label: s.label }))
   const [allForecasts, setAllForecasts] = useState<{ city: string; unit: string; days: DayForecast[] }[]>([])
   // Source filter — null means all visible (resets on unmount)
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set())
@@ -250,6 +256,12 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
       <span style={{ fontSize: 12, fontWeight: 600 }}>{MONTHS[month]} {year}</span>
       <span style={{ display: 'flex', alignItems: 'center' }}>
         <NavBtn onClick={() => setViewDate(new Date(year, month+1, 1))} label="›" />
+        {writableSources.length > 0 && (
+          <button onClick={() => setAddEventOpen(true)} title="Add event"
+            style={{ background: 'none', border: 'none', cursor: 'pointer',
+              color: 'var(--text-dim)', fontSize: 14, padding: '2px 4px',
+              borderRadius: 4, lineHeight: 1 }}>+</button>
+        )}
         {!isMobile && (
           <button onClick={() => setOverlayOpen(true)} title="Expand calendar"
             style={{ background: 'none', border: 'none', cursor: 'pointer',
@@ -260,9 +272,18 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
+  const selectedDateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(selectedDay).padStart(2,'0')}`
+
   const overlay = overlayOpen && !isMobile ? (
     <CalendarOverlay events={events} firstDay={config.firstDay}
-      getSourceLabel={getSourceLabel} onClose={() => setOverlayOpen(false)} />
+      getSourceLabel={getSourceLabel} onClose={() => setOverlayOpen(false)}
+      panelId={panel.id} writableSources={writableSources} onEventCreated={loadEvents} />
+  ) : null
+
+  const addEventModal = addEventOpen && writableSources.length > 0 ? (
+    <AddEventModal panelId={panel.id} sources={writableSources}
+      defaultDate={selectedDateStr} onCreated={loadEvents}
+      onClose={() => setAddEventOpen(false)} />
   ) : null
 
   const dayHeaderRow = (
@@ -335,6 +356,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         {dayHeaderRow}
         {dayGrid}
         {overlay}
+        {addEventModal}
       </div>
     )
   }
@@ -450,6 +472,7 @@ export default function CalendarPanel({ panel, heightUnits }: { panel: Panel; he
         })}
       </div>
       {overlay}
+      {addEventModal}
       </div>
   )
 }

@@ -44,6 +44,12 @@ Entity states for smart home devices. Filter by entity ID or domain (sensor, lig
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
 ---
 
+## Calendar
+
+Add Home Assistant as a calendar source (Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**) to see events from all of HA's calendar entities on the Stoa calendar — local calendars, synced Google/CalDAV calendars, waste collection, birthdays, and anything else exposed as a `calendar.*` entity. All calendars share one source pill; titles are prefixed with the calendar name when there's more than one. See [Calendar](../calendar/README.md#home-assistant) for details, including a duplicate warning when HA syncs a calendar Stoa also reads directly.
+
+---
+
 ## Notes
 
 Entity filters: configure a comma-separated list of domains or entity IDs in the panel config to show only the entities you care about.

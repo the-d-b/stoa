@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -81,7 +82,9 @@ func GoogleOAuthRedirect(db *sql.DB) http.HandlerFunc {
 			"client_id":     {clientID},
 			"redirect_uri":  {redirectURI},
 			"response_type": {"code"},
-			"scope":         {"https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/userinfo.email"},
+			// calendar.events adds event write; calendar.readonly is still needed
+			// for the calendar-list picker, which calendar.events does not grant
+			"scope":         {"https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/calendar.events https://www.googleapis.com/auth/userinfo.email"},
 			"access_type":   {"offline"},
 			"prompt":        {"consent"}, // force refresh_token every time
 			"state":         {state},
@@ -302,6 +305,56 @@ func googleFetchCalendarList(accessToken string) ([]GoogleCalendar, error) {
 		})
 	}
 	return cals, nil
+}
+
+// CreateGoogleCalendarEvent inserts an event into a Google calendar. An empty
+// startDT creates an all-day event on date (Google's all-day end date is
+// exclusive, so end is the following day); with startDT, an empty endDT
+// defaults to one hour after start.
+func CreateGoogleCalendarEvent(accessToken, calendarID, title, date, startDT, endDT string) error {
+	event := map[string]interface{}{"summary": title}
+	if startDT == "" {
+		d, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			return fmt.Errorf("invalid date %q", date)
+		}
+		event["start"] = map[string]string{"date": date}
+		event["end"] = map[string]string{"date": d.AddDate(0, 0, 1).Format("2006-01-02")}
+	} else {
+		start, err := time.Parse(time.RFC3339, startDT)
+		if err != nil {
+			return fmt.Errorf("invalid start time %q", startDT)
+		}
+		if endDT == "" {
+			endDT = start.Add(time.Hour).Format(time.RFC3339)
+		}
+		event["start"] = map[string]string{"dateTime": startDT}
+		event["end"] = map[string]string{"dateTime": endDT}
+	}
+
+	payload, _ := json.Marshal(event)
+	apiURL := "https://www.googleapis.com/calendar/v3/calendars/" +
+		url.PathEscape(calendarID) + "/events"
+	req, _ := http.NewRequest("POST", apiURL, bytes.NewReader(payload))
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		// Token predates the calendar.events scope — needs a reconnect
+		return fmt.Errorf("Google rejected the write — reconnect this Google account (Profile → Google) to grant calendar write access")
+	}
+	if resp.StatusCode >= 400 {
+		b, _ := io.ReadAll(resp.Body)
+		if len(b) > 200 {
+			b = b[:200]
+		}
+		return fmt.Errorf("Google API HTTP %d: %s", resp.StatusCode, b)
+	}
+	return nil
 }
 
 // FetchGoogleCalendarEvents fetches events for a calendar within a date range

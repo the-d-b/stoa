@@ -31,6 +31,7 @@ export const INTEGRATION_TYPES = [
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media Management' },
   { id: 'tdarr',        label: 'Tdarr',        desc: 'Media transcoding automation — URL is http://tdarr:8265. API key: token from Tdarr → Tools → API Keys (leave blank for unauthenticated local instances). Use username:password for Basic Auth via a reverse proxy.', category: 'Media Management' },
   { id: 'maintainerr', label: 'Maintainerr',  desc: 'Media library cleanup — URL is http://maintainerr:6246. Runs unauthenticated by default; leave API key blank. For reverse-proxy Basic Auth use username:password; for Bearer use a bare token.', category: 'Media Management' },
+  { id: 'caldav',      label: 'CalDAV',       desc: 'Read/write calendar (Nextcloud, Fastmail, Radicale, Baïkal, Synology). URL is a calendar collection, e.g. https://cloud.example.com/remote.php/dav/calendars/USER/personal/. Secret: username:password — use an app password. Add it to a Calendar panel as a source.', category: 'Personal' },
   // Photos & Libraries
   { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                         category: 'Photos & Libraries' },
   { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Photos & Libraries' },

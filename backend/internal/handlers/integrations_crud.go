@@ -363,6 +363,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testPterodactylConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "maintainerr":
 			err = testMaintainerrConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "caldav":
+			err = testCaldavConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "monica":
 			err = testMonicaConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "homebox":
@@ -535,6 +537,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testPterodactylConnection(req.APIURL, apiKey, true)
 						case "maintainerr":
 							retryErr = testMaintainerrConnection(req.APIURL, apiKey, true)
+						case "caldav":
+							retryErr = testCaldavConnection(req.APIURL, apiKey, true)
 						case "monica":
 							retryErr = testMonicaConnection(req.APIURL, apiKey, true)
 						case "homebox":

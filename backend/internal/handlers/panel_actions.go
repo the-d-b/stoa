@@ -166,6 +166,12 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 			TVDbID int64  `json:"tvdbId"`
 			Title  string `json:"title"`
 			MBID   string `json:"mbid"`
+			// create_event (calendar write)
+			IntegrationID string `json:"integrationId"`
+			CalendarID    string `json:"calendarId"`
+			Date          string `json:"date"`    // YYYY-MM-DD
+			StartDT       string `json:"startDT"` // RFC3339; empty = all-day
+			EndDT         string `json:"endDT"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request body")
@@ -227,6 +233,71 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 				return
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"status": "added"})
+
+		case "create_event":
+			if req.Title == "" || req.Date == "" {
+				writeError(w, http.StatusBadRequest, "title and date required")
+				return
+			}
+			// The target must be a writable source configured on this panel —
+			// anyone who can see the panel may write to its writable sources
+			sources, _ := panelCfg["sources"].([]interface{})
+			srcType := ""
+			for _, s := range sources {
+				sm, _ := s.(map[string]interface{})
+				if sm == nil {
+					continue
+				}
+				t, _ := sm["type"].(string)
+				if t != "google" && t != "caldav" {
+					continue
+				}
+				if sm["integrationId"] != req.IntegrationID {
+					continue
+				}
+				if t == "google" {
+					calID, _ := sm["calendarId"].(string)
+					if calID == "" {
+						calID = "primary"
+					}
+					if req.CalendarID != "" && req.CalendarID != calID {
+						continue
+					}
+					req.CalendarID = calID
+				}
+				srcType = t
+				break
+			}
+			if srcType == "" {
+				writeError(w, http.StatusBadRequest, "no matching writable calendar source on this panel")
+				return
+			}
+
+			switch srcType {
+			case "google":
+				accessToken, err := GetValidAccessToken(db, req.IntegrationID)
+				if err != nil {
+					writeError(w, http.StatusUnauthorized, "Google account token unavailable: "+err.Error())
+					return
+				}
+				if err := CreateGoogleCalendarEvent(accessToken, req.CalendarID, req.Title, req.Date, req.StartDT, req.EndDT); err != nil {
+					writeError(w, http.StatusBadGateway, err.Error())
+					return
+				}
+			case "caldav":
+				apiURL, _, userpass, skipTLS, err := resolveIntegration(db, req.IntegrationID)
+				if err != nil {
+					writeError(w, http.StatusInternalServerError, "CalDAV integration not found")
+					return
+				}
+				if err := caldavCreateEvent(apiURL, userpass, req.Title, req.Date, req.StartDT, req.EndDT, skipTLS); err != nil {
+					writeError(w, http.StatusBadGateway, err.Error())
+					return
+				}
+				// Bust the read cache so the new event shows immediately
+				cacheDelete("caldavevents:" + req.IntegrationID)
+			}
+			writeJSON(w, http.StatusOK, map[string]string{"status": "created"})
 
 		default:
 			writeError(w, http.StatusBadRequest, "unknown action: "+req.Action)

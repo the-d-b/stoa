@@ -6,6 +6,7 @@
  * day the 1st Saturday in December is.
  */
 import { useState, useEffect } from 'react'
+import AddEventModal, { WritableCalSource } from './AddEventModal'
 
 const DAY_SUN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const DAY_MON = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -33,22 +34,27 @@ const eventHref = (ev: CalendarEvent): string | null => {
   return ev.uiUrl
 }
 
-export default function CalendarOverlay({ events, firstDay, getSourceLabel, onClose }: {
+export default function CalendarOverlay({ events, firstDay, getSourceLabel, onClose, panelId, writableSources, onEventCreated }: {
   events: CalendarEvent[]
   firstDay: 0 | 1
   getSourceLabel: (source: string) => string
   onClose: () => void
+  panelId: string
+  writableSources: WritableCalSource[]
+  onEventCreated: () => void
 }) {
   const now = new Date()
   const [viewDate, setViewDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1))
   const [selectedDate, setSelectedDate] = useState(dateKey(now.getFullYear(), now.getMonth(), now.getDate()))
   const [hiddenSources, setHiddenSources] = useState<Set<string>>(new Set())
+  const [addEventOpen, setAddEventOpen] = useState(false)
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    // When the add-event modal is open, Escape closes only the modal
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape' && !addEventOpen) onClose() }
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
-  }, [onClose])
+  }, [onClose, addEventOpen])
 
   const year = viewDate.getFullYear()
   const month = viewDate.getMonth()
@@ -246,9 +252,16 @@ export default function CalendarOverlay({ events, firstDay, getSourceLabel, onCl
           {/* Day agenda */}
           <div style={{ flex: 1, minWidth: 280, maxWidth: 420, borderLeft: '1px solid var(--border)',
             display: 'flex', flexDirection: 'column', padding: '14px 18px', overflow: 'auto' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10,
-              color: 'var(--text)', flexShrink: 0 }}>
-              {selHeading}
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: 10, flexShrink: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', flex: 1 }}>
+                {selHeading}
+              </div>
+              {writableSources.length > 0 && (
+                <button className="btn btn-secondary" style={{ fontSize: 11 }}
+                  onClick={() => setAddEventOpen(true)}>
+                  + Add event
+                </button>
+              )}
             </div>
 
             {selWeather.map((w, wi) => (
@@ -308,6 +321,12 @@ export default function CalendarOverlay({ events, firstDay, getSourceLabel, onCl
           </div>
         </div>
       </div>
+
+      {addEventOpen && writableSources.length > 0 && (
+        <AddEventModal panelId={panelId} sources={writableSources}
+          defaultDate={selectedDate} onCreated={onEventCreated}
+          onClose={() => setAddEventOpen(false)} />
+      )}
     </div>
   )
 }

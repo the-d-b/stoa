@@ -10,7 +10,7 @@ import { panelsApi, myPanelsApi, googleApi, Panel } from '../../api'
 
 const DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // Source types where daysAhead controls the fetch window
-const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii', 'kapowarr', 'mylar3', 'maintainerr'])
+const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii', 'kapowarr', 'mylar3', 'maintainerr', 'homeassistant', 'caldav'])
 
 export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
   panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
@@ -36,7 +36,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
 
   // Integrations eligible as calendar sources
   const calIntegrations = integrations.filter((i: any) =>
-    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger','actualbudget','fireflyiii','kapowarr','mylar3','maintainerr'].includes(i.type)
+    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger','actualbudget','fireflyiii','kapowarr','mylar3','maintainerr','homeassistant','caldav'].includes(i.type)
   )
 
   useEffect(() => {
@@ -134,6 +134,8 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     if (src.type === 'kapowarr') return `🦸 ${src.label || ig?.name || 'Kapowarr'}`
     if (src.type === 'mylar3') return `🗯 ${src.label || ig?.name || 'Mylar3'}`
     if (src.type === 'maintainerr') return `🗑 ${src.label || ig?.name || 'Maintainerr'}`
+    if (src.type === 'homeassistant') return `🏠 ${src.label || ig?.name || 'Home Assistant'}`
+    if (src.type === 'caldav') return `🗓 ${src.label || ig?.name || 'CalDAV'}`
     return ig?.name ?? src.label ?? src.type
   }
 

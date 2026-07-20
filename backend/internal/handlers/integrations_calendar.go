@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -494,6 +495,154 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 			intName := integrationName(db, integrationID, "Firefly III")
 			events = append(events, dueSoonEvents(items, intName, uiURL, "#ec4899", daysAhead, timeNow())...)
+
+		case "homeassistant":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] homeassistant resolveIntegration error: %v", err)
+				continue
+			}
+			if uiURL == "" {
+				uiURL = apiURL
+			}
+			calBody, cerr := haGet(apiURL, apiKey, "/api/calendars", skipTLS)
+			if cerr != nil {
+				log.Printf("[CAL] homeassistant calendars list error: %v", cerr)
+				continue
+			}
+			var cals []struct {
+				EntityID string `json:"entity_id"`
+				Name     string `json:"name"`
+			}
+			if err := json.Unmarshal(calBody, &cals); err != nil {
+				log.Printf("[CAL] homeassistant calendars parse error: %v", err)
+				continue
+			}
+			intName := integrationName(db, integrationID, "Home Assistant")
+			// One pill for the whole integration; calendar names go into event
+			// titles instead (only when there is more than one calendar)
+			prefixNames := len(cals) > 1
+			startISO := timeNow().UTC().Format("2006-01-02T15:04:05Z")
+			endISO := timeNow().AddDate(0, 0, daysAhead).UTC().Format("2006-01-02T15:04:05Z")
+			for _, cal := range cals {
+				evBody, eerr := haGet(apiURL, apiKey,
+					fmt.Sprintf("/api/calendars/%s?start=%s&end=%s", url.PathEscape(cal.EntityID), startISO, endISO), skipTLS)
+				if eerr != nil {
+					log.Printf("[CAL] homeassistant %s events error: %v", cal.EntityID, eerr)
+					continue
+				}
+				var items []struct {
+					Summary string `json:"summary"`
+					Start   struct {
+						Date     string `json:"date"`
+						DateTime string `json:"dateTime"`
+					} `json:"start"`
+					End struct {
+						DateTime string `json:"dateTime"`
+					} `json:"end"`
+				}
+				if err := json.Unmarshal(evBody, &items); err != nil {
+					log.Printf("[CAL] homeassistant %s events parse error: %v", cal.EntityID, err)
+					continue
+				}
+				for _, it := range items {
+					date, startDT, endDT := "", "", ""
+					if it.Start.Date != "" {
+						date = it.Start.Date // all-day event
+					} else if len(it.Start.DateTime) >= 10 {
+						date = it.Start.DateTime[:10]
+						startDT = it.Start.DateTime
+						endDT = it.End.DateTime
+					}
+					if date == "" {
+						continue
+					}
+					title := it.Summary
+					if title == "" {
+						title = "(no title)"
+					}
+					if prefixNames && cal.Name != "" {
+						title = cal.Name + ": " + title
+					}
+					e := map[string]interface{}{
+						"source": intName,
+						"date":   date,
+						"title":  title,
+						"color":  "#22d3ee",
+						"uiUrl":  strings.TrimRight(uiURL, "/") + "/calendar",
+					}
+					if startDT != "" {
+						e["startDT"] = startDT
+					}
+					if endDT != "" {
+						e["endDT"] = endDT
+					}
+					events = append(events, e)
+				}
+			}
+
+		case "caldav":
+			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+			if err != nil {
+				log.Printf("[CAL] caldav resolveIntegration error: %v", err)
+				continue
+			}
+			cacheKey := "caldavevents:" + integrationID
+			var vevents []icsVEvent
+			haveCache := false
+			if cached, ok := cacheGetFresh(cacheKey, 15*time.Minute); ok {
+				if ev, ok2 := cached.([]icsVEvent); ok2 {
+					vevents, haveCache = ev, true
+				}
+			}
+			if !haveCache {
+				// Fetch the max selectable window; serve-time filtering narrows
+				fetched, ferr := caldavReportEvents(apiURL, apiKey, timeNow().AddDate(0, 0, -1), timeNow().AddDate(0, 0, 91), skipTLS)
+				if ferr != nil {
+					log.Printf("[CAL] caldav fetch error: %v", ferr)
+					// Fall back to stale cache rather than dropping the source
+					if cached, ok := cacheGet(cacheKey); ok {
+						if ev, ok2 := cached.([]icsVEvent); ok2 {
+							vevents, haveCache = ev, true
+						}
+					}
+					if !haveCache {
+						continue
+					}
+				} else {
+					vevents = fetched
+					cacheSet(cacheKey, vevents)
+					log.Printf("[CAL] caldav: fetched %d raw events", len(vevents))
+				}
+			}
+
+			intName := integrationName(db, integrationID, "CalDAV")
+			now := timeNow().Local()
+			winStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
+			winEnd := winStart.AddDate(0, 0, daysAhead+1)
+			today := timeNow().Format("2006-01-02")
+			endDate := timeNow().AddDate(0, 0, daysAhead).Format("2006-01-02")
+			for _, ev := range expandICSEvents(vevents, winStart, winEnd) {
+				if ev.Date < today || ev.Date > endDate {
+					continue
+				}
+				e := map[string]interface{}{
+					"source": intName,
+					"date":   ev.Date,
+					"title":  ev.Summary,
+					"color":  "#818cf8",
+				}
+				if uiURL != "" {
+					e["uiUrl"] = uiURL
+				}
+				if ev.StartDT != "" {
+					e["startDT"] = ev.StartDT
+				}
+				if ev.EndDT != "" {
+					e["endDT"] = ev.EndDT
+				}
+				events = append(events, e)
+			}
 
 		case "kapowarr":
 			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)

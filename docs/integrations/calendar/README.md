@@ -10,7 +10,8 @@ A multi-source calendar that aggregates events from any combination of:
 
 - **Sonarr / Radarr / Lidarr / Readarr** — upcoming episode/movie/music/book releases
 - **Google Calendar** — personal or shared Google calendars (via OAuth)
-- **ICS / Outlook / Nextcloud** — any calendar published as an `.ics` feed, including Outlook (Microsoft 365 / Outlook.com) and Nextcloud
+- **ICS / Outlook / Nextcloud** — any calendar published as an `.ics` feed, including Outlook (Microsoft 365 / Outlook.com) and Nextcloud (read-only)
+- **CalDAV** — any RFC 4791 calendar server (Nextcloud, Fastmail, Radicale, Baïkal, Synology) — **read and write**
 - **Checklist panels** — due dates from Stoa checklist items
 - **Kanban panels** — due dates from Stoa kanban cards
 - **LubeLogger** — upcoming vehicle maintenance reminders
@@ -19,6 +20,7 @@ A multi-source calendar that aggregates events from any combination of:
 - **Kapowarr** — upcoming comic issue release dates for monitored volumes
 - **Mylar3** — upcoming comic issue release dates for monitored series
 - **Maintainerr** — scheduled media cleanup actions (deletions, unmonitors) per collection
+- **Home Assistant** — events from all HA calendar entities (local calendars, synced Google/CalDAV, waste collection, birthdays, …)
 - **Weather** — daily forecast events
 
 Each source is configured independently with its own label, color, and days-ahead window (7–90 days).
@@ -84,11 +86,29 @@ The same setup works for any standards-compliant `.ics` / iCal feed:
 
 ---
 
+### CalDAV (read/write)
+
+Requires a CalDAV integration: Admin → Integrations → New → **CalDAV**. The URL must point at a specific **calendar collection**, not the server root — e.g. Nextcloud: `https://cloud.example.com/remote.php/dav/calendars/USERNAME/personal/`. The secret is `username:password`; use an **app password** (Nextcloud: Settings → Security → Devices & sessions). Then add source → **Stoa integration** → select the integration.
+
+Events (all-day and timed, with full recurrence expansion) appear under one pill labeled with the integration's name. CalDAV sources are **writable** — they join Google Calendar in the add-event form. Events are fetched over a 90-day window and cached for 15 minutes; a successful write busts the cache so the new event appears immediately.
+
+Compared to the ICS source: ICS needs only a share URL but is read-only and depends on the server's publish feature; CalDAV needs credentials but reads the calendar directly and can create events. For a Nextcloud calendar you want to write to, use CalDAV; for one you only watch, either works.
+
+---
+
 ### Google Calendar
 
 Requires a Google OAuth integration. See [docs/oauth.md](../../oauth.md) for setup.
 
 Once OAuth is configured, add source → **Google Calendar** → select an account and a calendar.
+
+#### Creating events (write)
+
+Google Calendar and CalDAV are Stoa's **writable** calendar sources. When a calendar panel has at least one writable source, a **+** button appears next to the month navigation (and **+ Add event** in the full-screen overlay's day agenda). The form takes a title, date, and optional start/end times — leave the start time empty for an all-day event; an end time defaults to one hour after start. When the panel has multiple writable sources, a picker chooses the target.
+
+Anyone who can see the panel can create events on its writable sources.
+
+> **Re-authorization required:** write access uses the `calendar.events` OAuth scope, added in v0.15.3. Google accounts connected before that keep working for **reading**, but event creation will fail with a "reconnect this Google account" error until the account is reconnected (Profile → Google, or Admin → Google for system accounts).
 
 ---
 
@@ -125,6 +145,16 @@ Requires a Kapowarr integration. Add source → **Stoa integration** → select 
 Upcoming comic issue release dates appear as all-day events on their release date, titled `Volume Title #issue`. Clicking an event opens the volume's page in Kapowarr. The event pill is labeled with the integration's name.
 
 Kapowarr has no calendar API, so Stoa scans each **monitored** volume's issue list for future release dates (unmonitored volumes are skipped, capped at 300 volumes). Because this is one request per volume, results are cached for **1 hour** rather than the 15 minutes used by other sources.
+
+---
+
+### Home Assistant
+
+Requires a Home Assistant integration. Add source → **Stoa integration** → select the integration.
+
+Events from **all** of the HA instance's calendar entities appear on the calendar — local calendars, calendars synced into HA (Google, CalDAV, Office 365), waste-collection schedules, birthday calendars, and anything else an HA integration exposes as a `calendar.*` entity. Both all-day and timed events are supported (timed events show start/end times). Everything shares one pill labeled with the integration's name; when the instance has more than one calendar, event titles are prefixed with the calendar's name (`Trash pickup: Recycling`). Clicking an event opens HA's calendar view.
+
+> **Duplicate warning:** if HA syncs a calendar that Stoa also reads directly (e.g. the same Google account added as a Google Calendar source), those events will appear twice. Add each calendar from only one side.
 
 ---
 
