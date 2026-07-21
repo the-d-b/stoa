@@ -28,7 +28,8 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"customapi": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchCustomAPIPanelData(db, cfg)
 	},
-	"calendar": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCalendarData(db, cfg) },
+	"calendar":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCalendarData(db, cfg) },
+	"securityposture": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSecurityPosturePanelData(db, cfg) },
 	"plex":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPlexPanelData(db, cfg) },
 	"tautulli": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchTautulliPanelData(db, cfg)

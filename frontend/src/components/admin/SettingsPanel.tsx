@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { attachmentConfigApi, appIconApi } from '../../api'
+import { attachmentConfigApi, appIconApi, nvdConfigApi } from '../../api'
 
 export default function SettingsPanel() {
   const [loading, setLoading] = useState(true)
@@ -7,6 +7,11 @@ export default function SettingsPanel() {
   const [maxMBInput, setMaxMBInput] = useState('10')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+
+  const [nvdConfigured, setNvdConfigured] = useState(false)
+  const [nvdKeyInput, setNvdKeyInput] = useState('')
+  const [nvdSaving, setNvdSaving] = useState(false)
+  const [nvdSaved, setNvdSaved] = useState(false)
 
   const [iconUrl, setIconUrl] = useState<string | null>(null)
   const [uploadingIcon, setUploadingIcon] = useState(false)
@@ -18,13 +23,26 @@ export default function SettingsPanel() {
     Promise.all([
       attachmentConfigApi.get(),
       appIconApi.get(),
-    ]).then(([attachR, iconR]) => {
+      nvdConfigApi.get(),
+    ]).then(([attachR, iconR, nvdR]) => {
       const mb = attachR.data?.maxMB ?? 10
       setMaxMB(mb); setMaxMBInput(String(mb))
       setIconUrl(iconR.data?.url ?? null)
+      setNvdConfigured(nvdR.data?.configured ?? false)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
+
+  const saveNvdKey = async () => {
+    setNvdSaving(true); setNvdSaved(false)
+    try {
+      await nvdConfigApi.save(nvdKeyInput.trim())
+      setNvdConfigured(nvdKeyInput.trim() !== '')
+      setNvdKeyInput('')
+      setNvdSaved(true)
+      setTimeout(() => setNvdSaved(false), 2000)
+    } finally { setNvdSaving(false) }
+  }
 
   const save = async () => {
     const val = parseInt(maxMBInput, 10)
@@ -124,6 +142,32 @@ export default function SettingsPanel() {
         </div>
         <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-dim)' }}>
           Current limit: {maxMB} MB
+        </div>
+      </div>
+
+      {/* NVD API Key — Security Posture panel */}
+      <div>
+        <div className="section-title" style={{ marginBottom: 12 }}>NVD API Key</div>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.7, marginBottom: 16 }}>
+          Optional. Used by the Security Posture panel to look up known CVEs from the National
+          Vulnerability Database. Works without a key (5 requests/30s), but a free key
+          (<a href="https://nvd.nist.gov/developers/request-an-api-key" target="_blank" rel="noopener noreferrer">
+            request one here</a>) raises the limit to 50/30s — helpful headroom if you're tracking
+          many products.
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <input className="input" type="password" value={nvdKeyInput}
+            onChange={e => setNvdKeyInput(e.target.value)}
+            placeholder={nvdConfigured ? '••••••••••••••• (leave blank to keep current)' : 'Paste NVD API key'}
+            style={{ flex: 1, maxWidth: 320, fontSize: 13 }} />
+          <button className="btn btn-primary" style={{ fontSize: 12, padding: '6px 14px' }}
+            onClick={saveNvdKey} disabled={nvdSaving}>
+            {nvdSaving ? 'Saving…' : 'Save'}
+          </button>
+          {nvdSaved && <span style={{ fontSize: 12, color: 'var(--green)' }}>✓ Saved</span>}
+        </div>
+        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-dim)' }}>
+          {nvdConfigured ? 'A key is currently configured.' : 'No key configured — using the unauthenticated rate limit.'}
         </div>
       </div>
 

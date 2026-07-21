@@ -121,6 +121,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Uptime Kuma | ✅ Tested | Blank (no auth) **or** plain API key (Kuma 1.23+) | Required | 60 s | [kuma/](kuma/) |
 | Prometheus | ✅ Tested | Blank (open) **or** `username:password` **or** Bearer `token` | Required | 30 s | [prometheus/](prometheus/) |
 | Grafana | ✅ Tested | Service Account token — Grafana → Administration → Service Accounts | Required | 60 s | [grafana/](grafana/) |
+| Security Posture | 🔶 Need Testing | N/A — auto-discovers existing integrations, no setup of its own | N/A | 24h per product | [security-posture/](security-posture/) |
 
 ---
 

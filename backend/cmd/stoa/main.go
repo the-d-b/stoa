@@ -349,6 +349,8 @@ func main() {
 	admin.HandleFunc("/log-config", handlers.SaveLogConfig(database)).Methods("PUT")
 	admin.HandleFunc("/attachment-config", handlers.GetAttachmentConfig(database)).Methods("GET")
 	admin.HandleFunc("/attachment-config", handlers.SaveAttachmentConfig(database)).Methods("PUT")
+	admin.HandleFunc("/nvd-config", handlers.GetNVDConfig(database)).Methods("GET")
+	admin.HandleFunc("/nvd-config", handlers.SaveNVDConfig(database)).Methods("PUT")
 
 	// Google OAuth config — GET is read by every user's profile page to decide
 	// whether to show "Connect Google Calendar" (no secret in the response,
@@ -476,6 +478,11 @@ func main() {
 	// interval is long, so it isn't worth the added complexity of tying it
 	// to session activity.
 	handlers.StartGoogleCalendarWorker(database)
+
+	// Security Posture (CVE tracking) — same reasoning as the Google
+	// Calendar worker: a small, fixed set of daily-cadence external lookups,
+	// not worth gating behind session activity.
+	handlers.StartSecurityPostureWorker(database)
 	log.Printf("Stoa listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, handlers.AccessLogMiddleware(c.Handler(r))); err != nil {
 		log.Fatalf("server error: %v", err)

@@ -13,6 +13,7 @@ import (
 
 type ProxmoxPanelData struct {
 	UIURL       string           `json:"uiUrl"`
+	Version     string           `json:"version"`
 	Node        string           `json:"node"`
 	CPU         ProxmoxGauge     `json:"cpu"`
 	Memory      ProxmoxGauge     `json:"memory"`
@@ -66,6 +67,18 @@ func fetchProxmoxPanelData(db *sql.DB, config map[string]interface{}) (*ProxmoxP
 		return nil, err
 	}
 	data := &ProxmoxPanelData{UIURL: uiURL}
+
+	// Version — best-effort, doesn't block the rest of the fetch on failure
+	if verBody, verr := proxmoxGet(apiURL, apiKey, "/version", skipTLS); verr == nil {
+		var verResp struct {
+			Data struct {
+				Version string `json:"version"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(verBody, &verResp) == nil {
+			data.Version = verResp.Data.Version
+		}
+	}
 
 	// Get node list
 	nodesBody, err := proxmoxGet(apiURL, apiKey, "/nodes", skipTLS)

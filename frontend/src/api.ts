@@ -604,6 +604,11 @@ export const attachmentConfigApi = {
   save: (maxMB: number) => api.put<{ maxMB: number }>('/attachment-config', { maxMB }),
 }
 
+export const nvdConfigApi = {
+  get: () => api.get<{ configured: boolean }>('/nvd-config'),
+  save: (apiKey: string) => api.put('/nvd-config', { apiKey }),
+}
+
 export const appIconApi = {
   get: () => api.get<{ url: string | null }>('/config/app-icon'),
   upload: (file: File) => {
