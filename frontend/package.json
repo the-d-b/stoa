@@ -1,6 +1,6 @@
 {
   "name": "stoa-frontend",
-  "version": "0.15.15",
+  "version": "0.15.16",
   "private": true,
   "scripts": {
     "dev": "vite",
