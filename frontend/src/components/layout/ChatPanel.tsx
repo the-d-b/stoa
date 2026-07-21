@@ -763,6 +763,12 @@ export default function ChatPanel({
   pendingDM, onDMOpened, onDMRead,
 }: ChatPanelProps) {
   const [activeView, setActiveView] = useState<ActiveView>({ kind: 'stoa' })
+  // Mobile only: chat starts on the full-screen channel/DM list; selecting a
+  // view navigates to a full-screen detail view with a back button, since
+  // the desktop side-by-side sidebar+content layout has no room to breathe
+  // at phone widths. Desktop ignores this entirely — both panes always show.
+  const [mobileShowList, setMobileShowList] = useState(true)
+  const selectView = (view: ActiveView) => { setActiveView(view); setMobileShowList(false) }
   const [maximized, setMaximized] = useState(false)
   const [availableProviders, setAvailableProviders] = useState<{ claude: boolean; gemini: boolean }>({ claude: false, gemini: false })
   const { themeDef } = useTheme()
@@ -848,7 +854,7 @@ export default function ChatPanel({
     if (!pendingDM || !open) return
     // Ensure we have the conversation in our list (may need to refresh)
     loadDMConversations().then(() => {
-      setActiveView({ kind: 'dm', conversationId: pendingDM.conversationId })
+      selectView({ kind: 'dm', conversationId: pendingDM.conversationId })
       onDMOpened?.()
     })
   }, [pendingDM?.conversationId, open])
@@ -1014,14 +1020,21 @@ export default function ChatPanel({
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
         }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {headerTitle}
-            {activeView.kind === 'stoa' && (
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', minWidth: 0 }}>
+            {mobile && !mobileShowList && (
+              <button onClick={() => setMobileShowList(true)} style={{ background: 'none', border: 'none',
+                cursor: 'pointer', color: 'var(--text-dim)', fontSize: 16, lineHeight: 1,
+                padding: '2px 6px 2px 0', flexShrink: 0 }} title="Back to chats">‹</button>
+            )}
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {mobile && mobileShowList ? 'Chats' : headerTitle}
+            </span>
+            {(!mobile || !mobileShowList) && activeView.kind === 'stoa' && (
               <span style={{ fontSize: 10, color: 'var(--text-dim)', fontWeight: 400, marginLeft: 8 }}>
                 {onlineCount > 0 ? `${onlineCount} online` : ''}
               </span>
             )}
-            {activeView.kind === 'dm' && activeDMConv && (
+            {(!mobile || !mobileShowList) && activeView.kind === 'dm' && activeDMConv && (
               <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 8,
                 color: statusColor(activeDMConv.otherStatus) }}>
                 {activeDMConv.otherOnline ? activeDMConv.otherStatus : 'offline'}
@@ -1042,12 +1055,17 @@ export default function ChatPanel({
           </div>
         </div>
 
-        {/* Body: sidebar + content */}
+        {/* Body: sidebar + content. Desktop always shows both side by side.
+            Mobile shows exactly one at a time, full-width, switched via
+            mobileShowList / the back button above. */}
         <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
 
-          {/* Sidebar */}
+          {/* Sidebar — full-width on mobile (only shown in list mode), fixed
+              150px alongside content on desktop (always shown) */}
+          {(!mobile || mobileShowList) && (
           <div style={{
-            width: 150, flexShrink: 0, borderRight: '1px solid var(--border)',
+            width: mobile ? '100%' : 150, flexShrink: 0,
+            borderRight: mobile ? 'none' : '1px solid var(--border)',
             overflowY: 'auto', display: 'flex', flexDirection: 'column',
             padding: '8px 0',
           }}>
@@ -1058,7 +1076,7 @@ export default function ChatPanel({
             </div>
             <SidebarItem
               active={activeView.kind === 'stoa'}
-              onClick={() => setActiveView({ kind: 'stoa' })}
+              onClick={() => selectView({ kind: 'stoa' })}
               icon="💬"
               label="Stoa"
             />
@@ -1066,7 +1084,7 @@ export default function ChatPanel({
               <SidebarItem
                 key={p.provider}
                 active={activeView.kind === 'ai' && (activeView as any).provider === p.provider}
-                onClick={() => setActiveView({ kind: 'ai', provider: p.provider })}
+                onClick={() => selectView({ kind: 'ai', provider: p.provider })}
                 icon={p.icon}
                 label={p.label}
               />
@@ -1087,7 +1105,7 @@ export default function ChatPanel({
                 )}
                 {dmConversations.map(conv => (
                   <button key={conv.id}
-                    onClick={() => setActiveView({ kind: 'dm', conversationId: conv.id })}
+                    onClick={() => selectView({ kind: 'dm', conversationId: conv.id })}
                     style={{
                       display: 'flex', alignItems: 'center', gap: 6, padding: '5px 8px',
                       border: 'none', cursor: 'pointer', width: '100%', textAlign: 'left',
@@ -1120,8 +1138,10 @@ export default function ChatPanel({
               </>
             )}
           </div>
+          )}
 
-          {/* Content area */}
+          {/* Content area — hidden on mobile while the list is showing */}
+          {(!mobile || !mobileShowList) && (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
             {/* Stoa tab */}
@@ -1278,6 +1298,7 @@ export default function ChatPanel({
                 fontSize: 12, color: 'var(--text-dim)' }}>Loading...</div>
             )}
           </div>
+          )}
         </div>
       </div>
     </>
