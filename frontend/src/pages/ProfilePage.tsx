@@ -1190,6 +1190,20 @@ function SecretsTab() {
   const [newName, setNewName] = useState('')
   const [newValue, setNewValue] = useState('')
   const [editing, setEditing] = useState<{ id: string; name: string; value: string } | null>(null)
+  const [revealedId, setRevealedId] = useState<string | null>(null)
+  const [revealedValue, setRevealedValue] = useState<string | null>(null)
+  const [revealing, setRevealing] = useState<string | null>(null)
+
+  const toggleReveal = async (id: string) => {
+    if (revealedId === id) { setRevealedId(null); setRevealedValue(null); return }
+    setRevealing(id)
+    try {
+      const res = await secretsApi.reveal(id)
+      setRevealedId(id); setRevealedValue(res.data.value)
+    } catch {
+      alert('Failed to reveal secret')
+    } finally { setRevealing(null) }
+  }
 
   const load = async () => {
     const [sysRes, myRes] = await Promise.all([secretsApi.list(), mySecretsApi.list()])
@@ -1321,14 +1335,23 @@ function SecretsTab() {
               </div>
             ) : (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                   <span style={{ fontSize: 12 }}>🔑</span>
-                  <span style={{ fontSize: 13, fontWeight: 500 }}>{s.name}</span>
-                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--text-dim)', letterSpacing: '0.15em' }}>••••••••</span>
+                  <span style={{ fontSize: 13, fontWeight: 500, flexShrink: 0 }}>{s.name}</span>
+                  <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 12, color: 'var(--text-dim)',
+                    letterSpacing: revealedId === s.id ? 'normal' : '0.15em', wordBreak: 'break-all' }}>
+                    {revealedId === s.id ? revealedValue : '••••••••'}
+                  </span>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 6px', flexShrink: 0 }}
+                    title={revealedId === s.id ? 'Hide value' : 'Reveal value'}
+                    disabled={revealing === s.id}
+                    onClick={() => toggleReveal(s.id)}>
+                    {revealing === s.id ? <span className="spinner" /> : revealedId === s.id ? '🙈' : '👁'}
+                  </button>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-ghost" style={{ fontSize: 11 }}
-                    onClick={() => setEditing({ id: s.id, name: s.name, value: '' })}>Edit</button>
+                    onClick={() => { setEditing({ id: s.id, name: s.name, value: '' }); setRevealedId(null); setRevealedValue(null) }}>Edit</button>
                   <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
                     onClick={() => remove(s.id, s.name)}>Delete</button>
                 </div>

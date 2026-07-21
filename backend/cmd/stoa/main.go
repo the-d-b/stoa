@@ -259,6 +259,7 @@ func main() {
 	protected.HandleFunc("/secrets", handlers.CreateSecret(database)).Methods("POST")
 	protected.HandleFunc("/secrets/{id}", handlers.UpdateSecret(database)).Methods("PUT")
 	protected.HandleFunc("/secrets/{id}", handlers.DeleteSecret(database)).Methods("DELETE")
+	protected.HandleFunc("/secrets/{id}/reveal", handlers.RevealSecret(database)).Methods("GET")
 
 	// Preferences (per-user)
 	protected.HandleFunc("/preferences", handlers.GetPreferences(database)).Methods("GET")

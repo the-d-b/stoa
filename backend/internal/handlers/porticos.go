@@ -350,6 +350,36 @@ func DeleteSecret(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// RevealSecret decrypts and returns a secret's plaintext value. Same
+// ownership rule as Update/Delete: the secret's owner, or an admin for
+// system (SYSTEM-owned) secrets. Every reveal is audit-logged — unlike
+// create/update/delete this doesn't change anything, but it's the one
+// action that discloses the credential itself, so who looked and when is
+// worth a paper trail.
+func RevealSecret(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := mux.Vars(r)["id"]
+		var ownerID, secretName, encVal string
+		if err := db.QueryRow("SELECT created_by, name, value FROM secrets WHERE id=?", id).
+			Scan(&ownerID, &secretName, &encVal); err != nil {
+			writeError(w, http.StatusNotFound, "secret not found")
+			return
+		}
+		if ownerID != claims.UserID && claims.Role != models.RoleAdmin {
+			writeError(w, http.StatusForbidden, "not your secret")
+			return
+		}
+		plaintext := decryptSecret(encVal)
+		if plaintext == "" {
+			writeError(w, http.StatusInternalServerError, "failed to decrypt secret")
+			return
+		}
+		RecordAudit(db, claims.UserID, claims.Username, "secret.reveal", id, secretName, nil)
+		writeJSON(w, http.StatusOK, map[string]string{"value": plaintext})
+	}
+}
+
 func SetSecretGroups(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)

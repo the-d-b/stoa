@@ -368,6 +368,7 @@ export const secretsApi = {
   delete: (id: string) => api.delete(`/secrets/${id}`),
   setGroups: (id: string, groupIds: string[]) =>
     api.put(`/secrets/${id}/groups`, { groupIds }),
+  reveal: (id: string) => api.get<{ value: string }>(`/secrets/${id}/reveal`),
 }
 
 // ── Personal Bookmarks ───────────────────────────────────────────────────────

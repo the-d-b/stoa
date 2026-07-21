@@ -108,6 +108,8 @@ Secrets store credentials — API keys, passwords, tokens — encrypted at rest.
 
 Give it a descriptive name (e.g. "Sonarr API Key") and paste your credential in the value field. See [Integrations](integrations/) for the format expected by each service.
 
+Values are masked everywhere in the UI, but not write-only — the 👁 button next to a secret's value decrypts and displays it on demand (the value is never fetched until you click it). Only the secret's owner or an admin (for system secrets) can reveal it, and every reveal is written to the audit log.
+
 ---
 
 ## Step 2: Integrations

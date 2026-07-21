@@ -13,6 +13,8 @@ export default function SecretsPanel() {
   const [expanded, setExpanded] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; name: string; value: string } | null>(null)
   const [search, setSearch] = useState('')
+  const [revealedValue, setRevealedValue] = useState<string | null>(null)
+  const [revealing, setRevealing] = useState(false)
 
   const load = async () => {
     const [s, g] = await Promise.all([secretsApi.list(), groupsApi.list()])
@@ -106,7 +108,7 @@ export default function SecretsPanel() {
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
               padding: '11px 16px', cursor: 'pointer',
-            }} onClick={() => setExpanded(expanded === s.id ? null : s.id)}>
+            }} onClick={() => { setExpanded(expanded === s.id ? null : s.id); setRevealedValue(null) }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                 <span style={{ fontSize: 10, color: 'var(--accent)', fontFamily: 'DM Mono, monospace' }}>
                   {expanded === s.id ? '▼' : '▶'}
@@ -119,7 +121,7 @@ export default function SecretsPanel() {
               </div>
               <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
                 <button className="btn btn-ghost" style={{ fontSize: 12 }}
-                  onClick={() => setEditing(editing?.id === s.id ? null : { id: s.id, name: s.name, value: '' })}>
+                  onClick={() => { setEditing(editing?.id === s.id ? null : { id: s.id, name: s.name, value: '' }); setRevealedValue(null) }}>
                   Edit
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
@@ -150,8 +152,26 @@ export default function SecretsPanel() {
                 ) : (
                   <div style={{ marginBottom: 14 }}>
                     <div style={{ fontSize: 12, color: 'var(--text-dim)', marginBottom: 4 }}>Value</div>
-                    <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: 'var(--text-muted)', letterSpacing: '0.15em' }}>
-                      ••••••••••••••••
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 13, color: 'var(--text-muted)',
+                        letterSpacing: revealedValue === null ? '0.15em' : 'normal', wordBreak: 'break-all' }}>
+                        {revealedValue === null ? '••••••••••••••••' : revealedValue}
+                      </div>
+                      <button className="btn btn-ghost" style={{ fontSize: 11, padding: '2px 6px', flexShrink: 0 }}
+                        title={revealedValue === null ? 'Reveal value' : 'Hide value'}
+                        disabled={revealing}
+                        onClick={async () => {
+                          if (revealedValue !== null) { setRevealedValue(null); return }
+                          setRevealing(true)
+                          try {
+                            const res = await secretsApi.reveal(s.id)
+                            setRevealedValue(res.data.value)
+                          } catch {
+                            alert('Failed to reveal secret')
+                          } finally { setRevealing(false) }
+                        }}>
+                        {revealing ? <span className="spinner" /> : revealedValue === null ? '👁' : '🙈'}
+                      </button>
                     </div>
                   </div>
                 )}
