@@ -127,9 +127,7 @@ func fetchDuolingoPanelData(db *sql.DB, config map[string]interface{}) (*Duoling
 		avatarURL = "https:" + avatarURL
 	}
 
-	// Streak done today: compare endDate (last practice day) against today UTC
-	today := time.Now().UTC().Format("2006-01-02")
-	streakDoneToday := u.StreakData.CurrentStreak.EndDate >= today
+	streakDoneToday := duoStreakDoneToday(u.StreakData.CurrentStreak.EndDate, timeNow())
 
 	// Courses — sort active first, then XP descending
 	courses := make([]DuolingoCourse, 0, len(u.Courses))
@@ -162,6 +160,26 @@ func fetchDuolingoPanelData(db *sql.DB, config map[string]interface{}) (*Duoling
 		League:          duoParseLeague(u.LeagueData),
 		Courses:         courses,
 	}, nil
+}
+
+// duoStreakDoneToday reports whether the user's streak already counts for
+// today. endDate is Duolingo's plain YYYY-MM-DD "last day the streak was
+// extended" — confirmed against a live response to carry no timezone info at
+// all (Duolingo's public profile API exposes no timezone field). Duolingo
+// itself resolves endDate using the user's own app-configured timezone,
+// which stoa has no way to learn from this endpoint, so "today" is computed
+// in SERVER-LOCAL time as a best-effort proxy — the same convention stoa
+// already uses for this exact class of problem elsewhere (see localDate()
+// and the ICS parser's use of time.Local).
+//
+// Comparing against UTC instead (the original implementation) rolls "today"
+// over to the next calendar day for any timezone west of UTC up to several
+// hours before the user's own day has actually ended — a same-day practice
+// then looks like it happened "yesterday" and the streak gets falsely
+// flagged as at risk.
+func duoStreakDoneToday(endDate string, now time.Time) bool {
+	today := now.Local().Format("2006-01-02")
+	return endDate >= today
 }
 
 // duoParseLeague extracts the league tier name from various response shapes.
