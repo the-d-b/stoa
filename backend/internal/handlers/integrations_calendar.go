@@ -2,11 +2,9 @@ package handlers
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -68,30 +66,6 @@ func dueSoonEvents(items []dueItem, intName, uiURL, color string, daysAhead int,
 	return events
 }
 
-// cachedDueItems returns due items from the cache if younger than maxAge,
-// fetching on miss. On fetch failure it falls back to stale cache rather than
-// dropping the source.
-func cachedDueItems(cacheKey string, maxAge time.Duration, fetch func() ([]dueItem, error)) ([]dueItem, bool) {
-	if cached, ok := cacheGetFresh(cacheKey, maxAge); ok {
-		if items, ok2 := cached.([]dueItem); ok2 {
-			return items, true
-		}
-	}
-	items, err := fetch()
-	if err != nil {
-		logErrorf("CAL", "%s fetch error: %v", cacheKey, err)
-		if cached, ok := cacheGet(cacheKey); ok {
-			if stale, ok2 := cached.([]dueItem); ok2 {
-				return stale, true
-			}
-		}
-		return nil, false
-	}
-	cacheSet(cacheKey, items)
-	logDebugf("CAL", "%s: %d upcoming items", cacheKey, len(items))
-	return items, true
-}
-
 // integrationName returns the display name of an integration for use as a
 // calendar pill label, with a fallback when unset.
 func integrationName(db *sql.DB, integrationID, fallback string) string {
@@ -147,163 +121,41 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 		calStart := timeNow().Format("2006-01-02")
 		calEnd := timeNow().AddDate(0, 0, daysAhead).Format("2006-01-02")
 
-		switch srcType {
-		case "sonarr":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "sonarr resolveIntegration error: %v", err)
-				continue
-			}
-			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
-			if err != nil {
-				logErrorf("CAL", "sonarr fetch error: %v", err)
-				continue
-			}
-			var episodes []map[string]interface{}
-			json.Unmarshal(upcoming, &episodes)
-			for _, ep := range episodes {
-				series, _ := ep["series"].(map[string]interface{})
-				seriesTitle, titleSlug := "", ""
-				if series != nil {
-					seriesTitle, _ = series["title"].(string)
-					titleSlug, _ = series["titleSlug"].(string)
-				}
-				epTitle, _ := ep["title"].(string)
-				airDateRaw, _ := ep["airDate"].(string)
-				airDate := localDate(airDateRaw)
-				events = append(events, map[string]interface{}{
-					"source": "sonarr", "date": airDate,
-					"title":       fmt.Sprintf("%s — %s", seriesTitle, epTitle),
-					"seriesTitle": seriesTitle, "epTitle": epTitle,
-					"titleSlug": titleSlug, "uiUrl": uiURL,
-					"color": "#60a5fa", "hasFile": ep["hasFile"] == true,
-				})
-			}
-
-		case "radarr":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "radarr resolveIntegration error: %v", err)
-				continue
-			}
-			// unmonitored=true returns all movies regardless of monitored status
-			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v3/calendar?unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
-			if err != nil {
-				logErrorf("CAL", "radarr fetch error: %v", err)
-				continue
-			}
-			var movies []map[string]interface{}
-			json.Unmarshal(upcoming, &movies)
-			today := timeNow().Format("2006-01-02")
-			for _, m := range movies {
-				title, _ := m["title"].(string)
-				titleSlug, _ := m["titleSlug"].(string)
-				// Emit a separate event for each future release date
-				type releaseInfo struct{ date, label string }
-				var releases []releaseInfo
-				for _, pair := range []struct{ key, label string }{
-					{"inCinemas", "In Cinemas"},
-					{"digitalRelease", "Digital"},
-					{"physicalRelease", "Physical"},
-				} {
-					if raw, _ := m[pair.key].(string); raw != "" {
-						d := localDate(raw)
-						if d >= today {
-							releases = append(releases, releaseInfo{d, pair.label})
-						}
-					}
-				}
-				logDebugf("CAL", "radarr %q: %d future releases", title, len(releases))
-				for _, rel := range releases {
-					events = append(events, map[string]interface{}{
-						"source":    "radarr",
-						"date":      rel.date,
-						"title":     fmt.Sprintf("%s (%s)", title, rel.label),
-						"titleSlug": titleSlug,
-						"uiUrl":     uiURL,
-						"color":     "#f59e0b",
-						"hasFile":   m["hasFile"] == true,
-					})
-				}
-			}
-
-		case "readarr":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "readarr resolveIntegration error: %v", err)
-				continue
-			}
-			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v1/calendar?unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
-			if err != nil {
-				logErrorf("CAL", "readarr fetch error: %v", err)
-				continue
-			}
-			var books []map[string]interface{}
-			json.Unmarshal(upcoming, &books)
-			for _, bk := range books {
-				title, _ := bk["title"].(string)
-				rawDate, _ := bk["releaseDate"].(string)
-				date := localDate(rawDate)
-				if date == "" {
+		// lookupAndFilter reads a source's pre-computed events (worker-populated,
+		// or a one-time live fallback on cold start) and applies this panel's
+		// own daysAhead window at serve time — never a live fetch on the
+		// common (warm-cache) path.
+		lookupAndFilter := func(cacheKey string, compute func() ([]map[string]interface{}, error)) {
+			raw := calEventsGetOrCompute(cacheKey, compute)
+			for _, e := range raw {
+				date, _ := e["date"].(string)
+				if date < calStart || date > calEnd {
 					continue
 				}
-				titleSlug, _ := bk["titleSlug"].(string)
-				author := ""
-				if a, ok := bk["author"].(map[string]interface{}); ok {
-					author, _ = a["authorName"].(string)
-				}
-				displayTitle := title
-				if author != "" {
-					displayTitle = fmt.Sprintf("%s — %s", author, title)
-				}
-				events = append(events, map[string]interface{}{
-					"source":    "readarr",
-					"date":      date,
-					"title":     displayTitle,
-					"titleSlug": titleSlug,
-					"uiUrl":     uiURL,
-					"color":     "#6ee7b7",
-					"hasFile":   bk["hasFile"] == true,
-				})
+				events = append(events, e)
 			}
+		}
+
+		switch srcType {
+		case "sonarr":
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeSonarrCalEvents(db, integrationID)
+			})
+
+		case "radarr":
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeRadarrCalEvents(db, integrationID)
+			})
+
+		case "readarr":
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeReadarrCalEvents(db, integrationID)
+			})
 
 		case "lidarr":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "lidarr resolveIntegration error: %v", err)
-				continue
-			}
-			// unmonitored=true returns all albums regardless of monitored status
-			upcoming, err := arrGet(apiURL, apiKey,
-				fmt.Sprintf("/api/v1/calendar?unmonitored=true&start=%s&end=%s", calStart, calEnd), skipTLS)
-			if err != nil {
-				logErrorf("CAL", "lidarr fetch error: %v", err)
-				continue
-			}
-			var albums []map[string]interface{}
-			json.Unmarshal(upcoming, &albums)
-			for _, al := range albums {
-				title, _ := al["title"].(string)
-				rawDate, _ := al["releaseDate"].(string)
-				date := localDate(rawDate)
-				artist := ""
-				foreign := ""
-				if a, ok := al["artist"].(map[string]interface{}); ok {
-					artist, _ = a["artistName"].(string)
-					foreign, _ = a["foreignArtistId"].(string)
-				}
-				events = append(events, map[string]interface{}{
-					"source":          "lidarr",
-					"date":            date,
-					"title":           fmt.Sprintf("%s — %s", artist, title),
-					"uiUrl":           uiURL,
-					"color":           "#a78bfa",
-					"foreignArtistId": foreign,
-				})
-			}
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeLidarrCalEvents(db, integrationID)
+			})
 
 		case "weather":
 			// Read from integration cache — same data as weather panel
@@ -342,424 +194,53 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			if calendarID == "" {
 				calendarID = "primary"
 			}
-
-			accessToken, aerr := GetValidAccessToken(db, integrationID)
-			if aerr != nil {
-				logErrorf("CAL", "google: GetValidAccessToken error: %v", aerr)
-				continue
-			}
-
-			timeMin := timeNow()
-			timeMax := timeNow().AddDate(0, 0, daysAhead)
-
-			items, gerr := FetchGoogleCalendarEvents(accessToken, calendarID, timeMin, timeMax)
-			if gerr != nil {
-				logErrorf("CAL", "google: FetchGoogleCalendarEvents error: %v", gerr)
-				continue
-			}
-
-			for _, item := range items {
-				start, _ := item["start"].(map[string]interface{})
-				end, _ := item["end"].(map[string]interface{})
-				if start == nil {
-					continue
+			lookupAndFilter(googleCalKey(integrationID, calendarID), func() ([]map[string]interface{}, error) {
+				accessToken, aerr := GetValidAccessToken(db, integrationID)
+				if aerr != nil {
+					return nil, aerr
 				}
-				date, startDT, endDT := "", "", ""
-				if d, ok := start["date"].(string); ok {
-					date = d // all-day event
-				} else if dt, ok := start["dateTime"].(string); ok && len(dt) >= 10 {
-					date = dt[:10]
-					startDT = dt // pass raw RFC3339 to frontend for local tz formatting
-					if end != nil {
-						if et, ok2 := end["dateTime"].(string); ok2 {
-							endDT = et
-						}
-					}
-				}
-				if date == "" {
-					continue
-				}
-				if eventDate, err := time.Parse("2006-01-02", date); err == nil {
-					if eventDate.Before(timeNow().Truncate(24 * time.Hour)) {
-						continue
-					}
-				}
-				summary, _ := item["summary"].(string)
-				if summary == "" {
-					summary = "(no title)"
-				}
-				events = append(events, map[string]interface{}{
-					"source":  "google",
-					"date":    date,
-					"title":   summary,
-					"startDT": startDT,
-					"endDT":   endDT,
-					"color":   "#34d399",
-				})
-			}
+				return computeGoogleCalEvents(accessToken, calendarID)
+			})
 
 		case "sports":
-			// Read from sports integration cache — convert schedule to calendar events
-			// Look up integration name for use as pill label
-			var intName string
-			db.QueryRow(`SELECT COALESCE(name,'Sports') FROM integrations WHERE id=?`, integrationID).Scan(&intName)
-			if intName == "" {
-				intName = "Sports"
-			}
-			cached, ok := cacheGet(integrationID)
-			if !ok {
-				// Cache miss — fetch live
-				sportsData, serr := FetchSportsData(db, integrationID)
-				if serr != nil {
-					logErrorf("CAL", "sports: fetch error: %v", serr)
-					continue
-				}
-				cacheSet(integrationID, sportsData)
-				cached = sportsData
-			}
-			// Type-assert to SportsPanelData
-			sportsData, ok := cached.(*SportsPanelData)
-			if !ok {
-				// Try JSON round-trip if cached as interface{}
-				if b, jerr := json.Marshal(cached); jerr == nil {
-					var sd SportsPanelData
-					if jerr2 := json.Unmarshal(b, &sd); jerr2 == nil {
-						sportsData = &sd
-						ok = true
-					}
-				}
-			}
-			if !ok || sportsData == nil {
-				logErrorf("CAL", "sports: could not read cached data for %s", integrationID)
-				continue
-			}
-			// Convert upcoming schedule games to calendar events
-			logDebugf("CAL", "sports: %d schedule items, %d games", len(sportsData.Schedule), len(sportsData.Games))
-			todayDate := timeNow().Local().Format("2006-01-02")
-			for _, g := range sportsData.Schedule {
-				if g.StartTime == "" {
-					continue
-				}
-				var t time.Time
-				var terr error
-				for _, fmt2 := range []string{time.RFC3339, "2006-01-02T15:04Z", "2006-01-02T15:04:05Z"} {
-					t, terr = time.Parse(fmt2, g.StartTime)
-					if terr == nil {
-						break
-					}
-				}
-				if terr != nil {
-					logErrorf("CAL", "sports: bad startTime %q: %v", g.StartTime, terr)
-					continue
-				}
-				// Skip TBD/if-necessary games -- no confirmed time yet
-				if g.IsTBD {
-					continue
-				}
-				// Use local time for date so games tonight don't appear as tomorrow
-				date := t.Local().Format("2006-01-02")
-				// Include today and future games
-				if date < todayDate {
-					continue
-				}
-				title := fmt.Sprintf("%s %s @ %s", g.League, g.AwayAbbr, g.HomeAbbr)
-				if g.IsFavorite {
-					title = "⭐ " + title
-				}
-				events = append(events, map[string]interface{}{
-					"source":  intName,
-					"date":    date,
-					"startDT": g.StartTime,
-					"title":   title,
-					"color":   "#f97316",
-					"league":  g.League,
-				})
-			}
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeSportsCalEventsLive(db, integrationID)
+			})
 
 		case "actualbudget":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "actualbudget resolveIntegration error: %v", err)
-				continue
-			}
-			if uiURL == "" {
-				uiURL = apiURL
-			}
-			items, ok := cachedDueItems("abschedules:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
-				return abFetchScheduleItems(apiURL, apiKey, skipTLS)
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeActualBudgetCalEvents(db, integrationID)
 			})
-			if !ok {
-				continue
-			}
-			intName := integrationName(db, integrationID, "Actual Budget")
-			events = append(events, dueSoonEvents(items, intName, uiURL, "#14b8a6", daysAhead, timeNow())...)
 
 		case "fireflyiii":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "fireflyiii resolveIntegration error: %v", err)
-				continue
-			}
-			if uiURL == "" {
-				uiURL = apiURL
-			}
-			items, ok := cachedDueItems("ffbills:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
-				return ffFetchBillItems(apiURL, apiKey, skipTLS)
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeFireflyCalEvents(db, integrationID)
 			})
-			if !ok {
-				continue
-			}
-			intName := integrationName(db, integrationID, "Firefly III")
-			events = append(events, dueSoonEvents(items, intName, uiURL, "#ec4899", daysAhead, timeNow())...)
 
 		case "homeassistant":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "homeassistant resolveIntegration error: %v", err)
-				continue
-			}
-			if uiURL == "" {
-				uiURL = apiURL
-			}
-			calBody, cerr := haGet(apiURL, apiKey, "/api/calendars", skipTLS)
-			if cerr != nil {
-				logErrorf("CAL", "homeassistant calendars list error: %v", cerr)
-				continue
-			}
-			var cals []struct {
-				EntityID string `json:"entity_id"`
-				Name     string `json:"name"`
-			}
-			if err := json.Unmarshal(calBody, &cals); err != nil {
-				logErrorf("CAL", "homeassistant calendars parse error: %v", err)
-				continue
-			}
-			intName := integrationName(db, integrationID, "Home Assistant")
-			// One pill for the whole integration; calendar names go into event
-			// titles instead (only when there is more than one calendar)
-			prefixNames := len(cals) > 1
-			startISO := timeNow().UTC().Format("2006-01-02T15:04:05Z")
-			endISO := timeNow().AddDate(0, 0, daysAhead).UTC().Format("2006-01-02T15:04:05Z")
-			for _, cal := range cals {
-				evBody, eerr := haGet(apiURL, apiKey,
-					fmt.Sprintf("/api/calendars/%s?start=%s&end=%s", url.PathEscape(cal.EntityID), startISO, endISO), skipTLS)
-				if eerr != nil {
-					logErrorf("CAL", "homeassistant %s events error: %v", cal.EntityID, eerr)
-					continue
-				}
-				var items []struct {
-					Summary string `json:"summary"`
-					Start   struct {
-						Date     string `json:"date"`
-						DateTime string `json:"dateTime"`
-					} `json:"start"`
-					End struct {
-						DateTime string `json:"dateTime"`
-					} `json:"end"`
-				}
-				if err := json.Unmarshal(evBody, &items); err != nil {
-					logErrorf("CAL", "homeassistant %s events parse error: %v", cal.EntityID, err)
-					continue
-				}
-				for _, it := range items {
-					date, startDT, endDT := "", "", ""
-					if it.Start.Date != "" {
-						date = it.Start.Date // all-day event
-					} else if len(it.Start.DateTime) >= 10 {
-						date = it.Start.DateTime[:10]
-						startDT = it.Start.DateTime
-						endDT = it.End.DateTime
-					}
-					if date == "" {
-						continue
-					}
-					title := it.Summary
-					if title == "" {
-						title = "(no title)"
-					}
-					if prefixNames && cal.Name != "" {
-						title = cal.Name + ": " + title
-					}
-					e := map[string]interface{}{
-						"source": intName,
-						"date":   date,
-						"title":  title,
-						"color":  "#22d3ee",
-						"uiUrl":  strings.TrimRight(uiURL, "/") + "/calendar",
-					}
-					if startDT != "" {
-						e["startDT"] = startDT
-					}
-					if endDT != "" {
-						e["endDT"] = endDT
-					}
-					events = append(events, e)
-				}
-			}
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeHomeAssistantCalEvents(db, integrationID)
+			})
 
 		case "caldav":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "caldav resolveIntegration error: %v", err)
-				continue
-			}
-			cacheKey := "caldavevents:" + integrationID
-			var vevents []icsVEvent
-			haveCache := false
-			if cached, ok := cacheGetFresh(cacheKey, 15*time.Minute); ok {
-				if ev, ok2 := cached.([]icsVEvent); ok2 {
-					vevents, haveCache = ev, true
-				}
-			}
-			if !haveCache {
-				// Fetch the max selectable window; serve-time filtering narrows
-				fetched, ferr := caldavReportEvents(apiURL, apiKey, timeNow().AddDate(0, 0, -1), timeNow().AddDate(0, 0, 91), skipTLS)
-				if ferr != nil {
-					logErrorf("CAL", "caldav fetch error: %v", ferr)
-					// Fall back to stale cache rather than dropping the source
-					if cached, ok := cacheGet(cacheKey); ok {
-						if ev, ok2 := cached.([]icsVEvent); ok2 {
-							vevents, haveCache = ev, true
-						}
-					}
-					if !haveCache {
-						continue
-					}
-				} else {
-					vevents = fetched
-					cacheSet(cacheKey, vevents)
-					logDebugf("CAL", "caldav: fetched %d raw events", len(vevents))
-				}
-			}
-
-			intName := integrationName(db, integrationID, "CalDAV")
-			now := timeNow().Local()
-			winStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.Local)
-			winEnd := winStart.AddDate(0, 0, daysAhead+1)
-			today := timeNow().Format("2006-01-02")
-			endDate := timeNow().AddDate(0, 0, daysAhead).Format("2006-01-02")
-			for _, ev := range expandICSEvents(vevents, winStart, winEnd) {
-				if ev.Date < today || ev.Date > endDate {
-					continue
-				}
-				e := map[string]interface{}{
-					"source": intName,
-					"date":   ev.Date,
-					"title":  ev.Summary,
-					"color":  "#818cf8",
-				}
-				if uiURL != "" {
-					e["uiUrl"] = uiURL
-				}
-				if ev.StartDT != "" {
-					e["startDT"] = ev.StartDT
-				}
-				if ev.EndDT != "" {
-					e["endDT"] = ev.EndDT
-				}
-				events = append(events, e)
-			}
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeCaldavCalEvents(db, integrationID)
+			})
 
 		case "kapowarr":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "kapowarr resolveIntegration error: %v", err)
-				continue
-			}
-			if uiURL == "" {
-				uiURL = apiURL
-			}
-			// Hourly cache — one detail request per monitored volume, and
-			// comic release dates change rarely
-			items, ok := cachedDueItems("kapreleases:"+integrationID, time.Hour, func() ([]dueItem, error) {
-				return kapowarrFetchReleaseItems(apiURL, uiURL, apiKey, skipTLS)
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeKapowarrCalEvents(db, integrationID)
 			})
-			if !ok {
-				continue
-			}
-			intName := integrationName(db, integrationID, "Kapowarr")
-			for _, it := range items {
-				if it.DueDate < calStart || it.DueDate > calEnd {
-					continue
-				}
-				link := it.Link
-				if link == "" {
-					link = uiURL
-				}
-				events = append(events, map[string]interface{}{
-					"source": intName,
-					"date":   it.DueDate,
-					"title":  it.Title,
-					"color":  "#facc15",
-					"uiUrl":  link,
-				})
-			}
 
 		case "mylar3":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "mylar3 resolveIntegration error: %v", err)
-				continue
-			}
-			if uiURL == "" {
-				uiURL = apiURL
-			}
-			items, ok := cachedDueItems("mylarupcoming:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
-				return mylar3FetchReleaseItems(apiURL, uiURL, apiKey, skipTLS)
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeMylar3CalEvents(db, integrationID)
 			})
-			if !ok {
-				continue
-			}
-			intName := integrationName(db, integrationID, "Mylar3")
-			for _, it := range items {
-				if it.DueDate < calStart || it.DueDate > calEnd {
-					continue
-				}
-				link := it.Link
-				if link == "" {
-					link = uiURL
-				}
-				events = append(events, map[string]interface{}{
-					"source": intName,
-					"date":   it.DueDate,
-					"title":  it.Title,
-					"color":  "#84cc16",
-					"uiUrl":  link,
-				})
-			}
 
 		case "maintainerr":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			if err != nil {
-				logErrorf("CAL", "maintainerr resolveIntegration error: %v", err)
-				continue
-			}
-			if uiURL == "" {
-				uiURL = apiURL
-			}
-			items, ok := cachedDueItems("mtractions:"+integrationID, 15*time.Minute, func() ([]dueItem, error) {
-				return maintainerrFetchActionItems(apiURL, uiURL, apiKey, skipTLS)
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeMaintainerrCalEvents(db, integrationID)
 			})
-			if !ok {
-				continue
-			}
-			intName := integrationName(db, integrationID, "Maintainerr")
-			for _, it := range items {
-				if it.DueDate < calStart || it.DueDate > calEnd {
-					continue
-				}
-				link := it.Link
-				if link == "" {
-					link = uiURL
-				}
-				events = append(events, map[string]interface{}{
-					"source": intName,
-					"date":   it.DueDate,
-					"title":  it.Title,
-					"color":  "#ef4444",
-					"uiUrl":  link,
-				})
-			}
 
 		case "ical":
 			icsURL := stringVal(source, "icsUrl")
@@ -832,66 +313,9 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 			}
 
 		case "lubelogger":
-			apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
-			_ = uiURL
-			if err != nil {
-				logErrorf("CAL", "lubelogger resolveIntegration error: %v", err)
-				continue
-			}
-			vBody, err := lubeGet(apiURL, apiKey, "/api/vehicles", skipTLS)
-			if err != nil {
-				logErrorf("CAL", "lubelogger vehicles error: %v", err)
-				continue
-			}
-			var vehicles []struct {
-				ID    int             `json:"id"`
-				Year  json.RawMessage `json:"year"`
-				Make  string          `json:"make"`
-				Model string          `json:"model"`
-			}
-			if err := json.Unmarshal(vBody, &vehicles); err != nil {
-				logErrorf("CAL", "lubelogger vehicles parse error: %v", err)
-				continue
-			}
-			urgencyColor := map[string]string{
-				"past due":    "#ef4444",
-				"very urgent": "#f97316",
-				"urgent":      "#f59e0b",
-				"not urgent":  "#6366f1",
-			}
-			for _, vehicle := range vehicles {
-				year := strings.Trim(string(vehicle.Year), `"`)
-				vehicleName := strings.TrimSpace(year + " " + vehicle.Make + " " + vehicle.Model)
-				rBody, _ := lubeGet(apiURL, apiKey, fmt.Sprintf("/api/vehicle/reminders?vehicleId=%d", vehicle.ID), skipTLS)
-				if rBody == nil {
-					continue
-				}
-				var reminders []struct {
-					Description string `json:"description"`
-					Urgency     string `json:"urgency"`
-					DueDate     string `json:"dueDate"`
-				}
-				if json.Unmarshal(rBody, &reminders) != nil {
-					continue
-				}
-				for _, r := range reminders {
-					if r.DueDate == "" {
-						continue // mileage-only reminders have no calendar date
-					}
-					u := strings.ToLower(r.Urgency)
-					color := urgencyColor[u]
-					if color == "" {
-						color = "#6366f1"
-					}
-					events = append(events, map[string]interface{}{
-						"source": "lubelogger",
-						"date":   r.DueDate,
-						"title":  fmt.Sprintf("%s — %s", vehicleName, r.Description),
-						"color":  color,
-						"uiUrl":  uiURL,
-					})
-				}
-			}
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeLubeLoggerCalEvents(db, integrationID)
+			})
 
 		}
 	}

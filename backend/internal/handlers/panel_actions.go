@@ -287,6 +287,16 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 					writeError(w, http.StatusBadGateway, err.Error())
 					return
 				}
+				// Bust the cached event list and re-fetch now rather than
+				// waiting for the next scheduled tick, so the new event is
+				// visible on the very next calendar view
+				key := googleCalKey(req.IntegrationID, req.CalendarID)
+				calEventsDelete(key)
+				go func(tokenID, calID string) {
+					if err := refreshGoogleCalendar(db, tokenID, calID); err != nil {
+						logErrorf("GCAL", "post-write refresh %s (calendar=%s): %v", tokenID, calID, err)
+					}
+				}(req.IntegrationID, req.CalendarID)
 			case "caldav":
 				apiURL, _, userpass, skipTLS, err := resolveIntegration(db, req.IntegrationID)
 				if err != nil {
@@ -297,8 +307,16 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 					writeError(w, http.StatusBadGateway, err.Error())
 					return
 				}
-				// Bust the read cache so the new event shows immediately
-				cacheDelete("caldavevents:" + req.IntegrationID)
+				// Same immediate-refresh treatment as Google, above
+				calEventsDelete(req.IntegrationID)
+				go func(integrationID string) {
+					events, err := computeCaldavCalEvents(db, integrationID)
+					if err != nil {
+						logErrorf("CAL", "post-write refresh caldav %s: %v", integrationID, err)
+						return
+					}
+					calEventsSet(integrationID, events)
+				}(req.IntegrationID)
 			}
 			writeJSON(w, http.StatusOK, map[string]string{"status": "created"})
 

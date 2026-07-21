@@ -412,11 +412,11 @@ func GoogleListTokens(db *sql.DB) http.HandlerFunc {
 		var err error
 		if scope == "system" && claims.Role == "admin" {
 			rows, err = db.Query(
-				"SELECT id, email, scope, expires_at FROM google_oauth_tokens WHERE scope='system'",
+				"SELECT id, email, scope, expires_at, refresh_secs FROM google_oauth_tokens WHERE scope='system'",
 			)
 		} else {
 			rows, err = db.Query(
-				"SELECT id, email, scope, expires_at FROM google_oauth_tokens WHERE user_id=?",
+				"SELECT id, email, scope, expires_at, refresh_secs FROM google_oauth_tokens WHERE user_id=?",
 				claims.UserID,
 			)
 		}
@@ -426,21 +426,62 @@ func GoogleListTokens(db *sql.DB) http.HandlerFunc {
 		}
 		defer rows.Close()
 		type tokenRow struct {
-			ID        string `json:"id"`
-			Email     string `json:"email"`
-			Scope     string `json:"scope"`
-			ExpiresAt string `json:"expiresAt"`
+			ID          string `json:"id"`
+			Email       string `json:"email"`
+			Scope       string `json:"scope"`
+			ExpiresAt   string `json:"expiresAt"`
+			RefreshSecs int    `json:"refreshSecs"`
 		}
 		var tokens []tokenRow
 		for rows.Next() {
 			var t tokenRow
-			rows.Scan(&t.ID, &t.Email, &t.Scope, &t.ExpiresAt)
+			rows.Scan(&t.ID, &t.Email, &t.Scope, &t.ExpiresAt, &t.RefreshSecs)
 			tokens = append(tokens, t)
 		}
 		if tokens == nil {
 			tokens = []tokenRow{}
 		}
 		writeJSON(w, http.StatusOK, tokens)
+	}
+}
+
+// GoogleUpdateTokenRefresh sets how often the background worker refreshes a
+// connected account's calendar events. Floor matches the general integration
+// refresh floor (15 min); no ceiling, same as everything else.
+func GoogleUpdateTokenRefresh(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id required")
+			return
+		}
+		var req struct {
+			RefreshSecs int `json:"refreshSecs"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		if req.RefreshSecs < 900 {
+			req.RefreshSecs = 900
+		}
+		var res sql.Result
+		var err error
+		if claims.Role == "admin" {
+			res, err = db.Exec("UPDATE google_oauth_tokens SET refresh_secs=? WHERE id=?", req.RefreshSecs, id)
+		} else {
+			res, err = db.Exec("UPDATE google_oauth_tokens SET refresh_secs=? WHERE id=? AND user_id=?", req.RefreshSecs, id, claims.UserID)
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			writeError(w, http.StatusNotFound, "token not found")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
 }
 

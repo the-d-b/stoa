@@ -44,6 +44,11 @@ export default function GoogleCalendarConfigPanel() {
     await load()
   }
 
+  const handleRefreshChange = async (id: string, secs: number) => {
+    setTokens(prev => prev.map(t => t.id === id ? { ...t, refreshSecs: secs } : t))
+    await googleApi.setTokenRefreshSecs(id, secs)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600 }}>
 
@@ -117,6 +122,16 @@ export default function GoogleCalendarConfigPanel() {
                 }}>
                   <span style={{ fontSize: 13 }}>📅</span>
                   <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{t.email}</span>
+                  <select className="input" value={t.refreshSecs ?? 1800}
+                    onChange={e => handleRefreshChange(t.id, Number(e.target.value))}
+                    title="How often Stoa refreshes this account's calendar events in the background"
+                    style={{ cursor: 'pointer', fontSize: 11, padding: '3px 6px', width: 'auto' }}>
+                    <option value={900}>Every 15 min</option>
+                    <option value={1800}>Every 30 min</option>
+                    <option value={3600}>Every hour</option>
+                    <option value={10800}>Every 3 hours</option>
+                    <option value={21600}>Every 6 hours</option>
+                  </select>
                   <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
                     onClick={() => handleDisconnect(t.id)}>Disconnect</button>
                 </div>

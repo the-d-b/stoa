@@ -308,6 +308,7 @@ func main() {
 	protected.HandleFunc("/auth/google/redirect", handlers.GoogleOAuthRedirect(database)).Methods("GET")
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleListTokens(database)).Methods("GET")
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleDeleteToken(database)).Methods("DELETE")
+	protected.HandleFunc("/auth/google/tokens/refresh-secs", handlers.GoogleUpdateTokenRefresh(database)).Methods("PUT")
 	protected.HandleFunc("/auth/google/calendars", handlers.GoogleListCalendars(database)).Methods("GET")
 
 	// Users (read)
@@ -464,6 +465,12 @@ func main() {
 
 	// Worker manager — cold start, spins up on first SSE client, down after 600s idle
 	handlers.NewWorkerManager(database, 600*time.Second)
+
+	// Google Calendar refresh runs independently of the SSE-client-gated
+	// worker lifecycle above — connected accounts are typically few and the
+	// interval is long, so it isn't worth the added complexity of tying it
+	// to session activity.
+	handlers.StartGoogleCalendarWorker(database)
 	log.Printf("Stoa listening on :%s", port)
 	if err := http.ListenAndServe(":"+port, handlers.AccessLogMiddleware(c.Handler(r))); err != nil {
 		log.Fatalf("server error: %v", err)

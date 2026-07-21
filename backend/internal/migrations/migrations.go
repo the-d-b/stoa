@@ -774,6 +774,13 @@ var migrations = []migration{
 			 WHERE type IN ('stocks', 'crypto', 'sports') AND api_url LIKE '{%'`,
 		},
 	},
+	{
+		version: 53,
+		name:    "google_oauth_refresh_secs",
+		up: `
+			ALTER TABLE google_oauth_tokens ADD COLUMN refresh_secs INTEGER NOT NULL DEFAULT 1800;
+		`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

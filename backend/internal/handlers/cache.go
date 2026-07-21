@@ -389,6 +389,17 @@ func refreshCache(db *sql.DB, ig integrationMeta) bool {
 	ClearIntegrationError(ig.id, ig.name)
 	cacheSet(ig.id, data)
 	logDebugf("CACHE", "refreshed %s (%s)", ig.id, ig.igType)
+
+	// Calendar-eligible types also compute their calendar events on this
+	// same tick — best-effort, never affects the primary refresh's outcome.
+	if compute, ok := calEventComputers[ig.igType]; ok {
+		if events, cerr := compute(db, ig.id); cerr != nil {
+			logErrorf("CAL", "worker-tick event compute failed for %s (%s): %v", ig.id, ig.igType, cerr)
+		} else {
+			calEventsSet(ig.id, events)
+			logDebugf("CAL", "worker-tick populated %d events for %s (%s)", len(events), ig.id, ig.igType)
+		}
+	}
 	return true
 }
 

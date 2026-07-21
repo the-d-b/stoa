@@ -37,6 +37,12 @@ func sportsRefreshAndGetInterval(db *sql.DB, ig integrationMeta) time.Duration {
 	cacheSet(ig.id, data)
 	logDebugf("SPORTS", "refreshed %s — %d games, live=%v", ig.name, len(data.Games), data.HasLive)
 
+	intName := ig.name
+	if intName == "" {
+		intName = "Sports"
+	}
+	calEventsSet(ig.id, computeSportsCalEvents(intName, data))
+
 	// Determine next interval based on game state
 	if data.HasLive {
 		// Game in progress — poll every 60 seconds

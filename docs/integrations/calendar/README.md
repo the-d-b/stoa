@@ -90,7 +90,7 @@ The same setup works for any standards-compliant `.ics` / iCal feed:
 
 Requires a CalDAV integration: Admin → Integrations → New → **CalDAV**. The URL must point at a specific **calendar collection**, not the server root — e.g. Nextcloud: `https://cloud.example.com/remote.php/dav/calendars/USERNAME/personal/`. The secret is `username:password`; use an **app password** (Nextcloud: Settings → Security → Devices & sessions). Then add source → **Stoa integration** → select the integration.
 
-Events (all-day and timed, with full recurrence expansion) appear under one pill labeled with the integration's name. CalDAV sources are **writable** — they join Google Calendar in the add-event form. Events are fetched over a 90-day window and cached for 15 minutes; a successful write busts the cache so the new event appears immediately.
+Events (all-day and timed, with full recurrence expansion) appear under one pill labeled with the integration's name. CalDAV sources are **writable** — they join Google Calendar in the add-event form. Events are fetched over a 90-day window on the integration's own configured refresh interval (see [Polling](#polling) below); a successful write busts the cache and re-fetches immediately so the new event appears right away rather than waiting for the next tick.
 
 Compared to the ICS source: ICS needs only a share URL but is read-only and depends on the server's publish feature; CalDAV needs credentials but reads the calendar directly and can create events. For a Nextcloud calendar you want to write to, use CalDAV; for one you only watch, either works.
 
@@ -101,6 +101,8 @@ Compared to the ICS source: ICS needs only a share URL but is read-only and depe
 Requires a Google OAuth integration. See [docs/oauth.md](../../oauth.md) for setup.
 
 Once OAuth is configured, add source → **Google Calendar** → select an account and a calendar.
+
+Each connected Google account refreshes on its own background schedule, set per account in the connected-accounts list (Profile → Google, or Admin → Google Calendar for system accounts) — 15 min, 30 min (default), 1 hour, 3 hours, or 6 hours. Pick a shorter interval for an account whose calendar changes often; there's no per-panel setting since one account can back multiple calendar sources across panels.
 
 #### Creating events (write)
 
@@ -144,7 +146,7 @@ Requires a Kapowarr integration. Add source → **Stoa integration** → select 
 
 Upcoming comic issue release dates appear as all-day events on their release date, titled `Volume Title #issue`. Clicking an event opens the volume's page in Kapowarr. The event pill is labeled with the integration's name.
 
-Kapowarr has no calendar API, so Stoa scans each **monitored** volume's issue list for future release dates (unmonitored volumes are skipped, capped at 300 volumes). Because this is one request per volume, results are cached for **1 hour** rather than the 15 minutes used by other sources.
+Kapowarr has no calendar API, so Stoa scans each **monitored** volume's issue list for future release dates (unmonitored volumes are skipped, capped at 300 volumes). Because this is one request per volume, it runs on the Kapowarr integration's own configured refresh interval (see [Polling](#polling) below) rather than being fetched at panel-view time.
 
 ---
 
@@ -176,4 +178,12 @@ Upcoming scheduled media cleanup actions appear as all-day events, aggregated pe
 
 ## Polling
 
-The calendar backend polls each ICS feed at most once per 15 minutes and caches the result. Arr sources and Google Calendar follow their own integration polling cadence. Forcing a manual refresh (panel menu → Refresh) bypasses the cache for that poll.
+Every integration-backed source (Sonarr, Radarr, Readarr, Lidarr, LubeLogger, Kapowarr, Mylar3, Maintainerr, Actual Budget, Firefly III, Home Assistant, CalDAV, sports) computes its calendar events on its **own integration's existing background refresh cycle** — the same worker tick that already refreshes that integration's panel data. Viewing or returning to a calendar panel reads that pre-computed result; it never triggers a live fetch to Sonarr, Radarr, or any other source. This means a calendar panel's freshness for a given source matches that integration's configured refresh interval (Admin → Integrations → refresh interval), and viewing the panel is instant regardless of how many sources it has or how slow any one of them is to respond.
+
+**Google Calendar** works the same way but on its own schedule, since a connected Google account isn't a normal integration: each connected account has an independent refresh interval (default 30 minutes, configurable per account in Profile → Google or Admin → Google Calendar). Token refresh happens transparently as part of that background cycle — no user-facing delay, ever.
+
+**ICS/Outlook/Nextcloud** feeds and **weather** are unaffected — ICS keeps its existing 15-minute cache (it has no "integration" to hook a worker to), and weather already read from its integration's cache before this design existed.
+
+**Writing an event** (Google or CalDAV) immediately invalidates that source's cached events and triggers a background re-fetch, so a newly created event appears on the very next calendar view rather than waiting for the next scheduled tick.
+
+On a cold start — server just booted, or a source was just added as a calendar source before its integration's worker has ticked even once — the very first view for that source falls back to a one-time live fetch to avoid showing an empty calendar, then stays on the fast cached path afterward.
