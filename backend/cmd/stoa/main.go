@@ -309,6 +309,7 @@ func main() {
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleListTokens(database)).Methods("GET")
 	protected.HandleFunc("/auth/google/tokens", handlers.GoogleDeleteToken(database)).Methods("DELETE")
 	protected.HandleFunc("/auth/google/tokens/refresh-secs", handlers.GoogleUpdateTokenRefresh(database)).Methods("PUT")
+	protected.HandleFunc("/auth/google/tokens/days-ahead", handlers.GoogleUpdateTokenDaysAhead(database)).Methods("PUT")
 	protected.HandleFunc("/auth/google/calendars", handlers.GoogleListCalendars(database)).Methods("GET")
 
 	// Users (read)

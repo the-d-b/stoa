@@ -781,6 +781,13 @@ var migrations = []migration{
 			ALTER TABLE google_oauth_tokens ADD COLUMN refresh_secs INTEGER NOT NULL DEFAULT 1800;
 		`,
 	},
+	{
+		version: 54,
+		name:    "google_oauth_days_ahead",
+		up: `
+			ALTER TABLE google_oauth_tokens ADD COLUMN days_ahead INTEGER NOT NULL DEFAULT 30;
+		`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

@@ -242,6 +242,8 @@ export const googleApi = {
   deleteToken: (id: string) => api.delete(`/auth/google/tokens?id=${id}`),
   setTokenRefreshSecs: (id: string, refreshSecs: number) =>
     api.put(`/auth/google/tokens/refresh-secs?id=${id}`, { refreshSecs }),
+  setTokenDaysAhead: (id: string, daysAhead: number) =>
+    api.put(`/auth/google/tokens/days-ahead?id=${id}`, { daysAhead }),
   listCalendars: (tokenId: string) => api.get<any[]>(`/auth/google/calendars?tokenId=${tokenId}`),
   buildConnectUrl: (clientId: string, scope: string, userId: string) => {
     const redirectUri = window.location.origin + '/api/auth/google/callback'

@@ -129,6 +129,12 @@ export const INTEGRATION_TYPES = [
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
 const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale']
+// Types whose calendar-source events come from a real windowed upstream
+// query (start/end params) — the only ones where a fetch-size ceiling here
+// actually matters. Others (Kapowarr, Maintainerr, etc.) always fetch
+// everything upcoming regardless of any days-ahead value.
+const CAL_WINDOWED_TYPES = ['sonarr', 'radarr', 'readarr', 'lidarr', 'homeassistant', 'caldav']
+const CAL_DAYS_OPTIONS = [7, 14, 30, 60, 90]
 
 interface Props {
   scope: 'system' | 'personal'
@@ -156,6 +162,9 @@ export default function IntegrationForm({
   const [secretId, setSecretId] = useState(integration?.secretId ?? '')
   const [skipTls, setSkipTls] = useState(integration?.skipTls ?? false)
   const [refreshSecs, setRefreshSecs] = useState(integration?.refreshSecs ?? 60)
+  const [calDaysAhead, setCalDaysAhead] = useState<number>(() => {
+    try { return JSON.parse(integration?.config || '{}').daysAhead || 30 } catch { return 30 }
+  })
 
   // ── Prometheus custom metrics ──────────────────────────────────────────────
   type PromMetric = { label: string; query: string; unit: string }
@@ -272,6 +281,7 @@ export default function IntegrationForm({
     setSecretId(integration.secretId ?? '')
     setSkipTls(integration.skipTls ?? false)
     setRefreshSecs(integration.refreshSecs ?? 60)
+    try { setCalDaysAhead(JSON.parse(integration.config || '{}').daysAhead || 30) } catch { setCalDaysAhead(30) }
     setTestResult(null)
     setGeoQuery(''); setGeoResults([])
     setSteamVanity('')
@@ -362,6 +372,11 @@ export default function IntegrationForm({
     if (t === 'prometheus') {
       const valid = promMetrics.filter(m => m.query.trim() !== '')
       return valid.length > 0 ? JSON.stringify({ metrics: valid }) : '{}'
+    }
+    if (CAL_WINDOWED_TYPES.includes(t)) {
+      let base: Record<string, unknown> = {}
+      try { base = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+      return JSON.stringify({ ...base, daysAhead: calDaysAhead })
     }
     return igConfig
   }
@@ -1058,6 +1073,19 @@ export default function IntegrationForm({
             style={{ width: 90 }} />
           <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>s</span>
         </div>
+        {CAL_WINDOWED_TYPES.includes(activeType) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}
+              title="How far ahead this integration fetches and caches events when used as a calendar source. Calendar panels can only display up to this many days, never more.">
+              Calendar days ahead
+            </label>
+            <select className="input" value={calDaysAhead}
+              onChange={e => setCalDaysAhead(Number(e.target.value))}
+              style={{ cursor: 'pointer', width: 90 }}>
+              {CAL_DAYS_OPTIONS.map(d => <option key={d} value={d}>{d} days</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Group assignment slot — system scope, edit mode */}

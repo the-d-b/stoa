@@ -84,60 +84,37 @@ var calEventComputers = map[string]func(db *sql.DB, integrationID string) ([]map
 }
 
 // calWindowFor returns the fetch window for one integration's background
-// calendar computation: the largest daysAhead any calendar panel currently
-// configures for this integration, capped at calMaxWindowDays. Defaults to
-// 30 when the integration isn't referenced by any calendar panel yet (a
-// cheaper guess than always maxing out for a source nobody's displaying).
-//
-// This matters beyond efficiency: a live upstream query bounded to what's
-// actually needed is meaningfully lighter than always requesting the full
-// 90-day ceiling regardless of what any panel asked for.
+// calendar computation. The window size is the integration's OWN configured
+// daysAhead — an admin-set ceiling on the integration itself, not derived
+// from scanning panels. This is the one thing that governs upstream query
+// size; calendar panels using this integration as a source can only ever
+// display up to this ceiling (the source adder UI clamps to it), never more,
+// so there is exactly one number that decides how much gets fetched.
 func calWindowFor(db *sql.DB, integrationID string) (start, end time.Time) {
-	days := maxConfiguredDaysAhead(db, integrationID)
-	if days <= 0 {
-		days = 30
-	}
-	if days > calMaxWindowDays {
-		days = calMaxWindowDays
-	}
+	days := integrationDaysAhead(db, integrationID, 30)
 	now := timeNow()
 	return now, now.AddDate(0, 0, days)
 }
 
-// maxConfiguredDaysAhead scans calendar panel configs for the largest
-// daysAhead set on any source referencing integrationID. Returns 0 if none.
-func maxConfiguredDaysAhead(db *sql.DB, integrationID string) int {
-	rows, err := db.Query("SELECT config FROM panels WHERE type='calendar'")
-	if err != nil {
-		return 0
+// integrationDaysAhead reads the daysAhead ceiling from an integration's own
+// config JSON, clamped to [1, calMaxWindowDays]. Returns fallback if unset,
+// invalid, or the integration doesn't exist.
+func integrationDaysAhead(db *sql.DB, integrationID string, fallback int) int {
+	var cfgStr string
+	if db.QueryRow(`SELECT COALESCE(config,'{}') FROM integrations WHERE id=?`, integrationID).Scan(&cfgStr) != nil {
+		return fallback
 	}
-	defer rows.Close()
-	max := 0
-	for rows.Next() {
-		var cfgStr string
-		if rows.Scan(&cfgStr) != nil {
-			continue
-		}
-		var cfg struct {
-			Sources []struct {
-				IntegrationID string  `json:"integrationId"`
-				DaysAhead     float64 `json:"daysAhead"`
-			} `json:"sources"`
-		}
-		if json.Unmarshal([]byte(cfgStr), &cfg) != nil {
-			continue
-		}
-		for _, s := range cfg.Sources {
-			if s.IntegrationID != integrationID {
-				continue
-			}
-			d := int(s.DaysAhead)
-			if d > max {
-				max = d
-			}
-		}
+	var cfg struct {
+		DaysAhead float64 `json:"daysAhead"`
 	}
-	return max
+	if json.Unmarshal([]byte(cfgStr), &cfg) != nil || cfg.DaysAhead <= 0 {
+		return fallback
+	}
+	days := int(cfg.DaysAhead)
+	if days > calMaxWindowDays {
+		days = calMaxWindowDays
+	}
+	return days
 }
 
 // ── Sonarr / Radarr / Readarr / Lidarr ──────────────────────────────────────

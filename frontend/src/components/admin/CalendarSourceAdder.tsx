@@ -11,6 +11,11 @@ import { panelsApi, myPanelsApi, googleApi, Panel } from '../../api'
 const DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // Source types where daysAhead controls the fetch window
 const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii', 'kapowarr', 'mylar3', 'maintainerr', 'homeassistant', 'caldav'])
+// Types whose upstream fetch is actually windowed — the integration itself
+// has a configured days-ahead ceiling, and a panel can only show up to that
+// many days (never more). Everything else in DAYS_AHEAD_TYPES just filters
+// an "everything upcoming" dataset with no ceiling to respect.
+const CAL_WINDOWED_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'homeassistant', 'caldav'])
 
 export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, isSystem, integrations, onAdded }: {
   panelId: string; panelTitle: string; panelConfig: string; isSystem: boolean
@@ -143,6 +148,25 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     DAYS_AHEAD_TYPES.has(integrations.find((i: any) => i.id === intId)?.type || ''))
     || sourceKind === 'google'
 
+  // Days-ahead options available for a given (type, integrationId) pair,
+  // clamped to that integration's own configured ceiling for windowed types
+  // (google reads its ceiling from the token list instead of `integrations`).
+  // Non-windowed types (kapowarr, ical, etc.) have no ceiling to respect.
+  const daysOptionsFor = (type: string, integrationId: string): number[] => {
+    let ceiling = 90
+    if (type === 'google') {
+      const tok = googleTokens.find((t: any) => t.id === integrationId)
+      ceiling = tok?.daysAhead ?? 30
+    } else if (CAL_WINDOWED_TYPES.has(type)) {
+      const ig = integrations.find((i: any) => i.id === integrationId)
+      try { ceiling = JSON.parse(ig?.config || '{}').daysAhead || 30 } catch { ceiling = 30 }
+    } else {
+      return DAYS_OPTIONS
+    }
+    const opts = DAYS_OPTIONS.filter(d => d <= ceiling)
+    return opts.length > 0 ? opts : [ceiling]
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <label className="label">Calendar sources</label>
@@ -161,9 +185,9 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
                 color: 'var(--text-muted)', borderRadius: 5, fontSize: 11,
                 padding: '2px 4px', cursor: 'pointer',
               }}
-              title="Days ahead to fetch"
+              title="Days ahead to display"
             >
-              {DAYS_OPTIONS.map(d => <option key={d} value={d}>{d}d</option>)}
+              {daysOptionsFor(src.type, src.integrationId).map(d => <option key={d} value={d}>{d}d</option>)}
             </select>
           )}
           <button className="btn btn-ghost" style={{ fontSize: 11, color: 'var(--red)' }}
@@ -186,8 +210,12 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
 
         {sourceKind === 'integration' && (
           <>
-            <select className="input" value={intId} onChange={e => setIntId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+            <select className="input" value={intId} onChange={e => {
+              setIntId(e.target.value)
+              const t = integrations.find((i: any) => i.id === e.target.value)?.type || ''
+              const opts = daysOptionsFor(t, e.target.value)
+              if (!opts.includes(daysAhead)) setDaysAhead(opts[opts.length - 1])
+            }} style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
               <option value="">— Select integration —</option>
               {calIntegrations.map((i: any) => (
                 <option key={i.id} value={i.id}>{i.name} ({i.type}){(i as any).enabled === false ? " — disabled" : ""}</option>
@@ -196,7 +224,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
             {showDaysSelect && (
               <select className="input" value={daysAhead} onChange={e => setDaysAhead(Number(e.target.value))}
                 style={{ cursor: 'pointer', width: 100, fontSize: 12 }}>
-                {DAYS_OPTIONS.map(d => <option key={d} value={d}>{d} days</option>)}
+                {daysOptionsFor(integrations.find((i: any) => i.id === intId)?.type || '', intId).map(d => <option key={d} value={d}>{d} days</option>)}
               </select>
             )}
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
@@ -208,8 +236,11 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
 
         {sourceKind === 'google' && (
           <>
-            <select className="input" value={googleTokenId} onChange={e => setGoogleTokenId(e.target.value)}
-              style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
+            <select className="input" value={googleTokenId} onChange={e => {
+              setGoogleTokenId(e.target.value)
+              const opts = daysOptionsFor('google', e.target.value)
+              if (!opts.includes(daysAhead)) setDaysAhead(opts[opts.length - 1])
+            }} style={{ cursor: 'pointer', flex: 1, fontSize: 12 }}>
               <option value="">— Select account —</option>
               {googleTokens.map((t: any) => <option key={t.id} value={t.id}>{t.email}</option>)}
             </select>
@@ -221,7 +252,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
             )}
             <select className="input" value={daysAhead} onChange={e => setDaysAhead(Number(e.target.value))}
               style={{ cursor: 'pointer', width: 100, fontSize: 12 }}>
-              {DAYS_OPTIONS.map(d => <option key={d} value={d}>{d} days</option>)}
+              {daysOptionsFor('google', googleTokenId).map(d => <option key={d} value={d}>{d} days</option>)}
             </select>
             <button className="btn btn-secondary" style={{ fontSize: 12 }}
               onClick={add} disabled={adding || !googleTokenId}>

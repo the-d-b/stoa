@@ -187,3 +187,14 @@ Every integration-backed source (Sonarr, Radarr, Readarr, Lidarr, LubeLogger, Ka
 **Writing an event** (Google or CalDAV) immediately invalidates that source's cached events and triggers a background re-fetch, so a newly created event appears on the very next calendar view rather than waiting for the next scheduled tick.
 
 On a cold start — server just booted, or a source was just added as a calendar source before its integration's worker has ticked even once — the very first view for that source falls back to a one-time live fetch to avoid showing an empty calendar, then stays on the fast cached path afterward.
+
+### Days-ahead ceiling: integration vs. panel
+
+Sonarr, Radarr, Readarr, Lidarr, Home Assistant, CalDAV, and Google are the sources whose calendar data comes from a genuinely **windowed** upstream query (a `start`/`end` date range sent to the API) — for these, the days-ahead value is a two-tier setting, deliberately not a single number in one place:
+
+- **Calendar days ahead** on the **integration itself** (Admin → Integrations → edit the Sonarr/Radarr/etc. integration; for Google, the connected-accounts list in Profile → Google or Admin → Google Calendar) — this is the number that actually reaches the upstream API. It sets how much data the background worker fetches and caches: default 30 days, adjustable 7–90. This is the *only* thing that affects load on Sonarr, Lidarr, or any other source.
+- **Days ahead** on the **calendar source** (in the calendar panel's source list) is purely a display filter over whatever the integration already cached — it can only be set to a value **at or below** the integration's ceiling; the picker won't offer more. Two calendar panels can point at the same Lidarr integration and show different amounts (a compact "next 7 days" widget alongside a full "next 30 days" view) without either one changing what Lidarr gets asked for.
+
+If you want a calendar panel to show more days for one of these sources, raise the ceiling on the **integration** first — the panel's own selector will then offer the larger values.
+
+Kapowarr, Mylar3, Maintainerr, Actual Budget, Firefly III, and LubeLogger don't have this two-tier setting — their upstream APIs always return "everything upcoming" with no windowed query to constrain, so their calendar-source days-ahead is a pure display filter with no integration-level ceiling to respect (same as before).

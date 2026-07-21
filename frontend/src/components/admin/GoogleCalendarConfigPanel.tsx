@@ -49,6 +49,11 @@ export default function GoogleCalendarConfigPanel() {
     await googleApi.setTokenRefreshSecs(id, secs)
   }
 
+  const handleDaysAheadChange = async (id: string, days: number) => {
+    setTokens(prev => prev.map(t => t.id === id ? { ...t, daysAhead: days } : t))
+    await googleApi.setTokenDaysAhead(id, days)
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 600 }}>
 
@@ -131,6 +136,16 @@ export default function GoogleCalendarConfigPanel() {
                     <option value={3600}>Every hour</option>
                     <option value={10800}>Every 3 hours</option>
                     <option value={21600}>Every 6 hours</option>
+                  </select>
+                  <select className="input" value={t.daysAhead ?? 30}
+                    onChange={e => handleDaysAheadChange(t.id, Number(e.target.value))}
+                    title="How many days ahead this account's calendar events are fetched and cached. Calendar panels using this account can only display up to this many days."
+                    style={{ cursor: 'pointer', fontSize: 11, padding: '3px 6px', width: 'auto' }}>
+                    <option value={7}>7 days</option>
+                    <option value={14}>14 days</option>
+                    <option value={30}>30 days</option>
+                    <option value={60}>60 days</option>
+                    <option value={90}>90 days</option>
                   </select>
                   <button className="btn btn-ghost" style={{ fontSize: 12, color: 'var(--red)' }}
                     onClick={() => handleDisconnect(t.id)}>Disconnect</button>

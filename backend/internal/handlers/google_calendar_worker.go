@@ -26,6 +26,23 @@ func googleCalKey(tokenID, calendarID string) string {
 	return tokenID + "|" + calendarID
 }
 
+// googleCalWindow reads the account's own configured days_ahead ceiling —
+// the Google equivalent of integrationDaysAhead, just sourced from
+// google_oauth_tokens rather than integrations.config since a connected
+// Google account isn't an integrations row.
+func googleCalWindow(db *sql.DB, tokenID string) (start, end time.Time) {
+	days := 30
+	var d int
+	if db.QueryRow(`SELECT days_ahead FROM google_oauth_tokens WHERE id=?`, tokenID).Scan(&d) == nil && d > 0 {
+		days = d
+	}
+	if days > calMaxWindowDays {
+		days = calMaxWindowDays
+	}
+	now := timeNow()
+	return now, now.AddDate(0, 0, days)
+}
+
 // StartGoogleCalendarWorker runs the Google Calendar background refresh loop
 // for the lifetime of the process. Call once at boot.
 func StartGoogleCalendarWorker(db *sql.DB) {
@@ -145,7 +162,7 @@ func refreshGoogleCalendar(db *sql.DB, tokenID, calendarID string) error {
 	if err != nil {
 		return err
 	}
-	calStart, calEnd := calWindowFor(db, tokenID)
+	calStart, calEnd := googleCalWindow(db, tokenID)
 	events, err := computeGoogleCalEvents(accessToken, calendarID, calStart, calEnd)
 	if err != nil {
 		return err

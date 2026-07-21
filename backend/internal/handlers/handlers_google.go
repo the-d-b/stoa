@@ -412,11 +412,11 @@ func GoogleListTokens(db *sql.DB) http.HandlerFunc {
 		var err error
 		if scope == "system" && claims.Role == "admin" {
 			rows, err = db.Query(
-				"SELECT id, email, scope, expires_at, refresh_secs FROM google_oauth_tokens WHERE scope='system'",
+				"SELECT id, email, scope, expires_at, refresh_secs, days_ahead FROM google_oauth_tokens WHERE scope='system'",
 			)
 		} else {
 			rows, err = db.Query(
-				"SELECT id, email, scope, expires_at, refresh_secs FROM google_oauth_tokens WHERE user_id=?",
+				"SELECT id, email, scope, expires_at, refresh_secs, days_ahead FROM google_oauth_tokens WHERE user_id=?",
 				claims.UserID,
 			)
 		}
@@ -431,11 +431,12 @@ func GoogleListTokens(db *sql.DB) http.HandlerFunc {
 			Scope       string `json:"scope"`
 			ExpiresAt   string `json:"expiresAt"`
 			RefreshSecs int    `json:"refreshSecs"`
+			DaysAhead   int    `json:"daysAhead"`
 		}
 		var tokens []tokenRow
 		for rows.Next() {
 			var t tokenRow
-			rows.Scan(&t.ID, &t.Email, &t.Scope, &t.ExpiresAt, &t.RefreshSecs)
+			rows.Scan(&t.ID, &t.Email, &t.Scope, &t.ExpiresAt, &t.RefreshSecs, &t.DaysAhead)
 			tokens = append(tokens, t)
 		}
 		if tokens == nil {
@@ -472,6 +473,49 @@ func GoogleUpdateTokenRefresh(db *sql.DB) http.HandlerFunc {
 			res, err = db.Exec("UPDATE google_oauth_tokens SET refresh_secs=? WHERE id=?", req.RefreshSecs, id)
 		} else {
 			res, err = db.Exec("UPDATE google_oauth_tokens SET refresh_secs=? WHERE id=? AND user_id=?", req.RefreshSecs, id, claims.UserID)
+		}
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			writeError(w, http.StatusNotFound, "token not found")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+// GoogleUpdateTokenDaysAhead sets how many days ahead this account's calendar
+// events are fetched and cached — the ceiling every calendar panel source
+// using this account is clamped to (they can only ever show less, not more).
+func GoogleUpdateTokenDaysAhead(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		id := r.URL.Query().Get("id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "id required")
+			return
+		}
+		var req struct {
+			DaysAhead int `json:"daysAhead"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		if req.DaysAhead < 1 {
+			req.DaysAhead = 1
+		}
+		if req.DaysAhead > calMaxWindowDays {
+			req.DaysAhead = calMaxWindowDays
+		}
+		var res sql.Result
+		var err error
+		if claims.Role == "admin" {
+			res, err = db.Exec("UPDATE google_oauth_tokens SET days_ahead=? WHERE id=?", req.DaysAhead, id)
+		} else {
+			res, err = db.Exec("UPDATE google_oauth_tokens SET days_ahead=? WHERE id=? AND user_id=?", req.DaysAhead, id, claims.UserID)
 		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
