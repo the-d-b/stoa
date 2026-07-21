@@ -145,7 +145,8 @@ func refreshGoogleCalendar(db *sql.DB, tokenID, calendarID string) error {
 	if err != nil {
 		return err
 	}
-	events, err := computeGoogleCalEvents(accessToken, calendarID)
+	calStart, calEnd := calWindowFor(db, tokenID)
+	events, err := computeGoogleCalEvents(accessToken, calendarID, calStart, calEnd)
 	if err != nil {
 		return err
 	}
@@ -153,8 +154,7 @@ func refreshGoogleCalendar(db *sql.DB, tokenID, calendarID string) error {
 	return nil
 }
 
-func computeGoogleCalEvents(accessToken, calendarID string) ([]map[string]interface{}, error) {
-	calStart, calEnd := calWindow()
+func computeGoogleCalEvents(accessToken, calendarID string, calStart, calEnd time.Time) ([]map[string]interface{}, error) {
 	items, err := FetchGoogleCalendarEvents(accessToken, calendarID, calStart, calEnd)
 	if err != nil {
 		return nil, err

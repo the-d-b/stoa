@@ -24,7 +24,7 @@ func httpClient(skipTLS bool) *http.Client {
 	if skipTLS {
 		_httpClientSkipTLSOnce.Do(func() {
 			_httpClientSkipTLS = &http.Client{
-				Timeout: 15 * time.Second,
+				Timeout: 30 * time.Second,
 				Transport: loggingTransport{base: &http.Transport{
 					TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, //nolint:gosec
 					MaxIdleConns:        50,
@@ -38,7 +38,7 @@ func httpClient(skipTLS bool) *http.Client {
 	}
 	_httpClientOnce.Do(func() {
 		_httpClient = &http.Client{
-			Timeout: 15 * time.Second,
+			Timeout: 30 * time.Second,
 			Transport: loggingTransport{base: &http.Transport{
 				MaxIdleConns:        50,
 				MaxIdleConnsPerHost: 10,

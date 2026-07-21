@@ -199,7 +199,8 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				if aerr != nil {
 					return nil, aerr
 				}
-				return computeGoogleCalEvents(accessToken, calendarID)
+				gStart, gEnd := calWindowFor(db, integrationID)
+				return computeGoogleCalEvents(accessToken, calendarID, gStart, gEnd)
 			})
 
 		case "sports":

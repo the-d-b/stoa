@@ -83,9 +83,61 @@ var calEventComputers = map[string]func(db *sql.DB, integrationID string) ([]map
 	"lubelogger":    computeLubeLoggerCalEvents,
 }
 
-func calWindow() (start, end time.Time) {
+// calWindowFor returns the fetch window for one integration's background
+// calendar computation: the largest daysAhead any calendar panel currently
+// configures for this integration, capped at calMaxWindowDays. Defaults to
+// 30 when the integration isn't referenced by any calendar panel yet (a
+// cheaper guess than always maxing out for a source nobody's displaying).
+//
+// This matters beyond efficiency: a live upstream query bounded to what's
+// actually needed is meaningfully lighter than always requesting the full
+// 90-day ceiling regardless of what any panel asked for.
+func calWindowFor(db *sql.DB, integrationID string) (start, end time.Time) {
+	days := maxConfiguredDaysAhead(db, integrationID)
+	if days <= 0 {
+		days = 30
+	}
+	if days > calMaxWindowDays {
+		days = calMaxWindowDays
+	}
 	now := timeNow()
-	return now, now.AddDate(0, 0, calMaxWindowDays)
+	return now, now.AddDate(0, 0, days)
+}
+
+// maxConfiguredDaysAhead scans calendar panel configs for the largest
+// daysAhead set on any source referencing integrationID. Returns 0 if none.
+func maxConfiguredDaysAhead(db *sql.DB, integrationID string) int {
+	rows, err := db.Query("SELECT config FROM panels WHERE type='calendar'")
+	if err != nil {
+		return 0
+	}
+	defer rows.Close()
+	max := 0
+	for rows.Next() {
+		var cfgStr string
+		if rows.Scan(&cfgStr) != nil {
+			continue
+		}
+		var cfg struct {
+			Sources []struct {
+				IntegrationID string  `json:"integrationId"`
+				DaysAhead     float64 `json:"daysAhead"`
+			} `json:"sources"`
+		}
+		if json.Unmarshal([]byte(cfgStr), &cfg) != nil {
+			continue
+		}
+		for _, s := range cfg.Sources {
+			if s.IntegrationID != integrationID {
+				continue
+			}
+			d := int(s.DaysAhead)
+			if d > max {
+				max = d
+			}
+		}
+	}
+	return max
 }
 
 // ── Sonarr / Radarr / Readarr / Lidarr ──────────────────────────────────────
@@ -95,7 +147,7 @@ func computeSonarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	calStart, calEnd := calWindow()
+	calStart, calEnd := calWindowFor(db, integrationID)
 	upcoming, err := arrGet(apiURL, apiKey,
 		fmt.Sprintf("/api/v3/calendar?includeSeries=true&unmonitored=true&start=%s&end=%s",
 			calStart.Format("2006-01-02"), calEnd.Format("2006-01-02")), skipTLS)
@@ -131,7 +183,7 @@ func computeRadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	calStart, calEnd := calWindow()
+	calStart, calEnd := calWindowFor(db, integrationID)
 	upcoming, err := arrGet(apiURL, apiKey,
 		fmt.Sprintf("/api/v3/calendar?unmonitored=true&start=%s&end=%s",
 			calStart.Format("2006-01-02"), calEnd.Format("2006-01-02")), skipTLS)
@@ -179,7 +231,7 @@ func computeReadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]int
 	if err != nil {
 		return nil, err
 	}
-	calStart, calEnd := calWindow()
+	calStart, calEnd := calWindowFor(db, integrationID)
 	upcoming, err := arrGet(apiURL, apiKey,
 		fmt.Sprintf("/api/v1/calendar?unmonitored=true&start=%s&end=%s",
 			calStart.Format("2006-01-02"), calEnd.Format("2006-01-02")), skipTLS)
@@ -223,7 +275,7 @@ func computeLidarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	calStart, calEnd := calWindow()
+	calStart, calEnd := calWindowFor(db, integrationID)
 	upcoming, err := arrGet(apiURL, apiKey,
 		fmt.Sprintf("/api/v1/calendar?unmonitored=true&start=%s&end=%s",
 			calStart.Format("2006-01-02"), calEnd.Format("2006-01-02")), skipTLS)
@@ -393,7 +445,7 @@ func computeHomeAssistantCalEvents(db *sql.DB, integrationID string) ([]map[stri
 	}
 	intName := integrationName(db, integrationID, "Home Assistant")
 	prefixNames := len(cals) > 1
-	calStart, calEnd := calWindow()
+	calStart, calEnd := calWindowFor(db, integrationID)
 	startISO := calStart.UTC().Format("2006-01-02T15:04:05Z")
 	endISO := calEnd.UTC().Format("2006-01-02T15:04:05Z")
 	events := []map[string]interface{}{}
@@ -460,7 +512,7 @@ func computeCaldavCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	calStart, calEnd := calWindow()
+	calStart, calEnd := calWindowFor(db, integrationID)
 	vevents, err := caldavReportEvents(apiURL, apiKey, calStart.AddDate(0, 0, -1), calEnd.AddDate(0, 0, 1), skipTLS)
 	if err != nil {
 		return nil, err
