@@ -104,6 +104,7 @@ import OverseerrPanel from '../components/panels/OverseerrPanel'
 import SearchModal from '../components/SearchModal'
 import { Note } from '../api'
 import { NoteOverlay } from '../components/panels/NotesPanel'
+import { integrationIconUrl } from '../integrationIcons'
 
 // GlobalNoteOverlay — listens for stoa-open-note at app level, works across porticos
 function GlobalNoteOverlay() {
@@ -1012,6 +1013,12 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           onMouseOver={e => e.currentTarget.style.opacity = '1'}
           onMouseOut={e => e.currentTarget.style.opacity = '0.5'}
         >▼</button>
+
+        {integrationIconUrl(panel.type) && (
+          <img src={integrationIconUrl(panel.type)!} alt="" width={14} height={14}
+            style={{ flexShrink: 0, opacity: 0.9 }}
+            onError={e => { e.currentTarget.style.display = 'none' }} />
+        )}
 
         {panel.uiUrl
           ? <a href={panel.uiUrl} target="_blank" rel="noopener noreferrer"
