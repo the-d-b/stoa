@@ -24,8 +24,13 @@ type tnMessage struct {
 	Method string          `json:"method,omitempty"`
 	Params json.RawMessage `json:"params,omitempty"`
 	Result json.RawMessage `json:"result,omitempty"`
-	Error  *struct {
-		Error string `json:"error"`
+	// Error.Error is typed as RawMessage, not string — TrueNAS sometimes sends
+	// a numeric error code here instead of a string message. A strict string
+	// field fails ReadJSON entirely on those messages, which previously killed
+	// the whole read loop and forced a reconnect for what should be a
+	// per-message, not per-connection, problem.
+	Error *struct {
+		Error json.RawMessage `json:"error"`
 	} `json:"error,omitempty"`
 	Collection string          `json:"collection,omitempty"`
 	Fields     json.RawMessage `json:"fields,omitempty"`

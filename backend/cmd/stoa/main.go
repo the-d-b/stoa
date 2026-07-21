@@ -348,8 +348,11 @@ func main() {
 	admin.HandleFunc("/attachment-config", handlers.GetAttachmentConfig(database)).Methods("GET")
 	admin.HandleFunc("/attachment-config", handlers.SaveAttachmentConfig(database)).Methods("PUT")
 
-	// Google OAuth admin config
-	admin.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")
+	// Google OAuth config — GET is read by every user's profile page to decide
+	// whether to show "Connect Google Calendar" (no secret in the response,
+	// just clientId + a configured bool); only PUT (setting credentials) is
+	// admin-only
+	protected.HandleFunc("/google/config", handlers.GetGoogleOAuthConfig(database)).Methods("GET")
 	admin.HandleFunc("/google/config", handlers.SaveGoogleOAuthConfig(database)).Methods("PUT")
 
 	// Integrations (admin only for write, all users can read)

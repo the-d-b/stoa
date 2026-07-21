@@ -260,11 +260,16 @@ func fetchCoinGeckoSpark(coinID string, days int, apiKey string) ([]SparkPoint, 
 	if apiKey != "" {
 		sparkHeaders["x-cg-demo-api-key"] = apiKey
 	}
-	// Retry once after 10s if rate limited
+	// Back off with increasing delay if rate limited, rather than one fixed
+	// retry — a single 10s wait is often not enough to clear a 429 on the
+	// free/demo tier when many coins × ranges are being fetched in one cycle
 	body, err := marketGet(url, sparkHeaders)
-	if err != nil && strings.Contains(err.Error(), "429") {
-		logDebugf("CRYPTO", "rate limited, waiting 10s before retry for %s", coinID)
-		time.Sleep(10 * time.Second)
+	for _, wait := range []time.Duration{10 * time.Second, 20 * time.Second} {
+		if err == nil || !strings.Contains(err.Error(), "429") {
+			break
+		}
+		logDebugf("CRYPTO", "rate limited, waiting %s before retry for %s", wait, coinID)
+		time.Sleep(wait)
 		body, err = marketGet(url, sparkHeaders)
 	}
 	if err != nil {
@@ -355,27 +360,56 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 		// Cache quotes immediately so panel has prices right away
 		cacheSet(integrationID, data)
 
-		// Fetch all spark ranges per coin with delay between calls
-		// Range label -> CoinGecko days (0 = max)
+		// Fetch all spark ranges per coin, but only the ones actually due —
+		// longer ranges barely change minute to minute, so re-fetching a 1Y
+		// series on every ~60s cycle was most of the CoinGecko call volume
+		// (and most of the 429s) for no visible benefit. Each range has its
+		// own TTL and is skipped entirely on a warm cache — no network call,
+		// no rate-limit cost, no inter-call sleep needed for a skip.
 		sparkRanges := []struct {
 			label string
 			days  int
+			ttl   time.Duration
 		}{
-			{"1D", 1}, {"5D", 7}, {"1M", 30}, {"3M", 90}, {"1Y", 365},
+			{"1D", 1, 5 * time.Minute},
+			{"5D", 7, 30 * time.Minute},
+			{"1M", 30, 2 * time.Hour},
+			{"3M", 90, 6 * time.Hour},
+			{"1Y", 365, 24 * time.Hour},
 			// 5Y omitted -- CoinGecko Demo plan capped at 365 days (same as 1Y)
 		}
 		callCount := 0
 		for _, coinID := range cfg.Coins {
 			sym := coinSymMap[strings.ToLower(coinID)]
 			for _, r := range sparkRanges {
-				if callCount > 0 {
-					time.Sleep(5 * time.Second)
+				cacheKey := "cryptospark:" + coinID + "-" + r.label
+				var spark []SparkPoint
+				if cached, ok := cacheGetFresh(cacheKey, r.ttl); ok {
+					if sp, ok2 := cached.([]SparkPoint); ok2 {
+						spark = sp
+					}
 				}
-				callCount++
-				spark, err := fetchCoinGeckoSpark(coinID, r.days, cgAPIKey)
-				if err != nil {
-					logErrorf("CRYPTO", "spark error %s %s: %v", coinID, r.label, err)
-					continue
+				if spark == nil {
+					if callCount > 0 {
+						time.Sleep(5 * time.Second)
+					}
+					callCount++
+					fetched, err := fetchCoinGeckoSpark(coinID, r.days, cgAPIKey)
+					if err != nil {
+						logErrorf("CRYPTO", "spark error %s %s: %v", coinID, r.label, err)
+						// Fall back to stale cache rather than dropping the range
+						if cached, ok := cacheGet(cacheKey); ok {
+							if sp, ok2 := cached.([]SparkPoint); ok2 {
+								spark = sp
+							}
+						}
+						if spark == nil {
+							continue
+						}
+					} else {
+						spark = fetched
+						cacheSet(cacheKey, spark)
+					}
 				}
 				// Key by both coinID-RANGE and SYMBOL-RANGE
 				data.Sparks[coinID+"-"+r.label] = spark
