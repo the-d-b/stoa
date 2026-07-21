@@ -291,3 +291,17 @@ Every integration has an **Enable/Disable** toggle (Admin → Integrations for s
 - greys out panels that use it with an "Integration disabled" note instead of an error
 
 The integration, its configuration, and its panel assignments are all preserved — re-enabling restarts polling and panels come back on the next refresh. Useful for services that are down for maintenance, containers being stood up or decommissioned, or integrations you only want active while testing. Disabled integrations still appear in pickers, marked "(disabled)".
+
+## Default refresh intervals
+
+Every integration type has a default polling interval, editable per integration (Admin → Integrations → edit → Refresh every). Defaults are grouped into five deliberate tiers rather than picked individually per feature, so adjacent/similar integrations behave consistently:
+
+| Tier | Interval | Character | Examples |
+|---|---|---|---|
+| Live | 30s | System/session state worth watching closely — active sessions, live traffic, in-progress transfers, camera events | Plex, TrueNAS, OPNsense, Transmission, Frigate |
+| Operational | 2min | Status that changes over minutes, not seconds | AdGuard Home, Authentik, Uptime Kuma, Home Assistant |
+| Library/queue | 5min | Media libraries, download/request queues, mesh-VPN device lists | Sonarr, Radarr, Kavita, Tailscale, Overseerr |
+| Slow personal | 1hr | Market data, photo libraries, media-consumption stats, and apps whose data only changes when you edit it by hand | Stocks, PhotoPrism, YouTube, LubeLogger, Mealie |
+| Daily | 4hr | Data that only meaningfully updates a few times a day | Weather, GitHub, RSS, Actual Budget |
+
+Two exceptions with their own reasoning baked in: **Cloudflare** stays at 5 minutes regardless of category because its analytics API is only 1-minute resolution — polling faster wastes quota, not gets fresher data. **Sports** has a dynamic worker that overrides its baseline entirely based on live-game state (as fast as 60s during a game, as slow as 24h off-season) — its listed default is just the cold-start baseline.

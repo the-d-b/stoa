@@ -886,7 +886,6 @@ func testGenericConnection(apiURL string, skipTLS ...bool) error {
 	return nil
 }
 
-// defaultRefreshSecs returns a sensible default TTL for each integration type.
 func isTLSError(err error) bool {
 	if err == nil {
 		return false
@@ -898,102 +897,68 @@ func isTLSError(err error) bool {
 		strings.Contains(s, "TLS")
 }
 
+// defaultRefreshSecs returns a sensible default polling interval for each
+// integration type, deliberately tiered for continuity between adjacent
+// integrations rather than picked ad hoc per feature — see docs/integrations/README.md
+// for the reasoning behind each tier.
 func defaultRefreshSecs(igType string) int {
 	switch igType {
-	case "pfsense", "openwrt":
-		return 5
-	case "omada":
+
+	// ── 30s — live system/session state ──────────────────────────────────
+	// Media server sessions, NAS/hypervisor live stats, active download
+	// progress, router/firewall live state, live camera detection events.
+	case "plex", "jellyfin", "emby",
+		"opnsense", "pfsense", "openwrt",
+		"proxmox", "truenas", "unraid", "omv", "synology", "qnap",
+		"transmission", "qbittorrent", "deluge", "rutorrent", "sabnzbd", "nzbget", "tdarr",
+		"frigate", "blueiris":
 		return 30
-	case "unifi":
-		return 30
-	case "traefik":
-		return 30
-	case "cloudflare":
-		return 300 // analytics are 1-minute resolution; polling faster wastes quota
-	case "pihole":
-		return 30
-	case "adguard":
-		return 30
-	case "nextdns":
-		return 30
-	case "nginxpm":
-		return 60
-	case "wgeasy":
-		return 30
-	case "tailscale":
-		return 60
-	case "prometheus":
-		return 30
-	case "grafana":
-		return 60
-	case "autobrr":
-		return 30
-	case "bazarr":
-		return 60
-	case "prowlarr":
-		return 60
-	case "frigate":
-		return 15
-	case "blueiris":
-		return 30
-	case "nextcloud":
-		return 300
-	case "fireflyiii":
-		return 3600
-	case "netbird":
-		return 60
-	case "actualbudget":
-		return 300
-	case "scrutiny":
-		return 300
-	case "paperless":
-		return 300
-	case "mealie":
-		return 900
-	case "grocy":
-		return 300
-	case "ghostfolio":
-		return 300
-	case "coinbase":
-		return 300
-	case "sabnzbd", "nzbget":
-		return 15
-	case "tdarr":
-		return 30
-	case "tandoor", "lubelogger", "docspell", "romm":
-		return 900
-	case "maintainerr":
-		return 300
-	case "monica", "homebox", "wger", "fittrackee":
-		return 900
-	case "spotify", "lastfm":
-		return 30
-	case "strava", "duolingo":
-		return 60
-	case "github":
+
+	// ── 2min — operational status, changes over minutes ──────────────────
+	// DNS-blocker stats, SSO/auth activity, VPN connection health, uptime
+	// monitoring, network/reverse-proxy status, metrics dashboards, live
+	// game-server process status, smart-home sensor/presence state.
+	case "adguard", "pihole", "nextdns",
+		"authentik", "gluetun", "kuma",
+		"unifi", "omada", "traefik", "nginxpm",
+		"prometheus", "grafana",
+		"pterodactyl", "homeassistant":
 		return 120
-	case "trakt":
-		return 60
-	case "twitch":
-		return 60
-	case "youtube":
-		return 3600
-	case "pterodactyl":
-		return 30
-	case "opnsense", "truenas", "proxmox", "transmission", "qbittorrent", "deluge", "rutorrent", "unraid", "omv", "synology", "qnap", "emby":
-		return 30
-	case "plex", "jellyfin", "homeassistant", "tautulli", "jellystat", "tracearr", "kuma", "gluetun":
-		return 60
-	case "authentik", "customapi":
+
+	// ── 5min — library and queue state ────────────────────────────────────
+	// arr-suite and comic/book library apps, media-library platforms,
+	// analytics/watch-history, mesh-VPN device lists, request/cleanup
+	// queues.
+	case "sonarr", "radarr", "lidarr", "kapowarr", "mylar3", "tranga",
+		"bazarr", "prowlarr", "autobrr",
+		"audiobookshelf", "kavita", "komga", "navidrome", "romm",
+		"tautulli", "jellystat", "tracearr",
+		"tailscale", "netbird", "wgeasy",
+		"overseerr", "maintainerr", "nextcloud",
+		"cloudflare", // analytics are 1-minute resolution; polling faster wastes quota
+		"sports":     // dynamic worker overrides this per live-game state; nominal baseline only
 		return 300
-	case "overseerr":
-		return 120
-	case "sonarr", "radarr", "lidarr", "photoprism", "immich", "kavita", "komga":
-		return 1800
-	case "audiobookshelf", "navidrome":
-		return 60
-	case "calendar":
+
+	// ── 1hr — slow-changing personal/external data ────────────────────────
+	// Market/portfolio data, personal photo libraries, media-consumption
+	// tracking, fitness stats, disk health, document ingestion, and
+	// user-edited "personal database" apps whose data only changes when
+	// you change it by hand.
+	case "crypto", "stocks", "ghostfolio",
+		"photoprism", "immich",
+		"duolingo", "youtube", "twitch", "spotify", "lastfm", "trakt", "strava",
+		"steam", "scrutiny", "paperless", "docspell",
+		"wger", "fittrackee",
+		"lubelogger", "tandoor", "homebox", "monica", "grocy", "mealie", "caldav",
+		"customapi": // unknown REST target — moderate default
 		return 3600
+
+	// ── 4hr — daily-cadence data ──────────────────────────────────────────
+	// Book release calendars, forecast/finance summaries that only update
+	// a few times a day, code activity, RSS feeds.
+	case "readarr", "coinbase", "weather", "github", "rss", "actualbudget", "fireflyiii":
+		return 14400
+
 	default:
 		return 60
 	}
