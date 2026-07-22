@@ -6,6 +6,7 @@ import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
 import CalendarPanel from '../components/panels/CalendarPanel'
 import SecurityPosturePanel from '../components/panels/SecurityPosturePanel'
+import DockerAppsPanel from '../components/panels/DockerAppsPanel'
 import SonarrPanel from '../components/panels/SonarrPanel'
 import RadarrPanel from '../components/panels/RadarrPanel'
 import LidarrPanel from '../components/panels/LidarrPanel'
@@ -1086,6 +1087,9 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           )}
           {panel.type === 'securityposture' && (
             <SecurityPosturePanel panel={panel} heightUnits={heightUnits} />
+          )}
+          {panel.type === 'dockerapps' && (
+            <DockerAppsPanel panel={panel} heightUnits={heightUnits} />
           )}
           {panel.type === 'sonarr' && <SonarrPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'radarr' && <RadarrPanel panel={panel} heightUnits={heightUnits} />}

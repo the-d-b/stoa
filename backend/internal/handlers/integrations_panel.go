@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // timeNow is a package-level var so tests can override it.
@@ -30,6 +32,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	},
 	"calendar":        func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchCalendarData(db, cfg) },
 	"securityposture": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchSecurityPosturePanelData(db, cfg) },
+	"dockerapps":      func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchDockerAppsPanelData(db, cfg) },
 	"plex":     func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchPlexPanelData(db, cfg) },
 	"tautulli": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchTautulliPanelData(db, cfg)
@@ -272,6 +275,26 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			Scan(&panelType, &configStr); err != nil {
 			writeError(w, http.StatusNotFound, "panel not found")
 			return
+		}
+
+		// "dockerapps" reads live container labels, which are gated the same
+		// way as the existing admin Docker container list — by docker_enabled
+		// and docker_groups membership — rather than by panel ownership/
+		// sharing like every other panel type. That check needs the
+		// requesting user's claims, which panelFetchers entries don't
+		// receive, so it's special-cased here instead of inside the fetcher.
+		if panelType == "dockerapps" {
+			claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+			var enabledStr string
+			db.QueryRow("SELECT value FROM app_config WHERE key='docker_enabled'").Scan(&enabledStr)
+			if enabledStr != "true" {
+				writeJSON(w, http.StatusOK, DockerAppsData{Enabled: false, HasAccess: false, Apps: []DockerApp{}})
+				return
+			}
+			if !userHasDockerAccess(db, claims.UserID, claims.Role) {
+				writeJSON(w, http.StatusOK, DockerAppsData{Enabled: true, HasAccess: false, Apps: []DockerApp{}})
+				return
+			}
 		}
 
 		var config map[string]interface{}

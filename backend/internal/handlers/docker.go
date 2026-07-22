@@ -8,6 +8,9 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -48,6 +51,29 @@ type DockerConfig struct {
 	Enabled  bool           `json:"enabled"`
 	Groups   []models.Group `json:"groups"`
 	GroupIDs []string       `json:"groupIds"`
+}
+
+// DockerApp is a tile derived from Homepage-style labels on a container —
+// see the "Docker Apps" panel. Only the label subset that maps to a static
+// tile (name/icon/href/description/group/weight) is honored; Homepage's
+// homepage.widget.* labels (live stats scraping) are deliberately not
+// supported since stoa's own Integration/Panel system already covers that,
+// with more capability, per instance.
+type DockerApp struct {
+	Name        string `json:"name"`
+	Icon        string `json:"icon,omitempty"`
+	Href        string `json:"href,omitempty"`
+	Description string `json:"description,omitempty"`
+	Group       string `json:"group"`
+	Weight      int    `json:"weight"`
+	Host        string `json:"host"`
+	State       string `json:"state"`
+}
+
+type DockerAppsData struct {
+	Enabled   bool        `json:"enabled"`
+	HasAccess bool        `json:"hasAccess"`
+	Apps      []DockerApp `json:"apps"`
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -221,6 +247,124 @@ func loadDockerHosts(db *sql.DB) ([]DockerHostRow, error) {
 		hosts = []DockerHostRow{}
 	}
 	return hosts, nil
+}
+
+// ── Docker Apps (Homepage-label-driven tiles) ───────────────────────────────
+
+// parseDockerApp turns a container's labels into a tile, following Homepage's
+// label convention. A container only becomes a tile if it carries at least
+// one of homepage.name / homepage.href — that presence is the admin's opt-in
+// signal; containers with no such labels are silently skipped.
+func parseDockerApp(hostName, containerName, state string, labels map[string]string) (DockerApp, bool) {
+	name, hasName := labels["homepage.name"]
+	href, hasHref := labels["homepage.href"]
+	if !hasName && !hasHref {
+		return DockerApp{}, false
+	}
+	if name == "" {
+		name = containerName
+	}
+	group := labels["homepage.group"]
+	if group == "" {
+		group = "Other"
+	}
+	weight := 0
+	if w := labels["homepage.weight"]; w != "" {
+		if n, err := strconv.Atoi(w); err == nil {
+			weight = n
+		}
+	}
+	return DockerApp{
+		Name:        name,
+		Icon:        labels["homepage.icon"],
+		Href:        href,
+		Description: labels["homepage.description"],
+		Group:       group,
+		Weight:      weight,
+		Host:        hostName,
+		State:       state,
+	}, true
+}
+
+func fetchDockerApps(client *http.Client, baseURL, hostName string) ([]DockerApp, error) {
+	resp, err := client.Get(baseURL + "/containers/json?all=1")
+	if err != nil {
+		return nil, fmt.Errorf("connect: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(body))
+	}
+
+	var raw []struct {
+		Names  []string          `json:"Names"`
+		State  string            `json:"State"`
+		Labels map[string]string `json:"Labels"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+		return nil, fmt.Errorf("decode: %w", err)
+	}
+
+	apps := make([]DockerApp, 0, len(raw))
+	for _, c := range raw {
+		name := ""
+		if len(c.Names) > 0 {
+			name = strings.TrimPrefix(c.Names[0], "/")
+		}
+		if app, ok := parseDockerApp(hostName, name, c.State, c.Labels); ok {
+			apps = append(apps, app)
+		}
+	}
+	return apps, nil
+}
+
+// fetchDockerAppsPanelData implements the panelFetchers signature for the
+// "dockerapps" panel type. Access control (docker_enabled + docker_groups)
+// is already enforced by GetPanelData before this runs — see the special
+// case there — so by the time this executes the caller is known-authorized
+// and the result is always Enabled:true, HasAccess:true.
+func fetchDockerAppsPanelData(db *sql.DB, _ map[string]interface{}) (interface{}, error) {
+	hosts, err := loadDockerHosts(db)
+	if err != nil {
+		return nil, err
+	}
+
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	apps := []DockerApp{}
+
+	for _, h := range hosts {
+		if !h.Enabled {
+			continue
+		}
+		wg.Add(1)
+		go func(host DockerHostRow) {
+			defer wg.Done()
+			client, baseURL := dockerHTTPClient(host)
+			hostApps, err := fetchDockerApps(client, baseURL, host.Name)
+			if err != nil {
+				logErrorf("DOCKER", "apps: host %s (%s) error: %v", host.Name, host.Type, err)
+				return
+			}
+			mu.Lock()
+			apps = append(apps, hostApps...)
+			mu.Unlock()
+		}(h)
+	}
+	wg.Wait()
+
+	sort.Slice(apps, func(i, j int) bool {
+		if apps[i].Group != apps[j].Group {
+			return apps[i].Group < apps[j].Group
+		}
+		if apps[i].Weight != apps[j].Weight {
+			return apps[i].Weight < apps[j].Weight
+		}
+		return apps[i].Name < apps[j].Name
+	})
+
+	return DockerAppsData{Enabled: true, HasAccess: true, Apps: apps}, nil
 }
 
 // ── Admin handlers ────────────────────────────────────────────────────────────
