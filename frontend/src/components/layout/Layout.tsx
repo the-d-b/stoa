@@ -251,7 +251,7 @@ export default function Layout() {
               </button>
             )}
 
-            {isAdmin && modeLoaded && userMode === 'multi' && (
+            {isAdmin && modeLoaded && (
               <Link
                 to="/admin"
                 title="Admin"

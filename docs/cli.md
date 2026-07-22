@@ -87,6 +87,8 @@ stoa-cli config set-mode single --user <username> --no-auth
 
 **Note:** Other user accounts are disabled (not deleted) when switching to single-user mode. Switching back to `multi` re-enables them all.
 
+**Admin access in single-user mode:** the gear icon and full Admin area (Bookmarks, System Secrets, Docker, Settings, OAuth, Mail, Google Calendar, Backup, Sessions) are available to the sole account — none of that is multi-user-specific. Only genuinely multi-user concepts are hidden: Users, Groups, admin Tags, System Panels, and System Integrations (the last two because single-user mode's own setup flow creates panels/integrations as personal-scoped, so "My Panels"/"My Integrations" in Profile is already the complete equivalent). If you switch from multi- to single-user mode after creating real system-scoped panels or integrations, those become inaccessible from the UI until you switch back to multi-user mode — consistent with mode-switching being experimental.
+
 ---
 
 ## Geo-IP

@@ -1,5 +1,6 @@
 import { Routes, Route, Link, useLocation, Navigate, useNavigate } from 'react-router-dom'
 import ErrorBoundary from '../components/ErrorBoundary'
+import { useUserMode } from '../context/UserModeContext'
 import OAuthConfigPanel from '../components/admin/OAuthConfigPanel'
 import GoogleCalendarConfigPanel from '../components/admin/GoogleCalendarConfigPanel'
 import UsersPanel from '../components/admin/UsersPanel'
@@ -32,28 +33,45 @@ const tabs = [
   { path: '/admin/tags',      label: 'Tags',      icon: '◇' },
 ]
 
+// Genuinely multi-user concepts — only relevant when there's more than one
+// account. System Panels/Integrations are included: single-user mode's own
+// setup flow creates panels/integrations as personal-scoped, not system-
+// scoped, so "My Panels"/"My Integrations" in Profile already is the real,
+// complete equivalent — showing System versions too would just be a
+// confusing near-empty duplicate. Bookmarks is deliberately NOT in this list
+// — it has no such personal-scope auto-routing, so System Bookmarks can be a
+// single-user install's genuine, active bookmark tree.
+const MULTI_USER_ONLY_PATHS = new Set([
+  '/admin/panels', '/admin/integrations', '/admin/users', '/admin/groups', '/admin/tags',
+])
+
 export default function AdminPage() {
   const location = useLocation()
   const navigate = useNavigate()
+  const userMode = useUserMode()
+
+  const visibleTabs = userMode === 'single'
+    ? tabs.filter(t => !MULTI_USER_ONLY_PATHS.has(t.path))
+    : tabs
 
   const navGroups = [
     {
       label: 'Content',
-      items: tabs.filter(t => ['/admin/bookmarks', '/admin/panels'].includes(t.path)),
+      items: visibleTabs.filter(t => ['/admin/bookmarks', '/admin/panels'].includes(t.path)),
     },
     {
       label: 'System',
-      items: tabs.filter(t => ['/admin/secrets', '/admin/integrations', '/admin/docker'].includes(t.path)),
+      items: visibleTabs.filter(t => ['/admin/secrets', '/admin/integrations', '/admin/docker'].includes(t.path)),
     },
     {
       label: 'Access',
-      items: tabs.filter(t => ['/admin/sessions', '/admin/users', '/admin/groups', '/admin/tags'].includes(t.path)),
+      items: visibleTabs.filter(t => ['/admin/sessions', '/admin/users', '/admin/groups', '/admin/tags'].includes(t.path)),
     },
     {
       label: 'Config',
-      items: tabs.filter(t => ['/admin/settings', '/admin/oauth', '/admin/google', '/admin/mail', '/admin/backup'].includes(t.path)),
+      items: visibleTabs.filter(t => ['/admin/settings', '/admin/oauth', '/admin/google', '/admin/mail', '/admin/backup'].includes(t.path)),
     },
-  ]
+  ].filter(group => group.items.length > 0)
 
   return (
     <div className="fade-up profile-layout" style={{ display: 'flex', gap: 32, alignItems: 'flex-start', maxWidth: 960 }}>
