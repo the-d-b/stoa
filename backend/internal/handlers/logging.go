@@ -184,14 +184,17 @@ func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, fmt.Errorf("hijack not supported")
 }
 
-// AccessLogMiddleware logs non-2xx responses served by Stoa at error level
-// and every request at trace level.
+// AccessLogMiddleware logs 4xx/5xx responses served by Stoa at error level
+// and every request at trace level. 3xx is deliberately excluded — OAuth
+// login/callback and every other redirect-based flow (YouTube/Twitch/
+// Strava/Google/Spotify connect) return 307/302/303 on their normal,
+// successful path, not as an error.
 func AccessLogMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
 		start := time.Now()
 		next.ServeHTTP(rec, r)
-		if rec.status >= 300 && rec.status != http.StatusNotModified {
+		if rec.status >= 400 {
 			logErrorf("API", "%s %s → %d", r.Method, r.URL.Path, rec.status)
 		} else {
 			logTracef("API", "%s %s → %d (%s)", r.Method, r.URL.Path, rec.status, time.Since(start).Round(time.Millisecond))
