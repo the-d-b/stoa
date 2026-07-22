@@ -1,6 +1,17 @@
 # Concepts
 
-Understanding these five concepts will make everything else in Stoa click.
+Understanding these concepts will make everything else in Stoa click.
+
+---
+
+## User modes
+
+Stoa runs in one of two modes, set via `stoa-cli config set-mode` (see the [CLI reference](cli.md#config-set-mode)):
+
+- **Multi-user** — the full model described below: users, groups, tags, system vs. personal panels, sharing. This is the default.
+- **Single-user** — a simpler mode for a one-person dashboard. Auth can optionally be disabled entirely (`--no-auth`) so the dashboard loads with no login screen. The full Admin area (Bookmarks, Secrets, Docker, Settings, OAuth, Mail, Google Calendar, Backup, Sessions) is still available to the sole account — only genuinely multi-user concepts (Users, Groups, admin Tags, System Panels, System Integrations) are hidden, since single-user mode's own setup flow already creates panels and integrations as personal-scoped, making "My Panels"/"My Integrations" the complete equivalent.
+
+**Switching between modes is experimental** and may hide or lose data — most notably, panels or integrations created as System-scoped while in multi-user mode become inaccessible from the UI if you switch to single-user mode, until you switch back. Other accounts are disabled (not deleted) when switching to single-user mode, and re-enabled when switching back to multi-user.
 
 ---
 

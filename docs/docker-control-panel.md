@@ -76,3 +76,9 @@ Actions take effect immediately and the panel refreshes automatically.
 Add multiple hosts to manage containers across different machines from a single panel view. Each host appears as a separate section in the panel, with its containers listed independently.
 
 If a host is unreachable, its section shows an error message — other hosts continue to display normally.
+
+---
+
+## See also: Docker Apps panel
+
+This panel is for **managing** containers (start/stop/restart, resource stats). For an **app launcher** view — icon/name/link tiles auto-discovered from `homepage.*` labels on your containers, grouped and collapsible — see [Docker Apps](integrations/docker-apps/). Both panels share the same Admin → Docker configuration (enable + host list + access groups); no separate setup needed to use both.

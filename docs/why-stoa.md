@@ -18,7 +18,7 @@ We wanted to borrow the best of both and build something more opinionated.
 
 ## What we borrowed
 
-**From Homepage:** The integration model. Homepage proved that a dashboard should be a live window into your services, not just a launchpad. Stats, queues, media activity, server health — if the service has an API, the dashboard should show it. Stoa follows this model faithfully: most panels are backed by a real integration that pulls live data.
+**From Homepage:** The integration model. Homepage proved that a dashboard should be a live window into your services, not just a launchpad. Stats, queues, media activity, server health — if the service has an API, the dashboard should show it. Stoa follows this model faithfully: most panels are backed by a real integration that pulls live data. We also borrowed Homepage's Docker-label auto-discovery outright, down to the label names — a Docker Apps panel reads the same `homepage.name`/`icon`/`href`/`group` labels Homepage does, so a Homepage config runs alongside Stoa, or migrates to it, without touching a single container.
 
 **From Homarr:** Multi-user from the ground up. Stoa is built on the assumption that more than one person will use it, with different roles, different panels, different preferences. Shared system panels, per-user personal panels, groups for access control, and individual panel ordering — all of this is core, not an afterthought.
 
@@ -52,7 +52,7 @@ Stoa isn't trying to be everything. A few deliberate omissions:
 
 **No plugin system.** Every integration in Stoa is a first-class feature with real UI. A plugin ecosystem would let us support more services faster, but it also means fragmentation, abandoned plugins, and inconsistent UX. We'd rather support fewer things well.
 
-**No built-in theme switcher.** Stoa has a design. We're not planning to expose a library of pre-built themes. That said, every user can upload custom CSS sheets from Profile → Appearance — write overrides, upload the file, and the dashboard applies them. The CSS files are stored on the server and survive updates. You can export, edit, and re-import them at any time. This gives you fine-grained control over colors, spacing, fonts, or anything else without us shipping a theme picker we'd have to maintain.
+**No plugin-style theme library.** Stoa ships 6 built-in themes (Void, Slate, Carbon, Paper, Fog, Linen) and, for anyone who wants to go further, three ways to customize past them: upload a hand-written CSS file, build one with color pickers (no CSS required — pick 8 colors, the rest are derived), or both. Custom sheets are stored on the server, survive updates, and can be exported, edited by hand, and re-imported at any time. See [Theming](theming.md).
 
 ---
 

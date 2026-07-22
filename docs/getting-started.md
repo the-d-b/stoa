@@ -67,7 +67,7 @@ volumes:
   - /usr/local/share/ca-certificates:/usr/local/share/ca-certificates:ro
 ```
 
-**`/var/run/docker.sock`** — Docker socket for the container management panel. Required only if you want to use the Docker control panel feature. Mount **without** `:ro` — start, stop, and restart actions require write access to the socket.
+**`/var/run/docker.sock`** — Docker socket, required only if you want the [Docker control panel](docker-control-panel.md) and/or [Docker Apps](integrations/docker-apps/) panel. Mount **without** `:ro` — Docker control panel's start/stop/restart actions require write access to the socket (Docker Apps only reads container labels, but shares the same host configuration).
 
 ```yaml
 volumes:

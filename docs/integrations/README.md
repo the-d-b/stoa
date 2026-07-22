@@ -122,6 +122,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Prometheus | ✅ Tested | Blank (open) **or** `username:password` **or** Bearer `token` | Required | 30 s | [prometheus/](prometheus/) |
 | Grafana | ✅ Tested | Service Account token — Grafana → Administration → Service Accounts | Required | 60 s | [grafana/](grafana/) |
 | Security Posture | 🔶 Need Testing | N/A — auto-discovers existing integrations, no setup of its own | N/A | 24h per product | [security-posture/](security-posture/) |
+| Docker Apps | 🔶 Need Testing | N/A — reads `homepage.*` labels off existing Docker containers | N/A (uses Admin → Docker config) | Live, on load | [docker-apps/](docker-apps/) |
 
 ---
 

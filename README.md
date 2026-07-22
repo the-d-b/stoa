@@ -124,9 +124,10 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 |---|---|
 | [Comparison](docs/comparison.md) | How Stoa compares to Homepage, Homarr, Organizr, and others |
 | [Getting started](docs/getting-started.md) | Install, volume mounts, order of operations, express setup |
-| [Concepts](docs/concepts.md) | Users, groups, tags, panels, and porticos |
+| [Concepts](docs/concepts.md) | Users, groups, tags, panels, porticos, and single- vs multi-user mode |
 | [Integrations](docs/integrations/) | Master chart + per-integration setup guides with panel screenshots |
 | [Layouts](docs/layouts.md) | Stylos, Seira, Rema, and Custom layout modes |
+| [Theming](docs/theming.md) | Built-in themes, custom CSS, and the color-picker theme builder |
 | [Glyphs & Tickers](docs/glyphs-and-tickers.md) | Header/footer widgets |
 | [Docker control panel](docs/docker-control-panel.md) | Container management setup |
 | [OAuth / SSO](docs/oauth.md) | OIDC provider setup |

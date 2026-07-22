@@ -33,7 +33,7 @@ Mesh VPN device roster — online/offline status, advertised routes, role (exit 
 |---|---|
 | 1x | Online/total count · update and unauthorized alerts · key expiry warnings |
 | 2–3x | Online/total donut + stat chips + device list with routes + auth keys section |
-| 4x+ | Donut + full stat chips + device table with routes + auth keys section |
+| 4x+ | Donut + full stat chips + device list grouped by owning user (each group header shows online/total for that user) with routes + auth keys section |
 
 ### Screenshots
 
@@ -49,6 +49,7 @@ Mesh VPN device roster — online/offline status, advertised routes, role (exit 
 
 - Stoa calls `api.tailscale.com` directly — no self-hosted Tailscale infrastructure needed
 - Online/offline status is derived from `connectedToControl` — a device is online when it has an active connection to the Tailscale control plane
+- At 4x+, devices are grouped by owning user — one person commonly owns several endpoints (phone, laptop, exit node), so the flat table is broken into per-user sections instead. Devices with no owning user (e.g. tagged infrastructure devices) fall into a "Tagged devices" group
 - Advertised routes show under each device in dim monospace; routes advertised but not yet approved in the admin console appear in yellow as `(pending)`
 - Exit node routes (`0.0.0.0/0`) are shown as the **EXIT** badge rather than in the routes line to avoid redundancy
 - **Auth keys section:** shows all active (non-revoked) auth keys and API tokens with their expiry countdown. Color goes dim → orange at 30 days → red at 7 days. Useful for tracking the 90-day expiry on your subnet router enrollment key and your API access token

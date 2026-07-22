@@ -4,7 +4,7 @@ How Stoa compares to other popular self-hosted dashboard apps. Last updated May 
 
 ✅ Supported &nbsp;&nbsp; 🟡 Partial / limited &nbsp;&nbsp; ❌ Not supported
 
-| | Multi-user & roles | Per-user layout | Named views | 30+ live integrations | Real-time (WS/SSE) | Google Calendar | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Glyphs & Tickers | OAuth / SSO | Audit log |
+| | Multi-user & roles | Per-user layout | Named views | 90+ live integrations | Real-time (WS/SSE) | Google Calendar | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Glyphs & Tickers | OAuth / SSO | Audit log |
 |---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
 | **Stoa** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **Homepage** | ❌ | ❌ | 🟡 | ✅ | 🟡 | 🟡 | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ |
@@ -29,7 +29,7 @@ How Stoa compares to other popular self-hosted dashboard apps. Last updated May 
 
 **Google Calendar** — Stoa uses a real OAuth 2.0 flow — users authorize with their Google account and all personal calendars are available. Homepage and Homarr support iCal URLs only, which requires generating a shareable link from Google Calendar settings and doesn't access private calendars directly.
 
-**Docker management** — Stoa supports start, stop, and restart across local (Unix socket) and remote Docker hosts. Homarr also supports container management. Homepage displays container status only. Flame auto-discovers containers via Docker labels but offers no management actions.
+**Docker management** — Stoa supports start, stop, and restart across local (Unix socket) and remote Docker hosts. Homarr also supports container management. Homepage displays container status only. Flame auto-discovers containers via Docker labels but offers no management actions. Stoa also has its own label-based auto-discovery — a separate Docker Apps panel reads Homepage's own `homepage.name`/`icon`/`href` label convention and turns labeled containers into launcher tiles, so a Homepage config migrates or runs alongside Stoa with no re-tagging.
 
 **Glyphs & Tickers** — Stoa's header/footer widgets (clock, weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) are sticky — they stay visible as you scroll and across all portico views. Homepage has "info widgets" (weather, clock, stocks) that render above the panel grid but scroll off with the page. Glance has "head-widgets," a full-width area above the column layout that can show a live markets strip — the closest equivalent in any other app — but it isn't a scrolling ticker and doesn't persist across navigation.
 
