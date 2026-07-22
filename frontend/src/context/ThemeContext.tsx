@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { preferencesApi } from '../api'
+import { preferencesApi, cssApi } from '../api'
 
 export type ThemeName = 'void' | 'slate' | 'carbon' | 'paper' | 'fog' | 'linen'
 
@@ -10,6 +10,13 @@ export interface ThemeDef {
   vars: Record<string, string>
   swatch: string
 }
+
+export const THEME_VAR_KEYS = [
+  '--bg', '--surface', '--surface2', '--border', '--border2',
+  '--text', '--text-muted', '--text-dim',
+  '--accent', '--accent2', '--accent-bg',
+  '--green', '--red', '--amber',
+] as const
 
 export const THEMES: ThemeDef[] = [
   {
@@ -74,9 +81,118 @@ export const THEMES: ThemeDef[] = [
   },
 ]
 
+// ── Color math for the custom-theme picker ─────────────────────────────────
+// Lets the picker derive the "supporting" variables (surface2, border2,
+// text-muted, text-dim, accent2, accent-bg) from a small set of colors the
+// user actually picks, following the ratios observed across the 6 built-in
+// themes above.
+
+export function parseHex(hex: string): { r: number; g: number; b: number } | null {
+  const m = /^#?([0-9a-f]{6})/i.exec(hex.trim())
+  if (!m) return null
+  const n = parseInt(m[1], 16)
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 }
+}
+
+export function mixHex(a: string, b: string, t: number): string {
+  const ca = parseHex(a), cb = parseHex(b)
+  if (!ca || !cb) return a
+  const mix = (x: number, y: number) => Math.max(0, Math.min(255, Math.round(x + (y - x) * t)))
+  const toHex = (n: number) => n.toString(16).padStart(2, '0')
+  return `#${toHex(mix(ca.r, cb.r))}${toHex(mix(ca.g, cb.g))}${toHex(mix(ca.b, cb.b))}`
+}
+
+export function relativeLuminance(hex: string): number {
+  const c = parseHex(hex)
+  if (!c) return 0
+  return (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) / 255
+}
+
+export interface PickedColors {
+  bg: string
+  surface: string
+  border: string
+  text: string
+  accent: string
+  green: string
+  red: string
+  amber: string
+}
+
+export function deriveThemeVars(picked: PickedColors, dark: boolean): Record<string, string> {
+  return {
+    '--bg': picked.bg,
+    '--surface': picked.surface,
+    '--surface2': mixHex(picked.surface, picked.text, 0.05),
+    '--border': picked.border,
+    '--border2': mixHex(picked.border, picked.text, 0.15),
+    '--text': picked.text,
+    '--text-muted': mixHex(picked.text, picked.bg, 0.45),
+    '--text-dim': mixHex(picked.text, picked.bg, 0.7),
+    '--accent': picked.accent,
+    '--accent2': mixHex(picked.accent, dark ? '#ffffff' : '#000000', dark ? 0.3 : 0.18),
+    '--accent-bg': picked.accent + '12',
+    '--green': picked.green,
+    '--red': picked.red,
+    '--amber': picked.amber,
+  }
+}
+
+export function themeVarsToCSS(vars: Record<string, string>): string {
+  const decls = Object.entries(vars).map(([k, v]) => `  ${k}: ${v};`).join('\n')
+  return `:root {\n${decls}\n}\n`
+}
+
+// ── Stylesheet-based application ────────────────────────────────────────────
+// Both built-in and custom themes are applied as real stylesheet rules (never
+// inline styles), so whichever was applied most recently is exclusively in
+// effect — no leftover higher-specificity values from a previous theme.
+
+const BUILTIN_STYLE_ID = 'stoa-theme-vars'
+const CUSTOM_STYLE_ID = 'stoa-custom-css'
+
+function setStylesheet(id: string, cssText: string) {
+  let el = document.getElementById(id) as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = id
+    document.head.appendChild(el)
+  }
+  el.textContent = cssText
+}
+
+function removeStylesheet(id: string) {
+  document.getElementById(id)?.remove()
+}
+
+function readComputedDef(name: string): ThemeDef {
+  const style = getComputedStyle(document.documentElement)
+  const vars: Record<string, string> = {}
+  THEME_VAR_KEYS.forEach(k => { vars[k] = style.getPropertyValue(k).trim() })
+  return {
+    name: name as ThemeName,
+    label: name,
+    dark: relativeLuminance(vars['--bg'] || '#000000') < 0.5,
+    vars,
+    swatch: vars['--accent'] || '#888888',
+  }
+}
+
+export function isCustomPref(pref: string): boolean {
+  return pref.startsWith('custom:')
+}
+
+export function customFilename(pref: string): string {
+  return pref.slice('custom:'.length)
+}
+
 interface ThemeContextType {
   theme: ThemeName
+  themePref: string
+  isCustom: boolean
   setTheme: (t: ThemeName, persist?: boolean) => void
+  setCustomTheme: (filename: string, persist?: boolean) => Promise<void>
+  refreshCustomTheme: () => Promise<void>
   themeDef: ThemeDef
 }
 
@@ -84,51 +200,82 @@ const ThemeContext = createContext<ThemeContextType | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<ThemeName>('void')
+  const [themePref, setThemePrefState] = useState<string>('void')
+  const [isCustom, setIsCustom] = useState(false)
+  const [themeDef, setThemeDef] = useState<ThemeDef>(THEMES[0])
+
+  const applyPref = async (pref: string) => {
+    if (isCustomPref(pref)) {
+      const filename = customFilename(pref)
+      try {
+        const res = await fetch(cssApi.url(filename))
+        if (!res.ok) throw new Error('missing')
+        const text = await res.text()
+        removeStylesheet(BUILTIN_STYLE_ID)
+        setStylesheet(CUSTOM_STYLE_ID, text)
+        setIsCustom(true)
+        setThemePrefState(pref)
+        setThemeDef(readComputedDef(filename))
+        return
+      } catch {
+        // Sheet missing/deleted — fall through to the default built-in theme
+        pref = 'void'
+      }
+    }
+    removeStylesheet(CUSTOM_STYLE_ID)
+    const def = THEMES.find(t => t.name === pref) || THEMES[0]
+    setStylesheet(BUILTIN_STYLE_ID, themeVarsToCSS(def.vars))
+    setIsCustom(false)
+    setThemeState(def.name)
+    setThemePrefState(def.name)
+    setThemeDef(def)
+  }
 
   useEffect(() => {
     const token = localStorage.getItem('stoa_token')
     if (token) {
-      // Load theme from user preferences (per-user)
       preferencesApi.get().then(r => {
-        const serverTheme = r.data.theme as ThemeName
-        if (serverTheme) {
-          localStorage.setItem('stoa_theme', serverTheme)
-          applyTheme(serverTheme)
+        const pref = r.data.theme
+        if (pref) {
+          localStorage.setItem('stoa_theme', pref)
+          applyPref(pref)
         } else {
-          const local = localStorage.getItem('stoa_theme') as ThemeName
-          if (local) applyTheme(local)
+          const local = localStorage.getItem('stoa_theme')
+          applyPref(local || 'void')
         }
       }).catch(() => {
-        const local = localStorage.getItem('stoa_theme') as ThemeName
-        if (local) applyTheme(local)
+        const local = localStorage.getItem('stoa_theme')
+        applyPref(local || 'void')
       })
     } else {
-      // Not logged in — use localStorage or default dark
-      const saved = localStorage.getItem('stoa_theme') as ThemeName
-      applyTheme(saved || 'void')
+      const saved = localStorage.getItem('stoa_theme')
+      applyPref(saved || 'void')
     }
   }, [])
 
   const setTheme = (t: ThemeName, persist = true) => {
     localStorage.setItem('stoa_theme', t)
-    applyTheme(t)
-    // Also save to user preferences if logged in
+    applyPref(t)
     if (persist && localStorage.getItem('stoa_token')) {
       preferencesApi.save({ theme: t }).catch(() => {})
     }
   }
 
-  const applyTheme = (t: ThemeName) => {
-    const def = THEMES.find(th => th.name === t) || THEMES[0]
-    const root = document.documentElement
-    Object.entries(def.vars).forEach(([k, v]) => root.style.setProperty(k, v))
-    setThemeState(t)
+  const setCustomTheme = async (filename: string, persist = true) => {
+    const pref = `custom:${filename}`
+    localStorage.setItem('stoa_theme', pref)
+    await applyPref(pref)
+    if (persist && localStorage.getItem('stoa_token')) {
+      preferencesApi.save({ theme: pref }).catch(() => {})
+    }
   }
 
-  const themeDef = THEMES.find(t => t.name === theme) || THEMES[0]
+  const refreshCustomTheme = async () => {
+    if (isCustom) await applyPref(themePref)
+  }
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, themeDef }}>
+    <ThemeContext.Provider value={{ theme, themePref, isCustom, setTheme, setCustomTheme, refreshCustomTheme, themeDef }}>
       {children}
     </ThemeContext.Provider>
   )

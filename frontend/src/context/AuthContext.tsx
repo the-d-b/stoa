@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { authApi, preferencesApi, User } from '../api'
-import { THEMES, ThemeName } from './ThemeContext'
+import { useTheme, isCustomPref, customFilename, ThemeName } from './ThemeContext'
 import { reconnectSSE } from '../hooks/useSSE'
 
 interface AuthContextType {
@@ -20,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [avatarUrl, setAvatarUrl] = useState('')
+  const { setTheme, setCustomTheme } = useTheme()
 
   useEffect(() => {
     // Handle OAuth callback token in URL — but ONLY if not on a public page
@@ -94,14 +95,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     reconnectSSE()
     // Load this user's theme and avatar
     preferencesApi.get().then(r => {
-      const t = r.data.theme as ThemeName
+      const t = r.data.theme
       if (t) {
-        const def = THEMES.find(th => th.name === t)
-        if (def) {
-          localStorage.setItem('stoa_theme', t)
-          const root = document.documentElement
-          Object.entries(def.vars).forEach(([k, v]) => root.style.setProperty(k, v))
-        }
+        if (isCustomPref(t)) setCustomTheme(customFilename(t), false)
+        else setTheme(t as ThemeName, false)
       }
       if (r.data.avatarUrl) setAvatarUrl(r.data.avatarUrl)
     }).catch(() => {})

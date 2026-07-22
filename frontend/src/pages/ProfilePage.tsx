@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import SectionHelp from '../components/admin/SectionHelp'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import { useTheme, THEMES as THEME_DEFS } from '../context/ThemeContext'
+import { useTheme, THEMES as THEME_DEFS, THEME_VAR_KEYS, customFilename, deriveThemeVars, themeVarsToCSS, PickedColors } from '../context/ThemeContext'
 import { APP_VERSION } from '../version'
 import { cssApi } from '../api'
 import { StoaLogo } from '../App'
@@ -1860,34 +1860,24 @@ function ThemeDensityBlock() {
   const [density, setDensityState] = useState('normal')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const { theme: currentTheme, setTheme: applyTheme } = useTheme()
-  const [activeTheme, setActiveTheme] = useState(currentTheme)
+  const { theme: activeTheme, themeDef, isCustom, themePref, setTheme: applyTheme, setCustomTheme } = useTheme()
 
   // Custom CSS state
   const [cssSheets, setCssSheets] = useState<{ id: string; name: string; filename: string }[]>([])
-  const [activeCssId, setActiveCssId] = useState<string>('system') // 'system' = built-in theme
   const [uploadName, setUploadName] = useState('')
   const [showUpload, setShowUpload] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [customVarKeys, setCustomVarKeys] = useState<string[]>([])
+
+  const activeCssId = isCustom
+    ? (cssSheets.find(s => s.filename === customFilename(themePref))?.id ?? '')
+    : 'system'
 
   useEffect(() => {
     Promise.all([preferencesApi.get(), cssApi.list()]).then(([prefs, sheets]) => {
       setDensityState(prefs.data.density || 'normal')
-      if (prefs.data.theme) {
-        // Sync local selector state with server value, but don't re-apply
-        // the theme — ThemeContext already applied it on login
-        setActiveTheme(prefs.data.theme as any)
-      }
-      const list = sheets.data || []
-      setCssSheets(list)
-      // Restore saved CSS selection
-      const savedCssId = localStorage.getItem('stoa_custom_css_id')
-      const savedCssFile = localStorage.getItem('stoa_custom_css_file')
-      if (savedCssId && savedCssFile && list.find((s: any) => s.id === savedCssId)) {
-        setActiveCssId(savedCssId)
-        fetchAndApplyCSS(savedCssFile)
-      }
+      setCssSheets(sheets.data || [])
+      // Theme itself (built-in or custom) is already restored globally by
+      // ThemeContext on app boot — nothing to do here.
     }).catch(() => {})
   }, [])
 
@@ -1899,76 +1889,24 @@ function ThemeDensityBlock() {
     } finally { setSaving(false) }
   }
 
-  const clearCustomCSS = (_keys?: string[]) => {
-    // Remove the dedicated style element — fully clears all custom CSS
-    // regardless of what was applied in a previous session
-    const el = document.getElementById('stoa-custom-css')
-    if (el) el.remove()
-    // Also clear any inline :root properties from the old approach
-    const root = document.documentElement
-    if (_keys?.length) _keys.forEach(k => root.style.removeProperty(k))
-    setCustomVarKeys([])
-  }
-
-  const fetchAndApplyCSS = async (filename: string) => {
-    try {
-      const res = await fetch(cssApi.url(filename))
-      const text = await res.text()
-      // Remove any previously injected custom CSS element
-      const existing = document.getElementById('stoa-custom-css')
-      if (existing) existing.remove()
-      // Also clear old inline :root properties from previous approach
-      const root = document.documentElement
-      customVarKeys.forEach(k => root.style.removeProperty(k))
-      // Inject the full CSS as a <style> element — fully replaces previous
-      const style = document.createElement('style')
-      style.id = 'stoa-custom-css'
-      style.textContent = text
-      document.head.appendChild(style)
-      // Track var keys for cleanup if needed
-      const matches = text.match(/--[a-zA-Z0-9-]+\s*:/g) || []
-      setCustomVarKeys(matches.map(m => m.replace(':', '').trim()))
-    } catch (e) { console.error('Failed to apply CSS', e) }
-  }
-
-  const saveTheme = async (themeId: string) => {
-    localStorage.removeItem('stoa_custom_css_id')
-    localStorage.removeItem('stoa_custom_css_file')
-    clearCustomCSS(customVarKeys)
-    setActiveCssId('system')
-    localStorage.removeItem('stoa_custom_css_id')
-    localStorage.removeItem('stoa_custom_css_file')
-    setActiveTheme(themeId as any)
+  const saveTheme = (themeId: string) => {
     applyTheme(themeId as any)
-    try { await preferencesApi.save({ theme: themeId }) } catch {}
   }
 
-  const applyCustomCSS = async (id: string, filename: string) => {
-    setActiveCssId(id)
-    await fetchAndApplyCSS(filename)
-    localStorage.setItem('stoa_custom_css_id', id)
-    localStorage.setItem('stoa_custom_css_file', filename)
+  const applyCustomCSS = (filename: string) => {
+    setCustomTheme(filename)
   }
 
   const downloadCurrentCSS = () => {
-    // Read vars from document inline styles (set by ThemeContext or custom CSS)
-    const root = document.documentElement
-    const style = root.style
-    const allVarNames = [
-      '--bg','--surface','--surface2','--border','--border2',
-      '--text','--text-muted','--text-dim',
-      '--accent','--accent2','--accent-bg',
-      '--green','--red','--amber',
-    ]
-    const lines = allVarNames
+    const lines = THEME_VAR_KEYS
       .map(k => {
-        const v = style.getPropertyValue(k).trim()
+        const v = themeDef.vars[k]
         return v ? `  ${k}: ${v};` : null
       })
       .filter(Boolean)
       .join('\n')
 
-    const themeName = activeCssId === 'system'
+    const themeName = !isCustom
       ? (THEME_DEFS.find(t => t.name === activeTheme)?.label ?? activeTheme)
       : (cssSheets.find(s => s.id === activeCssId)?.name ?? 'custom')
 
@@ -2009,20 +1947,16 @@ function ThemeDensityBlock() {
       const res = await cssApi.upload(uploadName.trim(), text)
       const newSheet = res.data
       setCssSheets(prev => [...prev, newSheet])
-      await applyCustomCSS(newSheet.id, newSheet.filename)
+      applyCustomCSS(newSheet.filename)
       setUploadName(''); setShowUpload(false)
     } finally { setUploading(false) }
   }
 
   const deleteSheet = async (id: string) => {
+    const wasActive = activeCssId === id
     await cssApi.delete(id)
     setCssSheets(prev => prev.filter(s => s.id !== id))
-    if (activeCssId === id) {
-      clearCustomCSS(customVarKeys)
-      setActiveCssId('system')
-      localStorage.removeItem('stoa_custom_css_id')
-      localStorage.removeItem('stoa_custom_css_file')
-    }
+    if (wasActive) applyTheme('void')
   }
 
   const densityOptions = [
@@ -2113,7 +2047,7 @@ function ThemeDensityBlock() {
                   background: active ? 'var(--accent-bg)' : 'var(--surface2)',
                   border: `1px solid ${active ? '#7c6fff50' : 'var(--border)'}`,
                   cursor: 'pointer',
-                }} onClick={() => applyCustomCSS(s.id, s.filename)}>
+                }} onClick={() => applyCustomCSS(s.filename)}>
                   <span style={{ fontSize: 12, color: active ? 'var(--accent2)' : 'var(--text-muted)', fontWeight: active ? 500 : 400 }}>
                     {s.name}
                   </span>
@@ -2128,9 +2062,13 @@ function ThemeDensityBlock() {
         )}
         {cssSheets.length === 0 && !showUpload && (
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-            Upload a .css file to override any built-in theme variable
+            Upload a .css file, or build one with color pickers below — no CSS required
           </div>
         )}
+
+        <div style={{ marginTop: 10 }}>
+          <CustomThemeBuilder onCreated={sheet => setCssSheets(prev => [...prev, sheet])} />
+        </div>
       </div>
 
       <div style={{ borderTop: '1px solid var(--border)' }} />
@@ -2158,6 +2096,136 @@ function ThemeDensityBlock() {
             </button>
           ))}
         </div>
+      </div>
+    </div>
+  )
+}
+
+function CustomThemeBuilder({ onCreated }: { onCreated: (sheet: { id: string; name: string; filename: string }) => void }) {
+  const { themeDef, setCustomTheme } = useTheme()
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [dark, setDark] = useState(themeDef.dark)
+  const [picked, setPicked] = useState<PickedColors>(() => ({
+    bg: themeDef.vars['--bg'] || '#0c0c0f',
+    surface: themeDef.vars['--surface'] || '#13131a',
+    border: themeDef.vars['--border'] || '#2a2a35',
+    text: themeDef.vars['--text'] || '#e8e8f0',
+    accent: themeDef.vars['--accent'] || '#7c6fff',
+    green: themeDef.vars['--green'] || '#4ade80',
+    red: themeDef.vars['--red'] || '#f87171',
+    amber: themeDef.vars['--amber'] || '#fbbf24',
+  }))
+  const [previewing, setPreviewing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const previewingRef = useRef(previewing)
+  useEffect(() => { previewingRef.current = previewing }, [previewing])
+  useEffect(() => () => { if (previewingRef.current) clearPreview() }, [])
+
+  const applyPreview = (p: PickedColors, isDark: boolean) => {
+    const vars = deriveThemeVars(p, isDark)
+    const root = document.documentElement
+    Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v))
+  }
+
+  const clearPreview = () => {
+    const root = document.documentElement
+    THEME_VAR_KEYS.forEach(k => root.style.removeProperty(k))
+  }
+
+  const updateField = (key: keyof PickedColors, value: string) => {
+    const next = { ...picked, [key]: value }
+    setPicked(next)
+    if (previewing) applyPreview(next, dark)
+  }
+
+  const togglePreview = () => {
+    if (previewing) { clearPreview(); setPreviewing(false) }
+    else { applyPreview(picked, dark); setPreviewing(true) }
+  }
+
+  const toggleDark = () => {
+    const next = !dark
+    setDark(next)
+    if (previewing) applyPreview(picked, next)
+  }
+
+  const save = async () => {
+    if (!name.trim()) return
+    setSaving(true)
+    try {
+      if (previewing) { clearPreview(); setPreviewing(false) }
+      const cssText = themeVarsToCSS(deriveThemeVars(picked, dark))
+      const res = await cssApi.upload(name.trim(), cssText)
+      onCreated(res.data)
+      await setCustomTheme(res.data.filename)
+      setName(''); setOpen(false)
+    } finally { setSaving(false) }
+  }
+
+  const cancel = () => {
+    if (previewing) { clearPreview(); setPreviewing(false) }
+    setOpen(false)
+  }
+
+  if (!open) {
+    return (
+      <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={() => setOpen(true)}>
+        + Create with color pickers
+      </button>
+    )
+  }
+
+  const fields: { key: keyof PickedColors; label: string }[] = [
+    { key: 'bg', label: 'Background' },
+    { key: 'surface', label: 'Panels' },
+    { key: 'border', label: 'Borders' },
+    { key: 'text', label: 'Text' },
+    { key: 'accent', label: 'Accent' },
+    { key: 'green', label: 'Success' },
+    { key: 'red', label: 'Error' },
+    { key: 'amber', label: 'Warning' },
+  ]
+
+  return (
+    <div style={{ padding: '12px 14px', borderRadius: 8,
+      background: 'var(--surface2)', border: '1px solid var(--border)',
+      display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ fontSize: 12, fontWeight: 500 }}>Create custom theme</div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer' }}>
+          <input type="checkbox" checked={dark} onChange={toggleDark} />
+          Dark theme
+        </label>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 10 }}>
+        {fields.map(f => (
+          <label key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer' }}>
+            {f.label}
+            <input type="color" value={picked[f.key]}
+              onChange={e => updateField(f.key, e.target.value)}
+              style={{ width: '100%', height: 28, padding: 0, border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer', background: 'none' }} />
+          </label>
+        ))}
+      </div>
+
+      <div>
+        <button className="btn btn-ghost" style={{ fontSize: 11 }} onClick={togglePreview}>
+          {previewing ? '◉ Previewing live — click to stop' : '○ Preview live on this page'}
+        </button>
+      </div>
+
+      <div>
+        <input className="input" value={name} onChange={e => setName(e.target.value)}
+          placeholder="Name this theme" style={{ fontSize: 13 }} />
+      </div>
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button className="btn btn-primary" style={{ fontSize: 12 }} disabled={!name.trim() || saving} onClick={save}>
+          {saving ? 'Saving…' : 'Save as theme'}
+        </button>
+        <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={cancel}>Cancel</button>
       </div>
     </div>
   )

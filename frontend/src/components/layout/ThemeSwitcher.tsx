@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { useTheme, THEMES, ThemeDef } from '../../context/ThemeContext'
 
 export default function ThemeSwitcher() {
-  const { theme, setTheme } = useTheme()
+  const { theme, setTheme, isCustom } = useTheme()
   const [open, setOpen] = useState(false)
+  const current = isCustom ? '' : theme
 
   const dispatchExpand = (expand: boolean) => {
     window.dispatchEvent(new CustomEvent('stoa:expandAll', { detail: { expand } }))
@@ -23,11 +24,11 @@ export default function ThemeSwitcher() {
         }}>
           <div style={{ fontSize: 11, color: 'var(--text-dim)', marginBottom: 10,
             textTransform: 'uppercase', letterSpacing: '0.06em' }}>Dark</div>
-          <ThemeRow themes={darkThemes} current={theme} onSelect={setTheme} />
+          <ThemeRow themes={darkThemes} current={current} onSelect={setTheme} />
 
           <div style={{ fontSize: 11, color: 'var(--text-dim)', margin: '12px 0 10px',
             textTransform: 'uppercase', letterSpacing: '0.06em' }}>Light</div>
-          <ThemeRow themes={lightThemes} current={theme} onSelect={setTheme} />
+          <ThemeRow themes={lightThemes} current={current} onSelect={setTheme} />
         </div>
       )}
 
