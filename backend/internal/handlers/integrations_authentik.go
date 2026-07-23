@@ -16,6 +16,7 @@ import (
 type AuthentikPanelData struct {
 	UIURL          string             `json:"uiUrl"`
 	Days           int                `json:"days"`
+	Version        string             `json:"version"`
 	Logins         int                `json:"logins"`
 	Failures       int                `json:"failures"`
 	ActiveSessions int                `json:"activeSessions"`
@@ -46,6 +47,15 @@ func fetchAuthentikPanelData(db *sql.DB, config map[string]interface{}) (*Authen
 	}
 	data := &AuthentikPanelData{UIURL: uiURL, Days: days}
 	infinite := days >= authentikInfinityDays
+
+	if vbody, verr := authentikGet(apiURL, apiKey, "/api/v3/admin/version/", skipTLS); verr == nil {
+		var v struct {
+			Current string `json:"version_current"`
+		}
+		if json.Unmarshal(vbody, &v) == nil {
+			data.Version = v.Current
+		}
+	}
 
 	if infinite {
 		// For all-time: use pagination count from list endpoint (returns total regardless of date)

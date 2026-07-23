@@ -347,7 +347,7 @@ func secPostureDetectVersion(igType, integrationID string) string {
 		"synology": "dsmVersion", "qnap": "fwVersion", "proxmox": "version",
 		"opnsense": "version", "traefik": "version", "nextcloud": "version",
 		"unifi": "version", "pihole": "version", "adguard": "version",
-		"netbird": "version",
+		"netbird": "version", "authentik": "version",
 	}[igType]
 	if field == "" {
 		if igType == "pfsense" {
@@ -381,11 +381,17 @@ func secPostureDetectVersion(igType, integrationID string) string {
 							best, bestN = v, n
 						}
 					}
+					// Tailscale client versions look like "1.98.8-t1241b225b-
+					// gbcbaf1889" — everything after the first dash is a build/
+					// commit identifier, not part of the release number.
+					if idx := strings.Index(best, "-"); idx >= 0 {
+						best = best[:idx]
+					}
 					return best
 				}
 			}
 		}
-		return "" // no single representative version (e.g. openwrt/npm/authentik/omada not yet captured)
+		return "" // no single representative version (e.g. openwrt/npm/omada not yet captured)
 	}
 	raw, ok := probe[field]
 	if !ok {

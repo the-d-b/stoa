@@ -338,6 +338,21 @@ type tnCall struct {
 
 func tnSlowCalls(data *TrueNASPanelData) []tnCall {
 	return []tnCall{
+		{method: "system.info", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
+			var info struct {
+				Hostname string `json:"hostname"`
+				Version  string `json:"version"`
+				Model    string `json:"model"`
+				Cores    int    `json:"cores"`
+			}
+			if json.Unmarshal(r, &info) != nil {
+				return
+			}
+			data.Hostname = info.Hostname
+			data.Version = info.Version
+			data.CPUModel = info.Model
+			data.CPUCores = info.Cores
+		}},
 		{method: "pool.query", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
 			var pools []struct {
 				Name      string `json:"name"`

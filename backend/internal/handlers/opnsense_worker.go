@@ -301,9 +301,12 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 		key  string
 		body []byte
 	}
-	ch := make(chan result, 7)
+	ch := make(chan result, 6)
 	paths := map[string]string{
-		"firmware":        "/api/core/firmware/running",
+		// /api/core/firmware/running was queried here previously but only
+		// ever returns {"status":"ready"}-style subsystem readiness, no
+		// version data — confirmed against a real instance. product_version
+		// lives in firmware_status instead, already fetched below.
 		"firmware_status": "/api/core/firmware/status",
 		"gateways":        "/api/routes/gateway/status",
 		"interfaces_info": "/api/interfaces/overview/interfacesInfo",
@@ -331,20 +334,14 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 		}
 	}
 
-	if body, ok := results["firmware"]; ok {
-		var fw struct {
-			Version string `json:"local_version"`
-		}
-		if json.Unmarshal(body, &fw) == nil {
-			data.Version = fw.Version
-		}
-	}
 	if body, ok := results["firmware_status"]; ok {
 		var fw struct {
-			Status string `json:"status"`
+			Status  string `json:"status"`
+			Version string `json:"product_version"`
 		}
 		if json.Unmarshal(body, &fw) == nil {
 			data.UpdateAvail = fw.Status == "update"
+			data.Version = fw.Version
 		}
 	}
 	if body, ok := results["gateways"]; ok {
