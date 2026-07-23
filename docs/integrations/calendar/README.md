@@ -98,9 +98,11 @@ Compared to the ICS source: ICS needs only a share URL but is read-only and depe
 
 ### Google Calendar
 
-Requires a Google OAuth integration. See [docs/oauth.md](../../oauth.md) for setup.
+Requires a Google Cloud OAuth client — this is a separate, dedicated OAuth client from the SSO login one described in [docs/oauth.md](../../oauth.md); the two are unrelated and use different redirect URIs.
 
-Once OAuth is configured, add source → **Google Calendar** → select an account and a calendar.
+**Admin → Google Calendar** → **To get credentials:** Google Cloud Console → APIs & Services → Credentials → Create OAuth 2.0 Client ID → application type **Web application** → add `<your Stoa URL>/api/auth/google/callback` as an authorized redirect URI → enable the Google Calendar API in the APIs & Services library. Paste the resulting Client ID and Client Secret into Admin → Google Calendar (one-time, shared across all connected accounts).
+
+Once credentials are configured, connect an account from Profile → Google (or Admin → Google Calendar for a system-scoped account), then add source → **Google Calendar** → select an account and a calendar.
 
 Each connected Google account refreshes on its own background schedule, set per account in the connected-accounts list (Profile → Google, or Admin → Google Calendar for system accounts) — 15 min, 30 min (default), 1 hour, 3 hours, or 6 hours. Pick a shorter interval for an account whose calendar changes often; there's no per-panel setting since one account can back multiple calendar sources across panels.
 

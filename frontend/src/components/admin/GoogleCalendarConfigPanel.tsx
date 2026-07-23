@@ -67,7 +67,7 @@ export default function GoogleCalendarConfigPanel() {
         <br /><br />
         <strong>To get credentials:</strong> Go to Google Cloud Console → APIs &amp; Services → Credentials →
         Create OAuth 2.0 Client ID. Set the application type to "Web application" and add your Stoa URL +
-        <code>/api/google/callback</code> as an authorized redirect URI. Enable the Google Calendar API
+        <code>/api/auth/google/callback</code> as an authorized redirect URI. Enable the Google Calendar API
         in the APIs &amp; Services library.
       </SectionHelp>
 
