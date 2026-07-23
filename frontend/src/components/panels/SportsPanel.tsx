@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface SportsPlay {
   text: string; clock: string; period: number; scoreValue: number
@@ -204,6 +205,9 @@ export default function SportsPanel({ panel, heightUnits }: { panel: Panel; heig
   const [error, setError] = useState('')
   const [selectedLeague, setSelectedLeague] = useState<string|null>(null)
 
+  const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId: string | undefined = cfg.integrationId
+
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.getPanelData(panel.id)
@@ -212,6 +216,9 @@ export default function SportsPanel({ panel, heightUnits }: { panel: Panel; heig
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<SportsData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   useEffect(() => { load() }, [load])
 

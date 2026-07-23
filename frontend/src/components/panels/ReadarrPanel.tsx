@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import ScrollableCoverStrip from './CoverStrip'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface ReadarrBook {
   id: number; title: string; titleSlug: string
@@ -73,6 +74,7 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
 
   const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const uiUrl = (cfg.uiUrl || '').replace(/\/$/, '')
+  const integrationId = cfg.integrationId as string | undefined
 
   const load = useCallback(async () => {
     try {
@@ -84,6 +86,14 @@ export default function ReadarrPanel({ panel, heightUnits }: { panel: Panel; hei
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<ReadarrData>(integrationId)
+  useEffect(() => {
+    if (sseData !== null) {
+      setData(sseData)
+      resample(sseData.missing || [])
+    }
+  }, [sseData])
 
   useEffect(() => { load() }, [load])
 

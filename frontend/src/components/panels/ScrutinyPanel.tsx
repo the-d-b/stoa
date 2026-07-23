@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface ScrutinyDevice {
   deviceName: string
@@ -249,6 +250,9 @@ export default function ScrutinyPanel({ panel, heightUnits }: { panel: Panel; he
       .then(res => { setData(res.data); setLoading(false) })
       .catch(e => { setError(e.response?.data?.error || e.message || 'Failed to load'); setLoading(false) })
   }, [panel.id, integrationId])
+
+  const sseData = useSSE<ScrutinyData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   const wrap = (children: React.ReactNode) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 14px', boxSizing: 'border-box', overflow: 'hidden' }}>

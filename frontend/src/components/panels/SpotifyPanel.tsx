@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface SpotifyNowPlaying {
   trackId: string
@@ -142,6 +143,9 @@ export default function SpotifyPanel({ panel, heightUnits }: { panel: Panel; hei
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const sseIntegrationId: string | undefined = cfg.integrationId
+
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.getPanelData(panel.id)
@@ -151,6 +155,9 @@ export default function SpotifyPanel({ panel, heightUnits }: { panel: Panel; hei
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<SpotifyData>(sseIntegrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   useEffect(() => { load() }, [load])
 

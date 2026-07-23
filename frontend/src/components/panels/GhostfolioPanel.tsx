@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface GhostfolioHolding {
   name: string
@@ -159,6 +160,9 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
       .then(res => { setData(res.data); setLoading(false) })
       .catch(e => { setError(e.response?.data?.error || e.message || 'Failed to load'); setLoading(false) })
   }, [panel.id, integrationId])
+
+  const sseData = useSSE<GhostfolioPanelData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (!integrationId) return <div style={{ padding: 16, color: '#666', fontSize: 13 }}>No integration configured.</div>
   if (loading) return <div style={{ padding: 16, color: '#888', fontSize: 13 }}>Loading...</div>

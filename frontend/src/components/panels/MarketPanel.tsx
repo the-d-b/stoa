@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface MarketQuote {
   symbol: string; name: string; price: number
@@ -146,6 +147,9 @@ export default function MarketPanel({ panel, heightUnits }: { panel: Panel; heig
   const [customSparks, setCustomSparks] = useState<Record<string, SparkPoint[]>>({})
   const [loadingSpark, setLoadingSpark] = useState(false)
 
+  const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId: string | undefined = cfg.integrationId
+
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.getPanelData(panel.id)
@@ -154,6 +158,14 @@ export default function MarketPanel({ panel, heightUnits }: { panel: Panel; heig
     } catch (e: any) { setError(e.response?.data?.error || 'Failed to load') }
     finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<MarketData>(integrationId)
+  useEffect(() => {
+    if (sseData !== null) {
+      setData(sseData)
+      if (!selected && sseData.quotes?.length > 0) setSelected(sseData.quotes[0].symbol)
+    }
+  }, [sseData])
 
   useEffect(() => { load() }, [load])
   useEffect(() => { const t = setTimeout(load, 5 * 60 * 1000); return () => clearTimeout(t) }, [data, load])

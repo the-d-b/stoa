@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 type AddState = 'adding' | 'added' | 'error'
 
@@ -135,6 +136,7 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
 
   const panelCfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const canAddAlbum = !!panelCfg.lidarrIntegrationId
+  const integrationId: string | undefined = panelCfg.integrationId
 
   const load = useCallback(async () => {
     try {
@@ -145,6 +147,9 @@ export default function LastFmPanel({ panel, heightUnits }: { panel: Panel; heig
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<LastFmData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   useEffect(() => { load() }, [load])
 

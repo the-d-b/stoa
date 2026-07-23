@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface NetbirdPeer {
   id: string
@@ -192,6 +193,9 @@ export default function NetbirdPanel({ panel, heightUnits }: { panel: Panel; hei
       .then(res => { setData(res.data); setLoading(false) })
       .catch(e => { setError(e.response?.data?.error || e.message || 'Failed to load'); setLoading(false) })
   }, [panel.id, integrationId])
+
+  const sseData = useSSE<NetbirdData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   const wrap = (children: React.ReactNode) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 14px', boxSizing: 'border-box', overflow: 'hidden' }}>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
 import { Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface NextDNSDomain { name: string; queries: number; blocked: number }
 interface NextDNSClient { name: string; queries: number; blocked: number }
@@ -140,6 +141,9 @@ export default function NextDNSPanel({ panel, heightUnits }: { panel: Panel; hei
       .then(res => { setData(res.data); setLoading(false) })
       .catch(e => { setError(e.response?.data?.error || e.message || 'Failed to load'); setLoading(false) })
   }, [panel.id, integrationId])
+
+  const sseData = useSSE<NextDNSData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (!integrationId) return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No integration configured.</div>
   if (loading) return <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading...</div>

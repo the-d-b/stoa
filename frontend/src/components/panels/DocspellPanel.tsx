@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface DocspellItem {
   id: string
@@ -72,12 +73,16 @@ export default function DocspellPanel({ panel, heightUnits }: { panel: any; heig
   const [data, setData] = useState<DocspellData | null>(null)
   const [err, setErr] = useState('')
   const uiUrl = panel.config ? (() => { try { return JSON.parse(panel.config).uiUrl } catch { return '' } })() : ''
+  const integrationId: string | undefined = panel.config ? (() => { try { return JSON.parse(panel.config).integrationId } catch { return undefined } })() : undefined
 
   useEffect(() => {
     integrationsApi.getPanelData(panel.id)
       .then((r: any) => setData(r.data))
       .catch(() => setErr('Failed to load'))
   }, [panel.id])
+
+  const sseData = useSSE<DocspellData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (err) return <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>{err}</div>
   if (!data) return <div style={{ padding: 16 }}><span className="spinner" /></div>

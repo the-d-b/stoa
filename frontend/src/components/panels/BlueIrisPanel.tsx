@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -285,6 +286,9 @@ export default function BlueIrisPanel({ panel, heightUnits }: { panel: Panel; he
       .then(res => { setData(res.data); setLoading(false) })
       .catch(e => { setError(e.response?.data?.error || e.message || 'Failed to load'); setLoading(false) })
   }, [panel.id, integrationId])
+
+  const sseData = useSSE<BlueIrisData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   const wrap = (children: React.ReactNode) => (
     <div style={{

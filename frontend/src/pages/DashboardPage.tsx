@@ -910,6 +910,13 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
   const [collapsedManual, setCollapsedManual] = useState<boolean | null>(null)
   const [resizeMenu, setResizeMenu] = useState<{ x: number; y: number } | null>(null)
   const [refreshing, setRefreshing] = useState(false)
+  // Bumped on every manual refresh to force the panel body to remount —
+  // most panel components fetch once on mount and have no other way to
+  // learn that new data exists (no SSE subscription, or SSE fixed the
+  // cache but this is a cheap, universal guarantee regardless of panel
+  // type). Scoped to just this one panel's content, not a full page
+  // reload, so the rest of the dashboard's state is untouched.
+  const [refreshNonce, setRefreshNonce] = useState(0)
   // When a global expand/collapse fires, reset the manual override so it takes full effect
   useEffect(() => {
     if (allExpanded !== null && allExpanded !== undefined) setCollapsedManual(null)
@@ -924,7 +931,8 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
     setResizeMenu(null)
     try {
       await integrationsApi.getPanelData(panel.id, { nocache: '1' })
-    } catch { /* cache busted — SSE worker will push fresh data */ }
+    } catch { /* cache busted — SSE-subscribed panels will still get pushed fresh data */ }
+    setRefreshNonce(n => n + 1)
     setTimeout(() => setRefreshing(false), 2000)
   }
 
@@ -1072,7 +1080,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
 
       {/* Content */}
       {!collapsed && (
-        <div style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+        <div key={`${panel.id}-${refreshNonce}`} style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
           {panel.type === 'bookmarks' && !subtree && (
             <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
           )}

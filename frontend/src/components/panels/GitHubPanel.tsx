@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface GitHubRepo {
   name: string
@@ -226,6 +227,9 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId: string | undefined = cfg.integrationId
+
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.getPanelData(panel.id)
@@ -235,6 +239,9 @@ export default function GitHubPanel({ panel, heightUnits }: { panel: Panel; heig
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<GitHubData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   useEffect(() => { load() }, [load])
 

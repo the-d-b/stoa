@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface WeatherCurrent {
   tempC: number; tempF: number
@@ -51,14 +52,17 @@ export default function WeatherPanel({ panel, heightUnits = 2 }: { panel: any; h
 
   const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const useF = (data?.unit || 'f') === 'f'
+  const integrationId: string | undefined = cfg.integrationId
 
   useEffect(() => {
-    const integrationId = cfg.integrationId
     if (!integrationId) { setError('No weather integration configured'); return }
     integrationsApi.getPanelData(panel.id)
       .then(r => { setData(r.data); setError('') })
       .catch(() => setError('Weather unavailable'))
   }, [panel.config, panel.id])
+
+  const sseData = useSSE<WeatherData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (error) return (
     <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>{error}</div>

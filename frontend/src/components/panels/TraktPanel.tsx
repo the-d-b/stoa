@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -363,6 +364,7 @@ export default function TraktPanel({ panel, heightUnits }: { panel: Panel; heigh
   const panelCfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const radarrIntId: string = panelCfg.radarrIntegrationId ?? ''
   const sonarrIntId: string = panelCfg.sonarrIntegrationId ?? ''
+  const integrationId: string | undefined = panelCfg.integrationId
 
   const load = useCallback(async () => {
     try {
@@ -373,6 +375,9 @@ export default function TraktPanel({ panel, heightUnits }: { panel: Panel; heigh
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<TraktData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   useEffect(() => { load() }, [load])
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface RSSItem { title: string; link: string; pubDate?: string }
 
@@ -35,6 +36,9 @@ export default function RSSPanel({ panel, heightUnits = 2 }: { panel: Panel; hei
       .catch(() => setError('Failed to load feed'))
       .finally(() => setLoading(false))
   }, [panel.id, config.integrationId])
+
+  const sseData = useSSE<{ items: RSSItem[] }>(config.integrationId)
+  useEffect(() => { if (sseData !== null) setItems(sseData.items || []) }, [sseData])
 
   if (!config.integrationId) return (
     <div style={{ padding: 12, fontSize: 12, color: 'var(--text-dim)' }}>

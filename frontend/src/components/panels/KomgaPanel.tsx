@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import AuthCoverStrip from './AuthCoverStrip'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface KomgaSeries {
   id: string
@@ -95,6 +96,9 @@ export default function KomgaPanel({ panel, heightUnits }: { panel: Panel; heigh
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId: string | undefined = cfg.integrationId
+
   const load = useCallback(async () => {
     try {
       const r = await integrationsApi.getPanelData(panel.id)
@@ -104,6 +108,9 @@ export default function KomgaPanel({ panel, heightUnits }: { panel: Panel; heigh
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
   }, [panel.id])
+
+  const sseData = useSSE<KomgaData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   useEffect(() => { load() }, [load])
 

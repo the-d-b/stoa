@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface PterodactylServer {
   identifier: string
@@ -143,11 +144,17 @@ export default function PterodactylPanel({ panel, heightUnits }: { panel: any; h
   const [data, setData] = useState<PterodactylData | null>(null)
   const [err, setErr] = useState('')
 
+  const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId: string | undefined = config.integrationId
+
   useEffect(() => {
     integrationsApi.getPanelData(panel.id)
       .then((r: any) => setData(r.data))
       .catch(() => setErr('Failed to load'))
   }, [panel.id])
+
+  const sseData = useSSE<PterodactylData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (err) return <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>{err}</div>
   if (!data) return <div style={{ padding: 16 }}><span className="spinner" /></div>

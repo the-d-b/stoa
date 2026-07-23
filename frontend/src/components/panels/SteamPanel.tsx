@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface SteamPlayer {
   steamId: string; username: string; avatarUrl: string
@@ -95,6 +96,7 @@ export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; hei
   const [tab, setTab] = useState<'library'|'recent'|'achievements'|'store'|'new'>('library')
 
   const cfg = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
+  const integrationId: string | undefined = cfg.integrationId
 
   useEffect(() => {
     if (!cfg.integrationId) { setError('No Steam integration configured'); return }
@@ -102,6 +104,9 @@ export default function SteamPanel({ panel, heightUnits = 2 }: { panel: any; hei
       .then(r => { setData(r.data); setError('') })
       .catch(e => setError(e.response?.data?.error || 'Failed to load Steam data'))
   }, [panel.config, panel.id])
+
+  const sseData = useSSE<SteamData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (error) return (
     <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>

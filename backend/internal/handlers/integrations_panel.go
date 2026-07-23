@@ -313,9 +313,19 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		config["_userId"] = claims.UserID
 		config["_userRole"] = string(claims.Role)
 		// Allow query params to override config values (e.g. ?days=7 for time range)
-		// Track whether any override was applied — overridden requests bypass cache
-		// so filters like 1d/7d/30d always return fresh data, not stale cached data.
+		// hasOverride means "don't read from cache, fetch live" — true for any
+		// override including a plain nocache=1 refresh. filteredOverride means
+		// "this response is scoped to this one request and must never be written
+		// into the shared cache key" — true only for params that actually narrow
+		// or reshape the data (days/playlistId/timeRange), NOT for a plain
+		// nocache=1 refresh, which fetches the exact same shape of data the
+		// worker would normally cache, just fetched now instead of waiting for
+		// the next tick. Writing a filtered response into the shared cache key
+		// would broadcast a narrowed dataset to every other viewer of this
+		// integration over SSE, cascading into their own unwanted re-fetches —
+		// see the write-skip below. A plain refresh has no such risk.
 		hasOverride := false
+		filteredOverride := false
 		if r.URL.Query().Get("nocache") == "1" {
 			hasOverride = true
 			config["forceRefresh"] = true
@@ -325,17 +335,20 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			if _, err := fmt.Sscanf(d, "%f", &daysVal); err == nil {
 				config["days"] = daysVal
 				hasOverride = true
+				filteredOverride = true
 			}
 		}
 		if pl := r.URL.Query().Get("playlistId"); pl != "" {
 			config["playlistId"] = pl
 			hasOverride = true
+			filteredOverride = true
 		}
 		if tr := r.URL.Query().Get("timeRange"); tr != "" {
 			var trVal float64
 			if _, err := fmt.Sscanf(tr, "%f", &trVal); err == nil {
 				config["timeRange"] = trVal
 				hasOverride = true
+				filteredOverride = true
 			}
 		}
 
@@ -392,12 +405,13 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, friendlyPanelError(err))
 			return
 		}
-		// Only cache when there are no query-param overrides.
-		// Override requests (days, timeRange, etc.) must not overwrite the worker's
-		// cached entry — doing so triggers an SSE broadcast that causes the frontend
-		// to re-fetch, which triggers another broadcast, creating a cascade loop.
-		// The worker owns the cache; panel endpoint reads from it or fetches live.
-		if cacheKey != "" && !plexFiltered && !hasOverride {
+		// Write back to cache (and broadcast over SSE) unless this response is
+		// scoped/filtered — see filteredOverride above. A plain nocache=1
+		// refresh DOES write back: it's the same unfiltered shape the worker
+		// itself would cache, so every subscriber (including the panel that
+		// asked for the refresh) correctly receives the fresh data via SSE
+		// instead of it being fetched and silently discarded.
+		if cacheKey != "" && !plexFiltered && !filteredOverride {
 			cacheSet(cacheKey, data)
 		}
 		// For HA: cache holds the full entity list; serve the filtered view to the client.

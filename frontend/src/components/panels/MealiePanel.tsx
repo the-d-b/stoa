@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
+import { useSSE } from '../../hooks/useSSE'
 
 interface MealieRecipe {
   id: string
@@ -303,6 +304,9 @@ export default function MealiePanel({ panel, heightUnits }: { panel: Panel; heig
   }, [panel.id])
 
   useEffect(() => { if (!integrationId) { setLoading(false); return }; load() }, [load, integrationId])
+
+  const sseData = useSSE<MealiePanelData>(integrationId)
+  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
   if (!integrationId) return <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
