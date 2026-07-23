@@ -220,8 +220,9 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 
 	// ── Pending method call responses ───────────────────────────────────────
 	type pendingEntry struct {
-		fn   func(json.RawMessage)
-		data *TrueNASPanelData
+		method string
+		fn     func(json.RawMessage)
+		data   *TrueNASPanelData
 	}
 	pending := map[string]pendingEntry{}
 	var pendingMu sync.Mutex
@@ -243,6 +244,8 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 				if ok {
 					if msg.Error == nil {
 						entry.fn(msg.Result)
+					} else {
+						logDebugf("TRUENAS", "slow call %s failed: %s", entry.method, string(msg.Error.Error))
 					}
 					delete(pending, id)
 					// Check if all results for this data object arrived
@@ -271,8 +274,8 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 			existing := tnGetCached(ig.id)
 			newIDs := tnSendSlowRequests(c, existing)
 			pendingMu.Lock()
-			for id, fn := range newIDs {
-				pending[id] = pendingEntry{fn: fn, data: existing}
+			for id, entry := range newIDs {
+				pending[id] = pendingEntry{method: entry.method, fn: entry.handle, data: existing}
 			}
 			pendingMu.Unlock()
 		}
@@ -281,14 +284,18 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 
 // ── Slow data helpers ─────────────────────────────────────────────────────────
 
-type tnSlowHandler map[string]func(json.RawMessage)
+type tnSlowHandlerEntry struct {
+	method string
+	handle func(json.RawMessage)
+}
+type tnSlowHandler map[string]tnSlowHandlerEntry
 
 func tnSendSlowRequests(c *tnConn, data *TrueNASPanelData) tnSlowHandler {
 	handlers := tnSlowHandler{}
 	calls := tnSlowCalls(data)
 	for _, call := range calls {
 		id := c.nextID()
-		handlers[id] = call.handle
+		handlers[id] = tnSlowHandlerEntry{method: call.method, handle: call.handle}
 		c.send(map[string]interface{}{
 			"msg": "method", "id": id,
 			"method": call.method, "params": call.params,
@@ -310,9 +317,11 @@ func tnFetchSlowData(c *tnConn, data *TrueNASPanelData, readMsg func(time.Durati
 			continue
 		}
 		id, _ := msg.ID.(string)
-		if fn, ok := handlers[id]; ok {
+		if entry, ok := handlers[id]; ok {
 			if msg.Error == nil {
-				fn(msg.Result)
+				entry.handle(msg.Result)
+			} else {
+				logDebugf("TRUENAS", "slow call %s failed: %s", entry.method, string(msg.Error.Error))
 			}
 			delete(handlers, id)
 			remaining--

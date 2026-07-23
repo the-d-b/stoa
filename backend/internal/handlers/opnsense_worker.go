@@ -315,6 +315,7 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 		go func(k, p string) {
 			body, err := opnsenseGet(apiURL, apiKey, p, skipTLS)
 			if err != nil {
+				logDebugf("OPNSENSE", "slow fetch %s (%s) failed: %v", k, p, err)
 				ch <- result{key: k}
 				return
 			}
