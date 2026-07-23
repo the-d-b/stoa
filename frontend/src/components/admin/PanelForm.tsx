@@ -277,6 +277,9 @@ export default function PanelForm({
   // ── iframe ─────────────────────────────────────────────────────────────────
   const [iframeUrl, setIframeUrl] = useState(cfg.url ?? '')
 
+  // ── Docker Apps ────────────────────────────────────────────────────────────
+  const [dockerGroupFilter, setDockerGroupFilter] = useState(cfg.group ?? '')
+
   // ── custom HTML ────────────────────────────────────────────────────────────
   const [customHtml, setCustomHtml] = useState(cfg.html ?? '')
 
@@ -458,6 +461,8 @@ export default function PanelForm({
       base.refreshSecs = apiRefreshSecs
     } else if (type === 'calendar') {
       return JSON.stringify({ ...cfg, height, sources: cfg.sources || [] })
+    } else if (type === 'dockerapps') {
+      if (dockerGroupFilter.trim()) base.group = dockerGroupFilter.trim()
     } else if (type === 'bookmarks') {
       if (bookmarkRootId) base.rootNodeId = bookmarkRootId
     } else if (INTEGRATION_TYPES.includes(type)) {
@@ -951,6 +956,19 @@ export default function PanelForm({
           <label className="label">Embed URL</label>
           <input className="input" value={iframeUrl} onChange={e => setIframeUrl(e.target.value)}
             placeholder="https://example.com" />
+        </div>
+      )}
+
+      {/* Docker Apps group filter */}
+      {type === 'dockerapps' && (
+        <div>
+          <label className="label">Group filter (optional)</label>
+          <input className="input" value={dockerGroupFilter} onChange={e => setDockerGroupFilter(e.target.value)}
+            placeholder="e.g. Network Infrastructure — leave blank to show every group" />
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+            Matches the <code>homepage.group</code> label exactly (case-insensitive). Leave blank to show all apps
+            regardless of group — useful for putting different groups on different porticos.
+          </div>
         </div>
       )}
 

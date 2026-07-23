@@ -277,6 +277,8 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
 		// "dockerapps" reads live container labels, which are gated the same
 		// way as the existing admin Docker container list — by docker_enabled
 		// and docker_groups membership — rather than by panel ownership/
@@ -284,7 +286,6 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// requesting user's claims, which panelFetchers entries don't
 		// receive, so it's special-cased here instead of inside the fetcher.
 		if panelType == "dockerapps" {
-			claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 			var enabledStr string
 			db.QueryRow("SELECT value FROM app_config WHERE key='docker_enabled'").Scan(&enabledStr)
 			if enabledStr != "true" {
@@ -304,6 +305,13 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		}
 		// Inject panel's own ID so local-data panel types (e.g. kanban) can query by it
 		config["_panelId"] = id
+		// Inject the requesting user's identity so panel types that read
+		// cross-cutting data (e.g. securityposture, which auto-discovers
+		// integrations rather than referencing one) can scope results to
+		// what this specific user can actually see, the same way every
+		// other integration-visibility check in Stoa already works.
+		config["_userId"] = claims.UserID
+		config["_userRole"] = string(claims.Role)
 		// Allow query params to override config values (e.g. ?days=7 for time range)
 		// Track whether any override was applied — overridden requests bypass cache
 		// so filters like 1d/7d/30d always return fresh data, not stale cached data.

@@ -16,11 +16,24 @@ interface DuolingoData {
   avatarUrl: string
   streak: number
   longestStreak: number
-  streakDoneToday: boolean
+  streakDoneToday: boolean // server-local best-effort — see isStreakDoneToday for the real check
+  streakEndDate: string    // raw YYYY-MM-DD from Duolingo, no timezone info
   totalXP: number
   hasPlus: boolean
   league: string
   courses: DuolingoCourse[]
+}
+
+// Duolingo's endDate carries no timezone info, and the server's own "local"
+// time is only a reliable proxy for the user's actual timezone by
+// coincidence — a containerized deployment commonly runs in UTC regardless
+// of where the user actually is. The browser is the one place that
+// genuinely knows the user's local time, so this recomputes the check here
+// rather than trusting the server-computed streakDoneToday field.
+function isStreakDoneToday(streakEndDate: string | undefined): boolean {
+  if (!streakEndDate) return true // no data yet — don't flash a false alarm
+  const today = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD, browser-local
+  return streakEndDate >= today
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -249,7 +262,8 @@ export default function DuolingoPanel({ panel, heightUnits }: { panel: Panel; he
 
   useEffect(() => { load() }, [load])
 
-  const countdown = useStreakCountdown(data?.streakDoneToday ?? true)
+  const streakDoneToday = isStreakDoneToday(data?.streakEndDate)
+  const countdown = useStreakCountdown(streakDoneToday)
 
   if (loading) return <div style={{ padding: 16, fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
   if (error)   return <div style={{ padding: 16, fontSize: 13, color: DUO_RED }}>🦉 {error}</div>
@@ -266,7 +280,7 @@ export default function DuolingoPanel({ panel, heightUnits }: { panel: Panel; he
         height: '100%', overflow: 'hidden', flexWrap: 'wrap' }}>
         <StreakBadge streak={data.streak} size="sm" />
         <span style={{ fontSize: 10, color: 'var(--text-dim)' }}>day streak</span>
-        {!data.streakDoneToday && countdown && (
+        {!streakDoneToday && countdown && (
           <span style={{ fontSize: 10, color: DUO_ORANGE, fontWeight: 600 }}>
             ⚠️ {countdown}
           </span>
@@ -309,7 +323,7 @@ export default function DuolingoPanel({ panel, heightUnits }: { panel: Panel; he
         </div>
         {/* Streak status */}
         <div style={{ flexShrink: 0 }}>
-          {data.streakDoneToday ? <StreakOk /> : <StreakAlert countdown={countdown} />}
+          {streakDoneToday ? <StreakOk /> : <StreakAlert countdown={countdown} />}
         </div>
         {/* Courses */}
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex',
@@ -376,7 +390,7 @@ export default function DuolingoPanel({ panel, heightUnits }: { panel: Panel; he
 
       {/* Streak status */}
       <div style={{ flexShrink: 0 }}>
-        {data.streakDoneToday ? <StreakOk /> : <StreakAlert countdown={countdown} />}
+        {streakDoneToday ? <StreakOk /> : <StreakAlert countdown={countdown} />}
       </div>
 
       {/* Streak milestone */}

@@ -59,6 +59,7 @@ type NPMRedirectHost struct {
 type NPMPanelData struct {
 	UIURL            string            `json:"uiUrl"`
 	IntegrationID    string            `json:"integrationId"`
+	Version          string            `json:"version"`
 	ProxyHosts       []NPMProxyHost    `json:"proxyHosts"`
 	ProxyTotal       int               `json:"proxyTotal"`
 	ProxyEnabled     int               `json:"proxyEnabled"`
@@ -154,6 +155,38 @@ func npmGet(baseURL, token, path string, skipTLS bool) ([]byte, error) {
 	return io.ReadAll(resp.Body)
 }
 
+// npmFetchVersion hits the unauthenticated API status endpoint — no token
+// needed. The trailing slash is required: without it, NPM 302-redirects to
+// its frontend instead of returning JSON. Version is reported as separate
+// major/minor/revision numbers rather than a single string, so it's
+// assembled here.
+func npmFetchVersion(baseURL string, skipTLS bool) string {
+	client := httpClient(skipTLS)
+	resp, err := client.Get(strings.TrimRight(baseURL, "/") + "/api/")
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return ""
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+	var status struct {
+		Version struct {
+			Major    int `json:"major"`
+			Minor    int `json:"minor"`
+			Revision int `json:"revision"`
+		} `json:"version"`
+	}
+	if json.Unmarshal(body, &status) != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d.%d.%d", status.Version.Major, status.Version.Minor, status.Version.Revision)
+}
+
 // ── Panel fetcher ─────────────────────────────────────────────────────────────
 
 func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData, error) {
@@ -193,6 +226,7 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 	out := &NPMPanelData{
 		UIURL:         uiURL,
 		IntegrationID: integrationID,
+		Version:       npmFetchVersion(baseURL, skipTLS),
 		ProxyHosts:    []NPMProxyHost{},
 		RedirectHosts: []NPMRedirectHost{},
 		Certificates:  []NPMCertificate{},

@@ -55,7 +55,8 @@ type DuolingoPanelData struct {
 	AvatarURL       string           `json:"avatarUrl"`
 	Streak          int              `json:"streak"`
 	LongestStreak   int              `json:"longestStreak"`
-	StreakDoneToday bool             `json:"streakDoneToday"`
+	StreakDoneToday bool             `json:"streakDoneToday"` // server-local best-effort; frontend recomputes from StreakEndDate using browser-local time, which is authoritative
+	StreakEndDate   string           `json:"streakEndDate"`   // raw YYYY-MM-DD from Duolingo, no timezone info
 	TotalXP         int              `json:"totalXP"`
 	HasPlus         bool             `json:"hasPlus"`
 	League          string           `json:"league"`
@@ -155,6 +156,7 @@ func fetchDuolingoPanelData(db *sql.DB, config map[string]interface{}) (*Duoling
 		Streak:          u.Streak,
 		LongestStreak:   u.StreakData.LongestStreak.Length,
 		StreakDoneToday: streakDoneToday,
+		StreakEndDate:   u.StreakData.CurrentStreak.EndDate,
 		TotalXP:         u.TotalXp,
 		HasPlus:         u.HasPlus,
 		League:          duoParseLeague(u.LeagueData),
@@ -163,20 +165,21 @@ func fetchDuolingoPanelData(db *sql.DB, config map[string]interface{}) (*Duoling
 }
 
 // duoStreakDoneToday reports whether the user's streak already counts for
-// today. endDate is Duolingo's plain YYYY-MM-DD "last day the streak was
-// extended" — confirmed against a live response to carry no timezone info at
-// all (Duolingo's public profile API exposes no timezone field). Duolingo
-// itself resolves endDate using the user's own app-configured timezone,
-// which stoa has no way to learn from this endpoint, so "today" is computed
-// in SERVER-LOCAL time as a best-effort proxy — the same convention stoa
-// already uses for this exact class of problem elsewhere (see localDate()
-// and the ICS parser's use of time.Local).
+// today, computed in SERVER-LOCAL time. endDate is Duolingo's plain
+// YYYY-MM-DD "last day the streak was extended" — confirmed against a live
+// response to carry no timezone info at all. Duolingo itself resolves
+// endDate using the user's own app-configured timezone, which stoa has no
+// way to learn from this endpoint.
 //
-// Comparing against UTC instead (the original implementation) rolls "today"
-// over to the next calendar day for any timezone west of UTC up to several
-// hours before the user's own day has actually ended — a same-day practice
-// then looks like it happened "yesterday" and the streak gets falsely
-// flagged as at risk.
+// This is NOT authoritative — it's a fallback for API consumers that only
+// see this boolean. Server-local time is only a reliable proxy for the
+// user's actual timezone when the server happens to be configured for it;
+// a containerized deployment commonly defaults to UTC regardless of where
+// the user actually is, which silently reproduces the exact false-alarm
+// this function was written to fix. The frontend has the real answer
+// (browser-local time) and recomputes this itself from StreakEndDate rather
+// than trusting this field — see useStreakCountdown / streakDoneToday in
+// DuolingoPanel.tsx.
 func duoStreakDoneToday(endDate string, now time.Time) bool {
 	today := now.Local().Format("2006-01-02")
 	return endDate >= today

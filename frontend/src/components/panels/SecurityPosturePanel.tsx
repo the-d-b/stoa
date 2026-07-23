@@ -87,7 +87,7 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
   }
 
   return (
-    <div style={{ height: '100%', overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div style={{ height: '100%', minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
       {entries.map(e => {
         const worst = worstSeverity(e.cves)
         const isOpen = expanded === e.integrationId
@@ -95,7 +95,7 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
         return (
           <div key={e.integrationId} style={{
             border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
-            background: 'var(--surface2)',
+            background: 'var(--surface2)', flexShrink: 0,
           }}>
             <div onClick={() => setExpanded(isOpen ? null : e.integrationId)} style={{
               display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
@@ -127,7 +127,7 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
                 {e.cves.slice(0, 20).map(c => (
                   <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={{
                     display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none',
-                    color: 'inherit', padding: '4px 6px', borderRadius: 6,
+                    color: 'inherit', padding: '4px 6px', borderRadius: 6, flexShrink: 0,
                   }}
                     onMouseOver={ev => ev.currentTarget.style.background = 'var(--surface)'}
                     onMouseOut={ev => ev.currentTarget.style.background = 'transparent'}>

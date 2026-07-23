@@ -30,6 +30,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // securityPostureTypes maps a stoa integration type to the NVD keyword
@@ -288,15 +290,47 @@ type SecPosturePanelData struct {
 	Entries []SecPostureEntry `json:"entries"`
 }
 
-// fetchSecurityPosturePanelData auto-discovers every configured integration
-// (system or personal, visible to the requesting context is handled by the
-// normal integration listing elsewhere — this reads all of them, matching
-// how other cross-cutting panels behave) whose type is in the covered list,
-// and joins each with its cached version and its type's cached CVE list.
-// No per-panel source picker: this is meant as a holistic overview, not
-// something you'd hand-curate.
+// fetchSecurityPosturePanelData auto-discovers configured integrations whose
+// type is in the covered list and joins each with its cached version and its
+// type's cached CVE list. No per-panel source picker: this is meant as a
+// holistic overview, not something you'd hand-curate — but it only surfaces
+// integrations the requesting user can actually see, using the identical
+// visibility rule ListIntegrations already applies for "My Integrations":
+// your own integrations, plus system integrations with no group restriction,
+// plus system integrations restricted to a group you're in. Admins see all
+// system integrations regardless of group restriction, same as elsewhere —
+// but, matching ListIntegrations, NOT other individual users' personal
+// integrations. A panel shared to someone who can't see the underlying
+// integrations shows fewer (or zero) entries rather than everything; that's
+// deliberate, not a bug — see docs/integrations/security-posture/.
 func fetchSecurityPosturePanelData(db *sql.DB, config map[string]interface{}) (*SecPosturePanelData, error) {
-	rows, err := db.Query("SELECT id, name, type, ui_url FROM integrations WHERE enabled=1")
+	userID := stringVal(config, "_userId")
+	isAdmin := stringVal(config, "_userRole") == string(models.RoleAdmin)
+
+	var rows *sql.Rows
+	var err error
+	if isAdmin {
+		rows, err = db.Query(`
+			SELECT id, name, type, ui_url, COALESCE(config,'{}') FROM integrations
+			WHERE enabled=1 AND (created_by='SYSTEM' OR created_by=?)
+		`, userID)
+	} else {
+		rows, err = db.Query(`
+			SELECT DISTINCT i.id, i.name, i.type, i.ui_url, COALESCE(i.config,'{}')
+			FROM integrations i
+			WHERE i.enabled=1 AND (
+				i.created_by = ?
+				OR (i.created_by = 'SYSTEM' AND NOT EXISTS (
+					SELECT 1 FROM integration_groups WHERE integration_id = i.id
+				))
+				OR (i.created_by = 'SYSTEM' AND EXISTS (
+					SELECT 1 FROM integration_groups ig
+					JOIN user_groups ug ON ig.group_id = ug.group_id
+					WHERE ig.integration_id = i.id AND ug.user_id = ?
+				))
+			)
+		`, userID, userID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -304,8 +338,8 @@ func fetchSecurityPosturePanelData(db *sql.DB, config map[string]interface{}) (*
 
 	data := &SecPosturePanelData{Entries: []SecPostureEntry{}}
 	for rows.Next() {
-		var id, name, igType, uiURL string
-		if rows.Scan(&id, &name, &igType, &uiURL) != nil {
+		var id, name, igType, uiURL, configStr string
+		if rows.Scan(&id, &name, &igType, &uiURL, &configStr) != nil {
 			continue
 		}
 		if _, ok := securityPostureTypes[igType]; !ok {
@@ -315,8 +349,22 @@ func fetchSecurityPosturePanelData(db *sql.DB, config map[string]interface{}) (*
 			IntegrationID: id, Type: igType, Name: name, UIURL: uiURL,
 			Version: secPostureDetectVersion(igType, id),
 		}
+		var igConfig struct {
+			CVEIgnoreBefore string `json:"cveIgnoreBefore"` // YYYY-MM-DD
+		}
+		json.Unmarshal([]byte(configStr), &igConfig) //nolint:errcheck
 		if cves, ok := secPostureGetCVEs(igType); ok {
-			entry.CVEs = cves
+			if igConfig.CVEIgnoreBefore != "" {
+				filtered := make([]CVEItem, 0, len(cves))
+				for _, c := range cves {
+					if c.Published >= igConfig.CVEIgnoreBefore {
+						filtered = append(filtered, c)
+					}
+				}
+				entry.CVEs = filtered
+			} else {
+				entry.CVEs = cves
+			}
 		} else {
 			entry.CVEs = []CVEItem{}
 		}
@@ -347,7 +395,8 @@ func secPostureDetectVersion(igType, integrationID string) string {
 		"synology": "dsmVersion", "qnap": "fwVersion", "proxmox": "version",
 		"opnsense": "version", "traefik": "version", "nextcloud": "version",
 		"unifi": "version", "pihole": "version", "adguard": "version",
-		"netbird": "version", "authentik": "version",
+		"authentik": "version", "nginxpm": "version",
+		"openwrt": "version", "omada": "version",
 	}[igType]
 	if field == "" {
 		if igType == "pfsense" {
@@ -369,18 +418,11 @@ func secPostureDetectVersion(igType, integrationID string) string {
 					ClientVersion string `json:"clientVersion"`
 				}
 				if json.Unmarshal(raw, &devices) == nil {
-					counts := map[string]int{}
-					for _, d := range devices {
-						if d.ClientVersion != "" {
-							counts[d.ClientVersion]++
-						}
+					versions := make([]string, len(devices))
+					for i, d := range devices {
+						versions[i] = d.ClientVersion
 					}
-					best, bestN := "", 0
-					for v, n := range counts {
-						if n > bestN || (n == bestN && v > best) {
-							best, bestN = v, n
-						}
-					}
+					best := secPostureMostCommonVersion(versions)
 					// Tailscale client versions look like "1.98.8-t1241b225b-
 					// gbcbaf1889" — everything after the first dash is a build/
 					// commit identifier, not part of the release number.
@@ -391,7 +433,23 @@ func secPostureDetectVersion(igType, integrationID string) string {
 				}
 			}
 		}
-		return "" // no single representative version (e.g. openwrt/npm/omada not yet captured)
+		if igType == "netbird" {
+			// Same situation as Tailscale — no account-level version, only
+			// per-peer. Use whichever version the most peers share.
+			if raw, ok := probe["peers"]; ok {
+				var peers []struct {
+					Version string `json:"version"`
+				}
+				if json.Unmarshal(raw, &peers) == nil {
+					versions := make([]string, len(peers))
+					for i, p := range peers {
+						versions[i] = p.Version
+					}
+					return secPostureMostCommonVersion(versions)
+				}
+			}
+		}
+		return ""
 	}
 	raw, ok := probe[field]
 	if !ok {
@@ -400,6 +458,26 @@ func secPostureDetectVersion(igType, integrationID string) string {
 	var s string
 	json.Unmarshal(raw, &s) //nolint:errcheck
 	return s
+}
+
+// secPostureMostCommonVersion returns whichever non-empty value appears most
+// often, breaking ties lexicographically greatest for determinism. Used for
+// products (Tailscale, Netbird) that report a version per-device/per-peer
+// rather than a single account-level version.
+func secPostureMostCommonVersion(versions []string) string {
+	counts := map[string]int{}
+	for _, v := range versions {
+		if v != "" {
+			counts[v]++
+		}
+	}
+	best, bestN := "", 0
+	for v, n := range counts {
+		if n > bestN || (n == bestN && v > best) {
+			best, bestN = v, n
+		}
+	}
+	return best
 }
 
 // ── Admin settings: optional NVD API key ────────────────────────────────

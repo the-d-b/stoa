@@ -10,6 +10,8 @@ App-launcher tiles, auto-discovered from labels on your running Docker container
 
 **No integration or source picker required.** Any container carrying a `homepage.name` or `homepage.href` label becomes a tile automatically the next time the panel loads — nothing to configure per app beyond the labels themselves.
 
+Optionally, a panel can be scoped to a single `homepage.group` via the **Group filter** field on the panel's edit form (matched case-insensitively; leave blank to show every group). This is for splitting groups across different porticos rather than curating — e.g. a "Network Infrastructure" panel on one portico and a "Storage Infrastructure" panel on another, both reading the same containers, each showing only its own group.
+
 ### Why "homepage"
 
 Stoa deliberately reuses the label convention from [Homepage](https://gethomepage.dev) rather than inventing a `stoa.*` equivalent. If you're already running Homepage, pointing Stoa at the same Docker socket populates this panel with zero re-tagging — you can run both dashboards side by side, or migrate from one to the other, without touching your compose files.

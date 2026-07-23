@@ -324,7 +324,7 @@ func fetchDockerApps(client *http.Client, baseURL, hostName string) ([]DockerApp
 // is already enforced by GetPanelData before this runs — see the special
 // case there — so by the time this executes the caller is known-authorized
 // and the result is always Enabled:true, HasAccess:true.
-func fetchDockerAppsPanelData(db *sql.DB, _ map[string]interface{}) (interface{}, error) {
+func fetchDockerAppsPanelData(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 	hosts, err := loadDockerHosts(db)
 	if err != nil {
 		return nil, err
@@ -353,6 +353,19 @@ func fetchDockerAppsPanelData(db *sql.DB, _ map[string]interface{}) (interface{}
 		}(h)
 	}
 	wg.Wait()
+
+	// Optional per-panel group filter — matches homepage.group case-
+	// insensitively so a panel can show just one group (e.g. to put
+	// different groups on different porticos) instead of everything.
+	if groupFilter := stringVal(cfg, "group"); groupFilter != "" {
+		filtered := apps[:0]
+		for _, a := range apps {
+			if strings.EqualFold(a.Group, groupFilter) {
+				filtered = append(filtered, a)
+			}
+		}
+		apps = filtered
+	}
 
 	sort.Slice(apps, func(i, j int) bool {
 		if apps[i].Group != apps[j].Group {

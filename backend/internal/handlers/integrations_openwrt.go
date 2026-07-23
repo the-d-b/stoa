@@ -32,6 +32,7 @@ type OpenWrtClient struct {
 type OpenWrtPanelData struct {
 	UIURL         string          `json:"uiUrl"`
 	IntegrationID string          `json:"integrationId"`
+	Version       string          `json:"version"`
 	Hostname      string          `json:"hostname"`
 	Uptime        int64           `json:"uptime"`   // seconds
 	Load1         float64         `json:"load1"`    // 1-min load average
@@ -244,6 +245,23 @@ func fetchOpenWrtPanelData(db *sql.DB, config map[string]interface{}) (*OpenWrtP
 				data.Load1 = float64(info.Load[0]) / 65536.0
 			}
 		}
+	}
+
+	// ── Board info (firmware version) — separate ubus call from "system info"
+	// above; "system board" is the one that carries the release/version block.
+	if body, err := call("system", "board", map[string]interface{}{}); err == nil {
+		var board struct {
+			Release struct {
+				Version string `json:"version"`
+			} `json:"release"`
+		}
+		if json.Unmarshal(body, &board) == nil && board.Release.Version != "" {
+			data.Version = board.Release.Version
+		} else {
+			logDebugf("OPENWRT", "system board response missing release.version")
+		}
+	} else {
+		logDebugf("OPENWRT", "system board call failed: %v", err)
 	}
 
 	// ── Network interfaces ────────────────────────────────────────────────────

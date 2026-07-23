@@ -57,6 +57,7 @@ type OmadaSite struct {
 type OmadaPanelData struct {
 	UIURL           string        `json:"uiUrl"`
 	IntegrationID   string        `json:"integrationId"`
+	Version         string        `json:"version"`
 	Sites           []OmadaSite   `json:"sites"`
 	Devices         []OmadaDevice `json:"devices"`
 	Clients         []OmadaClient `json:"clients"`
@@ -72,9 +73,10 @@ type OmadaPanelData struct {
 // ── Session cache ─────────────────────────────────────────────────────────────
 
 type omadaSession struct {
-	Token     string
-	OmadacID  string
-	ExpiresAt time.Time
+	Token         string
+	OmadacID      string
+	ControllerVer string
+	ExpiresAt     time.Time
 }
 
 var (
@@ -122,13 +124,17 @@ func omadaLogin(baseURL, username, password string, skipTLS bool) (*omadaSession
 	var loginInfo struct {
 		ErrorCode int `json:"errorCode"`
 		Result    struct {
-			OmadacID string `json:"omadacId"`
+			OmadacID      string `json:"omadacId"`
+			ControllerVer string `json:"controllerVer"`
 		} `json:"result"`
 	}
 	if json.Unmarshal(infoBody, &loginInfo) != nil || loginInfo.Result.OmadacID == "" {
 		return nil, fmt.Errorf("no omadacId in logininfo response")
 	}
 	omadacID := loginInfo.Result.OmadacID
+	if loginInfo.Result.ControllerVer == "" {
+		logDebugf("OMADA", "logininfo response missing controllerVer")
+	}
 
 	// Step 2: POST login with base64-encoded password
 	b64Pass := base64.StdEncoding.EncodeToString([]byte(password))
@@ -167,9 +173,10 @@ func omadaLogin(baseURL, username, password string, skipTLS bool) (*omadaSession
 		expiresAt = time.Unix(loginResult.Result.ExpiresAt/1000, 0)
 	}
 	return &omadaSession{
-		Token:     loginResult.Result.Token,
-		OmadacID:  omadacID,
-		ExpiresAt: expiresAt,
+		Token:         loginResult.Result.Token,
+		OmadacID:      omadacID,
+		ControllerVer: loginInfo.Result.ControllerVer,
+		ExpiresAt:     expiresAt,
 	}, nil
 }
 
@@ -230,6 +237,7 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 	if err != nil {
 		return nil, fmt.Errorf("Omada auth: %v", err)
 	}
+	data.Version = sess.ControllerVer
 
 	// Wrapper that retries once on unauthorized by re-authenticating.
 	get := func(path string) ([]byte, error) {

@@ -135,6 +135,13 @@ const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto'
 // everything upcoming regardless of any days-ahead value.
 const CAL_WINDOWED_TYPES = ['sonarr', 'radarr', 'readarr', 'lidarr', 'homeassistant', 'caldav']
 const CAL_DAYS_OPTIONS = [7, 14, 30, 60, 90]
+// Types covered by the Security Posture panel — keep in sync with
+// securityPostureTypes in backend/internal/handlers/security_posture.go
+const SEC_POSTURE_TYPES = [
+  'truenas', 'unraid', 'omv', 'synology', 'qnap', 'proxmox', 'opnsense',
+  'pfsense', 'openwrt', 'traefik', 'nginxpm', 'authentik', 'nextcloud',
+  'omada', 'unifi', 'pihole', 'adguard', 'tailscale', 'netbird',
+]
 
 interface Props {
   scope: 'system' | 'personal'
@@ -164,6 +171,9 @@ export default function IntegrationForm({
   const [refreshSecs, setRefreshSecs] = useState(integration?.refreshSecs ?? 60)
   const [calDaysAhead, setCalDaysAhead] = useState<number>(() => {
     try { return JSON.parse(integration?.config || '{}').daysAhead || 30 } catch { return 30 }
+  })
+  const [cveIgnoreBefore, setCveIgnoreBefore] = useState<string>(() => {
+    try { return JSON.parse(integration?.config || '{}').cveIgnoreBefore || '' } catch { return '' }
   })
 
   // ── Prometheus custom metrics ──────────────────────────────────────────────
@@ -377,6 +387,13 @@ export default function IntegrationForm({
       let base: Record<string, unknown> = {}
       try { base = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
       return JSON.stringify({ ...base, daysAhead: calDaysAhead })
+    }
+    if (SEC_POSTURE_TYPES.includes(t)) {
+      let base: Record<string, unknown> = {}
+      try { base = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+      if (cveIgnoreBefore) return JSON.stringify({ ...base, cveIgnoreBefore })
+      const { cveIgnoreBefore: _drop, ...rest } = base as any
+      return Object.keys(rest).length > 0 ? JSON.stringify(rest) : '{}'
     }
     return igConfig
   }
@@ -1084,6 +1101,23 @@ export default function IntegrationForm({
               style={{ cursor: 'pointer', width: 90 }}>
               {CAL_DAYS_OPTIONS.map(d => <option key={d} value={d}>{d} days</option>)}
             </select>
+          </div>
+        )}
+        {SEC_POSTURE_TYPES.includes(activeType) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}
+              title="Security Posture will hide CVEs published before this date for this integration — a noise filter, not a claim about which versions are affected. Leave blank to show everything NVD has on file.">
+              Ignore CVEs before
+            </label>
+            <input className="input" type="date" value={cveIgnoreBefore}
+              onChange={e => setCveIgnoreBefore(e.target.value)}
+              style={{ width: 150 }} />
+            {cveIgnoreBefore && (
+              <button type="button" className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }}
+                onClick={() => setCveIgnoreBefore('')}>
+                Clear
+              </button>
+            )}
           </div>
         )}
       </div>
