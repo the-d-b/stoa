@@ -30,7 +30,9 @@ TrueNAS · Unraid · OpenMediaVault · Synology · QNAP · Proxmox VE · OPNsens
 
 ## How it works
 
-**Version detection** reads from data Stoa's existing integration workers already fetch for their normal panel purposes — no extra call to the target app. Coverage varies by product: TrueNAS, Unraid, OpenMediaVault, Synology, QNAP, Proxmox, OPNsense, Traefik, Nextcloud, UniFi, Pi-hole, AdGuard Home, Netbird, pfSense, and Tailscale all report a version today. OpenWrt, Nginx Proxy Manager, Authentik, and Omada don't currently have a version field wired into their fetchers — their row shows CVEs without a version badge until that's added.
+**Version detection** reads from data Stoa's existing integration workers already fetch for their normal panel purposes — no extra call to the target app. Coverage varies by product: TrueNAS, Unraid, OpenMediaVault, Synology, QNAP, Proxmox, OPNsense, Traefik, Nextcloud, UniFi, Pi-hole, AdGuard Home, Netbird, and pfSense all report a version today; Tailscale reports the version shared by the most devices in your tailnet (there's no single account-level version — devices can genuinely be on different releases). OpenWrt, Nginx Proxy Manager, Authentik, and Omada don't currently have a version field wired into their fetchers — their row shows CVEs without a version badge until that's added.
+
+If a covered product's row is missing a version despite being in the list above, it's a live data gap rather than missing support — the underlying fetch (e.g. TrueNAS's system-info call, OPNsense's firmware-version check) failed silently on its last tick and only logged an error rather than blocking. Check the backend logs for that product's tag (`TRUENAS`, `OPNSENSE`, etc.) for a fetch error.
 
 **CVE data** is fetched from the NVD REST API **once per product type** (not per integration instance) on a 24-hour cycle — the CVE list for "TrueNAS" is the same regardless of how many TrueNAS integrations you have, so it's fetched once and shared. Only product types with at least one configured integration are queried, and requests are paced with a delay between each to stay well within NVD's rate limit.
 

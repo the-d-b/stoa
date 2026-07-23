@@ -360,10 +360,29 @@ func secPostureDetectVersion(igType, integrationID string) string {
 			}
 		}
 		if igType == "tailscale" {
-			if raw, ok := probe["clientVersion"]; ok {
-				var s string
-				json.Unmarshal(raw, &s) //nolint:errcheck
-				return s
+			// No single account-level version — each device reports its own
+			// clientVersion, and a tailnet's devices can genuinely be on
+			// different releases. Use whichever version the most devices
+			// share as the representative one.
+			if raw, ok := probe["devices"]; ok {
+				var devices []struct {
+					ClientVersion string `json:"clientVersion"`
+				}
+				if json.Unmarshal(raw, &devices) == nil {
+					counts := map[string]int{}
+					for _, d := range devices {
+						if d.ClientVersion != "" {
+							counts[d.ClientVersion]++
+						}
+					}
+					best, bestN := "", 0
+					for v, n := range counts {
+						if n > bestN || (n == bestN && v > best) {
+							best, bestN = v, n
+						}
+					}
+					return best
+				}
 			}
 		}
 		return "" // no single representative version (e.g. openwrt/npm/authentik/omada not yet captured)

@@ -107,7 +107,7 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
               </span>
               {e.version && (
                 <span style={{ fontFamily: 'DM Mono, monospace', fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>
-                  v{e.version}
+                  v{e.version.replace(/^v/i, '')}
                 </span>
               )}
               {e.cves.length > 0 ? (
