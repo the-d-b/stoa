@@ -69,6 +69,13 @@ export default function GoogleCalendarConfigPanel() {
         Create OAuth 2.0 Client ID. Set the application type to "Web application" and add your Stoa URL +
         <code>/api/auth/google/callback</code> as an authorized redirect URI. Enable the Google Calendar API
         in the APIs &amp; Services library.
+        <br /><br />
+        <strong>Your Stoa URL must be a real, publicly-resolvable domain</strong> — Google rejects
+        non-ICANN TLDs like <code>.home</code>, <code>.local</code>, or <code>.lan</code> as an OAuth
+        redirect host outright ("doesn't comply with Google's OAuth 2.0 policy"), even though nothing
+        needs to be internet-reachable at connect time beyond the redirect itself. If your dashboard
+        normally lives at a <code>.home</code>-style address, point a real domain you own at it (even
+        just for this callback) before connecting Google Calendar.
       </SectionHelp>
 
       {/* ── App credentials ──────────────────────────────────────────────── */}

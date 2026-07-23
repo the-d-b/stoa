@@ -9,8 +9,10 @@ Stoa supports any OIDC-compatible identity provider for single sign-on. Authenti
 - **Authentik** — recommended for homelab
 - **Keycloak**
 - **Okta**
-- **Google** (via Google Identity Platform)
+- **Google** (via Google Identity Platform) — note the caveat below; this is a separate OAuth client from the one used for the [Google Calendar integration](integrations/calendar/#google-calendar), but both are Google-brokered and share the same domain restriction
 - Any provider that exposes a standard OIDC discovery endpoint
+
+> **Using Google as your identity provider?** Google rejects non-ICANN TLDs (`.home`, `.local`, `.lan`, and similar) as an OAuth redirect host — a dashboard reachable only at one of these will fail to complete Google sign-in with "Error 400: invalid_request." Self-hosted providers like Authentik have no such restriction since they don't police your domain. Point a real domain you own at Stoa if you want to use Google specifically for SSO.
 
 ---
 
