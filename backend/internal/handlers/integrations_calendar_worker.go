@@ -131,8 +131,15 @@ func computeSonarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
+	return parseSonarrCalEvents(upcoming, uiURL), nil
+}
+
+// parseSonarrCalEvents shapes a Sonarr /api/v3/calendar response into
+// calendar events. Split out from computeSonarrCalEvents for testability
+// against fixture JSON, same reasoning as the Sports response parsers.
+func parseSonarrCalEvents(body []byte, uiURL string) []map[string]interface{} {
 	var episodes []map[string]interface{}
-	json.Unmarshal(upcoming, &episodes)
+	json.Unmarshal(body, &episodes)
 	events := []map[string]interface{}{}
 	for _, ep := range episodes {
 		series, _ := ep["series"].(map[string]interface{})
@@ -152,7 +159,7 @@ func computeSonarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 			"color": "#60a5fa", "hasFile": ep["hasFile"] == true,
 		})
 	}
-	return events, nil
+	return events
 }
 
 func computeRadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]interface{}, error) {
@@ -167,9 +174,19 @@ func computeRadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	var movies []map[string]interface{}
-	json.Unmarshal(upcoming, &movies)
 	today := calStart.Format("2006-01-02")
+	return parseRadarrCalEvents(upcoming, uiURL, today), nil
+}
+
+// parseRadarrCalEvents shapes a Radarr /api/v3/calendar response into
+// calendar events. A movie can produce up to three events — one per release
+// type (cinema/digital/physical) — but only release dates on or after
+// `today` are included, since Radarr's calendar response includes past
+// releases too and those aren't "upcoming" from the calendar panel's
+// perspective. Split out from computeRadarrCalEvents for testability.
+func parseRadarrCalEvents(body []byte, uiURL string, today string) []map[string]interface{} {
+	var movies []map[string]interface{}
+	json.Unmarshal(body, &movies)
 	events := []map[string]interface{}{}
 	for _, m := range movies {
 		title, _ := m["title"].(string)
@@ -200,7 +217,7 @@ func computeRadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 			})
 		}
 	}
-	return events, nil
+	return events
 }
 
 func computeReadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]interface{}, error) {
@@ -215,8 +232,14 @@ func computeReadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]int
 	if err != nil {
 		return nil, err
 	}
+	return parseReadarrCalEvents(upcoming, uiURL), nil
+}
+
+// parseReadarrCalEvents shapes a Readarr /api/v1/calendar response into
+// calendar events. Split out from computeReadarrCalEvents for testability.
+func parseReadarrCalEvents(body []byte, uiURL string) []map[string]interface{} {
 	var books []map[string]interface{}
-	json.Unmarshal(upcoming, &books)
+	json.Unmarshal(body, &books)
 	events := []map[string]interface{}{}
 	for _, bk := range books {
 		title, _ := bk["title"].(string)
@@ -244,7 +267,7 @@ func computeReadarrCalEvents(db *sql.DB, integrationID string) ([]map[string]int
 			"hasFile":   bk["hasFile"] == true,
 		})
 	}
-	return events, nil
+	return events
 }
 
 func computeLidarrCalEvents(db *sql.DB, integrationID string) ([]map[string]interface{}, error) {
@@ -259,8 +282,14 @@ func computeLidarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 	if err != nil {
 		return nil, err
 	}
+	return parseLidarrCalEvents(upcoming, uiURL), nil
+}
+
+// parseLidarrCalEvents shapes a Lidarr /api/v1/calendar response into
+// calendar events. Split out from computeLidarrCalEvents for testability.
+func parseLidarrCalEvents(body []byte, uiURL string) []map[string]interface{} {
 	var albums []map[string]interface{}
-	json.Unmarshal(upcoming, &albums)
+	json.Unmarshal(body, &albums)
 	events := []map[string]interface{}{}
 	for _, al := range albums {
 		title, _ := al["title"].(string)
@@ -281,7 +310,7 @@ func computeLidarrCalEvents(db *sql.DB, integrationID string) ([]map[string]inte
 			"foreignArtistId": foreign,
 		})
 	}
-	return events, nil
+	return events
 }
 
 // ── Kapowarr / Mylar3 / Maintainerr / Actual Budget / Firefly III ─────────
@@ -433,51 +462,68 @@ func computeHomeAssistantCalEvents(db *sql.DB, integrationID string) ([]map[stri
 			logErrorf("CAL", "homeassistant %s events error: %v", cal.EntityID, eerr)
 			continue
 		}
-		var items []struct {
-			Summary string `json:"summary"`
-			Start   struct {
-				Date     string `json:"date"`
-				DateTime string `json:"dateTime"`
-			} `json:"start"`
-			End struct {
-				DateTime string `json:"dateTime"`
-			} `json:"end"`
-		}
-		if err := json.Unmarshal(evBody, &items); err != nil {
-			logErrorf("CAL", "homeassistant %s events parse error: %v", cal.EntityID, err)
+		calEvents, perr := parseHomeAssistantEvents(evBody, cal.Name, prefixNames, intName, uiURL)
+		if perr != nil {
+			logErrorf("CAL", "homeassistant %s events parse error: %v", cal.EntityID, perr)
 			continue
 		}
-		for _, it := range items {
-			date, startDT, endDT := "", "", ""
-			if it.Start.Date != "" {
-				date = it.Start.Date
-			} else if len(it.Start.DateTime) >= 10 {
-				date = it.Start.DateTime[:10]
-				startDT = it.Start.DateTime
-				endDT = it.End.DateTime
-			}
-			if date == "" {
-				continue
-			}
-			title := it.Summary
-			if title == "" {
-				title = "(no title)"
-			}
-			if prefixNames && cal.Name != "" {
-				title = cal.Name + ": " + title
-			}
-			e := map[string]interface{}{
-				"source": intName, "date": date, "title": title,
-				"color": "#22d3ee", "uiUrl": strings.TrimRight(uiURL, "/") + "/calendar",
-			}
-			if startDT != "" {
-				e["startDT"] = startDT
-			}
-			if endDT != "" {
-				e["endDT"] = endDT
-			}
-			events = append(events, e)
+		events = append(events, calEvents...)
+	}
+	return events, nil
+}
+
+// parseHomeAssistantEvents shapes one calendar's /api/calendars/{entity_id}
+// response into calendar events. All-day events carry only a "date" field;
+// timed events carry a "dateTime" and additionally populate startDT/endDT for
+// panels that render exact times. When the integration exposes more than one
+// calendar (prefixNames), each event's title is prefixed with its calendar's
+// name so events from different calendars stay distinguishable once merged.
+// Split out from computeHomeAssistantCalEvents for testability.
+func parseHomeAssistantEvents(body []byte, calName string, prefixNames bool, intName string, uiURL string) ([]map[string]interface{}, error) {
+	var items []struct {
+		Summary string `json:"summary"`
+		Start   struct {
+			Date     string `json:"date"`
+			DateTime string `json:"dateTime"`
+		} `json:"start"`
+		End struct {
+			DateTime string `json:"dateTime"`
+		} `json:"end"`
+	}
+	if err := json.Unmarshal(body, &items); err != nil {
+		return nil, err
+	}
+	events := []map[string]interface{}{}
+	for _, it := range items {
+		date, startDT, endDT := "", "", ""
+		if it.Start.Date != "" {
+			date = it.Start.Date
+		} else if len(it.Start.DateTime) >= 10 {
+			date = it.Start.DateTime[:10]
+			startDT = it.Start.DateTime
+			endDT = it.End.DateTime
 		}
+		if date == "" {
+			continue
+		}
+		title := it.Summary
+		if title == "" {
+			title = "(no title)"
+		}
+		if prefixNames && calName != "" {
+			title = calName + ": " + title
+		}
+		e := map[string]interface{}{
+			"source": intName, "date": date, "title": title,
+			"color": "#22d3ee", "uiUrl": strings.TrimRight(uiURL, "/") + "/calendar",
+		}
+		if startDT != "" {
+			e["startDT"] = startDT
+		}
+		if endDT != "" {
+			e["endDT"] = endDT
+		}
+		events = append(events, e)
 	}
 	return events, nil
 }

@@ -159,3 +159,48 @@ func contains(list []string, s string) bool {
 	}
 	return false
 }
+
+func TestLocalDate(t *testing.T) {
+	t.Run("empty string", func(t *testing.T) {
+		if got := localDate(""); got != "" {
+			t.Errorf("localDate(\"\") = %q, want empty", got)
+		}
+	})
+
+	t.Run("already a plain date passes through unchanged", func(t *testing.T) {
+		if got := localDate("2026-07-20"); got != "2026-07-20" {
+			t.Errorf("localDate(plain date) = %q, want unchanged", got)
+		}
+	})
+
+	t.Run("unparseable long string falls back to a 10-char trim", func(t *testing.T) {
+		if got := localDate("2026-07-20 not-a-real-timestamp"); got != "2026-07-20" {
+			t.Errorf("localDate(malformed) = %q, want trimmed to first 10 chars", got)
+		}
+	})
+
+	t.Run("UTC midnight shifts a day earlier for users west of UTC", func(t *testing.T) {
+		// This is the exact bug localDate exists to prevent: Radarr/Lidarr
+		// report release dates as UTC midnight, which is still "yesterday"
+		// for anyone whose local zone is behind UTC.
+		origLocal := time.Local
+		time.Local = time.FixedZone("Test/UTC-8", -8*3600)
+		defer func() { time.Local = origLocal }()
+
+		got := localDate("2026-07-20T02:00:00Z") // 2am UTC == 6pm the previous day at UTC-8
+		if got != "2026-07-19" {
+			t.Errorf("localDate(UTC 2am) at UTC-8 = %q, want 2026-07-19 (previous day)", got)
+		}
+	})
+
+	t.Run("does not shift for users east of UTC", func(t *testing.T) {
+		origLocal := time.Local
+		time.Local = time.FixedZone("Test/UTC+8", 8*3600)
+		defer func() { time.Local = origLocal }()
+
+		got := localDate("2026-07-20T02:00:00Z") // 2am UTC == 10am same day at UTC+8
+		if got != "2026-07-20" {
+			t.Errorf("localDate(UTC 2am) at UTC+8 = %q, want 2026-07-20 (same day)", got)
+		}
+	})
+}
