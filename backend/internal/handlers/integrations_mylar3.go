@@ -179,6 +179,13 @@ func mylar3FetchReleaseItems(apiURL, uiURL, apiKey string, skipTLS bool) ([]dueI
 	if err != nil {
 		return nil, err
 	}
+	return parseMylar3UpcomingItems(body, uiURL)
+}
+
+// parseMylar3UpcomingItems shapes a getUpcoming response (bare array of
+// issues for monitored series) into dueItems. Split out from
+// mylar3FetchReleaseItems for testability.
+func parseMylar3UpcomingItems(body []byte, uiURL string) ([]dueItem, error) {
 	var upcoming []map[string]interface{}
 	if err := json.Unmarshal(body, &upcoming); err != nil {
 		return nil, fmt.Errorf("parsing getUpcoming: %w", err)

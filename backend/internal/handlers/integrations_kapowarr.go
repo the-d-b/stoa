@@ -179,29 +179,44 @@ func kapowarrFetchReleaseItems(apiURL, uiURL, apiKey string, skipTLS bool) ([]du
 			logErrorf("KAPOWARR", "releases: volume %d detail error: %v", volID, derr)
 			continue
 		}
-		var wrapper struct {
-			Result struct {
-				Title  string `json:"title"`
-				Issues []struct {
-					IssueNumber string  `json:"issue_number"`
-					Date        *string `json:"date"`
-				} `json:"issues"`
-			} `json:"result"`
-		}
-		if json.Unmarshal(dBody, &wrapper) != nil {
+		volItems, perr := parseKapowarrVolumeDetail(dBody, volID, uiURL, today)
+		if perr != nil {
 			continue
 		}
-		link := strings.TrimRight(uiURL, "/") + fmt.Sprintf("/volumes/%d", volID)
-		for _, is := range wrapper.Result.Issues {
-			if is.Date == nil || *is.Date < today {
-				continue
-			}
-			title := wrapper.Result.Title
-			if is.IssueNumber != "" {
-				title = fmt.Sprintf("%s #%s", title, is.IssueNumber)
-			}
-			items = append(items, dueItem{Title: title, DueDate: *is.Date, Link: link})
+		items = append(items, volItems...)
+	}
+	return items, nil
+}
+
+// parseKapowarrVolumeDetail shapes one volume's /volumes/{id} detail response
+// into dueItems — only issues with a release date on or after `today` are
+// included (Kapowarr's detail response includes past issues too, which
+// aren't "upcoming"). Split out from kapowarrFetchReleaseItems for
+// testability.
+func parseKapowarrVolumeDetail(body []byte, volID int, uiURL string, today string) ([]dueItem, error) {
+	var wrapper struct {
+		Result struct {
+			Title  string `json:"title"`
+			Issues []struct {
+				IssueNumber string  `json:"issue_number"`
+				Date        *string `json:"date"`
+			} `json:"issues"`
+		} `json:"result"`
+	}
+	if err := json.Unmarshal(body, &wrapper); err != nil {
+		return nil, err
+	}
+	link := strings.TrimRight(uiURL, "/") + fmt.Sprintf("/volumes/%d", volID)
+	var items []dueItem
+	for _, is := range wrapper.Result.Issues {
+		if is.Date == nil || *is.Date < today {
+			continue
 		}
+		title := wrapper.Result.Title
+		if is.IssueNumber != "" {
+			title = fmt.Sprintf("%s #%s", title, is.IssueNumber)
+		}
+		items = append(items, dueItem{Title: title, DueDate: *is.Date, Link: link})
 	}
 	return items, nil
 }

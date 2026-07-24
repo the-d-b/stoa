@@ -111,6 +111,14 @@ func maintainerrFetchActionItems(baseURL, uiURL, apiKey string, skipTLS bool) ([
 	if err != nil {
 		return nil, err
 	}
+	return parseMaintainerrActionItems(body, uiURL)
+}
+
+// parseMaintainerrActionItems shapes an /api/collections/overlay-data
+// response into aggregated dueItems, one per collection per action day
+// ("Old Movies: 3 items (Delete)"). Split out from maintainerrFetchActionItems
+// for testability.
+func parseMaintainerrActionItems(body []byte, uiURL string) ([]dueItem, error) {
 	var cols []struct {
 		ID              int    `json:"id"`
 		Title           string `json:"title"`
