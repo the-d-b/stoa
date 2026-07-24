@@ -88,7 +88,7 @@ function fmtRate(mbps: number): string {
 
 function alertSeverityColor(severity: string): string {
   const s = severity.toLowerCase()
-  if (s === 'error' || s === 'critical') return 'var(--red, #e53e3e)'
+  if (s === 'error' || s === 'critical') return 'var(--red, var(--red))'
   if (s === 'warning') return 'var(--amber)'
   return 'var(--text-dim)'
 }
@@ -145,7 +145,7 @@ function DeviceRow({ device }: { device: OmadaDevice }) {
           {fmtUptime(device.upTime)}
         </span>
       )}
-      <span style={{ fontSize: 9, color: online ? 'var(--green)' : 'var(--red, #e53e3e)',
+      <span style={{ fontSize: 9, color: online ? 'var(--green)' : 'var(--red, var(--red))',
         flexShrink: 0 }}>
         {online ? '●' : '○'}
       </span>
@@ -154,7 +154,7 @@ function DeviceRow({ device }: { device: OmadaDevice }) {
 }
 
 function SignalDots({ level }: { level: number }) {
-  const color = level >= 3 ? 'var(--green)' : level >= 2 ? 'var(--amber)' : 'var(--red, #e53e3e)'
+  const color = level >= 3 ? 'var(--green)' : level >= 2 ? 'var(--amber)' : 'var(--red, var(--red))'
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 10 }}>
       {[1, 2, 3, 4].map(i => (

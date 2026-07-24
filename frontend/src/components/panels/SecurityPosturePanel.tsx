@@ -29,7 +29,7 @@ interface SecPostureEntry {
 }
 
 const SEVERITY_COLOR: Record<string, string> = {
-  CRITICAL: '#dc2626', HIGH: '#f97316', MEDIUM: '#f59e0b', LOW: '#65a30d', UNKNOWN: 'var(--text-dim)',
+  CRITICAL: '#dc2626', HIGH: '#f97316', MEDIUM: 'var(--amber)', LOW: '#65a30d', UNKNOWN: 'var(--text-dim)',
 }
 
 function worstSeverity(cves: CVEItem[]): string {

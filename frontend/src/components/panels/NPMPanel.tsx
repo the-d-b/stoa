@@ -80,7 +80,7 @@ function EnabledDonut({ enabled, total, size = 80 }: { enabled: number; total: n
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ade80" strokeWidth={size * 0.13}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--green)" strokeWidth={size * 0.13}
         strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
         transform={`rotate(-90 ${cx} ${cy})`} />
       <text x={cx} y={cy - size * 0.05} textAnchor="middle" dominantBaseline="middle"
@@ -96,10 +96,10 @@ function EnabledDonut({ enabled, total, size = 80 }: { enabled: number; total: n
 }
 
 function certColor(cert: NPMCertificate): string {
-  if (cert.isExpired) return '#e53e3e'
+  if (cert.isExpired) return 'var(--red)'
   if (cert.daysLeft < 7) return '#f97316'
-  if (cert.daysLeft < 30) return '#f59e0b'
-  return '#4ade80'
+  if (cert.daysLeft < 30) return 'var(--amber)'
+  return 'var(--green)'
 }
 
 function certLabel(cert: NPMCertificate): string {
@@ -138,7 +138,7 @@ function CertRow({ cert }: { cert: NPMCertificate }) {
 function HostRow({ host, compact = false }: { host: NPMProxyHost; compact?: boolean }) {
   const domain = host.domains && host.domains.length > 0 ? host.domains[0] : `Host #${host.id}`
   const target = `${host.forwardScheme || 'http'}://${host.forwardHost}:${host.forwardPort}`
-  const dotColor = host.enabled ? '#4ade80' : 'var(--text-dim)'
+  const dotColor = host.enabled ? 'var(--green)' : 'var(--text-dim)'
   return (
     <div style={{ display: 'flex', alignItems: compact ? 'center' : 'flex-start', gap: 6, minWidth: 0 }}>
       <div style={{ width: 7, height: 7, borderRadius: '50%', background: dotColor, flexShrink: 0, marginTop: compact ? 0 : 3 }} />
@@ -233,11 +233,11 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
         </>}
         {certExpired > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>{certExpired} cert{certExpired !== 1 ? 's' : ''} EXPIRED</span>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>{certExpired} cert{certExpired !== 1 ? 's' : ''} EXPIRED</span>
         </>}
         {certExpiringSoon > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600 }}>{certExpiringSoon} expiring soon</span>
+          <span style={{ fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}>{certExpiringSoon} expiring soon</span>
         </>}
         {redirectTotal > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
@@ -257,18 +257,18 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <EnabledDonut enabled={proxyEnabled} total={proxyTotal} size={80} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            <StatChip label="Enabled" value={proxyEnabled} color="#4ade80" />
+            <StatChip label="Enabled" value={proxyEnabled} color="var(--green)" />
             <StatChip label="Disabled" value={proxyDisabled} color={proxyDisabled > 0 ? 'var(--text-muted)' : undefined} />
             <StatChip label="SSL" value={proxySSL} color="#22d3ee" />
             {redirectTotal > 0 && <StatChip label="Redirects" value={`${redirectEnabled}/${redirectTotal}`} />}
             {streamTotal > 0 && <StatChip label="Streams" value={`${streamEnabled}/${streamTotal}`} />}
             {certExpired > 0 && (
-              <StatChip label="Expired" value={certExpired} color="#e53e3e"
-                bg="#e53e3e18" />
+              <StatChip label="Expired" value={certExpired} color="var(--red)"
+                bg="color-mix(in srgb, var(--red) 9%, transparent)" />
             )}
             {certExpiringSoon > 0 && !certExpired && (
-              <StatChip label="Expiring" value={certExpiringSoon} color="#f59e0b"
-                bg="#f59e0b12" />
+              <StatChip label="Expiring" value={certExpiringSoon} color="var(--amber)"
+                bg="color-mix(in srgb, var(--amber) 7%, transparent)" />
             )}
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)',
               textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 5 }}>
               Certificates {urgentCerts > 0 && (
-                <span style={{ color: urgentCerts > 0 && certExpired > 0 ? '#e53e3e' : '#f59e0b',
+                <span style={{ color: urgentCerts > 0 && certExpired > 0 ? 'var(--red)' : 'var(--amber)',
                   fontSize: 10 }}>
                   ⚠ {urgentCerts} need attention
                 </span>
@@ -313,16 +313,16 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexShrink: 0 }}>
         <EnabledDonut enabled={proxyEnabled} total={proxyTotal} size={72} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          <StatChip label="Enabled"  value={proxyEnabled} color="#4ade80" />
+          <StatChip label="Enabled"  value={proxyEnabled} color="var(--green)" />
           <StatChip label="Disabled" value={proxyDisabled} color={proxyDisabled > 0 ? 'var(--text-muted)' : undefined} />
           <StatChip label="SSL"      value={proxySSL} color="#22d3ee" />
           {redirectTotal > 0   && <StatChip label="Redirects"    value={`${redirectEnabled}/${redirectTotal}`} />}
           {streamTotal > 0     && <StatChip label="Streams"      value={`${streamEnabled}/${streamTotal}`} />}
           {accessListTotal > 0 && <StatChip label="Access Lists" value={accessListTotal} />}
-          {certExpired > 0     && <StatChip label="Expired"  value={certExpired}      color="#e53e3e" bg="#e53e3e18" />}
+          {certExpired > 0     && <StatChip label="Expired"  value={certExpired}      color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
           {certExpiringSoon > 0 && <StatChip label="Expiring" value={certExpiringSoon}
-            color={certExpired > 0 ? '#f97316' : '#f59e0b'}
-            bg={certExpired > 0 ? '#f9731612' : '#f59e0b12'} />}
+            color={certExpired > 0 ? '#f97316' : 'var(--amber)'}
+            bg={certExpired > 0 ? '#f9731612' : 'color-mix(in srgb, var(--amber) 7%, transparent)'} />}
         </div>
       </div>
 
@@ -335,7 +335,7 @@ export default function NPMPanel({ panel, heightUnits }: { panel: Panel; heightU
             <ColHeader>
               Certificates ({certTotal})
               {urgentCerts > 0 && (
-                <span style={{ marginLeft: 6, color: certExpired > 0 ? '#e53e3e' : '#f59e0b', fontWeight: 600, fontSize: 10 }}>
+                <span style={{ marginLeft: 6, color: certExpired > 0 ? 'var(--red)' : 'var(--amber)', fontWeight: 600, fontSize: 10 }}>
                   ⚠ {urgentCerts} need attention
                 </span>
               )}

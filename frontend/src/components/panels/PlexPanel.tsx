@@ -166,7 +166,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
       {data.transcodeCount > 0 && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid #f59e0b30', fontSize: 11,
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid color-mix(in srgb, var(--amber) 19%, transparent)', fontSize: 11,
         }}>
           <span style={{ color: 'var(--amber)', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.transcodeCount}</span>
           <span style={{ color: 'var(--text-dim)' }}>transcode</span>
@@ -318,7 +318,7 @@ export default function PlexPanel({ panel, heightUnits }: { panel: Panel; height
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8,
       padding: '6px 10px', borderRadius: 7,
-      background: '#f59e0b10', border: '1px solid #f59e0b30',
+      background: 'color-mix(in srgb, var(--amber) 6%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 19%, transparent)',
     }}>
       <span style={{ fontSize: 13 }}>↑</span>
       <span style={{ fontSize: 12, color: 'var(--amber)', flex: 1 }}>Plex update available</span>

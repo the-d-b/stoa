@@ -64,7 +64,7 @@ interface TraefikData {
 function statusColor(status: string): string {
   if (status === 'enabled') return 'var(--green)'
   if (status === 'warning') return 'var(--amber)'
-  return 'var(--red, #e53e3e)'
+  return 'var(--red, var(--red))'
 }
 
 function statusDot(status: string) {
@@ -109,7 +109,7 @@ function SectionChip({ label, section }: { label: string; section: TraefikSectio
       <span style={{ fontSize: 10, color: ok ? 'var(--green)' : 'var(--amber)',
         fontFamily: 'DM Mono, monospace' }}>{section.total}</span>
       {section.errors > 0 && (
-        <span style={{ fontSize: 9, color: 'var(--red, #e53e3e)' }}>
+        <span style={{ fontSize: 9, color: 'var(--red, var(--red))' }}>
           {section.errors}✕
         </span>
       )}
@@ -146,7 +146,7 @@ function ServiceRow({ svc, compact = false }: { svc: TraefikService; compact?: b
         {hasHealth && (
           <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
             {anyDown && (
-              <span style={{ fontSize: 9, color: 'var(--red, #e53e3e)',
+              <span style={{ fontSize: 9, color: 'var(--red, var(--red))',
                 fontFamily: 'DM Mono, monospace' }}>
                 {svc.serversDown} down
               </span>
@@ -170,7 +170,7 @@ function ServiceRow({ svc, compact = false }: { svc: TraefikService; compact?: b
           {svc.servers.map((srv, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
               <div style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0,
-                background: srv.status === 'UP' ? 'var(--green)' : 'var(--red, #e53e3e)' }} />
+                background: srv.status === 'UP' ? 'var(--green)' : 'var(--red, var(--red))' }} />
               <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {srv.url}
@@ -297,7 +297,7 @@ export default function TraefikPanel({ panel, heightUnits }: Props) {
           </span>
           {data.totalChecked > 0 && (
             <span style={{ fontSize: 9,
-              color: downServices.length > 0 ? 'var(--red, #e53e3e)' : 'var(--green)' }}>
+              color: downServices.length > 0 ? 'var(--red, var(--red))' : 'var(--green)' }}>
               {data.totalChecked - downServices.length}/{data.totalChecked} up
             </span>
           )}
@@ -342,7 +342,7 @@ export default function TraefikPanel({ panel, heightUnits }: Props) {
               <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)',
                 letterSpacing: '0.04em', textTransform: 'uppercase' }}>Backends</span>
               <span style={{ fontSize: 10,
-                color: downServices.length > 0 ? 'var(--red, #e53e3e)' : 'var(--green)',
+                color: downServices.length > 0 ? 'var(--red, var(--red))' : 'var(--green)',
                 fontFamily: 'DM Mono, monospace' }}>
                 {data.totalChecked - downServices.length}/{data.totalChecked}
               </span>
@@ -353,7 +353,7 @@ export default function TraefikPanel({ panel, heightUnits }: Props) {
         {/* Down/warning services highlighted */}
         {downServices.length > 0 && (
           <div style={{ marginBottom: 8, flexShrink: 0 }}>
-            <div style={{ fontSize: 9, color: 'var(--red, #e53e3e)', marginBottom: 3,
+            <div style={{ fontSize: 9, color: 'var(--red, var(--red))', marginBottom: 3,
               textTransform: 'uppercase', letterSpacing: '0.06em' }}>
               Backends down
             </div>
@@ -409,7 +409,7 @@ export default function TraefikPanel({ panel, heightUnits }: Props) {
             <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--text-dim)',
               letterSpacing: '0.04em', textTransform: 'uppercase' }}>Backends</span>
             <span style={{ fontSize: 10,
-              color: downServices.length > 0 ? 'var(--red, #e53e3e)' : 'var(--green)',
+              color: downServices.length > 0 ? 'var(--red, var(--red))' : 'var(--green)',
               fontFamily: 'DM Mono, monospace' }}>
               {data.totalChecked - downServices.length}/{data.totalChecked} healthy
             </span>

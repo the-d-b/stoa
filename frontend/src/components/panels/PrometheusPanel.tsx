@@ -54,16 +54,16 @@ interface PrometheusData {
 
 function severityColor(sev: string): string {
   switch (sev?.toLowerCase()) {
-    case 'critical': return '#e53e3e'
-    case 'warning':  return '#f59e0b'
+    case 'critical': return 'var(--red)'
+    case 'warning':  return 'var(--amber)'
     case 'info':     return '#22d3ee'
-    default:         return '#e53e3e'
+    default:         return 'var(--red)'
   }
 }
 
 function healthDot(health: string): string {
-  if (health === 'up')   return '#4ade80'
-  if (health === 'down') return '#e53e3e'
+  if (health === 'up')   return 'var(--green)'
+  if (health === 'down') return 'var(--red)'
   return 'var(--text-dim)'
 }
 
@@ -103,7 +103,7 @@ function HealthDonut({ up, total, size = 80 }: { up: number; total: number; size
   const circ = 2 * Math.PI * r
   const pct = total > 0 ? up / total : 0
   const filled = circ * pct
-  const color = pct === 1 ? '#4ade80' : pct >= 0.8 ? '#f59e0b' : '#e53e3e'
+  const color = pct === 1 ? 'var(--green)' : pct >= 0.8 ? 'var(--amber)' : 'var(--red)'
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
@@ -157,7 +157,7 @@ function MetricCard({ metric }: { metric: PrometheusMetric }) {
         <div style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, flexShrink: 0,
           color: metric.error ? 'var(--text-dim)' : '#22d3ee' }}>
           {metric.error
-            ? <span style={{ fontSize: 10, color: '#e53e3e' }}>error</span>
+            ? <span style={{ fontSize: 10, color: 'var(--red)' }}>error</span>
             : <>
                 <span style={{ fontSize: 14 }}>{metric.value || '—'}</span>
                 {metric.unit && <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 2 }}>{metric.unit}</span>}
@@ -175,7 +175,7 @@ function MetricCard({ metric }: { metric: PrometheusMetric }) {
 }
 
 function AlertRow({ alert }: { alert: PrometheusAlert }) {
-  const color = alert.state === 'firing' ? severityColor(alert.severity) : '#f59e0b'
+  const color = alert.state === 'firing' ? severityColor(alert.severity) : 'var(--amber)'
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, minWidth: 0 }}>
       <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0, marginTop: 3 }} />
@@ -193,7 +193,7 @@ function AlertRow({ alert }: { alert: PrometheusAlert }) {
             </span>
           )}
           {alert.state === 'pending' && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b', background: '#f59e0b18',
+            <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 9%, transparent)',
               borderRadius: 4, padding: '1px 5px', flexShrink: 0, letterSpacing: '0.04em' }}>PENDING</span>
           )}
         </div>
@@ -256,7 +256,7 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
   const metrics = data.metrics ?? []
 
   const healthPct = totalTargets > 0 ? Math.round(upTargets / totalTargets * 100) : 100
-  const statusColor = downTargets === 0 ? '#4ade80' : downTargets < totalTargets ? '#f59e0b' : '#e53e3e'
+  const statusColor = downTargets === 0 ? 'var(--green)' : downTargets < totalTargets ? 'var(--amber)' : 'var(--red)'
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -270,13 +270,13 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
         </div>
         {firingAlerts > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             {firingAlerts} firing
           </span>
         </>}
         {pendingAlerts > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#f59e0b' }}>
+          <span style={{ fontSize: 12, color: 'var(--amber)' }}>
             {pendingAlerts} pending
           </span>
         </>}
@@ -300,11 +300,11 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
         <HealthDonut up={upTargets} total={totalTargets} size={80} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-          <StatChip label="Up" value={upTargets} color="#4ade80" />
-          {downTargets > 0 && <StatChip label="Down" value={downTargets} color="#e53e3e" bg="#e53e3e18" />}
+          <StatChip label="Up" value={upTargets} color="var(--green)" />
+          {downTargets > 0 && <StatChip label="Down" value={downTargets} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
           <StatChip label="Total" value={totalTargets} />
-          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
-          {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="#f59e0b" bg="#f59e0b12" />}
+          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
+          {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="var(--amber)" bg="color-mix(in srgb, var(--amber) 7%, transparent)" />}
           {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
       </div>
@@ -321,12 +321,12 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
 
       {/* Data tiles */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-        <StatChip label="Up" value={upTargets} color="#4ade80" />
-        {downTargets > 0 && <StatChip label="Down" value={downTargets} color="#e53e3e" bg="#e53e3e18" />}
+        <StatChip label="Up" value={upTargets} color="var(--green)" />
+        {downTargets > 0 && <StatChip label="Down" value={downTargets} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
         <StatChip label="Total" value={totalTargets} />
         <StatChip label="Health" value={`${healthPct}%`} color={statusColor} />
-        {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
-        {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="#f59e0b" bg="#f59e0b12" />}
+        {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
+        {pendingAlerts > 0 && <StatChip label="Pending" value={pendingAlerts} color="var(--amber)" bg="color-mix(in srgb, var(--amber) 7%, transparent)" />}
         {version && <StatChip label="Version" value={`v${version}`} />}
       </div>
 
@@ -349,7 +349,7 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
               {jobs.map((j, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, minWidth: 0 }}>
                   <div style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-                    background: j.up === j.total ? '#4ade80' : j.up > 0 ? '#f59e0b' : '#e53e3e' }} />
+                    background: j.up === j.total ? 'var(--green)' : j.up > 0 ? 'var(--amber)' : 'var(--red)' }} />
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     color: 'var(--text)' }}>
                     {j.job}
@@ -371,7 +371,7 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
             : '(none)'}
         </ColHeader>
         {alerts.length === 0
-          ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
+          ? <div style={{ fontSize: 12, color: 'var(--green)' }}>All clear</div>
           : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {alerts.map((a, i) => <AlertRow key={i} alert={a} />)}
             </div>
@@ -399,7 +399,7 @@ export default function PrometheusPanel({ panel, heightUnits }: { panel: Panel; 
                     </span>
                   </div>
                   {t.lastError && (
-                    <div style={{ fontSize: 10, color: '#e53e3e', paddingLeft: 13,
+                    <div style={{ fontSize: 10, color: 'var(--red)', paddingLeft: 13,
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                       title={t.lastError}>
                       {t.lastError}

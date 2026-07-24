@@ -51,21 +51,21 @@ interface FrigateData {
 function labelColor(label: string): string {
   switch (label?.toLowerCase()) {
     case 'person':     return '#38bdf8'
-    case 'car':        return '#f59e0b'
-    case 'dog':        return '#4ade80'
+    case 'car':        return 'var(--amber)'
+    case 'dog':        return 'var(--green)'
     case 'cat':        return '#f472b6'
     case 'truck':      return '#fb923c'
     case 'bicycle':    return '#a78bfa'
     case 'motorcycle': return '#e879f9'
     case 'bird':       return '#34d399'
-    default:           return '#6b7280'
+    default:           return 'var(--text-muted)'
   }
 }
 
 function cameraHealthColor(cam: FrigateCamera): string {
-  if (!cam.detectionEnabled) return '#6b7280'
-  if (cam.cameraFps > 0 && cam.skippedFps / cam.cameraFps > 0.25) return '#f59e0b'
-  return '#4ade80'
+  if (!cam.detectionEnabled) return 'var(--text-muted)'
+  if (cam.cameraFps > 0 && cam.skippedFps / cam.cameraFps > 0.25) return 'var(--amber)'
+  return 'var(--green)'
 }
 
 function detectorDisplayName(name: string): string {
@@ -81,9 +81,9 @@ function detectorDisplayName(name: string): string {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 0.85) return '#4ade80'
-  if (score >= 0.70) return '#f59e0b'
-  return '#6b7280'
+  if (score >= 0.85) return 'var(--green)'
+  if (score >= 0.70) return 'var(--amber)'
+  return 'var(--text-muted)'
 }
 
 function timeAgo(iso: string): string {
@@ -159,7 +159,7 @@ function CameraRow({ cam, showFps }: { cam: FrigateCamera; showFps?: boolean }) 
       {showFps && (
         <span style={{
           fontSize: 10, fontFamily: 'DM Mono, monospace', flexShrink: 0,
-          color: skippedHigh ? '#f59e0b' : 'var(--text-dim)',
+          color: skippedHigh ? 'var(--amber)' : 'var(--text-dim)',
         }}>
           {fmtFps(cam.detectionFps)} fps
         </span>
@@ -230,7 +230,7 @@ function ZoneBlock({ cam }: { cam: FrigateCamera }) {
 }
 
 function DetectorRow({ det }: { det: FrigateDetector }) {
-  const speedColor = det.inferenceSpeed < 10 ? '#4ade80' : det.inferenceSpeed < 30 ? '#f59e0b' : '#e53e3e'
+  const speedColor = det.inferenceSpeed < 10 ? 'var(--green)' : det.inferenceSpeed < 30 ? 'var(--amber)' : 'var(--red)'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
       <div style={{ width: 7, height: 7, borderRadius: '50%', background: speedColor, flexShrink: 0 }} />
@@ -275,7 +275,7 @@ export default function FrigatePanel({ panel, heightUnits }: { panel: Panel; hei
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error) return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error) return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const activeCameras = data.cameras.filter(c => c.detectionEnabled).length
@@ -287,7 +287,7 @@ export default function FrigatePanel({ panel, heightUnits }: { panel: Panel; hei
   if (heightUnits <= 1) {
     return wrap(
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-        <StatChip label="Cameras" value={`${activeCameras}/${data.totalCameras}`} color="#4ade80" />
+        <StatChip label="Cameras" value={`${activeCameras}/${data.totalCameras}`} color="var(--green)" />
         <StatChip label="Zones" value={data.totalZones} color="#38bdf8" />
         {primaryDetector && (
           <StatChip label="Inference" value={`${primaryDetector.inferenceSpeed.toFixed(1)}ms`} color="#a78bfa" />
@@ -306,7 +306,7 @@ export default function FrigatePanel({ panel, heightUnits }: { panel: Panel; hei
       <>
         {/* Summary row */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <StatChip label="Cameras" value={`${activeCameras}/${data.totalCameras}`} color="#4ade80" />
+          <StatChip label="Cameras" value={`${activeCameras}/${data.totalCameras}`} color="var(--green)" />
           <StatChip label="Zones" value={data.totalZones} color="#38bdf8" />
           {primaryDetector && (
             <StatChip label="Inference" value={`${primaryDetector.inferenceSpeed.toFixed(1)}ms`} color="#a78bfa" />
@@ -349,7 +349,7 @@ export default function FrigatePanel({ panel, heightUnits }: { panel: Panel; hei
     <>
       {/* Summary */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <StatChip label="Cameras" value={`${activeCameras}/${data.totalCameras}`} color="#4ade80" />
+        <StatChip label="Cameras" value={`${activeCameras}/${data.totalCameras}`} color="var(--green)" />
         <StatChip label="Zones" value={data.totalZones} color="#38bdf8" />
         {primaryDetector && (
           <StatChip label="Inference" value={`${primaryDetector.inferenceSpeed.toFixed(1)}ms`} color="#a78bfa" />
@@ -378,7 +378,7 @@ export default function FrigatePanel({ panel, heightUnits }: { panel: Panel; hei
                       cam {fmtFps(cam.cameraFps)} fps
                     </span>
                     {cam.skippedFps > 0 && (
-                      <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', color: '#f59e0b' }}>
+                      <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', color: 'var(--amber)' }}>
                         skip {fmtFps(cam.skippedFps)}
                       </span>
                     )}

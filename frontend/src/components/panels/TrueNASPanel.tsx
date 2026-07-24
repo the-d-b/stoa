@@ -105,7 +105,7 @@ function Thermometer({ tempC, label, size = 72 }: { tempC: number; label: string
   const maxTemp = 100
   const minTemp = 20
   const pct = Math.min(Math.max((tempC - minTemp) / (maxTemp - minTemp) * 100, 0), 100)
-  const col = tempC >= 80 ? 'var(--red)' : tempC >= 65 ? 'var(--amber)' : tempC >= 50 ? '#f59e0b' : 'var(--green)'
+  const col = tempC >= 80 ? 'var(--red)' : tempC >= 65 ? 'var(--amber)' : tempC >= 50 ? 'var(--amber)' : 'var(--green)'
   const h = size * 0.42  // tube height (shortened 25%)
   const w = size < 60 ? 10 : 13
   const bulbR = w * 1.05

@@ -47,9 +47,9 @@ function fmtBalance(raw: string, symbol: string): string {
 function balanceColor(raw: string, key?: string): string {
   const n = parseFloat(raw)
   if (isNaN(n)) return 'var(--text)'
-  if (key === 'spent' || key === 'bills-unpaid') return n < 0 ? '#e53e3e' : '#4ade80'
+  if (key === 'spent' || key === 'bills-unpaid') return n < 0 ? 'var(--red)' : 'var(--green)'
   if (key === 'earned' || key === 'net-worth' || key === 'net-savings' || key === 'left-to-spend') {
-    return n >= 0 ? '#4ade80' : '#e53e3e'
+    return n >= 0 ? 'var(--green)' : 'var(--red)'
   }
   return 'var(--text)'
 }
@@ -157,7 +157,7 @@ export default function FireflyPanel({ panel, heightUnits }: { panel: Panel; hei
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error) return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error) return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const netWorth = data.summary.find(s => s.key === 'net-worth')

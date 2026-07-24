@@ -72,8 +72,8 @@ function fmtLastSeen(device: TailscaleDevice): string {
 }
 
 function deviceDot(d: TailscaleDevice): string {
-  if (!d.authorized) return '#e53e3e'
-  if (d.isOnline) return '#4ade80'
+  if (!d.authorized) return 'var(--red)'
+  if (d.isOnline) return 'var(--green)'
   return 'var(--text-dim)'
 }
 
@@ -95,9 +95,9 @@ function keyLabel(k: TailscaleKey): string {
 }
 
 function fmtKeyExpiry(k: TailscaleKey): { text: string; color: string } {
-  if (k.expired) return { text: 'Expired', color: '#e53e3e' }
+  if (k.expired) return { text: 'Expired', color: 'var(--red)' }
   if (k.expiringIn < 0) return { text: 'No expiry', color: 'var(--text-dim)' }
-  if (k.expiringIn <= 7) return { text: `${k.expiringIn}d`, color: '#e53e3e' }
+  if (k.expiringIn <= 7) return { text: `${k.expiringIn}d`, color: 'var(--red)' }
   if (k.expiringIn <= 30) return { text: `${k.expiringIn}d`, color: '#f97316' }
   return { text: `${k.expiringIn}d`, color: 'var(--text-dim)' }
 }
@@ -131,7 +131,7 @@ function OnlineDonut({ online, total, size = 80 }: { online: number; total: numb
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ade80" strokeWidth={size * 0.13}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--green)" strokeWidth={size * 0.13}
         strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
         transform={`rotate(-90 ${cx} ${cy})`} />
       <text x={cx} y={cy - size * 0.05} textAnchor="middle" dominantBaseline="middle"
@@ -162,8 +162,8 @@ function RoleBadge({ device }: { device: TailscaleDevice }) {
 
 function UpdateBadge() {
   return (
-    <span style={{ fontSize: 9, fontWeight: 700, color: '#f59e0b',
-      background: '#f59e0b18', borderRadius: 4, padding: '1px 5px',
+    <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--amber)',
+      background: 'color-mix(in srgb, var(--amber) 9%, transparent)', borderRadius: 4, padding: '1px 5px',
       flexShrink: 0, letterSpacing: '0.04em' }}>UPDATE</span>
   )
 }
@@ -261,20 +261,20 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineDevices > 0 ? '#4ade80' : 'var(--text-dim)' }} />
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: onlineDevices > 0 ? 'var(--green)' : 'var(--text-dim)' }} />
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
             {onlineDevices}/{totalDevices} online
           </span>
         </div>
         {updatesAvailable > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#f59e0b', fontWeight: 600, fontFamily: 'DM Mono, monospace' }}>
+          <span style={{ fontSize: 12, color: 'var(--amber)', fontWeight: 600, fontFamily: 'DM Mono, monospace' }}>
             {updatesAvailable} update{updatesAvailable !== 1 ? 's' : ''}
           </span>
         </>}
         {unauthorizedDevices > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             {unauthorizedDevices} unauthorized
           </span>
         </>}
@@ -292,7 +292,7 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
         </>}
         {(expiredKeys > 0 || expiringKeys > 0) && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, fontWeight: 600, color: expiredKeys > 0 ? '#e53e3e' : '#f97316' }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: expiredKeys > 0 ? 'var(--red)' : '#f97316' }}>
             {expiredKeys > 0
               ? `${expiredKeys} key${expiredKeys !== 1 ? 's' : ''} expired`
               : `${expiringKeys} key${expiringKeys !== 1 ? 's' : ''} expiring`}
@@ -310,15 +310,15 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <OnlineDonut online={onlineDevices} total={totalDevices} size={80} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-            <StatChip label="Online" value={onlineDevices} color="#4ade80" />
+            <StatChip label="Online" value={onlineDevices} color="var(--green)" />
             <StatChip label="Offline" value={offlineDevices} color={offlineDevices > 0 ? 'var(--text-muted)' : undefined} />
             {exitNodes > 0 && <StatChip label="Exit Nodes" value={exitNodes} color="#22d3ee" />}
             {subnetRouters > 0 && <StatChip label="Subnets" value={subnetRouters} color="#a855f7" />}
             {updatesAvailable > 0 && (
-              <StatChip label="Updates" value={updatesAvailable} color="#f59e0b" bg="#f59e0b12" />
+              <StatChip label="Updates" value={updatesAvailable} color="var(--amber)" bg="color-mix(in srgb, var(--amber) 7%, transparent)" />
             )}
             {unauthorizedDevices > 0 && (
-              <StatChip label="Unauth" value={unauthorizedDevices} color="#e53e3e" bg="#e53e3e18" />
+              <StatChip label="Unauth" value={unauthorizedDevices} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />
             )}
             {expiringDevices > 0 && (
               <StatChip label="Expiring" value={expiringDevices} color="#f97316" bg="#f9731612" />
@@ -353,7 +353,7 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
                             <span style={{ color: 'var(--text-dim)' }}>{active.join(', ')}</span>
                           )}
                           {pending.length > 0 && (
-                            <span style={{ color: '#f59e0b' }}>{active.length > 0 ? '  ' : ''}{pending.join(', ')} (pending)</span>
+                            <span style={{ color: 'var(--amber)' }}>{active.length > 0 ? '  ' : ''}{pending.join(', ')} (pending)</span>
                           )}
                         </div>
                       )}
@@ -392,16 +392,16 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <OnlineDonut online={onlineDevices} total={totalDevices} size={80} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
-          <StatChip label="Online" value={onlineDevices} color="#4ade80" />
+          <StatChip label="Online" value={onlineDevices} color="var(--green)" />
           <StatChip label="Offline" value={offlineDevices} color={offlineDevices > 0 ? 'var(--text-muted)' : undefined} />
           <StatChip label="Total" value={totalDevices} />
           {exitNodes > 0 && <StatChip label="Exit Nodes" value={exitNodes} color="#22d3ee" />}
           {subnetRouters > 0 && <StatChip label="Subnets" value={subnetRouters} color="#a855f7" />}
           {updatesAvailable > 0 && (
-            <StatChip label="Updates" value={updatesAvailable} color="#f59e0b" bg="#f59e0b12" />
+            <StatChip label="Updates" value={updatesAvailable} color="var(--amber)" bg="color-mix(in srgb, var(--amber) 7%, transparent)" />
           )}
           {unauthorizedDevices > 0 && (
-            <StatChip label="Unauth" value={unauthorizedDevices} color="#e53e3e" bg="#e53e3e18" />
+            <StatChip label="Unauth" value={unauthorizedDevices} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />
           )}
           {expiringDevices > 0 && (
             <StatChip label="Expiring" value={expiringDevices} color="#f97316" bg="#f9731612" />
@@ -448,8 +448,8 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
                         <RoleBadge device={d} />
                         {d.updateAvailable && <UpdateBadge />}
                         {d.keyExpired && (
-                          <span style={{ fontSize: 9, fontWeight: 700, color: '#e53e3e',
-                            background: '#e53e3e18', borderRadius: 4, padding: '1px 5px',
+                          <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--red)',
+                            background: 'color-mix(in srgb, var(--red) 9%, transparent)', borderRadius: 4, padding: '1px 5px',
                             flexShrink: 0, letterSpacing: '0.04em' }}>EXPIRED</span>
                         )}
                         {!d.keyExpired && d.expiringIn >= 0 && d.expiringIn <= 30 && (
@@ -465,13 +465,13 @@ export default function TailscalePanel({ panel, heightUnits }: { panel: Panel; h
                             <span style={{ color: 'var(--text-dim)' }}>{active.join(', ')}</span>
                           )}
                           {pending.length > 0 && (
-                            <span style={{ color: '#f59e0b' }}>{active.length > 0 ? '  ' : ''}{pending.join(', ')} (pending)</span>
+                            <span style={{ color: 'var(--amber)' }}>{active.length > 0 ? '  ' : ''}{pending.join(', ')} (pending)</span>
                           )}
                         </div>
                       )}
                     </div>
                     <div style={{ fontFamily: 'DM Mono, monospace', fontSize: 10,
-                      color: d.isOnline ? '#4ade80' : 'var(--text-dim)', textAlign: 'right', whiteSpace: 'nowrap', paddingTop: 2 }}>
+                      color: d.isOnline ? 'var(--green)' : 'var(--text-dim)', textAlign: 'right', whiteSpace: 'nowrap', paddingTop: 2 }}>
                       {fmtLastSeen(d)}
                     </div>
                   </div>

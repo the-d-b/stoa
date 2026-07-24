@@ -16,7 +16,7 @@ interface MonicaData {
 }
 
 function urgencyColor(days: number) {
-  if (days === 0) return '#f59e0b'
+  if (days === 0) return 'var(--amber)'
   if (days <= 7) return '#eab308'
   return 'var(--text)'
 }
@@ -120,7 +120,7 @@ export default function MonicaPanel({ panel, heightUnits }: { panel: any; height
           <span style={{ color: 'var(--text-muted)' }}> contacts</span>
         </span>
         {reminders.length > 0 && (
-          <span style={{ fontSize: 12, color: soonCount > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
+          <span style={{ fontSize: 12, color: soonCount > 0 ? 'var(--amber)' : 'var(--text-muted)' }}>
             <b>{reminders.length}</b> upcoming{soonCount > 0 ? ` · ${soonCount} this week` : ''}
           </span>
         )}
@@ -163,7 +163,7 @@ export default function MonicaPanel({ panel, heightUnits }: { panel: any; height
         {[
           { label: 'Contacts', value: data.totalContacts.toLocaleString() },
           { label: 'Upcoming', value: reminders.length.toString() },
-          { label: 'This Week', value: soonCount.toString(), accent: soonCount > 0 ? '#f59e0b' : undefined },
+          { label: 'This Week', value: soonCount.toString(), accent: soonCount > 0 ? 'var(--amber)' : undefined },
         ].map(s => (
           <div key={s.label} style={{ background: 'var(--surface2)', borderRadius: 7,
             padding: '5px 12px', textAlign: 'center', flex: 1 }}>

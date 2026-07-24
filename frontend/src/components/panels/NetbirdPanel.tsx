@@ -97,7 +97,7 @@ function StatChip({ label, value, color }: { label: string; value: string | numb
 }
 
 function PeerDot({ connected, expired }: { connected: boolean; expired: boolean }) {
-  const color = expired ? '#f59e0b' : connected ? '#4ade80' : '#6b7280'
+  const color = expired ? 'var(--amber)' : connected ? 'var(--green)' : 'var(--text-muted)'
   return (
     <div style={{
       width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
@@ -140,7 +140,7 @@ function PeerDetailRow({ peer }: { peer: NetbirdPeer }) {
       </div>
       <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
         {peer.loginExpired && (
-          <span style={{ fontSize: 9, fontWeight: 600, color: '#f59e0b', background: '#f59e0b22',
+          <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 13%, transparent)',
             borderRadius: 3, padding: '1px 5px' }}>EXPIRED</span>
         )}
         {peer.sshEnabled && (
@@ -169,7 +169,7 @@ function PolicyRow({ policy }: { policy: NetbirdPolicy }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, minWidth: 0 }}>
       <div style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-        background: policy.enabled ? '#4ade80' : '#6b7280' }} />
+        background: policy.enabled ? 'var(--green)' : 'var(--text-muted)' }} />
       <span style={{ fontSize: 11, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {policy.name}
       </span>
@@ -205,17 +205,17 @@ export default function NetbirdPanel({ panel, heightUnits }: { panel: Panel; hei
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error) return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error) return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   // ── 1× ───────────────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
     return wrap(
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        <StatChip label="Online" value={data.onlinePeers} color="#4ade80" />
-        <StatChip label="Offline" value={data.offlinePeers} color="#6b7280" />
+        <StatChip label="Online" value={data.onlinePeers} color="var(--green)" />
+        <StatChip label="Offline" value={data.offlinePeers} color="var(--text-muted)" />
         <StatChip label="Total" value={data.totalPeers} />
-        {data.expiredPeers > 0 && <StatChip label="Expired" value={data.expiredPeers} color="#f59e0b" />}
+        {data.expiredPeers > 0 && <StatChip label="Expired" value={data.expiredPeers} color="var(--amber)" />}
         <StatChip label="Groups" value={data.totalGroups} />
         <StatChip label="Policies" value={`${data.activePolicies}/${data.totalPolicies}`} />
       </div>
@@ -227,9 +227,9 @@ export default function NetbirdPanel({ panel, heightUnits }: { panel: Panel; hei
     return wrap(
       <>
         <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <StatChip label="Online" value={data.onlinePeers} color="#4ade80" />
-          <StatChip label="Offline" value={data.offlinePeers} color="#6b7280" />
-          {data.expiredPeers > 0 && <StatChip label="Expired" value={data.expiredPeers} color="#f59e0b" />}
+          <StatChip label="Online" value={data.onlinePeers} color="var(--green)" />
+          <StatChip label="Offline" value={data.offlinePeers} color="var(--text-muted)" />
+          {data.expiredPeers > 0 && <StatChip label="Expired" value={data.expiredPeers} color="var(--amber)" />}
           <StatChip label="Groups" value={data.totalGroups} />
           <StatChip label="Policies" value={`${data.activePolicies}/${data.totalPolicies}`} />
         </div>
@@ -255,9 +255,9 @@ export default function NetbirdPanel({ panel, heightUnits }: { panel: Panel; hei
   return wrap(
     <>
       <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-        <StatChip label="Online" value={data.onlinePeers} color="#4ade80" />
-        <StatChip label="Offline" value={data.offlinePeers} color="#6b7280" />
-        {data.expiredPeers > 0 && <StatChip label="Expired" value={data.expiredPeers} color="#f59e0b" />}
+        <StatChip label="Online" value={data.onlinePeers} color="var(--green)" />
+        <StatChip label="Offline" value={data.offlinePeers} color="var(--text-muted)" />
+        {data.expiredPeers > 0 && <StatChip label="Expired" value={data.expiredPeers} color="var(--amber)" />}
         <StatChip label="Groups" value={data.totalGroups} />
         <StatChip label="Policies" value={`${data.activePolicies}/${data.totalPolicies}`} />
       </div>

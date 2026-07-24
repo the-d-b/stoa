@@ -76,7 +76,7 @@ function tunnelStatusColor(status: string): string {
   switch (status) {
     case 'healthy':  return 'var(--green)'
     case 'degraded': return 'var(--amber)'
-    case 'down':     return 'var(--red, #e53e3e)'
+    case 'down':     return 'var(--red, var(--red))'
     default:         return 'var(--text-dim)' // inactive
   }
 }
@@ -205,7 +205,7 @@ function ZoneRow({ zone, compact = false }: { zone: CloudflareZone; compact?: bo
             {zone.threats > 0 && (
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-                  color: 'var(--red, #e53e3e)', fontWeight: 600 }}>
+                  color: 'var(--red, var(--red))', fontWeight: 600 }}>
                   {fmtNum(zone.threats)}
                 </div>
                 <div style={{ fontSize: 8, color: 'var(--text-dim)' }}>threats</div>
@@ -291,13 +291,13 @@ export default function CloudflarePanel({ panel, heightUnits }: Props) {
             </span>
           )}
           {data.totalThreats > 0 && (
-            <span style={{ fontSize: 9, color: 'var(--red, #e53e3e)' }}>
+            <span style={{ fontSize: 9, color: 'var(--red, var(--red))' }}>
               {fmtNum(data.totalThreats)} threats
             </span>
           )}
           {tunnels.length > 0 && (
             <span style={{ fontSize: 9,
-              color: downTunnels.length > 0 ? 'var(--red, #e53e3e)' : 'var(--green)' }}>
+              color: downTunnels.length > 0 ? 'var(--red, var(--red))' : 'var(--green)' }}>
               {activeTunnels.length - downTunnels.length}/{activeTunnels.length} tunnels
             </span>
           )}
@@ -325,7 +325,7 @@ export default function CloudflarePanel({ panel, heightUnits }: Props) {
           </span>
           {tunnels.length > 0 && (
             <span style={{ fontSize: 9,
-              color: downTunnels.length > 0 ? 'var(--red, #e53e3e)' : 'var(--green)' }}>
+              color: downTunnels.length > 0 ? 'var(--red, var(--red))' : 'var(--green)' }}>
               {data.healthyTunnels}/{activeTunnels.length} tunnels healthy
             </span>
           )}
@@ -337,7 +337,7 @@ export default function CloudflarePanel({ panel, heightUnits }: Props) {
             <StatChip label="Requests" value={fmtNum(data.totalRequests)} sub="24h" />
             {data.totalThreats > 0 && (
               <StatChip label="Threats" value={fmtNum(data.totalThreats)} sub="blocked"
-                color="var(--red, #e53e3e)" />
+                color="var(--red, var(--red))" />
             )}
             <StatChip label="Bandwidth" value={fmtBytes(data.totalBandwidth)} sub="served" />
             {data.totalUniques > 0 && (
@@ -385,7 +385,7 @@ export default function CloudflarePanel({ panel, heightUnits }: Props) {
         <div style={{ flex: 1 }} />
         {tunnels.length > 0 && (
           <span style={{ fontSize: 9,
-            color: downTunnels.length > 0 ? 'var(--red, #e53e3e)' : 'var(--green)' }}>
+            color: downTunnels.length > 0 ? 'var(--red, var(--red))' : 'var(--green)' }}>
             {data.healthyTunnels}/{activeTunnels.length} tunnels healthy
           </span>
         )}
@@ -397,7 +397,7 @@ export default function CloudflarePanel({ panel, heightUnits }: Props) {
           <StatChip label="Requests" value={fmtNum(data.totalRequests)} sub="24h" />
           {data.totalThreats > 0 && (
             <StatChip label="Threats" value={fmtNum(data.totalThreats)} sub="blocked"
-              color="var(--red, #e53e3e)" />
+              color="var(--red, var(--red))" />
           )}
           <StatChip label="Bandwidth" value={fmtBytes(data.totalBandwidth)} sub="served" />
           {data.totalUniques > 0 && (

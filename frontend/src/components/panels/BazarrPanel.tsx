@@ -88,14 +88,14 @@ function MissingDonut({ episodes, movies, size = 80 }: { episodes: number; movie
   const epFrac = total > 0 ? episodes / total : 0
   const epLen = circ * epFrac
   const mvLen = circ * (1 - epFrac)
-  const color = total === 0 ? '#4ade80' : total < 10 ? '#f59e0b' : '#e53e3e'
+  const color = total === 0 ? 'var(--green)' : total < 10 ? 'var(--amber)' : 'var(--red)'
 
   if (total === 0) {
     return (
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ade80" strokeWidth={size * 0.13} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--green)" strokeWidth={size * 0.13} />
         <text x={cx} y={cy} textAnchor="middle" dominantBaseline="middle"
-          fill="#4ade80" style={{ fontSize: size * 0.2, fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
+          fill="var(--green)" style={{ fontSize: size * 0.2, fontWeight: 700, fontFamily: 'DM Mono, monospace' }}>
           ✓
         </text>
       </svg>
@@ -107,7 +107,7 @@ function MissingDonut({ episodes, movies, size = 80 }: { episodes: number; movie
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
       {/* Episodes arc */}
       {episodes > 0 && (
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f59e0b" strokeWidth={size * 0.13}
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--amber)" strokeWidth={size * 0.13}
           strokeDasharray={`${epLen} ${circ}`} strokeLinecap="butt"
           transform={`rotate(-90 ${cx} ${cy})`} />
       )}
@@ -135,21 +135,21 @@ function ProviderRow({ provider }: { provider: BazarrProvider }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       <div style={{
         width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-        background: provider.ok ? '#4ade80' : '#e53e3e',
+        background: provider.ok ? 'var(--green)' : 'var(--red)',
       }} />
       <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden',
         textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
         {providerDisplayName(provider.name)}
       </span>
       {!provider.ok && provider.status && provider.status !== 'Good' && (
-        <span style={{ fontSize: 10, color: '#e53e3e', flexShrink: 0,
+        <span style={{ fontSize: 10, color: 'var(--red)', flexShrink: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}
           title={provider.status}>
           {provider.status.split(':')[0]}
         </span>
       )}
       {!provider.ok && provider.retry && provider.retry !== '-' && (
-        <span style={{ fontSize: 9, color: '#f59e0b', fontFamily: 'DM Mono, monospace',
+        <span style={{ fontSize: 9, color: 'var(--amber)', fontFamily: 'DM Mono, monospace',
           flexShrink: 0, whiteSpace: 'nowrap' }}>
           retry {provider.retry}
         </span>
@@ -202,8 +202,8 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
 
   const totalMissing = missingEpisodes + missingMovies
   const providersAllOk = providersTotal > 0 && providersIssues === 0
-  const providerColor = providersTotal === 0 ? 'var(--text-dim)' : providersAllOk ? '#4ade80' : '#e53e3e'
-  const missingColor = totalMissing === 0 ? '#4ade80' : totalMissing < 10 ? '#f59e0b' : '#e53e3e'
+  const providerColor = providersTotal === 0 ? 'var(--text-dim)' : providersAllOk ? 'var(--green)' : 'var(--red)'
+  const missingColor = totalMissing === 0 ? 'var(--green)' : totalMissing < 10 ? 'var(--amber)' : 'var(--red)'
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -211,14 +211,14 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%',
-            background: totalMissing === 0 ? '#4ade80' : missingColor }} />
+            background: totalMissing === 0 ? 'var(--green)' : missingColor }} />
           <span style={{ fontSize: 12, color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace' }}>
             {totalMissing === 0 ? 'No missing subtitles' : `${totalMissing} missing`}
           </span>
         </div>
         {missingEpisodes > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 11, color: '#f59e0b' }}>{missingEpisodes} TV</span>
+          <span style={{ fontSize: 11, color: 'var(--amber)' }}>{missingEpisodes} TV</span>
         </>}
         {missingMovies > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
@@ -226,7 +226,7 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
         </>}
         {providersIssues > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             {providersIssues} provider{providersIssues !== 1 ? 's' : ''} down
           </span>
         </>}
@@ -246,13 +246,13 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
       <MissingDonut episodes={missingEpisodes} movies={missingMovies} size={80} />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
         {totalMissing === 0
-          ? <StatChip label="Missing" value="None" color="#4ade80" />
+          ? <StatChip label="Missing" value="None" color="var(--green)" />
           : <>
-              {missingEpisodes > 0 && <StatChip label="TV missing" value={missingEpisodes} color="#f59e0b" bg="#f59e0b12" />}
+              {missingEpisodes > 0 && <StatChip label="TV missing" value={missingEpisodes} color="var(--amber)" bg="color-mix(in srgb, var(--amber) 7%, transparent)" />}
               {missingMovies > 0 && <StatChip label="Movies missing" value={missingMovies} color="#22d3ee" bg="#22d3ee12" />}
             </>
         }
-        {providersIssues > 0 && <StatChip label="Providers down" value={providersIssues} color="#e53e3e" bg="#e53e3e18" />}
+        {providersIssues > 0 && <StatChip label="Providers down" value={providersIssues} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
         <StatChip label="Providers" value={`${providersOk}/${providersTotal}`} color={providerColor} />
         {extended && downloadedSeries > 0 && <StatChip label="TV subs/mo" value={downloadedSeries} />}
         {extended && downloadedMovies > 0 && <StatChip label="Movie subs/mo" value={downloadedMovies} />}
@@ -297,25 +297,25 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%',
-              background: sonarrLive ? '#4ade80' : 'var(--text-dim)' }} />
+              background: sonarrLive ? 'var(--green)' : 'var(--text-dim)' }} />
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Sonarr</span>
-            <span style={{ fontSize: 10, color: sonarrLive ? '#4ade80' : 'var(--text-dim)' }}>
+            <span style={{ fontSize: 10, color: sonarrLive ? 'var(--green)' : 'var(--text-dim)' }}>
               {sonarrLive ? 'live' : 'offline'}
             </span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
             <div style={{ width: 6, height: 6, borderRadius: '50%',
-              background: radarrLive ? '#4ade80' : 'var(--text-dim)' }} />
+              background: radarrLive ? 'var(--green)' : 'var(--text-dim)' }} />
             <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Radarr</span>
-            <span style={{ fontSize: 10, color: radarrLive ? '#4ade80' : 'var(--text-dim)' }}>
+            <span style={{ fontSize: 10, color: radarrLive ? 'var(--green)' : 'var(--text-dim)' }}>
               {radarrLive ? 'live' : 'offline'}
             </span>
           </div>
         </div>
         {healthIssues > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#e53e3e' }} />
-            <span style={{ fontSize: 11, color: '#e53e3e' }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
+            <span style={{ fontSize: 11, color: 'var(--red)' }}>
               {healthIssues} health issue{healthIssues !== 1 ? 's' : ''}
             </span>
           </div>
@@ -331,7 +331,7 @@ export default function BazarrPanel({ panel, heightUnits }: { panel: Panel; heig
                 <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50 }}>TV</span>
                 <div style={{ flex: 1, height: 4, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{
-                    height: '100%', borderRadius: 2, background: '#f59e0b',
+                    height: '100%', borderRadius: 2, background: 'var(--amber)',
                     width: `${Math.min(100, downloadedSeries / Math.max(downloadedSeries, downloadedMovies) * 100)}%`,
                   }} />
                 </div>

@@ -49,17 +49,17 @@ function fmtHours(h: number): string {
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'passed':  return '#4ade80'
-    case 'warning': return '#f59e0b'
-    case 'failed':  return '#e53e3e'
-    default:        return '#6b7280'
+    case 'passed':  return 'var(--green)'
+    case 'warning': return 'var(--amber)'
+    case 'failed':  return 'var(--red)'
+    default:        return 'var(--text-muted)'
   }
 }
 
 function tempColor(c: number): string {
-  if (c >= 50) return '#e53e3e'
-  if (c >= 40) return '#f59e0b'
-  return '#4ade80'
+  if (c >= 50) return 'var(--red)'
+  if (c >= 40) return 'var(--amber)'
+  return 'var(--green)'
 }
 
 function driveTypeLabel(dev: ScrutinyDevice): string {
@@ -115,9 +115,9 @@ function FleetDonut({ total, passed, warning, failed, size = 90 }: {
     const offset = segments.reduce((s, g) => s + g.arc, 0)
     if (arc > 0) segments.push({ arc, offset, color })
   }
-  pushSeg(passed,  '#4ade80')
-  pushSeg(warning, '#f59e0b')
-  pushSeg(failed,  '#e53e3e')
+  pushSeg(passed,  'var(--green)')
+  pushSeg(warning, 'var(--amber)')
+  pushSeg(failed,  'var(--red)')
 
   // If no data, show grey track
   const anyData = total > 0
@@ -212,7 +212,7 @@ function DriveDetailRow({ dev }: { dev: ScrutinyDevice }) {
             <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>{fmtCapacity(dev.capacity)}</span>
           )}
           {hasWarning && (
-            <span style={{ fontSize: 9, fontWeight: 600, color: '#f59e0b', background: '#f59e0b22',
+            <span style={{ fontSize: 9, fontWeight: 600, color: 'var(--amber)', background: 'color-mix(in srgb, var(--amber) 13%, transparent)',
               borderRadius: 3, padding: '1px 5px' }}>
               {dev.reallocSectors > 0 ? `${dev.reallocSectors} reallocated` : `${dev.pendingSectors} pending`}
             </span>
@@ -262,7 +262,7 @@ export default function ScrutinyPanel({ panel, heightUnits }: { panel: Panel; he
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error) return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error) return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const worstStatus = data.failedDevices > 0 ? 'failed' : data.warningDevices > 0 ? 'warning' : 'passed'
@@ -272,9 +272,9 @@ export default function ScrutinyPanel({ panel, heightUnits }: { panel: Panel; he
     return wrap(
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <StatChip label="Drives" value={data.totalDevices} />
-        <StatChip label="Healthy" value={data.passedDevices} color="#4ade80" />
-        {data.warningDevices > 0 && <StatChip label="Warning" value={data.warningDevices} color="#f59e0b" />}
-        {data.failedDevices > 0 && <StatChip label="Failed" value={data.failedDevices} color="#e53e3e" />}
+        <StatChip label="Healthy" value={data.passedDevices} color="var(--green)" />
+        {data.warningDevices > 0 && <StatChip label="Warning" value={data.warningDevices} color="var(--amber)" />}
+        {data.failedDevices > 0 && <StatChip label="Failed" value={data.failedDevices} color="var(--red)" />}
         {data.avgTemp > 0 && <StatChip label="Avg Temp" value={`${data.avgTemp}°C`} color={tempColor(data.avgTemp)} />}
         {data.maxTemp > 0 && <StatChip label="Max Temp" value={`${data.maxTemp}°C`} color={tempColor(data.maxTemp)} />}
       </div>
@@ -286,9 +286,9 @@ export default function ScrutinyPanel({ panel, heightUnits }: { panel: Panel; he
     return wrap(
       <>
         <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          <StatChip label="Healthy" value={data.passedDevices} color="#4ade80" />
-          {data.warningDevices > 0 && <StatChip label="Warning" value={data.warningDevices} color="#f59e0b" />}
-          {data.failedDevices > 0 && <StatChip label="Failed" value={data.failedDevices} color="#e53e3e" />}
+          <StatChip label="Healthy" value={data.passedDevices} color="var(--green)" />
+          {data.warningDevices > 0 && <StatChip label="Warning" value={data.warningDevices} color="var(--amber)" />}
+          {data.failedDevices > 0 && <StatChip label="Failed" value={data.failedDevices} color="var(--red)" />}
           {data.avgTemp > 0 && <StatChip label="Avg" value={`${data.avgTemp}°C`} color={tempColor(data.avgTemp)} />}
           {data.maxTemp > 0 && <StatChip label="Max" value={`${data.maxTemp}°C`} color={tempColor(data.maxTemp)} />}
         </div>
@@ -315,18 +315,18 @@ export default function ScrutinyPanel({ panel, heightUnits }: { panel: Panel; he
           />
           <div style={{ marginTop: 10, width: '100%', display: 'flex', flexDirection: 'column', gap: 5 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, color: '#4ade80' }}>Passed</span>
+              <span style={{ fontSize: 11, color: 'var(--green)' }}>Passed</span>
               <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{data.passedDevices}</span>
             </div>
             {data.warningDevices > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 11, color: '#f59e0b' }}>Warning</span>
+                <span style={{ fontSize: 11, color: 'var(--amber)' }}>Warning</span>
                 <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{data.warningDevices}</span>
               </div>
             )}
             {data.failedDevices > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ fontSize: 11, color: '#e53e3e' }}>Failed</span>
+                <span style={{ fontSize: 11, color: 'var(--red)' }}>Failed</span>
                 <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{data.failedDevices}</span>
               </div>
             )}
@@ -344,7 +344,7 @@ export default function ScrutinyPanel({ panel, heightUnits }: { panel: Panel; he
               </>
             )}
             {data.failedDevices === 0 && data.warningDevices === 0 && (
-              <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: '#4ade80', textAlign: 'center' }}>
+              <div style={{ marginTop: 4, fontSize: 11, fontWeight: 600, color: 'var(--green)', textAlign: 'center' }}>
                 All drives healthy
               </div>
             )}

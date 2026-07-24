@@ -206,8 +206,8 @@ export function NoteOverlay({ note, onClose, onDelete, initialLockedBy }: {
         )}
         {lockedBy && lockedBy !== 'pending' && (
           <div style={{ marginBottom: 10, padding: '8px 12px', borderRadius: 8, flexShrink: 0,
-            background: '#fef3c720', border: '1px solid #f59e0b',
-            fontSize: 12, color: '#f59e0b', display: 'flex', alignItems: 'center', gap: 8 }}>
+            background: '#fef3c720', border: '1px solid var(--amber)',
+            fontSize: 12, color: 'var(--amber)', display: 'flex', alignItems: 'center', gap: 8 }}>
             🔒 <strong>{lockedBy}</strong> is currently editing this note. You can read but not edit.
           </div>
         )}

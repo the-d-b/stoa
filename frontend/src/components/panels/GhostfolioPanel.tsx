@@ -42,12 +42,12 @@ function fmtPct(frac: number, showPlus = true): string {
 function changeColor(frac: number): string {
   if (frac > 0) return '#22c55e'
   if (frac < 0) return '#ef4444'
-  return '#888'
+  return 'var(--text-muted)'
 }
 
 // Assign consistent colors to holdings by index
 const HOLDING_COLORS = [
-  '#6366f1', '#22c55e', '#f59e0b', '#06b6d4',
+  '#6366f1', '#22c55e', 'var(--amber)', '#06b6d4',
   '#a855f7', '#f97316', '#14b8a6', '#ec4899',
   '#84cc16', '#3b82f6',
 ]
@@ -68,7 +68,7 @@ function HoldingsDonut({ holdings, value, currency }: { holdings: GhostfolioHold
     <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
       <svg width={112} height={112} style={{ flexShrink: 0 }}>
         {/* Background ring */}
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#222" strokeWidth={sw} />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--border)" strokeWidth={sw} />
         {segments.map((s, i) => {
           const arc = s.allocationCurrent * circ
           const seg = (
@@ -83,8 +83,8 @@ function HoldingsDonut({ holdings, value, currency }: { holdings: GhostfolioHold
           offset += arc
           return seg
         })}
-        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={10} fill="#888">Net worth</text>
-        <text x={cx} y={cy + 8} textAnchor="middle" fontSize={11} fontWeight={700} fill="#e0e0e0">
+        <text x={cx} y={cy - 6} textAnchor="middle" fontSize={10} fill="var(--text-muted)">Net worth</text>
+        <text x={cx} y={cy + 8} textAnchor="middle" fontSize={11} fontWeight={700} fill="var(--text)">
           {fmtMoney(value, currency).replace(/\.00$/, '')}
         </text>
       </svg>
@@ -92,8 +92,8 @@ function HoldingsDonut({ holdings, value, currency }: { holdings: GhostfolioHold
         {segments.map((s, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: HOLDING_COLORS[i % HOLDING_COLORS.length], flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: '#ccc', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
-            <span style={{ fontSize: 11, color: '#888', flexShrink: 0 }}>{(s.allocationCurrent * 100).toFixed(1)}%</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>{(s.allocationCurrent * 100).toFixed(1)}%</span>
           </div>
         ))}
       </div>
@@ -105,18 +105,18 @@ function HoldingsDonut({ holdings, value, currency }: { holdings: GhostfolioHold
 
 function HoldingRow({ h, color, currency }: { h: GhostfolioHolding; color: string; currency: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid #1a1a1a' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
       <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
+        <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</div>
         {h.quantity > 0 && h.marketPrice > 0 && (
-          <div style={{ fontSize: 10, color: '#666', marginTop: 1 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 1 }}>
             {h.quantity.toPrecision(4)} × {fmtMoney(h.marketPrice, h.currency)}
           </div>
         )}
       </div>
       <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ fontSize: 12, color: '#ddd' }}>{fmtMoney(h.value, currency)}</div>
+        <div style={{ fontSize: 12, color: 'var(--text)' }}>{fmtMoney(h.value, currency)}</div>
         {h.netPerformancePct !== 0 && (
           <div style={{ fontSize: 10, color: changeColor(h.netPerformancePct) }}>
             {fmtPct(h.netPerformancePct)}
@@ -132,11 +132,11 @@ function HoldingRow({ h, color, currency }: { h: GhostfolioHolding; color: strin
 function PerfRow({ label, pct, amt, currency }: { label: string; pct: number; amt?: number; currency: string }) {
   const color = changeColor(pct)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid #1a1a1a' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--border)' }}>
       <span style={{ fontSize: 12, color: '#777', width: 70, flexShrink: 0 }}>{label}</span>
       <span style={{ fontSize: 13, fontWeight: 600, color }}>{fmtPct(pct)}</span>
       {amt !== undefined && amt !== 0 && (
-        <span style={{ fontSize: 11, color: '#555', marginLeft: 'auto' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 'auto' }}>
           {amt > 0 ? '+' : ''}{fmtMoney(amt, currency)}
         </span>
       )}
@@ -164,8 +164,8 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
   const sseData = useSSE<GhostfolioPanelData>(integrationId)
   useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
-  if (!integrationId) return <div style={{ padding: 16, color: '#666', fontSize: 13 }}>No integration configured.</div>
-  if (loading) return <div style={{ padding: 16, color: '#888', fontSize: 13 }}>Loading...</div>
+  if (!integrationId) return <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>
+  if (loading) return <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>Loading...</div>
   if (error) return <div style={{ padding: 16, color: '#ef4444', fontSize: 13 }}>{error}</div>
   if (!data) return null
 
@@ -177,17 +177,17 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
     return (
       <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 20, height: '100%', overflow: 'hidden' }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: '#e0e0e0', lineHeight: 1 }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>
             {fmtMoney(data.currentValue, cur)}
           </div>
-          <div style={{ fontSize: 10, color: '#666', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth</div>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 3, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth</div>
         </div>
         {data.todayChangePct !== 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <span style={{ fontSize: 16, fontWeight: 700, color: changeColor(data.todayChangePct) }}>
               {fmtPct(data.todayChangePct)}
             </span>
-            <span style={{ fontSize: 10, color: '#666', marginTop: 2 }}>Today</span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>Today</span>
           </div>
         )}
         {data.allTimeChangePct !== 0 && (
@@ -195,11 +195,11 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
             <span style={{ fontSize: 16, fontWeight: 700, color: changeColor(data.allTimeChangePct) }}>
               {fmtPct(data.allTimeChangePct)}
             </span>
-            <span style={{ fontSize: 10, color: '#666', marginTop: 2 }}>All time</span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 2 }}>All time</span>
           </div>
         )}
         {holdings.length > 0 && (
-          <span style={{ fontSize: 11, color: '#555' }}>{holdings.length} holdings</span>
+          <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{holdings.length} holdings</span>
         )}
       </div>
     )
@@ -212,28 +212,28 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
         {/* Value + changes */}
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexShrink: 0 }}>
           <div>
-            <div style={{ fontSize: 26, fontWeight: 700, color: '#e0e0e0', lineHeight: 1 }}>
+            <div style={{ fontSize: 26, fontWeight: 700, color: 'var(--text)', lineHeight: 1 }}>
               {fmtMoney(data.currentValue, cur)}
             </div>
-            <div style={{ fontSize: 10, color: '#666', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth · {cur}</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth · {cur}</div>
           </div>
           <div style={{ display: 'flex', gap: 14, paddingBottom: 2 }}>
             {data.todayChangePct !== 0 && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: changeColor(data.todayChangePct) }}>{fmtPct(data.todayChangePct)}</div>
-                <div style={{ fontSize: 10, color: '#666' }}>Today</div>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>Today</div>
               </div>
             )}
             {data.yearChangePct !== 0 && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: changeColor(data.yearChangePct) }}>{fmtPct(data.yearChangePct)}</div>
-                <div style={{ fontSize: 10, color: '#666' }}>1 Year</div>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>1 Year</div>
               </div>
             )}
             {data.allTimeChangePct !== 0 && (
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: changeColor(data.allTimeChangePct) }}>{fmtPct(data.allTimeChangePct)}</div>
-                <div style={{ fontSize: 10, color: '#666' }}>All time</div>
+                <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>All time</div>
               </div>
             )}
           </div>
@@ -255,8 +255,8 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
               {holdings.slice(0, 6).map((h, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <div style={{ width: 7, height: 7, borderRadius: 1, background: HOLDING_COLORS[i % HOLDING_COLORS.length] }} />
-                  <span style={{ fontSize: 11, color: '#aaa' }}>{h.name}</span>
-                  <span style={{ fontSize: 11, color: '#555' }}>{(h.allocationCurrent * 100).toFixed(0)}%</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{h.name}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{(h.allocationCurrent * 100).toFixed(0)}%</span>
                 </div>
               ))}
             </div>
@@ -278,16 +278,16 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
     <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14, height: '100%', overflowY: 'auto', boxSizing: 'border-box' }}>
       {/* Net worth */}
       <div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: '#e0e0e0', lineHeight: 1.1 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--text)', lineHeight: 1.1 }}>
           {fmtMoney(data.currentValue, cur)}
         </div>
-        <div style={{ fontSize: 11, color: '#555', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth · {cur}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net worth · {cur}</div>
       </div>
 
       {/* Performance metrics */}
       {(data.todayChangePct !== 0 || data.yearChangePct !== 0 || data.allTimeChangePct !== 0) && (
         <div>
-          <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Performance</div>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Performance</div>
           {data.todayChangePct !== 0 && (
             <PerfRow label="Today" pct={data.todayChangePct} amt={data.todayChangeAmt} currency={cur} />
           )}
@@ -303,8 +303,8 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
       {/* Invested */}
       {data.totalInvestment > 0 && (
         <div>
-          <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Invested</div>
-          <div style={{ fontSize: 16, color: '#aaa' }}>{fmtMoney(data.totalInvestment, cur)}</div>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Invested</div>
+          <div style={{ fontSize: 16, color: 'var(--text-muted)' }}>{fmtMoney(data.totalInvestment, cur)}</div>
         </div>
       )}
 
@@ -313,7 +313,7 @@ export default function GhostfolioPanel({ panel, heightUnits }: { panel: Panel; 
         <>
           <HoldingsDonut holdings={holdings} value={data.currentValue} currency={cur} />
           <div>
-            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Holdings</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Holdings</div>
             {holdings.map((h, i) => (
               <HoldingRow key={i} h={h} color={HOLDING_COLORS[i % HOLDING_COLORS.length]} currency={cur} />
             ))}

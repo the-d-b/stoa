@@ -58,9 +58,9 @@ function tagColor(hex: string): string {
 
 function StatChip({ label, value, accent }: { label: string; value: string | number; accent?: boolean }) {
   return (
-    <div style={{ background: '#1a1a1a', borderRadius: 8, padding: '8px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80 }}>
-      <span style={{ fontSize: 20, fontWeight: 700, color: accent ? '#f59e0b' : '#e0e0e0' }}>{value}</span>
-      <span style={{ fontSize: 10, color: '#888', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+    <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '8px 14px', display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: 80 }}>
+      <span style={{ fontSize: 20, fontWeight: 700, color: accent ? 'var(--amber)' : 'var(--text)' }}>{value}</span>
+      <span style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
     </div>
   )
 }
@@ -68,7 +68,7 @@ function StatChip({ label, value, accent }: { label: string; value: string | num
 function PropBar({ value, max, color }: { value: number; max: number; color?: string }) {
   const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 4
   return (
-    <div style={{ flex: 1, height: 6, background: '#2a2a2a', borderRadius: 3, overflow: 'hidden' }}>
+    <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
       <div style={{ width: `${pct}%`, height: '100%', background: color || '#6366f1', borderRadius: 3 }} />
     </div>
   )
@@ -79,9 +79,9 @@ function TagRow({ tag, max }: { tag: PaperlessTag; max: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
       <div style={{ width: 8, height: 8, borderRadius: 2, background: color, flexShrink: 0 }} />
-      <span style={{ fontSize: 12, color: '#ccc', width: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{tag.name}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{tag.name}</span>
       <PropBar value={tag.documentCount} max={max} color={color} />
-      <span style={{ fontSize: 11, color: '#666', width: 28, textAlign: 'right', flexShrink: 0 }}>{tag.documentCount}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-dim)', width: 28, textAlign: 'right', flexShrink: 0 }}>{tag.documentCount}</span>
     </div>
   )
 }
@@ -89,9 +89,9 @@ function TagRow({ tag, max }: { tag: PaperlessTag; max: number }) {
 function CorrespRow({ c, max }: { c: PaperlessCorrespondent; max: number }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-      <span style={{ fontSize: 12, color: '#ccc', width: 108, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{c.name}</span>
+      <span style={{ fontSize: 12, color: 'var(--text-muted)', width: 108, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 0 }}>{c.name}</span>
       <PropBar value={c.documentCount} max={max} />
-      <span style={{ fontSize: 11, color: '#666', width: 28, textAlign: 'right', flexShrink: 0 }}>{c.documentCount}</span>
+      <span style={{ fontSize: 11, color: 'var(--text-dim)', width: 28, textAlign: 'right', flexShrink: 0 }}>{c.documentCount}</span>
     </div>
   )
 }
@@ -99,17 +99,17 @@ function CorrespRow({ c, max }: { c: PaperlessCorrespondent; max: number }) {
 function DocRow({ doc, uiUrl }: { doc: PaperlessDocument; uiUrl: string }) {
   const href = uiUrl ? `${uiUrl.replace(/\/$/, '')}/documents/${doc.id}` : undefined
   const inner = (
-    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid #1a1a1a' }}>
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
       <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth={2} style={{ flexShrink: 0, marginTop: 2 }}>
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
         <polyline points="14 2 14 8 20 8" />
       </svg>
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, color: '#e0e0e0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
-        <div style={{ fontSize: 11, color: '#666', marginTop: 2, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</div>
+        <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2, display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           <span>{fmtDate(doc.created)}</span>
-          {doc.correspondent && <><span style={{ color: '#444' }}>·</span><span style={{ color: '#888' }}>{doc.correspondent}</span></>}
-          {doc.documentType && <><span style={{ color: '#444' }}>·</span><span>{doc.documentType}</span></>}
+          {doc.correspondent && <><span style={{ color: 'var(--text-dim)' }}>·</span><span style={{ color: 'var(--text-muted)' }}>{doc.correspondent}</span></>}
+          {doc.documentType && <><span style={{ color: 'var(--text-dim)' }}>·</span><span>{doc.documentType}</span></>}
         </div>
       </div>
     </div>
@@ -127,7 +127,7 @@ function DocRow({ doc, uiUrl }: { doc: PaperlessDocument; uiUrl: string }) {
 
 function TypeDonut({ types }: { types: PaperlessDocType[] }) {
   if (types.length === 0) return null
-  const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#14b8a6']
+  const COLORS = ['#6366f1', '#22c55e', 'var(--amber)', '#ef4444', '#06b6d4', '#a855f7', '#f97316', '#14b8a6']
   const total = types.reduce((s, t) => s + t.documentCount, 0)
   if (total === 0) return null
   const cx = 36, cy = 36, r = 28, circ = 2 * Math.PI * r
@@ -150,14 +150,14 @@ function TypeDonut({ types }: { types: PaperlessDocType[] }) {
             transform={`rotate(-90 ${cx} ${cy})`}
             strokeLinecap="butt" />
         ))}
-        <text x={cx} y={cy + 5} textAnchor="middle" fontSize={11} fill="#888">{types.length}</text>
+        <text x={cx} y={cy + 5} textAnchor="middle" fontSize={11} fill="var(--text-muted)">{types.length}</text>
       </svg>
       <div style={{ flex: 1, minWidth: 0 }}>
         {segs.map((s, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 3 }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
-            <span style={{ fontSize: 11, color: '#bbb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.name}</span>
-            <span style={{ fontSize: 11, color: '#666', flexShrink: 0 }}>{s.count}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.name}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}>{s.count}</span>
           </div>
         ))}
       </div>
@@ -185,8 +185,8 @@ export default function PaperlessPanel({ panel, heightUnits }: { panel: Panel; h
   const sseData = useSSE<PaperlessPanelData>(integrationId)
   useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
 
-  if (!integrationId) return <div style={{ padding: 16, color: '#666', fontSize: 13 }}>No integration configured.</div>
-  if (loading) return <div style={{ padding: 16, color: '#888', fontSize: 13 }}>Loading...</div>
+  if (!integrationId) return <div style={{ padding: 16, color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>
+  if (loading) return <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>Loading...</div>
   if (error) return <div style={{ padding: 16, color: '#ef4444', fontSize: 13 }}>{error}</div>
   if (!data) return null
 
@@ -220,7 +220,7 @@ export default function PaperlessPanel({ panel, heightUnits }: { panel: Panel; h
           {visibleTags.length > 0 && <StatChip label="Tags" value={visibleTags.length} />}
         </div>
         <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
-          <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Recent Documents</div>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>Recent Documents</div>
           {(data.recentDocuments || []).map(doc => <DocRow key={doc.id} doc={doc} uiUrl={data.uiUrl} />)}
         </div>
       </div>
@@ -239,21 +239,21 @@ export default function PaperlessPanel({ panel, heightUnits }: { panel: Panel; h
 
         {(data.documentTypes || []).length > 0 && (
           <div>
-            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Document Types</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Document Types</div>
             <TypeDonut types={data.documentTypes} />
           </div>
         )}
 
         {topTags.length > 0 && (
           <div>
-            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Tags</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Tags</div>
             {topTags.map(tag => <TagRow key={tag.id} tag={tag} max={maxTagCount} />)}
           </div>
         )}
 
         {topCorrespondents.length > 0 && (
           <div>
-            <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Correspondents</div>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Correspondents</div>
             {topCorrespondents.map(c => <CorrespRow key={c.id} c={c} max={maxCorrCount} />)}
           </div>
         )}
@@ -261,7 +261,7 @@ export default function PaperlessPanel({ panel, heightUnits }: { panel: Panel; h
 
       {/* Right col — recent documents */}
       <div style={{ flex: 1, padding: '12px 14px', overflowY: 'auto', minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: '#555', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Recent Documents</div>
+        <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>Recent Documents</div>
         {(data.recentDocuments || []).map(doc => <DocRow key={doc.id} doc={doc} uiUrl={data.uiUrl} />)}
       </div>
     </div>

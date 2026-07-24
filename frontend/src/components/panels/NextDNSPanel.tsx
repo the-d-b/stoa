@@ -25,7 +25,7 @@ interface NextDNSData {
   reasons: NextDNSReason[]
 }
 
-function ArcGauge({ pct, color = '#e53e3e', label, size = 100 }: {
+function ArcGauge({ pct, color = 'var(--red)', label, size = 100 }: {
   pct: number; color?: string; label: string; size?: number
 }) {
   const cx = size / 2, cy = size / 2, r = size * 0.38
@@ -83,7 +83,7 @@ function Sparkline({ total, blocked, height = 44 }: { total: number[]; blocked: 
         return (
           <g key={i}>
             <rect x={i} y={H - th} width={0.9} height={th} fill="var(--border)" />
-            <rect x={i} y={H - bh} width={0.9} height={bh} fill="#e53e3e" opacity={0.85} />
+            <rect x={i} y={H - bh} width={0.9} height={bh} fill="var(--red)" opacity={0.85} />
           </g>
         )
       })}
@@ -164,7 +164,7 @@ export default function NextDNSPanel({ panel, heightUnits }: { panel: Panel; hei
           {fmtNum(totalQueries)} queries
         </span>
         <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-        <span style={{ fontSize: 12, color: '#e53e3e', fontFamily: 'DM Mono, monospace' }}>
+        <span style={{ fontSize: 12, color: 'var(--red)', fontFamily: 'DM Mono, monospace' }}>
           {fmtNum(blockedQueries)} blocked ({percentBlocked.toFixed(1)}%)
         </span>
         {encryptedPct > 0 && <>
@@ -193,10 +193,10 @@ export default function NextDNSPanel({ panel, heightUnits }: { panel: Panel; hei
           </div>
         )}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <ArcGauge pct={percentBlocked} color="#e53e3e" label="blocked" size={90} />
+          <ArcGauge pct={percentBlocked} color="var(--red)" label="blocked" size={90} />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
             <StatChip label="Total" value={fmtNum(totalQueries)} />
-            <StatChip label="Blocked" value={fmtNum(blockedQueries)} color="#e53e3e" />
+            <StatChip label="Blocked" value={fmtNum(blockedQueries)} color="var(--red)" />
             <StatChip label="Allowed" value={fmtNum(allowedQueries)} color="var(--green)" />
             {encryptedPct > 0 && <StatChip label="Encrypted" value={`${encryptedPct.toFixed(0)}%`} color="#22d3ee" />}
             {ipv6Pct > 0 && <StatChip label="IPv6" value={`${ipv6Pct.toFixed(0)}%`} color="#a855f7" />}
@@ -229,10 +229,10 @@ export default function NextDNSPanel({ panel, heightUnits }: { panel: Panel; hei
 
       {/* Top row — gauge + chips */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-        <ArcGauge pct={percentBlocked} color="#e53e3e" label="blocked" size={96} />
+        <ArcGauge pct={percentBlocked} color="var(--red)" label="blocked" size={96} />
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, flex: 1 }}>
           <StatChip label="Total" value={fmtNum(totalQueries)} />
-          <StatChip label="Blocked" value={fmtNum(blockedQueries)} color="#e53e3e" />
+          <StatChip label="Blocked" value={fmtNum(blockedQueries)} color="var(--red)" />
           <StatChip label="Allowed" value={fmtNum(allowedQueries)} color="var(--green)" />
           {encryptedPct > 0 && <StatChip label="Encrypted" value={`${encryptedPct.toFixed(0)}%`} color="#22d3ee" />}
           {ipv6Pct > 0 && <StatChip label="IPv6" value={`${ipv6Pct.toFixed(0)}%`} color="#a855f7" />}
@@ -258,7 +258,7 @@ export default function NextDNSPanel({ panel, heightUnits }: { panel: Panel; hei
             ? <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No data</div>
             : topBlocked.slice(0, 9).map(d => (
                 <BarRow key={d.name} label={d.name} value={d.blocked} max={maxBlocked}
-                  displayVal={fmtNum(d.blocked)} color="#e53e3e" />
+                  displayVal={fmtNum(d.blocked)} color="var(--red)" />
               ))}
         </div>
 

@@ -53,7 +53,7 @@ function dsTypeColor(type: string): string {
     case 'tempo':           return '#e36ddf'
     case 'jaeger':          return '#66d3fa'
     case 'zipkin':          return '#ff6b6b'
-    default:                return '#6b7280'
+    default:                return 'var(--text-muted)'
   }
 }
 
@@ -68,18 +68,18 @@ function dsTypeName(type: string): string {
 }
 
 function healthDot(health: string): string {
-  if (health === 'ok')    return '#4ade80'
-  if (health === 'error') return '#e53e3e'
+  if (health === 'ok')    return 'var(--green)'
+  if (health === 'error') return 'var(--red)'
   return 'var(--text-dim)'
 }
 
 function severityColor(sev: string): string {
   switch (sev?.toLowerCase()) {
-    case 'critical': return '#e53e3e'
-    case 'error':    return '#e53e3e'
-    case 'warning':  return '#f59e0b'
+    case 'critical': return 'var(--red)'
+    case 'error':    return 'var(--red)'
+    case 'warning':  return 'var(--amber)'
     case 'info':     return '#22d3ee'
-    default:         return '#e53e3e'
+    default:         return 'var(--red)'
   }
 }
 
@@ -119,7 +119,7 @@ function DSDonut({ healthy, total, size = 80 }: { healthy: number; total: number
   const circ = 2 * Math.PI * r
   const pct = total > 0 ? healthy / total : 1
   const filled = circ * pct
-  const color = pct === 1 ? '#4ade80' : pct >= 0.8 ? '#f59e0b' : '#e53e3e'
+  const color = pct === 1 ? 'var(--green)' : pct >= 0.8 ? 'var(--amber)' : 'var(--red)'
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
@@ -155,7 +155,7 @@ function DSRow({ ds }: { ds: GrafanaDatasource }) {
         {dsTypeName(ds.type)}
       </span>
       {ds.health === 'error' && ds.message && (
-        <span style={{ fontSize: 10, color: '#e53e3e', flexShrink: 0,
+        <span style={{ fontSize: 10, color: 'var(--red)', flexShrink: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 120 }}
           title={ds.message}>
           {ds.message.split(':')[0]}
@@ -242,7 +242,7 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
   const alerts = data.alerts ?? []
 
   const dbOk = database === 'ok'
-  const dsStatusColor = unhealthyDs === 0 ? '#4ade80' : unhealthyDs < totalDs ? '#f59e0b' : '#e53e3e'
+  const dsStatusColor = unhealthyDs === 0 ? 'var(--green)' : unhealthyDs < totalDs ? 'var(--amber)' : 'var(--red)'
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -258,7 +258,7 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
         </div>
         {firingAlerts > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             {firingAlerts} alert{firingAlerts !== 1 ? 's' : ''} firing
           </span>
         </>}
@@ -282,13 +282,13 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'center' }}>
         {totalDs > 0
           ? <DSDonut healthy={healthyDs} total={totalDs} size={80} />
-          : <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80' }} />
+          : <div style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--green)' }} />
         }
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-          {totalDs > 0 && <StatChip label="Healthy" value={healthyDs} color="#4ade80" />}
-          {unhealthyDs > 0 && <StatChip label="Down" value={unhealthyDs} color="#e53e3e" bg="#e53e3e18" />}
+          {totalDs > 0 && <StatChip label="Healthy" value={healthyDs} color="var(--green)" />}
+          {unhealthyDs > 0 && <StatChip label="Down" value={unhealthyDs} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
           {totalDs > 0 && <StatChip label="Total DS" value={totalDs} />}
-          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
+          {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
           {dashboardCount > 0 && <StatChip label="Dashboards" value={dashboardCount} />}
           {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
@@ -306,10 +306,10 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
 
       {/* Data tiles */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-        {totalDs > 0 && <StatChip label="Healthy DS" value={healthyDs} color="#4ade80" />}
-        {unhealthyDs > 0 && <StatChip label="Down DS" value={unhealthyDs} color="#e53e3e" bg="#e53e3e18" />}
+        {totalDs > 0 && <StatChip label="Healthy DS" value={healthyDs} color="var(--green)" />}
+        {unhealthyDs > 0 && <StatChip label="Down DS" value={unhealthyDs} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
         {totalDs > 0 && <StatChip label="Total DS" value={totalDs} />}
-        {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="#e53e3e" bg="#e53e3e18" />}
+        {firingAlerts > 0 && <StatChip label="Firing" value={firingAlerts} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
         {dashboardCount > 0 && <StatChip label="Dashboards" value={dashboardCount} />}
         {userCount > 0 && <StatChip label="Users" value={userCount} />}
         {version && <StatChip label="Version" value={`v${version}`} />}
@@ -331,7 +331,7 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
       <div>
         <ColHeader>Alerts {firingAlerts > 0 ? `(${firingAlerts} firing)` : '(none)'}</ColHeader>
         {alerts.length === 0
-          ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
+          ? <div style={{ fontSize: 12, color: 'var(--green)' }}>All clear</div>
           : <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
               {alerts.map((a, i) => <AlertRow key={i} alert={a} />)}
             </div>
@@ -345,7 +345,7 @@ export default function GrafanaPanel({ panel, heightUnits }: { panel: Panel; hei
           {database && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{ width: 7, height: 7, borderRadius: '50%',
-                background: dbOk ? '#4ade80' : '#e53e3e', flexShrink: 0 }} />
+                background: dbOk ? 'var(--green)' : 'var(--red)', flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                 Database {dbOk ? 'ok' : database}
               </span>

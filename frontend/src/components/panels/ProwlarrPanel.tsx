@@ -39,9 +39,9 @@ interface ProwlarrData {
 
 function healthColor(health: string): string {
   switch (health) {
-    case 'ok':       return '#4ade80'
-    case 'degraded': return '#f59e0b'
-    case 'blocked':  return '#e53e3e'
+    case 'ok':       return 'var(--green)'
+    case 'degraded': return 'var(--amber)'
+    case 'blocked':  return 'var(--red)'
     default:         return 'var(--text-dim)'
   }
 }
@@ -50,7 +50,7 @@ function privacyColor(privacy: string): string {
   switch (privacy?.toLowerCase()) {
     case 'private':     return '#22d3ee'
     case 'semiprivate': return '#a78bfa'
-    default:            return '#6b7280'
+    default:            return 'var(--text-muted)'
   }
 }
 
@@ -63,13 +63,13 @@ function privacyLabel(privacy: string): string {
 }
 
 function protocolColor(proto: string): string {
-  return proto === 'usenet' ? '#a78bfa' : '#4ade80'
+  return proto === 'usenet' ? '#a78bfa' : 'var(--green)'
 }
 
 function issueColor(type: string): string {
   switch (type) {
-    case 'error':   return '#e53e3e'
-    case 'warning': return '#f59e0b'
+    case 'error':   return 'var(--red)'
+    case 'warning': return 'var(--amber)'
     default:        return '#22d3ee'
   }
 }
@@ -113,7 +113,7 @@ function IndexerDonut({ ok, total, size = 80 }: { ok: number; total: number; siz
   const circ = 2 * Math.PI * r
   const pct = total > 0 ? ok / total : 1
   const filled = circ * pct
-  const color = pct === 1 ? '#4ade80' : pct >= 0.8 ? '#f59e0b' : '#e53e3e'
+  const color = pct === 1 ? 'var(--green)' : pct >= 0.8 ? 'var(--amber)' : 'var(--red)'
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
@@ -166,12 +166,12 @@ function IndexerRow({ indexer, showStats }: { indexer: ProwlarrIndexer; showStat
           </span>
           {indexer.avgResponseMs > 0 && (
             <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-              color: indexer.avgResponseMs > 3000 ? '#f59e0b' : 'var(--text-dim)', flexShrink: 0 }}>
+              color: indexer.avgResponseMs > 3000 ? 'var(--amber)' : 'var(--text-dim)', flexShrink: 0 }}>
               {fmtMs(indexer.avgResponseMs)}
             </span>
           )}
           {failRate > 0 && (
-            <span style={{ fontSize: 10, color: '#f59e0b', flexShrink: 0 }}>
+            <span style={{ fontSize: 10, color: 'var(--amber)', flexShrink: 0 }}>
               {failRate}%✗
             </span>
           )}
@@ -241,7 +241,7 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
 
   const okIndexers = enabledIndexers - failingIndexers
   const hasIssues = failingIndexers > 0 || healthIssues.length > 0
-  const overallColor = hasIssues ? (failingIndexers > enabledIndexers / 2 ? '#e53e3e' : '#f59e0b') : '#4ade80'
+  const overallColor = hasIssues ? (failingIndexers > enabledIndexers / 2 ? 'var(--red)' : 'var(--amber)') : 'var(--green)'
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -255,13 +255,13 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
         </div>
         {failingIndexers > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             {failingIndexers} failing
           </span>
         </>}
         {healthIssues.length > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#f59e0b' }}>
+          <span style={{ fontSize: 12, color: 'var(--amber)' }}>
             {healthIssues.length} issue{healthIssues.length !== 1 ? 's' : ''}
           </span>
         </>}
@@ -287,9 +287,9 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <IndexerDonut ok={okIndexers} total={enabledIndexers} size={80} />
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="#4ade80" />
-          {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="#e53e3e" bg="#e53e3e18" />}
-          {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="#4ade80" />}
+          <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="var(--green)" />
+          {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
+          {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="var(--green)" />}
           {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
       </div>
@@ -303,9 +303,9 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
         <IndexerDonut ok={okIndexers} total={enabledIndexers} size={80} />
         <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="#4ade80" />
-          {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="#e53e3e" bg="#e53e3e18" />}
-          {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="#4ade80" />}
+          <StatChip label="Enabled" value={`${enabledIndexers}/${totalIndexers}`} color="var(--green)" />
+          {failingIndexers > 0 && <StatChip label="Failing" value={failingIndexers} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
+          {torrentIndexers > 0 && <StatChip label="Torrent" value={torrentIndexers} color="var(--green)" />}
           {version && <StatChip label="Version" value={`v${version}`} />}
         </div>
       </div>
@@ -323,7 +323,7 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         <ColHeader>Issues {healthIssues.length > 0 ? `(${healthIssues.length})` : '(none)'}</ColHeader>
         {healthIssues.length === 0
-          ? <div style={{ fontSize: 12, color: '#4ade80' }}>All clear</div>
+          ? <div style={{ fontSize: 12, color: 'var(--green)' }}>All clear</div>
           : healthIssues.map((h, i) => <HealthIssueRow key={i} issue={h} />)
         }
       </div>
@@ -339,19 +339,19 @@ export default function ProwlarrPanel({ panel, heightUnits }: { panel: Panel; he
                 color: 'var(--text-muted)', fontFamily: 'DM Mono, monospace', fontSize: 10 }}>
                 {idx.name}
               </span>
-              <span style={{ color: '#4ade80', fontFamily: 'DM Mono, monospace', fontSize: 11, flexShrink: 0 }}>
+              <span style={{ color: 'var(--green)', fontFamily: 'DM Mono, monospace', fontSize: 11, flexShrink: 0 }}>
                 {fmtCount(idx.grabs)}↓
               </span>
               {idx.avgResponseMs > 0 && (
                 <span style={{
-                  color: idx.avgResponseMs > 3000 ? '#f59e0b' : 'var(--text-dim)',
+                  color: idx.avgResponseMs > 3000 ? 'var(--amber)' : 'var(--text-dim)',
                   fontFamily: 'DM Mono, monospace', fontSize: 11, flexShrink: 0,
                 }}>
                   {fmtMs(idx.avgResponseMs)}
                 </span>
               )}
               {idx.failedQueries > 0 && idx.queries > 0 && (
-                <span style={{ color: '#f59e0b', fontSize: 11, flexShrink: 0 }}>
+                <span style={{ color: 'var(--amber)', fontSize: 11, flexShrink: 0 }}>
                   {Math.round(idx.failedQueries / idx.queries * 100)}%✗
                 </span>
               )}

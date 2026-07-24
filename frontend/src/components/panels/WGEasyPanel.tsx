@@ -50,7 +50,7 @@ function fmtAgo(secs: number): string {
 
 function clientDot(c: WGEasyClient): string {
   if (!c.enabled) return '#444'
-  if (c.connected) return '#4ade80'
+  if (c.connected) return 'var(--green)'
   return 'var(--text-dim)'
 }
 
@@ -83,7 +83,7 @@ function ConnectedDonut({ connected, total, size = 80 }: { connected: number; to
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
-      <circle cx={cx} cy={cy} r={r} fill="none" stroke="#4ade80" strokeWidth={size * 0.13}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--green)" strokeWidth={size * 0.13}
         strokeDasharray={`${filled} ${circ}`} strokeLinecap="round"
         transform={`rotate(-90 ${cx} ${cy})`} />
       <text x={cx} y={cy - size * 0.05} textAnchor="middle" dominantBaseline="middle"
@@ -165,7 +165,7 @@ export default function WGEasyPanel({ panel, heightUnits }: { panel: Panel; heig
     totalRx, totalTx, clients = [],
   } = data
 
-  const serverColor = serverRunning ? '#4ade80' : '#e53e3e'
+  const serverColor = serverRunning ? 'var(--green)' : 'var(--red)'
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -199,7 +199,7 @@ export default function WGEasyPanel({ panel, heightUnits }: { panel: Panel; heig
               {serverRunning ? 'Running' : 'Stopped'}
             </span>
           </div>
-          <StatChip label="Connected" value={connectedClients} color="#4ade80" />
+          <StatChip label="Connected" value={connectedClients} color="var(--green)" />
           <StatChip label="Total" value={totalClients} />
           {disabledClients > 0 && <StatChip label="Disabled" value={disabledClients} color="var(--text-dim)" />}
           <StatChip label="↑ TX" value={fmtBytes(totalTx)} color="#22d3ee" />
@@ -237,7 +237,7 @@ export default function WGEasyPanel({ panel, heightUnits }: { panel: Panel; heig
               {serverRunning ? 'Running' : 'Stopped'}
             </span>
           </div>
-          <StatChip label="Connected" value={connectedClients} color="#4ade80" />
+          <StatChip label="Connected" value={connectedClients} color="var(--green)" />
           <StatChip label="Enabled" value={enabledClients} />
           <StatChip label="Disabled" value={disabledClients} color={disabledClients > 0 ? 'var(--text-dim)' : undefined} />
           <StatChip label="↑ TX" value={fmtBytes(totalTx)} color="#22d3ee" />

@@ -111,7 +111,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
       )}
       {data.updateAvail && (
         <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 10,
-          background: '#f59e0b18', border: '1px solid #f59e0b40',
+          background: 'color-mix(in srgb, var(--amber) 9%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)',
           color: 'var(--amber)', fontWeight: 600 }}>↑ update</span>
       )}
       {gateways.length > 0 && (
@@ -176,7 +176,7 @@ export default function OPNsensePanel({ panel, heightUnits }: { panel: Panel; he
 
   // Palette — enough colors for typical rule sets
   const FW_COLORS = [
-    '#7c6fff','#4ade80','#f87171','#fbbf24','#38bdf8',
+    '#7c6fff','var(--green)','#f87171','#fbbf24','#38bdf8',
     '#a78bfa','#2dd4bf','#fb923c','#ec4899','#64748b',
   ]
 

@@ -56,9 +56,9 @@ interface BlueIrisData {
 
 function signalColor(signal: number): string {
   switch (signal) {
-    case 0: return '#e53e3e'  // red — problem
-    case 2: return '#f59e0b'  // yellow — warning
-    default: return '#4ade80' // green — ok
+    case 0: return 'var(--red)'  // red — problem
+    case 2: return 'var(--amber)'  // yellow — warning
+    default: return 'var(--green)' // green — ok
   }
 }
 
@@ -71,10 +71,10 @@ function signalLabel(signal: number): string {
 }
 
 function cameraStatusColor(cam: BlueIrisCamera): string {
-  if (cam.isAlerting || cam.isNoSignal) return '#e53e3e'
-  if (!cam.isOnline || !cam.isEnabled) return '#6b7280'
-  if (cam.isTriggered || cam.isMotion) return '#f59e0b'
-  return '#4ade80'
+  if (cam.isAlerting || cam.isNoSignal) return 'var(--red)'
+  if (!cam.isOnline || !cam.isEnabled) return 'var(--text-muted)'
+  if (cam.isTriggered || cam.isMotion) return 'var(--amber)'
+  return 'var(--green)'
 }
 
 function timeAgo(iso: string): string {
@@ -151,7 +151,7 @@ function CameraRow({ cam, showDetail }: { cam: BlueIrisCamera; showDetail?: bool
       {/* Status badges */}
       {issueLabel && (
         <span style={{
-          fontSize: 9, fontWeight: 700, color: '#e53e3e', background: '#e53e3e22',
+          fontSize: 9, fontWeight: 700, color: 'var(--red)', background: 'color-mix(in srgb, var(--red) 13%, transparent)',
           borderRadius: 3, padding: '1px 4px', flexShrink: 0,
         }}>
           {issueLabel}
@@ -159,7 +159,7 @@ function CameraRow({ cam, showDetail }: { cam: BlueIrisCamera; showDetail?: bool
       )}
       {cam.isRecording && !issueLabel && (
         <span style={{
-          fontSize: 9, fontWeight: 700, color: '#e53e3e', background: '#e53e3e22',
+          fontSize: 9, fontWeight: 700, color: 'var(--red)', background: 'color-mix(in srgb, var(--red) 13%, transparent)',
           borderRadius: 3, padding: '1px 4px', flexShrink: 0,
         }}>
           REC
@@ -167,7 +167,7 @@ function CameraRow({ cam, showDetail }: { cam: BlueIrisCamera; showDetail?: bool
       )}
       {cam.isPaused && (
         <span style={{
-          fontSize: 9, fontWeight: 700, color: '#6b7280', background: 'rgba(255,255,255,0.06)',
+          fontSize: 9, fontWeight: 700, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.06)',
           borderRadius: 3, padding: '1px 4px', flexShrink: 0,
         }}>
           PAUSED
@@ -197,12 +197,12 @@ function CameraDetailRow({ cam }: { cam: BlueIrisCamera }) {
           {cam.name || cam.shortName}
         </span>
         <div style={{ display: 'flex', gap: 3, flexShrink: 0 }}>
-          {cam.isAlerting && <Badge label="ALERT" color="#e53e3e" />}
-          {cam.isNoSignal && <Badge label="NO SIG" color="#e53e3e" />}
-          {cam.isRecording && !cam.isAlerting && <Badge label="REC" color="#e53e3e" />}
-          {cam.isTriggered && !cam.isAlerting && <Badge label="TRIG" color="#f59e0b" />}
-          {cam.isMotion && !cam.isTriggered && !cam.isAlerting && <Badge label="MOT" color="#f59e0b" />}
-          {cam.isPaused && <Badge label="PAUSE" color="#6b7280" />}
+          {cam.isAlerting && <Badge label="ALERT" color="var(--red)" />}
+          {cam.isNoSignal && <Badge label="NO SIG" color="var(--red)" />}
+          {cam.isRecording && !cam.isAlerting && <Badge label="REC" color="var(--red)" />}
+          {cam.isTriggered && !cam.isAlerting && <Badge label="TRIG" color="var(--amber)" />}
+          {cam.isMotion && !cam.isTriggered && !cam.isAlerting && <Badge label="MOT" color="var(--amber)" />}
+          {cam.isPaused && <Badge label="PAUSE" color="var(--text-muted)" />}
           {cam.isGroup && <Badge label="GROUP" color="#38bdf8" />}
           {cam.hasPtz && <Badge label="PTZ" color="#a78bfa" />}
         </div>
@@ -245,7 +245,7 @@ function Badge({ label, color }: { label: string; color: string }) {
 }
 
 function AlertRow({ alert }: { alert: BlueIrisAlert }) {
-  const levelColor = alert.level >= 2 ? '#e53e3e' : alert.level === 1 ? '#f59e0b' : '#38bdf8'
+  const levelColor = alert.level >= 2 ? 'var(--red)' : alert.level === 1 ? 'var(--amber)' : '#38bdf8'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
@@ -301,7 +301,7 @@ export default function BlueIrisPanel({ panel, heightUnits }: { panel: Panel; he
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error) return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error) return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const cameras = data.cameras || []
@@ -319,10 +319,10 @@ export default function BlueIrisPanel({ panel, heightUnits }: { panel: Panel; he
           background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8 }}>
           <SignalLight signal={data.signal} />
         </div>
-        <StatChip label="Cameras" value={`${data.onlineCameras}/${data.totalCameras}`} color="#4ade80" />
-        <StatChip label="Recording" value={data.recordingCameras} color="#e53e3e" />
+        <StatChip label="Cameras" value={`${data.onlineCameras}/${data.totalCameras}`} color="var(--green)" />
+        <StatChip label="Recording" value={data.recordingCameras} color="var(--red)" />
         {data.alertingCameras > 0 && (
-          <StatChip label="Alerting" value={data.alertingCameras} color="#e53e3e" />
+          <StatChip label="Alerting" value={data.alertingCameras} color="var(--red)" />
         )}
         {activeName && <StatChip label="Profile" value={activeName} />}
         {data.version && <StatChip label="Version" value={data.version} />}
@@ -341,8 +341,8 @@ export default function BlueIrisPanel({ panel, heightUnits }: { panel: Panel; he
             <SignalLight signal={data.signal} />
             {activeName && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{activeName}</span>}
           </div>
-          <StatChip label="Cameras" value={`${data.onlineCameras}/${data.totalCameras}`} color="#4ade80" />
-          <StatChip label="Recording" value={data.recordingCameras} color="#e53e3e" />
+          <StatChip label="Cameras" value={`${data.onlineCameras}/${data.totalCameras}`} color="var(--green)" />
+          <StatChip label="Recording" value={data.recordingCameras} color="var(--red)" />
           {data.version && <StatChip label="Version" value={data.version} />}
         </div>
 
@@ -382,10 +382,10 @@ export default function BlueIrisPanel({ panel, heightUnits }: { panel: Panel; he
           <SignalLight signal={data.signal} size={16} />
           {activeName && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{activeName}</span>}
         </div>
-        <StatChip label="Online" value={`${data.onlineCameras}/${data.totalCameras}`} color="#4ade80" />
-        <StatChip label="Recording" value={data.recordingCameras} color="#e53e3e" />
+        <StatChip label="Online" value={`${data.onlineCameras}/${data.totalCameras}`} color="var(--green)" />
+        <StatChip label="Recording" value={data.recordingCameras} color="var(--red)" />
         {data.alertingCameras > 0 && (
-          <StatChip label="Alerting" value={data.alertingCameras} color="#e53e3e" />
+          <StatChip label="Alerting" value={data.alertingCameras} color="var(--red)" />
         )}
         {data.version && <StatChip label="Version" value={data.version} />}
       </div>
@@ -418,7 +418,7 @@ export default function BlueIrisPanel({ panel, heightUnits }: { panel: Panel; he
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <div style={{
                       width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-                      background: i === data.activeProfile ? '#4ade80' : 'var(--text-dim)',
+                      background: i === data.activeProfile ? 'var(--green)' : 'var(--text-dim)',
                     }} />
                     <span style={{
                       fontSize: 11, color: i === data.activeProfile ? 'var(--text)' : 'var(--text-dim)',

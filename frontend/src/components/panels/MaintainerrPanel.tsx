@@ -38,7 +38,7 @@ function typeColor(t: string) {
   switch (t) {
     case 'movie':   return '#6366f1'
     case 'show':    return '#a855f7'
-    case 'season':  return '#f59e0b'
+    case 'season':  return 'var(--amber)'
     case 'episode': return '#14b8a6'
     default:        return 'var(--accent)'
   }

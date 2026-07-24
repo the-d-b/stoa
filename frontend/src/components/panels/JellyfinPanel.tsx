@@ -152,7 +152,7 @@ export default function JellyfinPanel({ panel, heightUnits }: { panel: Panel; he
       {data.transcodeCount > 0 && (
         <div style={{
           display: 'flex', alignItems: 'center', gap: 5, padding: '3px 8px',
-          borderRadius: 6, background: 'var(--surface2)', border: '1px solid #f59e0b30', fontSize: 11,
+          borderRadius: 6, background: 'var(--surface2)', border: '1px solid color-mix(in srgb, var(--amber) 19%, transparent)', fontSize: 11,
         }}>
           <span style={{ color: 'var(--amber)', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>{data.transcodeCount}</span>
           <span style={{ color: 'var(--text-dim)' }}>transcode</span>

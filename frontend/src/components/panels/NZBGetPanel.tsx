@@ -85,10 +85,10 @@ function histIcon(s: string): { icon: string; color: string } {
 function CatBadge({ cat }: { cat: string }) {
   if (!cat) return null
   const colors: Record<string, string> = {
-    tv: '#6366f1', movies: '#f59e0b', music: '#22c55e',
-    books: '#14b8a6', software: '#06b6d4', games: '#a855f7', nzb: '#6b7280',
+    tv: '#6366f1', movies: 'var(--amber)', music: '#22c55e',
+    books: '#14b8a6', software: '#06b6d4', games: '#a855f7', nzb: 'var(--text-muted)',
   }
-  const bg = colors[cat.toLowerCase()] ?? '#6b7280'
+  const bg = colors[cat.toLowerCase()] ?? 'var(--text-muted)'
   return (
     <span style={{
       fontSize: 9, fontWeight: 700, padding: '1px 5px', borderRadius: 3,

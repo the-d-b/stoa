@@ -43,7 +43,7 @@ function urgencyColor(u: string): string {
   const l = u.toLowerCase()
   if (l === 'past due') return '#ef4444'
   if (l === 'very urgent') return '#f97316'
-  if (l === 'urgent') return '#f59e0b'
+  if (l === 'urgent') return 'var(--amber)'
   return '#6366f1'
 }
 
@@ -181,7 +181,7 @@ function CarouselSlide({ v, uiUrl, showImage = false }: { v: LubeLoggerVehicle; 
         )}
         {urgentCount > 0 && overdueCount === 0 && (
           <span style={{ fontSize: 10, padding: '1px 5px', borderRadius: 3,
-            background: '#f59e0b28', color: '#f59e0b', fontWeight: 700 }}>
+            background: 'color-mix(in srgb, var(--amber) 16%, transparent)', color: 'var(--amber)', fontWeight: 700 }}>
             {urgentCount} urgent
           </span>
         )}
@@ -289,11 +289,11 @@ export default function LubeLoggerPanel({ panel, heightUnits }: { panel: Panel; 
       )}
       {data.urgentCount > 0 && (
         <div style={{ padding: '3px 10px', borderRadius: 6,
-          background: '#f59e0b20', border: '1px solid #f59e0b40', fontSize: 12 }}>
-          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, color: '#f59e0b' }}>
+          background: 'color-mix(in srgb, var(--amber) 13%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)', fontSize: 12 }}>
+          <span style={{ fontFamily: 'DM Mono, monospace', fontWeight: 700, color: 'var(--amber)' }}>
             {data.urgentCount}
           </span>
-          <span style={{ color: '#f59e0b', fontSize: 11, marginLeft: 4 }}>urgent</span>
+          <span style={{ color: 'var(--amber)', fontSize: 11, marginLeft: 4 }}>urgent</span>
         </div>
       )}
       {data.overdueCount === 0 && data.urgentCount === 0 && data.totalReminders > 0 && (

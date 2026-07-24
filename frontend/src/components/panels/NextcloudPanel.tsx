@@ -107,7 +107,7 @@ function MemBar({ totalKb, freeKb }: { totalKb: number; freeKb: number }) {
   if (totalKb <= 0) return null
   const usedKb = totalKb - freeKb
   const pct = Math.round((usedKb / totalKb) * 100)
-  const color = pct > 90 ? '#e53e3e' : pct > 75 ? '#f59e0b' : '#4ade80'
+  const color = pct > 90 ? 'var(--red)' : pct > 75 ? 'var(--amber)' : 'var(--green)'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{ fontSize: 10, color: 'var(--text-dim)', width: 26, textAlign: 'right', flexShrink: 0 }}>
@@ -155,7 +155,7 @@ export default function NextcloudPanel({ panel, heightUnits }: { panel: Panel; h
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading)       return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error)         return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error)         return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data)         return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const enabledUsers = data.numUsers - data.numDisabledUsers
@@ -163,8 +163,8 @@ export default function NextcloudPanel({ panel, heightUnits }: { panel: Panel; h
   const hasMemory    = data.memTotalKb > 0
 
   const updatesPill = hasUpdates && (
-    <div style={{ fontSize: 11, fontWeight: 600, color: '#f59e0b',
-      background: '#f59e0b18', border: '1px solid #f59e0b40',
+    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--amber)',
+      background: 'color-mix(in srgb, var(--amber) 9%, transparent)', border: '1px solid color-mix(in srgb, var(--amber) 25%, transparent)',
       borderRadius: 5, padding: '3px 8px', flexShrink: 0 }}>
       {data.numAppUpdates} app update{data.numAppUpdates > 1 ? 's' : ''}
     </div>
@@ -186,7 +186,7 @@ export default function NextcloudPanel({ panel, heightUnits }: { panel: Panel; h
           {parts.join(' · ')}
         </span>
         {hasUpdates && (
-          <span style={{ fontSize: 11, color: '#f59e0b', flexShrink: 0 }}>
+          <span style={{ fontSize: 11, color: 'var(--amber)', flexShrink: 0 }}>
             · {data.numAppUpdates} update{data.numAppUpdates > 1 ? 's' : ''}
           </span>
         )}
@@ -197,7 +197,7 @@ export default function NextcloudPanel({ panel, heightUnits }: { panel: Panel; h
   // ── chip row ── shared across 2×+ ─────────────────────────────────────────
   const chips = (
     <div style={{ display: 'flex', gap: 6, flexShrink: 0, justifyContent: 'center' }}>
-      <Chip label="Users" value={`${enabledUsers}/${data.numUsers}`} color="#4ade80" />
+      <Chip label="Users" value={`${enabledUsers}/${data.numUsers}`} color="var(--green)" />
       <Chip label="Free"  value={fmtBytes(data.freeSpaceBytes)}      color="#38bdf8" />
       <Chip label="Files" value={fmtNum(data.numFiles)} />
     </div>

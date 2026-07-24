@@ -135,7 +135,7 @@ function Sparkline({ total, blocked }: { total: number[]; blocked: number[] }) {
           <g key={i}>
             {tH > 0 && <rect x={i + 0.1} y={H - tH} width={0.8} height={tH} fill="var(--border)" />}
             {bH > 0 && <rect x={i + 0.1} y={H - bH} width={0.8} height={bH}
-              fill="var(--red, #e53e3e)" opacity={0.85} />}
+              fill="var(--red, var(--red))" opacity={0.85} />}
           </g>
         )
       })}
@@ -213,14 +213,14 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
     return <div style={root}><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Loading…</span></div>
   }
   if (error) {
-    return <div style={root}><span style={{ fontSize: 11, color: 'var(--red, #e53e3e)' }}>{error}</span></div>
+    return <div style={root}><span style={{ fontSize: 11, color: 'var(--red, var(--red))' }}>{error}</span></div>
   }
   if (!data) {
     return <div style={root}><span style={{ fontSize: 11, color: 'var(--text-dim)' }}>No data.</span></div>
   }
 
   const uiHref      = data.uiUrl || '#'
-  const statusColor = data.protectionEnabled ? 'var(--green)' : 'var(--red, #e53e3e)'
+  const statusColor = data.protectionEnabled ? 'var(--green)' : 'var(--red, var(--red))'
   const statusLabel = data.protectionEnabled ? 'active' : 'paused'
   const topBlocked      = data.topBlocked      || []
   const topClients      = data.topClients      || []
@@ -286,7 +286,7 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
         {/* Stat chips — centered horizontal row */}
         <div style={{ display: 'flex', justifyContent: 'center', gap: 6, flexShrink: 0 }}>
           <StatChip label="Queries"     value={fmtNum(data.totalQueries)} />
-          <StatChip label="Blocked"     value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
+          <StatChip label="Blocked"     value={fmtNum(data.blockedQueries)} color="var(--red, var(--red))" />
           <StatChip label="Avg Latency" value={data.avgProcessingMs > 0 ? fmtMs(data.avgProcessingMs) : '—'} />
         </div>
       </div>
@@ -315,7 +315,7 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
         <ArcGauge percent={data.percentBlocked} size={90} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', marginTop: 8 }}>
           <StatChip label="Queries"    value={fmtNum(data.totalQueries)} />
-          <StatChip label="Blocked"    value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
+          <StatChip label="Blocked"    value={fmtNum(data.blockedQueries)} color="var(--red, var(--red))" />
           {data.safeBrowsing > 0 && (
             <StatChip label="Safe Browse" value={fmtNum(data.safeBrowsing)} color="#f97316" />
           )}
@@ -352,7 +352,7 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
           <div style={{ fontSize: 8, color: 'var(--text-dim)', marginBottom: 3,
             textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {days === 0 ? 'all-time' : days === 1 ? '24h' : `${days}d`} traffic&nbsp;
-            <span style={{ color: 'var(--red, #e53e3e)' }}>■</span>&nbsp;blocked
+            <span style={{ color: 'var(--red, var(--red))' }}>■</span>&nbsp;blocked
           </div>
           <Sparkline total={overTimeTotal} blocked={overTimeBlocked} />
         </div>
@@ -373,7 +373,7 @@ export default function AdGuardPanel({ panel, heightUnits }: Props) {
                 label={d.name}
                 barPct={(d.count / (topBlocked[0]?.count || 1)) * 100}
                 display={fmtNum(d.count)}
-                color="var(--red, #e53e3e)" />
+                color="var(--red, var(--red))" />
             ))}
           </div>
         )}

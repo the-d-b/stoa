@@ -46,7 +46,7 @@ function Sparkline({ points, height = 40 }: { points: SparkPoint[]; height?: num
   const range = max - min || 1
   const w = 400, pad = 2
   const pts = points.map((p, i) => `${pad + (i/(points.length-1))*(w-pad*2)},${pad+((max-p.p)/range)*(height-pad*2)}`).join(' ')
-  const color = positive ? '#4ade80' : '#f87171'
+  const color = positive ? 'var(--green)' : '#f87171'
   const [fx] = pts.split(' ')[0].split(',')
   const [lx] = pts.split(' ').slice(-1)[0].split(',')
   const fill = `M${fx},${height} L${pts.split(' ').join(' L')} L${lx},${height} Z`

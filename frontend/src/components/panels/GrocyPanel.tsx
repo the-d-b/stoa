@@ -61,7 +61,7 @@ function daysLabel(days: number): string {
 function urgencyColor(daysFromNow: number): string {
   if (daysFromNow < 0) return 'var(--red)'
   if (daysFromNow <= 2) return '#f97316'
-  if (daysFromNow <= 5) return '#f59e0b'
+  if (daysFromNow <= 5) return 'var(--amber)'
   return '#eab308'
 }
 
@@ -109,15 +109,15 @@ function ChoreRow({ chore }: { chore: GrocyChore }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0',
       borderBottom: '1px solid var(--border)' }}>
       <svg width={12} height={12} viewBox="0 0 24 24" fill="none"
-        stroke={chore.isOverdue ? '#f59e0b' : 'var(--text-dim)'} strokeWidth={2} style={{ flexShrink: 0 }}>
+        stroke={chore.isOverdue ? 'var(--amber)' : 'var(--text-dim)'} strokeWidth={2} style={{ flexShrink: 0 }}>
         <polyline points="9 11 12 14 22 4" />
         <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
       </svg>
-      <span style={{ fontSize: 12, color: chore.isOverdue ? '#f59e0b' : 'var(--text)',
+      <span style={{ fontSize: 12, color: chore.isOverdue ? 'var(--amber)' : 'var(--text)',
         flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {chore.name}
       </span>
-      <span style={{ fontSize: 10, flexShrink: 0, color: chore.isOverdue ? '#f59e0b' : 'var(--text-dim)' }}>
+      <span style={{ fontSize: 10, flexShrink: 0, color: chore.isOverdue ? 'var(--amber)' : 'var(--text-dim)' }}>
         {chore.isOverdue
           ? (chore.daysOverdue > 0 ? `${chore.daysOverdue}d overdue` : 'overdue')
           : (chore.nextExecution ? fmtDate(chore.nextExecution) : '')}
@@ -190,8 +190,8 @@ export default function GrocyPanel({ panel, heightUnits }: { panel: Panel; heigh
   const shopping = data.shoppingItems || []
 
   const expiredColor  = data.expiredCount  > 0 ? 'var(--red)' : 'var(--text-dim)'
-  const expiringColor = data.expiringCount > 0 ? '#f59e0b'    : 'var(--text-dim)'
-  const choresColor   = data.overdueChores > 0 ? '#f59e0b'    : 'var(--text-dim)'
+  const expiringColor = data.expiringCount > 0 ? 'var(--amber)'    : 'var(--text-dim)'
+  const choresColor   = data.overdueChores > 0 ? 'var(--amber)'    : 'var(--text-dim)'
   const tasksColor    = data.pendingTasks  > 0 ? 'var(--text)' : 'var(--text-dim)'
 
   const chipRow = (
@@ -263,7 +263,7 @@ export default function GrocyPanel({ panel, heightUnits }: { panel: Panel; heigh
           <SectionLabel>
             Chores
             {data.overdueChores > 0 && (
-              <span style={{ color: '#f59e0b', marginLeft: 6,
+              <span style={{ color: 'var(--amber)', marginLeft: 6,
                 textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
                 {data.overdueChores} overdue
               </span>

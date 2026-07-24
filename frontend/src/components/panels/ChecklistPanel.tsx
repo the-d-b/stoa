@@ -271,7 +271,7 @@ export default function ChecklistPanel({ panel, heightUnits = 2 }: { panel: Pane
                     }}>{item.text}</div>
                     {item.dueDate && (
                       <div style={{ fontSize: 10, marginTop: 2, fontFamily: 'DM Mono, monospace',
-                        color: overdue ? 'var(--red)' : today ? 'var(--amber)' : soon ? '#f59e0b' : 'var(--text-dim)',
+                        color: overdue ? 'var(--red)' : today ? 'var(--amber)' : soon ? 'var(--amber)' : 'var(--text-dim)',
                         fontWeight: overdue || today ? 600 : 400,
                       }}>
                         {overdue ? '⚠ Overdue · ' : today ? '· Due today · ' : '· Due '}

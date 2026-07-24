@@ -43,12 +43,12 @@ function fmtMbps(mbps: number): string {
 
 function gatewayColor(status: string): string {
   if (status === 'online') return 'var(--green)'
-  if (status === 'down') return 'var(--red, #e53e3e)'
+  if (status === 'down') return 'var(--red, var(--red))'
   return 'var(--amber)'
 }
 
 function usagePct(pct: number): string {
-  if (pct >= 90) return 'var(--red, #e53e3e)'
+  if (pct >= 90) return 'var(--red, var(--red))'
   if (pct >= 70) return 'var(--amber)'
   return 'var(--accent)'
 }
@@ -106,7 +106,7 @@ function IfaceRow({ iface, maxMbps }: { iface: PfSenseIface; maxMbps: number }) 
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {iface.descr}
         </div>
-        <div style={{ fontSize: 9, color: isUp ? 'var(--green)' : 'var(--red, #e53e3e)',
+        <div style={{ fontSize: 9, color: isUp ? 'var(--green)' : 'var(--red, var(--red))',
           fontFamily: 'DM Mono, monospace' }}>
           {isUp ? '● up' : '○ down'}
         </div>

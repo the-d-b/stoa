@@ -5,16 +5,16 @@ import { kanbanApi, KanbanCard } from '../../api'
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 export const STATUSES = [
-  { value: 'not_started', label: 'Not Started', color: '#6b7280' },
+  { value: 'not_started', label: 'Not Started', color: 'var(--text-muted)' },
   { value: 'in_progress', label: 'In Progress', color: '#3b82f6' },
-  { value: 'on_hold',     label: 'On Hold',     color: '#f59e0b' },
+  { value: 'on_hold',     label: 'On Hold',     color: 'var(--amber)' },
   { value: 'completed',   label: 'Completed',   color: '#22c55e' },
   { value: 'cancelled',   label: 'Cancelled',   color: '#ef4444' },
 ]
 const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.value, s]))
 
 function statusLabel(v: string) { return STATUS_MAP[v]?.label ?? v }
-function statusColor(v: string) { return STATUS_MAP[v]?.color ?? '#6b7280' }
+function statusColor(v: string) { return STATUS_MAP[v]?.color ?? 'var(--text-muted)' }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

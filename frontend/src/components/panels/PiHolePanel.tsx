@@ -47,7 +47,7 @@ const QT_COLORS: Record<string, string> = {
   PTR:   '#f97316',
   SRV:   '#ec4899',
   TXT:   '#06b6d4',
-  ANY:   'var(--red, #e53e3e)',
+  ANY:   'var(--red, var(--red))',
 }
 
 function qtColor(label: string): string {
@@ -134,7 +134,7 @@ function Sparkline({ total, blocked }: { total: number[]; blocked: number[] }) {
           <g key={i}>
             {tH > 0 && <rect x={i + 0.1} y={H - tH} width={0.8} height={tH} fill="var(--border)" />}
             {bH > 0 && <rect x={i + 0.1} y={H - bH} width={0.8} height={bH}
-              fill="var(--red, #e53e3e)" opacity={0.85} />}
+              fill="var(--red, var(--red))" opacity={0.85} />}
           </g>
         )
       })}
@@ -207,7 +207,7 @@ export default function PiHolePanel({ panel, heightUnits }: Props) {
   }
 
   const uiHref        = data.uiUrl || '#'
-  const statusColor   = data.blockingEnabled ? 'var(--green)' : 'var(--red, #e53e3e)'
+  const statusColor   = data.blockingEnabled ? 'var(--green)' : 'var(--red, var(--red))'
   const statusLabel   = data.blockingEnabled ? 'blocking' : 'disabled'
   const topBlocked    = data.topBlocked  || []
   const topClients    = data.topClients  || []
@@ -269,7 +269,7 @@ export default function PiHolePanel({ panel, heightUnits }: Props) {
           <ArcGauge percent={data.percentBlocked} size={70} />
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
             <StatChip label="Queries"  value={fmtNum(data.totalQueries)} />
-            <StatChip label="Blocked"  value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
+            <StatChip label="Blocked"  value={fmtNum(data.blockedQueries)} color="var(--red, var(--red))" />
             <StatChip label="Clients"  value={`${data.uniqueClients}`} />
             <StatChip label="Gravity"  value={fmtNum(data.gravityDomains)} />
           </div>
@@ -281,7 +281,7 @@ export default function PiHolePanel({ panel, heightUnits }: Props) {
             <div style={{ fontSize: 8, color: 'var(--text-dim)', marginBottom: 3,
               textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               24h queries&nbsp;
-              <span style={{ color: 'var(--red, #e53e3e)' }}>■</span>&nbsp;blocked
+              <span style={{ color: 'var(--red, var(--red))' }}>■</span>&nbsp;blocked
             </div>
             <Sparkline total={overTimeTotal} blocked={overTimeBlocked} />
           </div>
@@ -312,7 +312,7 @@ export default function PiHolePanel({ panel, heightUnits }: Props) {
         <ArcGauge percent={data.percentBlocked} size={90} />
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
           <StatChip label="Queries"  value={fmtNum(data.totalQueries)} />
-          <StatChip label="Blocked"  value={fmtNum(data.blockedQueries)} color="var(--red, #e53e3e)" />
+          <StatChip label="Blocked"  value={fmtNum(data.blockedQueries)} color="var(--red, var(--red))" />
           <StatChip label="Clients"  value={`${data.uniqueClients}`} />
           <StatChip label="Domains"  value={fmtNum(data.uniqueDomains)} />
           <StatChip label="Gravity"  value={fmtNum(data.gravityDomains)} />
@@ -325,7 +325,7 @@ export default function PiHolePanel({ panel, heightUnits }: Props) {
           <div style={{ fontSize: 8, color: 'var(--text-dim)', marginBottom: 3,
             textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             24h traffic&nbsp;
-            <span style={{ color: 'var(--red, #e53e3e)' }}>■</span>&nbsp;blocked
+            <span style={{ color: 'var(--red, var(--red))' }}>■</span>&nbsp;blocked
           </div>
           <Sparkline total={overTimeTotal} blocked={overTimeBlocked} />
         </div>
@@ -346,7 +346,7 @@ export default function PiHolePanel({ panel, heightUnits }: Props) {
                 label={d.name}
                 barPct={(d.count / (topBlocked[0]?.count || 1)) * 100}
                 display={fmtNum(d.count)}
-                color="var(--red, #e53e3e)" />
+                color="var(--red, var(--red))" />
             ))}
           </div>
         )}

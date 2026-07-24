@@ -59,7 +59,7 @@ function fmtRate(kbps: number): string {
 function signalColor(dBm: number): string {
   if (dBm >= -60) return 'var(--green)'
   if (dBm >= -75) return 'var(--amber)'
-  return 'var(--red, #e53e3e)'
+  return 'var(--red, var(--red))'
 }
 
 function signalBars(dBm: number): number {
@@ -70,7 +70,7 @@ function signalBars(dBm: number): number {
 }
 
 function loadColor(load: number): string {
-  if (load >= 2) return 'var(--red, #e53e3e)'
+  if (load >= 2) return 'var(--red, var(--red))'
   if (load >= 1) return 'var(--amber)'
   return 'var(--green)'
 }

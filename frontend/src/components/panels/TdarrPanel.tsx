@@ -146,7 +146,7 @@ export default function TdarrPanel({ panel, heightUnits }: { panel: any; heightU
       <StatChip label="Total Files"    value={data.totalFiles    ? data.totalFiles.toLocaleString()    : '—'} />
       <StatChip label="Transcoded"     value={data.transcoded    ? data.transcoded.toLocaleString()    : '—'} color="#6366f1" />
       <StatChip label="Health Checked" value={data.healthChecked ? data.healthChecked.toLocaleString() : '—'} color="#22c55e" />
-      <StatChip label="Space Saved"    value={data.spaceSavedGB > 0 ? fmtGB(data.spaceSavedGB)         : '—'} color="#f59e0b" />
+      <StatChip label="Space Saved"    value={data.spaceSavedGB > 0 ? fmtGB(data.spaceSavedGB)         : '—'} color="var(--amber)" />
     </div>
   )
 

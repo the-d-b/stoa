@@ -24,8 +24,8 @@ interface PterodactylData {
 function stateColor(state: string) {
   switch (state) {
     case 'running': return '#22c55e'
-    case 'starting': return '#f59e0b'
-    case 'stopping': return '#f59e0b'
+    case 'starting': return 'var(--amber)'
+    case 'stopping': return 'var(--amber)'
     case 'offline': return 'var(--text-dim)'
     default: return 'var(--text-dim)'
   }

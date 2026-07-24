@@ -8,9 +8,9 @@ interface KanbanPanelData {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  not_started: '#6b7280',
+  not_started: 'var(--text-muted)',
   in_progress: '#3b82f6',
-  on_hold:     '#f59e0b',
+  on_hold:     'var(--amber)',
   completed:   '#22c55e',
   cancelled:   '#ef4444',
 }
@@ -121,7 +121,7 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
                 <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
                   {total} card{total !== 1 ? 's' : ''}
                   {board.dueSoon > 0 && (
-                    <span style={{ color: '#f59e0b', marginLeft: 6 }}>
+                    <span style={{ color: 'var(--amber)', marginLeft: 6 }}>
                       {board.dueSoon} due soon
                     </span>
                   )}

@@ -42,10 +42,10 @@ interface AutobrrData {
 
 function statusColor(status: string): string {
   switch (status) {
-    case 'grabbed':       return '#4ade80'
+    case 'grabbed':       return 'var(--green)'
     case 'filtered':      return 'var(--text-dim)'
-    case 'push_rejected': return '#f59e0b'
-    case 'push_error':    return '#e53e3e'
+    case 'push_rejected': return 'var(--amber)'
+    case 'push_error':    return 'var(--red)'
     default:              return 'var(--text-dim)'
   }
 }
@@ -103,7 +103,7 @@ function GrabDonut({ grabbed, total, size = 80 }: { grabbed: number; total: numb
   const pct = total > 0 ? grabbed / total : 0
   const filled = circ * pct
   // Color by grab rate: high grab rate is good (green), low is neutral
-  const color = pct > 0.5 ? '#4ade80' : pct > 0.1 ? '#22d3ee' : '#6b7280'
+  const color = pct > 0.5 ? 'var(--green)' : pct > 0.1 ? '#22d3ee' : 'var(--text-muted)'
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', flexShrink: 0 }}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--surface2)" strokeWidth={size * 0.13} />
@@ -127,7 +127,7 @@ function IRCNetworkRow({ net }: { net: AutobrrIRCNetwork }) {
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       <div style={{
         width: 7, height: 7, borderRadius: '50%', flexShrink: 0,
-        background: net.connected ? '#4ade80' : '#e53e3e',
+        background: net.connected ? 'var(--green)' : 'var(--red)',
       }} />
       <span style={{ fontSize: 12, color: 'var(--text)', overflow: 'hidden',
         textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
@@ -144,7 +144,7 @@ function IRCNetworkRow({ net }: { net: AutobrrIRCNetwork }) {
         </span>
       )}
       {!net.connected && (
-        <span style={{ fontSize: 9, fontWeight: 700, color: '#e53e3e', background: '#e53e3e18',
+        <span style={{ fontSize: 9, fontWeight: 700, color: 'var(--red)', background: 'color-mix(in srgb, var(--red) 9%, transparent)',
           borderRadius: 4, padding: '1px 5px', flexShrink: 0, letterSpacing: '0.04em' }}>
           DOWN
         </span>
@@ -254,7 +254,7 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
   } = data
 
   const ircOk = totalNetworks === 0 || connectedNetworks === totalNetworks
-  const ircColor = totalNetworks === 0 ? 'var(--text-dim)' : ircOk ? '#4ade80' : '#e53e3e'
+  const ircColor = totalNetworks === 0 ? 'var(--text-dim)' : ircOk ? 'var(--green)' : 'var(--red)'
   const recentGrabs = releases.filter(r => r.status === 'grabbed')
 
   // ── 1× compact bar ──────────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
           </div>
         )}
         <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-        <span style={{ fontSize: 12, color: '#4ade80', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
+        <span style={{ fontSize: 12, color: 'var(--green)', fontFamily: 'DM Mono, monospace', fontWeight: 600 }}>
           {fmtCount(grabbedCount)} grabbed
         </span>
         {rejectedCount > 0 && <>
@@ -281,7 +281,7 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
         </>}
         {pushErrorCount > 0 && <>
           <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>·</span>
-          <span style={{ fontSize: 12, color: '#e53e3e', fontWeight: 600 }}>
+          <span style={{ fontSize: 12, color: 'var(--red)', fontWeight: 600 }}>
             {pushErrorCount} errors
           </span>
         </>}
@@ -301,11 +301,11 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         {/* Smaller stat chips — no donut */}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-          <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="#4ade80" small />
+          <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="var(--green)" small />
           <StatChip label="Total" value={fmtCount(totalCount)} small />
           {totalNetworks > 0 && (
             <StatChip label="IRC" value={`${connectedNetworks}/${totalNetworks}`}
-              color={ircColor} bg={ircOk ? undefined : '#e53e3e18'} small />
+              color={ircColor} bg={ircOk ? undefined : 'color-mix(in srgb, var(--red) 9%, transparent)'} small />
           )}
           {activeFilters > 0 && <StatChip label="Filters" value={activeFilters} small />}
         </div>
@@ -333,14 +333,14 @@ export default function AutobrrPanel({ panel, heightUnits }: { panel: Panel; hei
 
       {/* Stat chips */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'center' }}>
-        <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="#4ade80" />
+        <StatChip label="Grabbed" value={fmtCount(grabbedCount)} color="var(--green)" />
         <StatChip label="Total seen" value={fmtCount(totalCount)} />
         {filteredCount > 0 && <StatChip label="Filtered" value={fmtCount(filteredCount)} />}
         {rejectedCount > 0 && <StatChip label="Rejected" value={fmtCount(rejectedCount)} color="var(--text-dim)" />}
-        {pushErrorCount > 0 && <StatChip label="Errors" value={pushErrorCount} color="#e53e3e" bg="#e53e3e18" />}
+        {pushErrorCount > 0 && <StatChip label="Errors" value={pushErrorCount} color="var(--red)" bg="color-mix(in srgb, var(--red) 9%, transparent)" />}
         {totalNetworks > 0 && (
           <StatChip label="IRC" value={`${connectedNetworks}/${totalNetworks}`}
-            color={ircColor} bg={ircOk ? undefined : '#e53e3e18'} />
+            color={ircColor} bg={ircOk ? undefined : 'color-mix(in srgb, var(--red) 9%, transparent)'} />
         )}
         {activeFilters > 0 && <StatChip label="Filters" value={activeFilters} />}
       </div>

@@ -150,14 +150,14 @@ function deviceTypeLabel(type: string): string {
 function satisfactionColor(pct: number): string {
   if (pct >= 80) return 'var(--green)'
   if (pct >= 50) return 'var(--amber)'
-  return 'var(--red, #e53e3e)'
+  return 'var(--red, var(--red))'
 }
 
 function rssiColor(rssi: number): string {
   const abs = Math.abs(rssi)
   if (abs <= 67) return 'var(--green)'
   if (abs <= 80) return 'var(--amber)'
-  return 'var(--red, #e53e3e)'
+  return 'var(--red, var(--red))'
 }
 
 function eventSubsystemColor(sub: string): string {
@@ -195,7 +195,7 @@ function UtilBar({ pct, color = 'var(--accent)' }: { pct: number; color?: string
 }
 
 function APRadioRow({ radio }: { radio: UniFiRadio }) {
-  const cuColor = radio.cu > 80 ? 'var(--red, #e53e3e)' : radio.cu > 50 ? 'var(--amber)' : 'var(--green)'
+  const cuColor = radio.cu > 80 ? 'var(--red, var(--red))' : radio.cu > 50 ? 'var(--amber)' : 'var(--green)'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 9, color: 'var(--text-dim)' }}>
       <span style={{ color: 'var(--accent)', width: 26, flexShrink: 0, fontWeight: 600 }}>{radio.band}</span>
@@ -268,7 +268,7 @@ function DeviceRow({ device }: { device: UniFiDevice }) {
       {device.type === 'gw' && device.wan && (
         <div style={{ paddingLeft: 30, paddingTop: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 9 }}>
-            <span style={{ color: device.wan.up ? 'var(--green)' : 'var(--red, #e53e3e)' }}>
+            <span style={{ color: device.wan.up ? 'var(--green)' : 'var(--red, var(--red))' }}>
               {device.wan.up ? '▲' : '▼'} WAN
             </span>
             <span style={{ color: 'var(--text-dim)' }}>{device.wan.ip}</span>
@@ -420,7 +420,7 @@ export default function UniFiPanel({ panel, heightUnits }: Props) {
           {/* WAN */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%',
-              background: data.wanUp ? 'var(--green)' : 'var(--red, #e53e3e)' }} />
+              background: data.wanUp ? 'var(--green)' : 'var(--red, var(--red))' }} />
             {data.wanIp && (
               <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
                 {data.wanIp}
@@ -463,7 +463,7 @@ export default function UniFiPanel({ panel, heightUnits }: Props) {
           </a>
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
             <div style={{ width: 7, height: 7, borderRadius: '50%',
-              background: data.wanUp ? 'var(--green)' : 'var(--red, #e53e3e)' }} />
+              background: data.wanUp ? 'var(--green)' : 'var(--red, var(--red))' }} />
             <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
               {data.wanUp ? 'WAN up' : 'WAN down'}
             </span>
@@ -559,7 +559,7 @@ export default function UniFiPanel({ panel, heightUnits }: Props) {
         </a>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginLeft: 4 }}>
           <div style={{ width: 7, height: 7, borderRadius: '50%',
-            background: data.wanUp ? 'var(--green)' : 'var(--red, #e53e3e)' }} />
+            background: data.wanUp ? 'var(--green)' : 'var(--red, var(--red))' }} />
           <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>
             {data.wanUp ? 'WAN up' : 'WAN down'}
           </span>

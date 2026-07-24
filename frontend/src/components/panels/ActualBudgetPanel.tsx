@@ -59,7 +59,7 @@ function fmtMoney(cents: number): string {
 function moneyColor(cents: number, invert = false): string {
   if (cents === 0) return 'var(--text)'
   const positive = cents > 0
-  return (positive !== invert) ? '#4ade80' : '#e53e3e'
+  return (positive !== invert) ? 'var(--green)' : 'var(--red)'
 }
 
 function monthLabel(ym: string): string {
@@ -112,14 +112,14 @@ function SpendBar({ group }: { group: ABCategoryGroup }) {
         <span style={{ fontSize: 10, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {group.name}
         </span>
-        <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', color: over ? '#e53e3e' : 'var(--text-dim)', flexShrink: 0, marginLeft: 4 }}>
+        <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', color: over ? 'var(--red)' : 'var(--text-dim)', flexShrink: 0, marginLeft: 4 }}>
           {fmtMoney(Math.abs(group.spent))} / {fmtMoney(group.budgeted)}
         </span>
       </div>
       <div style={{ height: 4, background: 'var(--surface2)', borderRadius: 2, overflow: 'hidden' }}>
         <div style={{
           width: `${pct * 100}%`, height: '100%', borderRadius: 2,
-          background: over ? '#e53e3e' : pct > 0.85 ? '#f59e0b' : '#4ade80',
+          background: over ? 'var(--red)' : pct > 0.85 ? 'var(--amber)' : 'var(--green)',
         }} />
       </div>
     </div>
@@ -161,14 +161,14 @@ function AssetDonut({ accounts }: { accounts: ABAccount[] }) {
           <circle cx={50} cy={50} r={r} fill="none" stroke="var(--surface2)" strokeWidth={14} />
           {/* assets */}
           {assets > 0 && (
-            <circle cx={50} cy={50} r={r} fill="none" stroke="#4ade80" strokeWidth={14}
+            <circle cx={50} cy={50} r={r} fill="none" stroke="var(--green)" strokeWidth={14}
               strokeDasharray={`${assetArc} ${circ}`}
               strokeDashoffset={0}
               transform="rotate(-90 50 50)" />
           )}
           {/* liabilities */}
           {liabilities > 0 && (
-            <circle cx={50} cy={50} r={r} fill="none" stroke="#e53e3e" strokeWidth={14}
+            <circle cx={50} cy={50} r={r} fill="none" stroke="var(--red)" strokeWidth={14}
               strokeDasharray={`${liabArc} ${circ}`}
               strokeDashoffset={`${-assetArc}`}
               transform="rotate(-90 50 50)" />
@@ -184,11 +184,11 @@ function AssetDonut({ accounts }: { accounts: ABAccount[] }) {
       </div>
       <div style={{ display: 'flex', gap: 10, fontSize: 10, color: 'var(--text-dim)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#4ade80', flexShrink: 0 }} />
+          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--green)', flexShrink: 0 }} />
           {fmtMoney(assets)}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: '#e53e3e', flexShrink: 0 }} />
+          <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: 'var(--red)', flexShrink: 0 }} />
           {fmtMoney(liabilities)}
         </span>
       </div>
@@ -241,7 +241,7 @@ export default function ActualBudgetPanel({ panel, heightUnits }: { panel: Panel
 
   if (!integrationId) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No integration configured.</div>)
   if (loading)        return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>)
-  if (error)          return wrap(<div style={{ color: '#e53e3e', fontSize: 13 }}>{error}</div>)
+  if (error)          return wrap(<div style={{ color: 'var(--red)', fontSize: 13 }}>{error}</div>)
   if (!data || data.budgets.length === 0) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const budget          = data.budgets.find(b => b.budgetId === selectedId) ?? data.budgets[0]
