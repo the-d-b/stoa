@@ -160,20 +160,25 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 		return nil, err
 	}
 	data := &PlexPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// Server identity + version
 	body, err := plexGet(apiURL, apiKey, "/", skipTLS)
 	if err == nil {
+		anyOK = true
 		var mc plexMediaContainer
 		if xml.Unmarshal(body, &mc) == nil {
 			data.ServerName = mc.FriendlyName
 			data.Version = mc.Version
 		}
+	} else {
+		logErrorf("PLEX", "server identity error: %v", err)
 	}
 
 	// Check for updates via Plex updater API
 	updateBody, err := plexGet(apiURL, apiKey, "/updater/status", skipTLS)
 	if err == nil {
+		anyOK = true
 		var uc plexMediaContainer
 		if xml.Unmarshal(updateBody, &uc) == nil {
 			// Plex returns <Release version="x.y.z"> elements when updates are available
@@ -185,11 +190,14 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 				data.UpdateAvail = true
 			}
 		}
+	} else {
+		logErrorf("PLEX", "updater status error: %v", err)
 	}
 
 	// Libraries
 	libBody, err := plexGet(apiURL, apiKey, "/library/sections", skipTLS)
 	if err == nil {
+		anyOK = true
 		var mc plexMediaContainer
 		if xml.Unmarshal(libBody, &mc) == nil {
 			for _, dir := range mc.Directories {
@@ -212,11 +220,14 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 				})
 			}
 		}
+	} else {
+		logErrorf("PLEX", "library sections error: %v", err)
 	}
 
 	// Active sessions
 	sessBody, err := plexGet(apiURL, apiKey, "/status/sessions", skipTLS)
 	if err == nil {
+		anyOK = true
 		var mc plexMediaContainer
 		if xml.Unmarshal(sessBody, &mc) == nil {
 			plexRatings := allowedPlexRatings(config)
@@ -232,6 +243,8 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 				data.Sessions = append(data.Sessions, sess)
 			}
 		}
+	} else {
+		logErrorf("PLEX", "active sessions error: %v", err)
 	}
 
 	// Tally transcode vs direct from sessions
@@ -242,6 +255,12 @@ func fetchPlexPanelData(db *sql.DB, config map[string]interface{}) (*PlexPanelDa
 			data.TranscodeCount++
 		}
 	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("plex unreachable — check URL, token, and TLS settings (see server log for details)")
+	}
+
 	return data, nil
 }
 

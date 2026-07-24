@@ -99,10 +99,12 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 
 	out := &GrocyPanelData{UIURL: uiURL, IntegrationID: integrationID}
 	now := time.Now().UTC()
+	anyOK := false
 
 	// ── Product name lookup ───────────────────────────────────────────────────
 	productNames := map[string]string{}
 	if body, err := grocyGet(baseURL, apiKey, "/api/objects/products", skipTLS); err == nil {
+		anyOK = true
 		var products []struct {
 			ID   json.RawMessage `json:"id"`
 			Name string          `json:"name"`
@@ -113,6 +115,8 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 				productNames[idStr] = p.Name
 			}
 		}
+	} else {
+		logErrorf("GROCY", "products error: %v", err)
 	}
 
 	resolveName := func(rawID json.RawMessage) string {
@@ -125,6 +129,7 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 
 	// ── Volatile stock (expiring/expired) ─────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/stock/volatile", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			DueProducts     []json.RawMessage `json:"due_products"`
 			OverdueProducts []json.RawMessage `json:"overdue_products"`
@@ -180,6 +185,8 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 				parseEntry(raw)
 			}
 		}
+	} else {
+		logErrorf("GROCY", "stock/volatile error: %v", err)
 	}
 	// Sort: expired first (most negative daysFromNow), then by days ascending
 	sort.Slice(out.Products, func(i, j int) bool {
@@ -188,6 +195,7 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 
 	// ── Chores ────────────────────────────────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/chores", skipTLS); err == nil {
+		anyOK = true
 		var chores []struct {
 			ChoreName                  string `json:"chore_name"`
 			NextEstimatedExecutionTime string `json:"next_estimated_execution_time"`
@@ -224,10 +232,13 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 			}
 			return out.Chores[i].NextExecution < out.Chores[j].NextExecution
 		})
+	} else {
+		logErrorf("GROCY", "chores error: %v", err)
 	}
 
 	// ── Tasks ─────────────────────────────────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/tasks", skipTLS); err == nil {
+		anyOK = true
 		var tasks []struct {
 			Name       string          `json:"name"`
 			DueDate    string          `json:"due_date"`
@@ -268,10 +279,13 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 			}
 			return out.Tasks[i].DueDate < out.Tasks[j].DueDate
 		})
+	} else {
+		logErrorf("GROCY", "tasks error: %v", err)
 	}
 
 	// ── Shopping list ─────────────────────────────────────────────────────────
 	if body, err := grocyGet(baseURL, apiKey, "/api/objects/shopping_list", skipTLS); err == nil {
+		anyOK = true
 		var items []struct {
 			ProductID json.RawMessage `json:"product_id"`
 			Amount    float64         `json:"amount"`
@@ -300,6 +314,14 @@ func fetchGrocyPanelData(db *sql.DB, config map[string]interface{}) (*GrocyPanel
 				})
 			}
 		}
+	} else {
+		logErrorf("GROCY", "shopping_list error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	// (typical causes: wrong URL, wrong/expired API key, TLS trust)
+	if !anyOK {
+		return nil, fmt.Errorf("grocy unreachable — check URL, API key, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

@@ -184,11 +184,13 @@ func qnapMemToGB(v int64) float64 {
 
 func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, error) {
 	data := &QNAPPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// ── System info: CPU, RAM, uptime, hostname, model, firmware ─────────────
 	// QTS 4.x nests these under func>ownContent; QTS 5.x puts them at top level.
 	// Both path variants are included so either structure decodes correctly.
 	if body, err := qnapGet(apiURL, sid, "/cgi-bin/management/manaRequest.cgi?subfunc=sysinfo&hd=no&multicpu=1", skipTLS); err == nil {
+		anyOK = true
 		var info struct {
 			XMLName xml.Name `xml:"QDocRoot"`
 			// Top-level fields (QTS 5.x)
@@ -253,10 +255,13 @@ func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, erro
 		}
 	} else if errors.Is(err, errQNAPUnauth) {
 		return nil, err
+	} else {
+		logErrorf("QNAP", "system info error: %v", err)
 	}
 
 	// ── Volumes ───────────────────────────────────────────────────────────────
 	if body, err := qnapGet(apiURL, sid, "/cgi-bin/disk/diskRequest.cgi?subfunc=volume_list", skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			XMLName xml.Name `xml:"QDocRoot"`
 			Volumes []struct {
@@ -292,10 +297,13 @@ func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, erro
 				})
 			}
 		}
+	} else {
+		logErrorf("QNAP", "volumes error: %v", err)
 	}
 
 	// ── Disks ─────────────────────────────────────────────────────────────────
 	if body, err := qnapGet(apiURL, sid, "/cgi-bin/disk/diskRequest.cgi?subfunc=disk_overview", skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			XMLName xml.Name `xml:"QDocRoot"`
 			Disks   []struct {
@@ -322,10 +330,13 @@ func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, erro
 				})
 			}
 		}
+	} else {
+		logErrorf("QNAP", "disks error: %v", err)
 	}
 
 	// ── Shared folders ────────────────────────────────────────────────────────
 	if body, err := qnapGet(apiURL, sid, "/cgi-bin/share/shareRequest.cgi?subfunc=get_share_list", skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			XMLName xml.Name `xml:"QDocRoot"`
 			Shares  []struct {
@@ -339,6 +350,13 @@ func qnapFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*QNAPPanelData, erro
 				}
 			}
 		}
+	} else {
+		logErrorf("QNAP", "shared folders error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("qnap unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

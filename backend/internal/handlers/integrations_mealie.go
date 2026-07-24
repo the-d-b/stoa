@@ -100,9 +100,11 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 	}
 
 	out := &MealiePanelData{UIURL: uiURL, IntegrationID: integrationID, HouseholdSlug: "home"}
+	anyOK := false
 
 	// ── Household slug (for UI recipe links: /g/{slug}/r/{recipe-slug}) ───────
 	if userBody, err := mealieGet(baseURL, apiKey, "/api/users/self", skipTLS); err == nil {
+		anyOK = true
 		var user struct {
 			Household *struct {
 				Slug string `json:"slug"`
@@ -111,20 +113,26 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 		if json.Unmarshal(userBody, &user) == nil && user.Household != nil && user.Household.Slug != "" {
 			out.HouseholdSlug = user.Household.Slug
 		}
+	} else {
+		logErrorf("MEALIE", "users/self error: %v", err)
 	}
 
 	// ── Recipe count ──────────────────────────────────────────────────────────
 	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?perPage=1&page=1", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Total int `json:"total"`
 		}
 		if json.Unmarshal(body, &r) == nil {
 			out.TotalRecipes = r.Total
 		}
+	} else {
+		logErrorf("MEALIE", "recipe count error: %v", err)
 	}
 
 	// ── Random recipes for photo carousel ────────────────────────────────────
 	if body, err := mealieGet(baseURL, apiKey, "/api/recipes?orderBy=dateAdded&orderDirection=desc&perPage=50", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Items []struct {
 				ID        string  `json:"id"`
@@ -152,6 +160,8 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 				})
 			}
 		}
+	} else {
+		logErrorf("MEALIE", "recipes error: %v", err)
 	}
 
 	// ── This week's meal plan ─────────────────────────────────────────────────
@@ -167,6 +177,7 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 
 	path := fmt.Sprintf("/api/households/mealplans?start_date=%s&end_date=%s&perPage=50", startDate, endDate)
 	if body, err := mealieGet(baseURL, apiKey, path, skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Items []struct {
 				Date      string `json:"date"`
@@ -198,19 +209,13 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 				out.MealPlan = append(out.MealPlan, entry)
 			}
 		}
+	} else {
+		logErrorf("MEALIE", "meal plan error: %v", err)
 	}
 
 	// ── Shopping lists ────────────────────────────────────────────────────────
-	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err != nil {
-		logErrorf("MEALIE", "shopping lists error: %v", err)
-	} else {
-		preview := string(body)
-		if len(preview) > 300 {
-			preview = preview[:300]
-		}
-		logDebugf("MEALIE", "shopping lists response: %s", preview)
-	}
 	if body, err := mealieGet(baseURL, apiKey, "/api/households/shopping/lists?perPage=10", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Items []struct {
 				ID   string `json:"id"`
@@ -263,6 +268,13 @@ func fetchMealiePanelData(db *sql.DB, config map[string]interface{}) (*MealiePan
 				out.ShoppingLists = append(out.ShoppingLists, sl)
 			}
 		}
+	} else {
+		logErrorf("MEALIE", "shopping lists error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("mealie unreachable — check URL, API token, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

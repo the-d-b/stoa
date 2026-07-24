@@ -112,9 +112,11 @@ func fetchHomeboxPanelData(db *sql.DB, config map[string]interface{}) (*HomeboxP
 	}
 
 	out := &HomeboxPanelData{Locations: []HomeboxLocation{}}
+	anyOK := false
 
 	// Group statistics
 	if b, err := homeboxGet(baseURL, token, "/api/v1/groups/statistics", skipTLS); err == nil {
+		anyOK = true
 		var s struct {
 			TotalItems        int     `json:"totalItems"`
 			TotalLocations    int     `json:"totalLocations"`
@@ -129,10 +131,13 @@ func fetchHomeboxPanelData(db *sql.DB, config map[string]interface{}) (*HomeboxP
 			out.TotalWithWarranty = s.TotalWithWarranty
 			out.TotalItemPrice = s.TotalItemPrice
 		}
+	} else {
+		logErrorf("HOMEBOX", "statistics error: %v", err)
 	}
 
 	// Location breakdown (includes itemCount per location)
 	if b, err := homeboxGet(baseURL, token, "/api/v1/locations", skipTLS); err == nil {
+		anyOK = true
 		var locs []struct {
 			ID        string `json:"id"`
 			Name      string `json:"name"`
@@ -150,6 +155,13 @@ func fetchHomeboxPanelData(db *sql.DB, config map[string]interface{}) (*HomeboxP
 				return out.Locations[i].ItemCount > out.Locations[j].ItemCount
 			})
 		}
+	} else {
+		logErrorf("HOMEBOX", "locations error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("homebox unreachable — check URL and credentials (see server log for details)")
 	}
 
 	return out, nil

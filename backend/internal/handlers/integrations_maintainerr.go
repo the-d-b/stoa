@@ -204,9 +204,11 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 	}
 
 	out := &MaintainerrPanelData{Collections: []MaintainerrCollection{}}
+	anyOK := false
 
 	// Collections — metadata (counts, sizes, active state)
 	if b, err := maintainerrGet(baseURL, apiKey, "/api/collections", skipTLS); err == nil {
+		anyOK = true
 		var cols []struct {
 			ID              int    `json:"id"`
 			Title           string `json:"title"`
@@ -268,10 +270,13 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 				})
 			}
 		}
+	} else {
+		logErrorf("MAINTAINERR", "collections error: %v", err)
 	}
 
 	// Lifetime cleanup stats — best-effort
 	if b, err := maintainerrGet(baseURL, apiKey, "/api/storage-metrics", skipTLS); err == nil {
+		anyOK = true
 		var sm struct {
 			CleanupTotals struct {
 				ItemsHandled int   `json:"itemsHandled"`
@@ -282,6 +287,13 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 			out.ItemsHandled = sm.CleanupTotals.ItemsHandled
 			out.BytesHandled = sm.CleanupTotals.BytesHandled
 		}
+	} else {
+		logErrorf("MAINTAINERR", "storage-metrics error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("maintainerr unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

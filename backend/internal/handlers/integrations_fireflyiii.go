@@ -84,9 +84,11 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 	}
 
 	out := &FireflyPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	anyOK := false
 
 	// ── About (version) ───────────────────────────────────────────────────────
 	if body, err := fireflyGet(baseURL, apiKey, "/api/v1/about", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Data struct {
 				Version    string `json:"version"`
@@ -97,6 +99,8 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 			out.Version = r.Data.Version
 			out.APIVersion = r.Data.APIVersion
 		}
+	} else {
+		logErrorf("FIREFLYIII", "about error: %v", err)
 	}
 
 	// ── Summary (current month) ───────────────────────────────────────────────
@@ -106,6 +110,7 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 	summaryPath := fmt.Sprintf("/api/v1/summary/basic?start=%s&end=%s", start, end)
 
 	if body, err := fireflyGet(baseURL, apiKey, summaryPath, skipTLS); err == nil {
+		anyOK = true
 		// Response is an object keyed by summary type (e.g. "earned-in-EUR")
 		var raw map[string]struct {
 			Key            string `json:"key"`
@@ -167,10 +172,13 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 				}
 			}
 		}
+	} else {
+		logErrorf("FIREFLYIII", "summary error: %v", err)
 	}
 
 	// ── Asset accounts (first page) ───────────────────────────────────────────
 	if body, err := fireflyGet(baseURL, apiKey, "/api/v1/accounts?type=asset&page=1", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Data []struct {
 				ID         string `json:"id"`
@@ -200,6 +208,13 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 				})
 			}
 		}
+	} else {
+		logErrorf("FIREFLYIII", "accounts error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("firefly iii unreachable — check URL, API token, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

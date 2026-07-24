@@ -64,6 +64,8 @@ func fetchRadarrPanelData(db *sql.DB, config map[string]interface{}) (*RadarrPan
 				}
 			}
 		}
+	} else {
+		logErrorf("RADARR", "history error: %v", err)
 	}
 
 	// Library stats — primary data; error here means integration is unreachable/misconfigured

@@ -321,6 +321,10 @@ func FetchStocksData(db *sql.DB, integrationID string) (*MarketData, error) {
 			data.Sparks[sym] = spark
 		}
 	}
+	// Every symbol failed — surface the error instead of rendering zeros
+	if len(cfg.Symbols) > 0 && len(data.Quotes) == 0 {
+		return nil, fmt.Errorf("stocks unreachable — every configured symbol failed to fetch (see server log for details)")
+	}
 	return data, nil
 }
 
@@ -426,6 +430,10 @@ func FetchCryptoData(db *sql.DB, integrationID string) (*MarketData, error) {
 				cacheSet(integrationID, data)
 			}
 		}
+	}
+	// Every coin failed — surface the error instead of rendering zeros
+	if len(cfg.Coins) > 0 && len(data.Quotes) == 0 {
+		return nil, fmt.Errorf("crypto unreachable — every configured coin failed to fetch (see server log for details)")
 	}
 	return data, nil
 }

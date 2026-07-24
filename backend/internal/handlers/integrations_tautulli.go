@@ -70,12 +70,14 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 	}
 
 	data := &TautulliPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// Most played — top 10 across all media types
 	mostPlayedBody, err := tautulliGet(apiURL, apiKey, "get_home_stats", fmt.Sprintf(
 		"&time_range=%d&stats_count=10&stats_type=plays", timeRange,
 	), skipTLS)
 	if err == nil {
+		anyOK = true
 		var resp struct {
 			Response struct {
 				Data []struct {
@@ -122,6 +124,8 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 				}
 			}
 		}
+	} else {
+		logErrorf("TAUTULLI", "most played error: %v", err)
 	}
 
 	// User stats
@@ -129,6 +133,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		"&time_range=%d&stats_count=8&stats_type=plays", timeRange,
 	), skipTLS)
 	if err == nil {
+		anyOK = true
 		var resp struct {
 			Response struct {
 				Data []struct {
@@ -156,6 +161,8 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 				}
 			}
 		}
+	} else {
+		logErrorf("TAUTULLI", "user stats error: %v", err)
 	}
 
 	// Recent history — last 8 plays; also captures total count for the period
@@ -163,6 +170,7 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		fmt.Sprintf("&length=8&order_column=date&order_dir=desc&time_range=%d", timeRange),
 		skipTLS)
 	if err == nil {
+		anyOK = true
 		var resp struct {
 			Response struct {
 				Data struct {
@@ -199,6 +207,8 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 				})
 			}
 		}
+	} else {
+		logErrorf("TAUTULLI", "history error: %v", err)
 	}
 
 	// Aggregate total duration and unique users from userStats
@@ -206,6 +216,11 @@ func fetchTautulliPanelData(db *sql.DB, config map[string]interface{}) (*Tautull
 		data.TotalDurationSecs += u.TotalDuration
 	}
 	data.UniqueUsers = len(data.UserStats)
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("tautulli unreachable — check URL, API key, and TLS settings (see server log for details)")
+	}
 
 	return data, nil
 }

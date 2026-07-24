@@ -188,6 +188,8 @@ func fetchNextDNSPanelData(db *sql.DB, config map[string]interface{}) (*NextDNSP
 		if m := ndDataMap(profileBody); m != nil {
 			profileName, _ = m["name"].(string)
 		}
+	} else {
+		logErrorf("NEXTDNS", "profile error: %v", err)
 	}
 
 	// ── Status / aggregate counters ─────────────────────────────────────────
@@ -234,6 +236,8 @@ func fetchNextDNSPanelData(db *sql.DB, config map[string]interface{}) (*NextDNSP
 			overTimeTotal = append(overTimeTotal, total)
 			overTimeBlocked = append(overTimeBlocked, blocked)
 		}
+	} else {
+		logErrorf("NEXTDNS", "time series error: %v", err)
 	}
 
 	// ── Top domains ──────────────────────────────────────────────────────────
@@ -260,6 +264,8 @@ func fetchNextDNSPanelData(db *sql.DB, config map[string]interface{}) (*NextDNSP
 			withBlocked = withBlocked[:10]
 		}
 		topBlocked = withBlocked
+	} else {
+		logErrorf("NEXTDNS", "domains error: %v", err)
 	}
 
 	// ── Top clients ──────────────────────────────────────────────────────────
@@ -271,6 +277,8 @@ func fetchNextDNSPanelData(db *sql.DB, config map[string]interface{}) (*NextDNSP
 				Name: d.Name, Queries: d.Queries, Blocked: d.Blocked,
 			})
 		}
+	} else {
+		logErrorf("NEXTDNS", "clients error: %v", err)
 	}
 
 	// ── Block reasons ────────────────────────────────────────────────────────
@@ -280,6 +288,8 @@ func fetchNextDNSPanelData(db *sql.DB, config map[string]interface{}) (*NextDNSP
 		for _, d := range ndParseList(ndDataArray(reasonsBody)) {
 			reasons = append(reasons, NextDNSReason{Name: d.Name, Queries: d.Queries})
 		}
+	} else {
+		logErrorf("NEXTDNS", "reasons error: %v", err)
 	}
 
 	return &NextDNSPanelData{

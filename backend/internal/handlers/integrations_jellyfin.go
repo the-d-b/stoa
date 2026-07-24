@@ -96,20 +96,25 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 		return nil, err
 	}
 	data := &JellyfinPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// Server identity + version
 	body, err := jellyfinGet(apiURL, apiKey, "/System/Info", skipTLS)
 	if err == nil {
+		anyOK = true
 		var info jellyfinSystemInfo
 		if json.Unmarshal(body, &info) == nil {
 			data.ServerName = info.ServerName
 			data.Version = info.Version
 		}
+	} else {
+		logErrorf("JELLYFIN", "system info error: %v", err)
 	}
 
 	// Libraries + counts
 	libBody, err := jellyfinGet(apiURL, apiKey, "/Library/VirtualFolders", skipTLS)
 	if err == nil {
+		anyOK = true
 		var folders []jellyfinVirtualFolder
 		if json.Unmarshal(libBody, &folders) == nil {
 			for _, f := range folders {
@@ -129,11 +134,14 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 				})
 			}
 		}
+	} else {
+		logErrorf("JELLYFIN", "libraries error: %v", err)
 	}
 
 	// Active sessions — only those with NowPlayingItem
 	sessBody, err := jellyfinGet(apiURL, apiKey, "/Sessions", skipTLS)
 	if err == nil {
+		anyOK = true
 		var sessions []jellyfinSessionResponse
 		if json.Unmarshal(sessBody, &sessions) == nil {
 			ratingsFilter := allowedRatings(config)
@@ -147,6 +155,8 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 				data.Sessions = append(data.Sessions, jellyfinSessionToPanel(s, integrationID))
 			}
 		}
+	} else {
+		logErrorf("JELLYFIN", "sessions error: %v", err)
 	}
 
 	// Tally transcode vs direct
@@ -157,6 +167,12 @@ func fetchJellyfinPanelData(db *sql.DB, config map[string]interface{}) (*Jellyfi
 			data.TranscodeCount++
 		}
 	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("jellyfin unreachable — check URL, API key, and TLS settings (see server log for details)")
+	}
+
 	return data, nil
 }
 

@@ -98,9 +98,12 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 		LibraryStrips: []KomgaLibraryStrip{},
 	}
 
+	anyOK := false
+
 	// Libraries
 	libBody, lerr := komgaGet(apiURL, apiKey, "/api/v1/libraries", skipTLS)
 	if lerr == nil {
+		anyOK = true
 		// Try direct array first, then page wrapper
 		var libsArr []struct {
 			ID   string `json:"id"`
@@ -129,12 +132,18 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 
 	// Series count (size=1 to avoid transferring full result set)
 	if seriesBody, serr := komgaGet(apiURL, apiKey, "/api/v1/series?page=0&size=1", skipTLS); serr == nil {
+		anyOK = true
 		data.SeriesCount = komgaTotalElements(seriesBody)
+	} else {
+		logErrorf("Komga", "series count error: %v", serr)
 	}
 
 	// Book count
 	if booksBody, berr := komgaGet(apiURL, apiKey, "/api/v1/books?page=0&size=1", skipTLS); berr == nil {
+		anyOK = true
 		data.BookCount = komgaTotalElements(booksBody)
+	} else {
+		logErrorf("Komga", "book count error: %v", berr)
 	}
 
 	// Recently added series
@@ -146,6 +155,7 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 	}
 	recentBody, rerr := komgaGet(apiURL, apiKey, "/api/v1/series/new?page=0&size=30", skipTLS)
 	if rerr == nil {
+		anyOK = true
 		var page struct {
 			Content []struct {
 				ID         string `json:"id"`
@@ -197,6 +207,11 @@ func fetchKomgaPanelData(db *sql.DB, config map[string]interface{}) (*KomgaPanel
 	}
 	for _, id := range libOrder {
 		data.LibraryStrips = append(data.LibraryStrips, *libStripMap[id])
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("komga unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

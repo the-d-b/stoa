@@ -34,9 +34,11 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 		return nil, err
 	}
 	data := &GluetunPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// VPN status
 	if body, err := gluetunGet(apiURL, apiKey, "/v1/openvpn/status", skipTLS); err == nil {
+		anyOK = true
 		var s struct {
 			Status string `json:"status"`
 		}
@@ -46,12 +48,15 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 	} else {
 		// Try wireguard status
 		if body2, err2 := gluetunGet(apiURL, apiKey, "/v1/vpn/status", skipTLS); err2 == nil {
+			anyOK = true
 			var s struct {
 				Status string `json:"status"`
 			}
 			if json.Unmarshal(body2, &s) == nil {
 				data.Status = s.Status
 			}
+		} else {
+			logErrorf("GLUETUN", "vpn status error: openvpn=%v wireguard=%v", err, err2)
 		}
 	}
 
@@ -59,6 +64,7 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 	// (while keeping the status/portforward routes public), so a missing or
 	// wrong key silently loses the panel's IP and location.
 	if body, err := gluetunGet(apiURL, apiKey, "/v1/publicip/ip", skipTLS); err == nil {
+		anyOK = true
 		var ip struct {
 			PublicIP string `json:"public_ip"`
 			Country  string `json:"country"`
@@ -83,8 +89,11 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 	}
 
 	// Port forwarding — try both endpoint variants
+	var pfErr error
 	for _, pfPath := range []string{"/v1/portforward", "/v1/openvpn/portforwarded"} {
 		if body, err := gluetunGet(apiURL, apiKey, pfPath, skipTLS); err == nil {
+			anyOK = true
+			pfErr = nil
 			var pf struct {
 				Port int `json:"port"`
 			}
@@ -92,11 +101,17 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 				data.Port = pf.Port
 				break
 			}
+		} else {
+			pfErr = err
 		}
+	}
+	if pfErr != nil {
+		logErrorf("GLUETUN", "port forwarding error: %v", pfErr)
 	}
 
 	// Server info
 	if body, err := gluetunGet(apiURL, apiKey, "/v1/vpn/settings", skipTLS); err == nil {
+		anyOK = true
 		var settings struct {
 			VPNProvider string `json:"vpn_service_provider"`
 			ServerName  string `json:"server_hostname"`
@@ -107,6 +122,11 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 		}
 	} else {
 		logErrorf("GLUETUN", "vpn/settings error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("gluetun unreachable — check URL, API key, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

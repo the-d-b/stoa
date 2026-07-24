@@ -95,29 +95,37 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 	}
 
 	out := &PaperlessPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	anyOK := false
 
 	// ── Total document count ──────────────────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/documents/?page_size=1", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Count int `json:"count"`
 		}
 		if json.Unmarshal(body, &r) == nil {
 			out.TotalDocuments = r.Count
 		}
+	} else {
+		logErrorf("PAPERLESS", "documents count error: %v", err)
 	}
 
 	// ── Inbox count (untagged documents) ──────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/documents/?tags__isnull=true&page_size=1", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Count int `json:"count"`
 		}
 		if json.Unmarshal(body, &r) == nil {
 			out.InboxCount = r.Count
 		}
+	} else {
+		logErrorf("PAPERLESS", "inbox count error: %v", err)
 	}
 
 	// ── Tags (for chart data + inbox tag detection) ───────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/tags/?page_size=100", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Results []struct {
 				ID            int    `json:"id"`
@@ -149,10 +157,13 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 				return out.Tags[i].DocumentCount > out.Tags[j].DocumentCount
 			})
 		}
+	} else {
+		logErrorf("PAPERLESS", "tags error: %v", err)
 	}
 
 	// ── Correspondents ────────────────────────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/correspondents/?page_size=100", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Results []struct {
 				ID            int    `json:"id"`
@@ -172,10 +183,13 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 				return out.Correspondents[i].DocumentCount > out.Correspondents[j].DocumentCount
 			})
 		}
+	} else {
+		logErrorf("PAPERLESS", "correspondents error: %v", err)
 	}
 
 	// ── Document types ────────────────────────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/document_types/?page_size=100", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Results []struct {
 				ID            int    `json:"id"`
@@ -195,6 +209,8 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 				return out.DocumentTypes[i].DocumentCount > out.DocumentTypes[j].DocumentCount
 			})
 		}
+	} else {
+		logErrorf("PAPERLESS", "document_types error: %v", err)
 	}
 
 	// ── Build lookup maps for resolving IDs ───────────────────────────────────
@@ -209,6 +225,7 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 
 	// ── Recent documents ──────────────────────────────────────────────────────
 	if body, err := paperlessGet(baseURL, apiKey, "/api/documents/?ordering=-created&page_size=10", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Results []struct {
 				ID            int    `json:"id"`
@@ -234,6 +251,14 @@ func fetchPaperlessPanelData(db *sql.DB, config map[string]interface{}) (*Paperl
 				out.RecentDocuments = append(out.RecentDocuments, doc)
 			}
 		}
+	} else {
+		logErrorf("PAPERLESS", "recent documents error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	// (typical causes: wrong URL, wrong/expired API token, TLS trust)
+	if !anyOK {
+		return nil, fmt.Errorf("paperless-ngx unreachable — check URL, API token, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

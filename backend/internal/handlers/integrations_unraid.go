@@ -147,7 +147,10 @@ func unraidHTTPFetch(db *sql.DB, integrationID, uiURL string) (*UnraidPanelData,
 	if err != nil {
 		return nil, err
 	}
-	data := buildUnraidPanelData(raw)
+	data, err := buildUnraidPanelData(raw)
+	if err != nil {
+		return nil, fmt.Errorf("unraid: %w", err)
+	}
 	data.UIURL = uiURL
 	return data, nil
 }
@@ -188,10 +191,10 @@ func unraidHTTPQuery(baseURL, apiKey, query string, skipTLS bool) (json.RawMessa
 
 // ── Response parsing ──────────────────────────────────────────────────────────
 
-func buildUnraidPanelData(raw json.RawMessage) *UnraidPanelData {
+func buildUnraidPanelData(raw json.RawMessage) (*UnraidPanelData, error) {
 	data := &UnraidPanelData{}
 	if raw == nil {
-		return data
+		return nil, fmt.Errorf("empty response")
 	}
 
 	var resp struct {
@@ -263,8 +266,8 @@ func buildUnraidPanelData(raw json.RawMessage) *UnraidPanelData {
 		} `json:"network"`
 	}
 
-	if json.Unmarshal(raw, &resp) != nil {
-		return data
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("invalid GraphQL response: %w", err)
 	}
 
 	// System info
@@ -355,7 +358,7 @@ func buildUnraidPanelData(raw json.RawMessage) *UnraidPanelData {
 		}
 	}
 
-	return data
+	return data, nil
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

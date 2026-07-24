@@ -90,6 +90,8 @@ func fetchBazarrPanelData(db *sql.DB, config map[string]interface{}) (*BazarrPan
 		if json.Unmarshal(body, &r) == nil {
 			out.Version = r.Data.BazarrVersion
 		}
+	} else {
+		logErrorf("BAZARR", "system status error: %v", err)
 	}
 
 	// ── Badges ────────────────────────────────────────────────────────────────
@@ -147,6 +149,8 @@ func fetchBazarrPanelData(db *sql.DB, config map[string]interface{}) (*BazarrPan
 				return out.Providers[i].Name < out.Providers[j].Name
 			})
 		}
+	} else {
+		logErrorf("BAZARR", "providers error: %v", err)
 	}
 
 	// ── History stats (last month) ────────────────────────────────────────────
@@ -167,6 +171,8 @@ func fetchBazarrPanelData(db *sql.DB, config map[string]interface{}) (*BazarrPan
 				out.DownloadedMovies += d.Count
 			}
 		}
+	} else {
+		logErrorf("BAZARR", "history stats error: %v", err)
 	}
 
 	return out, nil

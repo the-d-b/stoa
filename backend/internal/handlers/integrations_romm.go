@@ -106,9 +106,11 @@ func fetchRommPanelData(db *sql.DB, config map[string]interface{}) (*RomMPanelDa
 	}
 
 	out := &RomMPanelData{Platforms: []RomMPlatform{}, RecentGames: []RomMGame{}}
+	anyOK := false
 
 	// Stats
 	if b, err := rommGet(baseURL, apiKey, "/api/stats", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Platforms      int   `json:"PLATFORMS"`
 			Roms           int   `json:"ROMS"`
@@ -119,10 +121,13 @@ func fetchRommPanelData(db *sql.DB, config map[string]interface{}) (*RomMPanelDa
 			out.TotalRoms = r.Roms
 			out.TotalSizeBytes = r.TotalFileBytes
 		}
+	} else {
+		logErrorf("ROMM", "stats error: %v", err)
 	}
 
 	// Platforms (sorted by rom count descending in response)
 	if b, err := rommGet(baseURL, apiKey, "/api/platforms", skipTLS); err == nil {
+		anyOK = true
 		var platforms []struct {
 			ID       int    `json:"id"`
 			Name     string `json:"name"`
@@ -144,10 +149,13 @@ func fetchRommPanelData(db *sql.DB, config map[string]interface{}) (*RomMPanelDa
 				})
 			}
 		}
+	} else {
+		logErrorf("ROMM", "platforms error: %v", err)
 	}
 
 	// Recent games with cover art
 	if b, err := rommGet(baseURL, apiKey, "/api/roms?order_by=created_at&order_dir=desc&limit=24", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Items []struct {
 				ID                  int    `json:"id"`
@@ -172,6 +180,13 @@ func fetchRommPanelData(db *sql.DB, config map[string]interface{}) (*RomMPanelDa
 				})
 			}
 		}
+	} else {
+		logErrorf("ROMM", "recent games error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("romm unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

@@ -79,9 +79,11 @@ func fetchWgerPanelData(db *sql.DB, config map[string]interface{}) (*WgerPanelDa
 	get := func(path string) ([]byte, error) {
 		return wgerGet(baseURL, apiKey, path, skipTLS)
 	}
+	anyOK := false
 
 	// Recent workout sessions — pagination `count` gives total
 	if b, err := get("/api/v2/workoutsession/?format=json&ordering=-date&limit=5"); err == nil {
+		anyOK = true
 		var resp struct {
 			Count   int `json:"count"`
 			Results []struct {
@@ -106,6 +108,7 @@ func fetchWgerPanelData(db *sql.DB, config map[string]interface{}) (*WgerPanelDa
 
 	// Recent weight entries for trend (newest-first, last 10)
 	if b, err := get("/api/v2/weightentry/?format=json&ordering=-date&limit=10"); err == nil {
+		anyOK = true
 		var resp struct {
 			Results []struct {
 				Date   string  `json:"date"`
@@ -122,6 +125,11 @@ func fetchWgerPanelData(db *sql.DB, config map[string]interface{}) (*WgerPanelDa
 		}
 	} else {
 		logErrorf("wger", "weightentry error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("wger unreachable — check URL and API token (see server log for details)")
 	}
 
 	return out, nil

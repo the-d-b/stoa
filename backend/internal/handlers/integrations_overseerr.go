@@ -163,17 +163,23 @@ func fetchOverseerrPanelData(db *sql.DB, config map[string]interface{}) (*Overse
 		Declined:   []OverseerrRequest{},
 	}
 
+	anyOK := false
+
 	// Server version + update info
 	if body, err := overseerrGet(apiURL, apiKey, "/api/v1/status", skipTLS); err == nil {
+		anyOK = true
 		var status overseerrStatusResp
 		if json.Unmarshal(body, &status) == nil {
 			data.Version = status.Version
 			data.UpdateAvail = status.UpdateAvail
 		}
+	} else {
+		logErrorf("OVERSEERR", "status error: %v", err)
 	}
 
 	// Request counts
 	if body, err := overseerrGet(apiURL, apiKey, "/api/v1/request/count", skipTLS); err == nil {
+		anyOK = true
 		var counts overseerrCountResp
 		if json.Unmarshal(body, &counts) == nil {
 			data.Stats = OverseerrStats{
@@ -186,11 +192,17 @@ func fetchOverseerrPanelData(db *sql.DB, config map[string]interface{}) (*Overse
 				TV:         counts.TV,
 			}
 		}
+	} else {
+		logErrorf("OVERSEERR", "request count error: %v", err)
 	}
 
 	// Fetch all requests in one call and bucket by status — avoids filter name
 	// ambiguity ("declined" is not a valid filter value in Overseerr's API).
-	for _, req := range overseerrFetchRequests(apiURL, apiKey, "all", 200, skipTLS) {
+	requests := overseerrFetchRequests(apiURL, apiKey, "all", 200, skipTLS)
+	if len(requests) > 0 {
+		anyOK = true
+	}
+	for _, req := range requests {
 		switch req.Status {
 		case "pending":
 			if len(data.Pending) < 20 {
@@ -209,6 +221,11 @@ func fetchOverseerrPanelData(db *sql.DB, config map[string]interface{}) (*Overse
 				data.Declined = append(data.Declined, req)
 			}
 		}
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("overseerr unreachable — check URL and API key (see server log for details)")
 	}
 
 	return data, nil

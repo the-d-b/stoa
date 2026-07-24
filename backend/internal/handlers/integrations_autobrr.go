@@ -158,6 +158,8 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 				return out.IRCNetworks[i].Name < out.IRCNetworks[j].Name
 			})
 		}
+	} else {
+		logErrorf("AUTOBRR", "irc networks error: %v", err)
 	}
 
 	// ── Active filter count ───────────────────────────────────────────────────
@@ -172,6 +174,8 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 				}
 			}
 		}
+	} else {
+		logErrorf("AUTOBRR", "filters error: %v", err)
 	}
 
 	// ── Recent releases ───────────────────────────────────────────────────────
@@ -265,6 +269,8 @@ func fetchAutobrrrPanelData(db *sql.DB, config map[string]interface{}) (*Autobrr
 
 			out.Releases = append(out.Releases, rel)
 		}
+	} else {
+		logErrorf("AUTOBRR", "releases error: %v", err)
 	}
 
 	return out, nil

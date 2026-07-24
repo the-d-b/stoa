@@ -222,6 +222,8 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 				HeaderURL: fmt.Sprintf("https://cdn.cloudflare.steamstatic.com/steam/apps/%d/header.jpg", g.AppID),
 			})
 		}
+	} else {
+		logErrorf("STEAM", "recently played error: %v", err)
 	}
 
 	// ── Achievements — only for top 3 most played (avoid API flood) ───────────
@@ -234,6 +236,7 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 			"https://api.steampowered.com/ISteamUserStats/GetPlayerAchievements/v1/?key=%s&steamid=%s&appid=%d&l=en",
 			apiKey, steamID, g.AppID))
 		if err != nil {
+			logErrorf("STEAM", "achievements error (app %d): %v", g.AppID, err)
 			continue
 		}
 		var ach struct {
@@ -322,6 +325,8 @@ func fetchSteamPanel(db *sql.DB, config map[string]interface{}) (*SteamPanelData
 			data.Featured = extractItems("specials", 8)
 			data.NewReleases = extractItems("new_releases", 8)
 		}
+	} else {
+		logErrorf("STEAM", "featured categories error: %v", err)
 	}
 
 	// Ensure slices are never nil (marshal to [] not null)

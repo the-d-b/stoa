@@ -130,10 +130,12 @@ func fetchNZBGetPanelData(db *sql.DB, config map[string]interface{}) (*NZBGetPan
 		return nil, fmt.Errorf("status parse: %w", err)
 	}
 
-	groupsRaw, err := nzbgetRPC(baseURL, username, password, "listgroups", skipTLS)
+	groupsRaw, groupsErr := nzbgetRPC(baseURL, username, password, "listgroups", skipTLS)
 	groups := []NZBGetGroup{}
 	var downloadingCount, queuedCount, pausedCount, postProcCount, failedCount int
-	if err == nil {
+	if groupsErr != nil {
+		logErrorf("NZBGET", "listgroups error: %v", groupsErr)
+	} else {
 		var rawGroups []struct {
 			NZBName         string  `json:"NZBName"`
 			Status          string  `json:"Status"`
@@ -171,7 +173,10 @@ func fetchNZBGetPanelData(db *sql.DB, config map[string]interface{}) (*NZBGetPan
 		}
 	}
 
-	histRaw, _ := nzbgetRPC(baseURL, username, password, "history", skipTLS)
+	histRaw, histErr := nzbgetRPC(baseURL, username, password, "history", skipTLS)
+	if histErr != nil {
+		logErrorf("NZBGET", "history error: %v", histErr)
+	}
 	var history []NZBGetHistory
 	var stats1d, stats7d, stats30d NZBPeriodStats
 	if histRaw != nil {

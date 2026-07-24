@@ -313,6 +313,8 @@ func qbtFetchAll(apiURL, uiURL, sid, authKey string, skipTLS bool) (*QBTPanelDat
 			data.DownSpeedMbps = float64(transfer.DlSpeed) / 1000000
 			data.UpSpeedMbps = float64(transfer.UpSpeed) / 1000000
 		}
+	} else {
+		logErrorf("QBITTORRENT", "transfer info error: %v", err)
 	}
 
 	// ── Sync/maindata — free space on disk ────────────────────────────────────
@@ -325,6 +327,8 @@ func qbtFetchAll(apiURL, uiURL, sid, authKey string, skipTLS bool) (*QBTPanelDat
 		if json.Unmarshal(body, &maindata) == nil {
 			data.FreeSpaceGB = float64(maindata.ServerState.FreeSpace) / 1073741824
 		}
+	} else {
+		logErrorf("QBITTORRENT", "maindata error: %v", err)
 	}
 
 	return data, nil

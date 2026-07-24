@@ -114,6 +114,8 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 		if json.Unmarshal(body, &r) == nil {
 			out.Version = r.Version
 		}
+	} else {
+		logErrorf("PROWLARR", "system status error: %v", err)
 	}
 
 	// ── Health issues ─────────────────────────────────────────────────────────
@@ -135,6 +137,8 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 				})
 			}
 		}
+	} else {
+		logErrorf("PROWLARR", "health error: %v", err)
 	}
 
 	// ── Indexer stats (lookup table by ID) ────────────────────────────────────
@@ -165,6 +169,8 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 				}
 			}
 		}
+	} else {
+		logErrorf("PROWLARR", "indexerstats error: %v", err)
 	}
 
 	// ── Indexers ──────────────────────────────────────────────────────────────
@@ -283,6 +289,8 @@ func fetchProwlarrPanelData(db *sql.DB, config map[string]interface{}) (*Prowlar
 				return out.Apps[i].Name < out.Apps[j].Name
 			})
 		}
+	} else {
+		logErrorf("PROWLARR", "applications error: %v", err)
 	}
 
 	return out, nil

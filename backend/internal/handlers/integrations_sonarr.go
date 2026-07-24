@@ -156,6 +156,8 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				data.Upcoming = append(data.Upcoming, e)
 			}
 		}
+	} else {
+		logErrorf("SONARR", "calendar error: %v", err)
 	}
 
 	// Recent history
@@ -228,6 +230,8 @@ func fetchSonarrPanelData(db *sql.DB, config map[string]interface{}) (*SonarrPan
 				})
 			}
 		}
+	} else {
+		logErrorf("SONARR", "history error: %v", err)
 	}
 
 	// Library stats — primary data; error here means integration is unreachable/misconfigured

@@ -95,9 +95,11 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 		Datasources:   []GrafanaDatasource{},
 		Alerts:        []GrafanaAlert{},
 	}
+	anyOK := false
 
 	// ── Health / version ──────────────────────────────────────────────────────
 	if body, err := grafanaGet(baseURL, apiKey, "/api/health", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Version  string `json:"version"`
 			Database string `json:"database"`
@@ -106,20 +108,26 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 			out.Version = r.Version
 			out.Database = r.Database
 		}
+	} else {
+		logErrorf("GRAFANA", "health error: %v", err)
 	}
 
 	// ── Org name ──────────────────────────────────────────────────────────────
 	if body, err := grafanaGet(baseURL, apiKey, "/api/org", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Name string `json:"name"`
 		}
 		if json.Unmarshal(body, &r) == nil {
 			out.OrgName = r.Name
 		}
+	} else {
+		logErrorf("GRAFANA", "org error: %v", err)
 	}
 
 	// ── Admin stats (soft: requires Admin role) ───────────────────────────────
 	if body, err := grafanaGet(baseURL, apiKey, "/api/admin/stats", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Dashboards int `json:"dashboards"`
 			Users      int `json:"users"`
@@ -128,10 +136,13 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 			out.DashboardCount = r.Dashboards
 			out.UserCount = r.Users
 		}
+	} else {
+		logErrorf("GRAFANA", "admin stats error: %v", err)
 	}
 
 	// ── Datasources ───────────────────────────────────────────────────────────
 	if body, err := grafanaGet(baseURL, apiKey, "/api/datasources", skipTLS); err == nil {
+		anyOK = true
 		var rawDS []struct {
 			ID       int    `json:"id"`
 			Name     string `json:"name"`
@@ -189,11 +200,14 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 				return out.Datasources[i].Name < out.Datasources[j].Name
 			})
 		}
+	} else {
+		logErrorf("GRAFANA", "datasources error: %v", err)
 	}
 
 	// ── Active alerts (Grafana Alertmanager v2 API) ───────────────────────────
 	alertPath := "/api/alertmanager/grafana/api/v2/alerts?active=true&silenced=false&inhibited=false"
 	if body, err := grafanaGet(baseURL, apiKey, alertPath, skipTLS); err == nil {
+		anyOK = true
 		var rawAlerts []struct {
 			Labels      map[string]string `json:"labels"`
 			Annotations map[string]string `json:"annotations"`
@@ -233,6 +247,13 @@ func fetchGrafanaPanelData(db *sql.DB, config map[string]interface{}) (*GrafanaP
 				return out.Alerts[i].Name < out.Alerts[j].Name
 			})
 		}
+	} else {
+		logErrorf("GRAFANA", "alerts error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("grafana unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

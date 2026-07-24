@@ -201,9 +201,11 @@ func synoGet(baseURL, sid, api, method string, version int, extra map[string]str
 
 func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, error) {
 	data := &SynologyPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// ── DSM info ──────────────────────────────────────────────────────────────
 	if raw, err := synoGet(apiURL, sid, "SYNO.DSM.Info", "getinfo", 2, nil, skipTLS); err == nil {
+		anyOK = true
 		var info struct {
 			Hostname   string `json:"hostname"`
 			Model      string `json:"model"`
@@ -222,10 +224,13 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 		}
 	} else if errors.Is(err, errSynoUnauth) {
 		return nil, err
+	} else {
+		logErrorf("SYNOLOGY", "DSM info error: %v", err)
 	}
 
 	// ── Utilization: CPU, RAM, network rates ──────────────────────────────────
 	if raw, err := synoGet(apiURL, sid, "SYNO.Core.System.Utilization", "get", 1, nil, skipTLS); err == nil {
+		anyOK = true
 		var util struct {
 			CPU struct {
 				UserLoad   float64 `json:"user_load"`
@@ -272,11 +277,14 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 		}
 	} else if errors.Is(err, errSynoUnauth) {
 		return nil, err
+	} else {
+		logErrorf("SYNOLOGY", "utilization error: %v", err)
 	}
 
 	// ── Volumes ───────────────────────────────────────────────────────────────
 	if raw, err := synoGet(apiURL, sid, "SYNO.Core.Storage.Volume", "list", 1,
 		map[string]string{"limit": "-1"}, skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			Volumes []struct {
 				ID       string `json:"id"`
@@ -316,11 +324,14 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 				})
 			}
 		}
+	} else {
+		logErrorf("SYNOLOGY", "volumes error: %v", err)
 	}
 
 	// ── Disks ─────────────────────────────────────────────────────────────────
 	if raw, err := synoGet(apiURL, sid, "SYNO.Core.Storage.Disk", "list", 1,
 		map[string]string{"limit": "-1", "include_emptyslot": "false"}, skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			Disks []struct {
 				Name        string `json:"name"`
@@ -352,11 +363,14 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 				})
 			}
 		}
+	} else {
+		logErrorf("SYNOLOGY", "disks error: %v", err)
 	}
 
 	// ── Shared folders ────────────────────────────────────────────────────────
 	if raw, err := synoGet(apiURL, sid, "SYNO.Core.Share", "list", 1,
 		map[string]string{"limit": "200", "offset": "0"}, skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			Shares []struct {
 				Name string `json:"name"`
@@ -369,6 +383,13 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 				}
 			}
 		}
+	} else {
+		logErrorf("SYNOLOGY", "shared folders error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("synology unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

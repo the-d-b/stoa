@@ -77,7 +77,10 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 	if err != nil {
 		return fmt.Errorf("initial fetch: %w", err)
 	}
-	initial := buildUnraidPanelData(raw)
+	initial, err := buildUnraidPanelData(raw)
+	if err != nil {
+		return fmt.Errorf("initial fetch: %w", err)
+	}
 	initial.UIURL = uiURL
 	cacheSet(ig.id, initial)
 	ClearIntegrationError(ig.id, ig.name)
@@ -327,7 +330,12 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 				RecordIntegrationError(ig.id, ig.name, pollErr.Error())
 				continue
 			}
-			rebuilt := buildUnraidPanelData(pollRaw)
+			rebuilt, buildErr := buildUnraidPanelData(pollRaw)
+			if buildErr != nil {
+				logErrorf("UNRAID", "slow refresh parse error: %v", buildErr)
+				RecordIntegrationError(ig.id, ig.name, buildErr.Error())
+				continue
+			}
 			rebuilt.UIURL = uiURL
 			// Preserve live metrics that subscriptions keep up-to-date
 			if cur := unraidGetCached(ig.id); cur.CPUPercent > 0 {
@@ -363,7 +371,12 @@ func unraidPollLoop(db *sql.DB, ig integrationMeta, apiURL, uiURL, apiKey string
 				RecordIntegrationError(ig.id, ig.name, err.Error())
 				continue
 			}
-			fresh := buildUnraidPanelData(raw)
+			fresh, buildErr := buildUnraidPanelData(raw)
+			if buildErr != nil {
+				logErrorf("UNRAID", "poll parse error: %v", buildErr)
+				RecordIntegrationError(ig.id, ig.name, buildErr.Error())
+				continue
+			}
 			fresh.UIURL = uiURL
 			ClearIntegrationError(ig.id, ig.name)
 			cacheSet(ig.id, fresh)

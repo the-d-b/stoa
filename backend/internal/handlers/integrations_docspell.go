@@ -119,9 +119,11 @@ func fetchDocspellPanelData(db *sql.DB, config map[string]interface{}) (*Docspel
 	}
 
 	out := &DocspellPanelData{RecentItems: []DocspellItem{}}
+	anyOK := false
 
 	// Collective insights — totals, storage, tag count
 	if b, err := docspellGet(baseURL, token, "/api/v1/sec/collective/insights", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			IncomingCount int   `json:"incomingCount"`
 			OutgoingCount int   `json:"outgoingCount"`
@@ -135,10 +137,13 @@ func fetchDocspellPanelData(db *sql.DB, config map[string]interface{}) (*Docspel
 			out.StorageBytes = r.ItemSize
 			out.TagCount = len(r.TagCloud.Items)
 		}
+	} else {
+		logErrorf("DOCSPELL", "insights error: %v", err)
 	}
 
 	// Recent items
 	if b, err := docspellGet(baseURL, token, "/api/v1/sec/item/search?limit=8&offset=0", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Groups []struct {
 				Items []struct {
@@ -188,6 +193,13 @@ func fetchDocspellPanelData(db *sql.DB, config map[string]interface{}) (*Docspel
 				}
 			}
 		}
+	} else {
+		logErrorf("DOCSPELL", "recent items error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("docspell unreachable — check URL and credentials (see server log for details)")
 	}
 
 	return out, nil

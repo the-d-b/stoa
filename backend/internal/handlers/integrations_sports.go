@@ -640,6 +640,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 
 	leagueGames := map[string][]SportsGame{}
 	leagueSchedule := map[string][]SportsScheduleGame{}
+	anyOK := false
 
 	// We'll populate plays after the main loop for live games only
 	for _, league := range cfg.Leagues {
@@ -648,6 +649,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		if err != nil {
 			logErrorf("SPORTS", "scoreboard error %s: %v", league, err)
 		} else {
+			anyOK = true
 			data.Games = append(data.Games, games...)
 			leagueGames[strings.ToUpper(league)] = games
 			if hasLive {
@@ -660,6 +662,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		if err != nil {
 			logErrorf("SPORTS", "standings error %s: %v", league, err)
 		} else {
+			anyOK = true
 			data.Standings = append(data.Standings, standings...)
 		}
 
@@ -668,6 +671,7 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		if err != nil {
 			logErrorf("SPORTS", "schedule error %s: %v", league, err)
 		} else {
+			anyOK = true
 			data.Schedule = append(data.Schedule, schedule...)
 			leagueSchedule[strings.ToUpper(league)] = schedule
 		}
@@ -707,6 +711,12 @@ func FetchSportsData(db *sql.DB, integrationID string) (*SportsPanelData, error)
 		}
 		data.Games[i].Plays = plays
 	}
+
+	// Every league's every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK && len(cfg.Leagues) > 0 {
+		return nil, fmt.Errorf("ESPN unreachable — check network connectivity (see server log for details)")
+	}
+
 	return data, nil
 }
 

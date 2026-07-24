@@ -39,6 +39,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 		return nil, err
 	}
 	data := &LidarrPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// Upcoming releases — calendar
 	upcStart := timeNow().Format("2006-01-02")
@@ -46,17 +47,21 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	upcoming, err := arrGet(apiURL, apiKey,
 		fmt.Sprintf("/api/v1/calendar?start=%s&end=%s&unmonitored=true&includeArtist=true", upcStart, upcEnd), skipTLS)
 	if err == nil {
+		anyOK = true
 		var albums []map[string]interface{}
 		json.Unmarshal(upcoming, &albums)
 		for _, a := range albums {
 			data.Upcoming = append(data.Upcoming, lidarrAlbumFromMap(a))
 		}
+	} else {
+		logErrorf("LIDARR", "calendar error: %v", err)
 	}
 
 	// Recent history
 	hist, err := arrGet(apiURL, apiKey,
 		"/api/v1/history?pageSize=5&sortKey=date&sortDirection=descending&eventType=3&includeArtist=true&includeAlbum=true", skipTLS)
 	if err == nil {
+		anyOK = true
 		var histResp map[string]interface{}
 		json.Unmarshal(hist, &histResp)
 		if records, ok := histResp["records"].([]interface{}); ok {
@@ -74,6 +79,8 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 				data.History = append(data.History, a)
 			}
 		}
+	} else {
+		logErrorf("LIDARR", "history error: %v", err)
 	}
 
 	// Artist/album counts
@@ -85,6 +92,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	if err != nil {
 		logErrorf("LIDARR", "artist fetch error: %v", err)
 	} else {
+		anyOK = true
 		data.ArtistCount = len(artists)
 		for _, a := range artists {
 			stats, _ := a["statistics"].(map[string]interface{})
@@ -102,6 +110,7 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 	// Missing albums
 	missing, err := arrGet(apiURL, apiKey, "/api/v1/wanted/missing?pageSize=10&sortKey=releaseDate&sortDirection=descending&includeArtist=true", skipTLS)
 	if err == nil {
+		anyOK = true
 		var wantedResp map[string]interface{}
 		json.Unmarshal(missing, &wantedResp)
 		if records, ok := wantedResp["records"].([]interface{}); ok {
@@ -113,8 +122,16 @@ func fetchLidarrPanelData(db *sql.DB, config map[string]interface{}) (*LidarrPan
 				data.Missing = append(data.Missing, lidarrAlbumFromMap(rec))
 			}
 		}
+	} else {
+		logErrorf("LIDARR", "missing albums error: %v", err)
 	}
 	data.MissingCount = len(data.Missing)
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("lidarr unreachable — check URL, API key, and TLS settings (see server log for details)")
+	}
+
 	return data, nil
 }
 

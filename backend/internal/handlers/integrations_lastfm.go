@@ -251,8 +251,11 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 		TopAlbums:    []LastFmTopAlbum{},
 	}
 
+	anyOK := false
+
 	// user.getInfo — total scrobbles + member since
 	if b, err := lfmGet("user.getinfo", username, key, nil); err == nil {
+		anyOK = true
 		var resp struct {
 			User struct {
 				Name       string `json:"name"`
@@ -274,10 +277,13 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 				data.MemberSince = time.Unix(ts, 0).UTC().Format("2006")
 			}
 		}
+	} else {
+		logErrorf("LASTFM", "user.getinfo error: %v", err)
 	}
 
 	// user.getRecentTracks — nowplaying + recent history
 	if b, err := lfmGet("user.getrecenttracks", username, key, url.Values{"limit": {"10"}}); err == nil {
+		anyOK = true
 		var resp struct {
 			RecentTracks struct {
 				Track json.RawMessage `json:"track"`
@@ -301,10 +307,13 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 				data.RecentTracks = append(data.RecentTracks, lt)
 			}
 		}
+	} else {
+		logErrorf("LASTFM", "user.getrecenttracks error: %v", err)
 	}
 
 	// user.getTopArtists — 7-day chart
 	if b, err := lfmGet("user.gettopartists", username, key, url.Values{"period": {"7day"}, "limit": {"5"}}); err == nil {
+		anyOK = true
 		var resp struct {
 			TopArtists struct {
 				Artist json.RawMessage `json:"artist"`
@@ -319,10 +328,13 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 				})
 			}
 		}
+	} else {
+		logErrorf("LASTFM", "user.gettopartists error: %v", err)
 	}
 
 	// user.getTopTracks — 7-day chart
 	if b, err := lfmGet("user.gettoptracks", username, key, url.Values{"period": {"7day"}, "limit": {"5"}}); err == nil {
+		anyOK = true
 		var resp struct {
 			TopTracks struct {
 				Track json.RawMessage `json:"track"`
@@ -339,10 +351,13 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 				})
 			}
 		}
+	} else {
+		logErrorf("LASTFM", "user.gettoptracks error: %v", err)
 	}
 
 	// user.getTopAlbums — 7-day chart
 	if b, err := lfmGet("user.gettopalbums", username, key, url.Values{"period": {"7day"}, "limit": {"5"}}); err == nil {
+		anyOK = true
 		var resp struct {
 			TopAlbums struct {
 				Album json.RawMessage `json:"album"`
@@ -359,6 +374,14 @@ func fetchLastFmPanelData(db *sql.DB, config map[string]interface{}) (*LastFmPan
 				})
 			}
 		}
+	} else {
+		logErrorf("LASTFM", "user.gettopalbums error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	// (typical causes: wrong username, wrong/expired API key)
+	if !anyOK {
+		return nil, fmt.Errorf("last.fm unreachable — check the username and API key (see server log for details)")
 	}
 
 	return data, nil

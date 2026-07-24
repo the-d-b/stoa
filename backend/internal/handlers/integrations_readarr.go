@@ -142,6 +142,8 @@ func fetchReadarrPanelData(db *sql.DB, config map[string]interface{}) (*ReadarrP
 		var authorList []interface{}
 		json.Unmarshal(authorRaw, &authorList)
 		data.AuthorCount = len(authorList)
+	} else {
+		logErrorf("READARR", "author fetch error: %v", err)
 	}
 
 	return data, nil

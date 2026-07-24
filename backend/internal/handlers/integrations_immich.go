@@ -57,10 +57,12 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 	}
 
 	data := &ImmichPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	anyOK := false
 
 	// Server stats (admin key) — graceful fallback to per-user stats
 	statsBody, statsErr := immichGet(apiURL, apiKey, "/api/server/statistics", skipTLS)
 	if statsErr == nil {
+		anyOK = true
 		var stats struct {
 			Photos      int   `json:"photos"`
 			Videos      int   `json:"videos"`
@@ -79,9 +81,11 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 			data.Users = len(stats.UsageByUser)
 		}
 	} else {
+		logErrorf("IMMICH", "server statistics error: %v", statsErr)
 		// Fallback: user-scoped asset statistics
-		userBody, _ := immichGet(apiURL, apiKey, "/api/assets/statistics", skipTLS)
-		if userBody != nil {
+		userBody, userErr := immichGet(apiURL, apiKey, "/api/assets/statistics", skipTLS)
+		if userErr == nil {
+			anyOK = true
 			var us struct {
 				Images int `json:"images"`
 				Videos int `json:"videos"`
@@ -90,36 +94,47 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 				data.Photos = us.Images
 				data.Videos = us.Videos
 			}
+		} else {
+			logErrorf("IMMICH", "asset statistics error: %v", userErr)
 		}
 	}
 
 	// Albums
 	if albumsBody, aerr := immichGet(apiURL, apiKey, "/api/albums", skipTLS); aerr == nil {
+		anyOK = true
 		var albums []json.RawMessage
 		if json.Unmarshal(albumsBody, &albums) == nil {
 			data.Albums = len(albums)
 		}
+	} else {
+		logErrorf("IMMICH", "albums error: %v", aerr)
 	}
 
 	// People (face recognition groups)
 	if peopleBody, perr := immichGet(apiURL, apiKey, "/api/people", skipTLS); perr == nil {
+		anyOK = true
 		var people struct {
 			Total int `json:"total"`
 		}
 		if json.Unmarshal(peopleBody, &people) == nil && people.Total > 0 {
 			data.People = people.Total
 		}
+	} else {
+		logErrorf("IMMICH", "people error: %v", perr)
 	}
 
 	// Server version
-	aboutBody, _ := immichGet(apiURL, apiKey, "/api/server/about", skipTLS)
-	if aboutBody != nil {
+	aboutBody, aboutErr := immichGet(apiURL, apiKey, "/api/server/about", skipTLS)
+	if aboutErr == nil {
+		anyOK = true
 		var about struct {
 			Version string `json:"version"`
 		}
 		if json.Unmarshal(aboutBody, &about) == nil {
 			data.Version = about.Version
 		}
+	} else {
+		logErrorf("IMMICH", "server about error: %v", aboutErr)
 	}
 
 	// Preview photos (24h cache)
@@ -129,6 +144,11 @@ func fetchImmichPanelData(db *sql.DB, config map[string]interface{}) (*ImmichPan
 		immichPhotoCacheMu.Unlock()
 	}
 	data.Preview = immichGetPreviewPhotos(apiURL, apiKey, integrationID, skipTLS)
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("immich unreachable — check URL, API key, and TLS settings (see server log for details)")
+	}
 
 	return data, nil
 }

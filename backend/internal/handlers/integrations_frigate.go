@@ -98,6 +98,7 @@ func fetchFrigatePanelData(db *sql.DB, config map[string]interface{}) (*FrigateP
 	}
 
 	out := &FrigatePanelData{UIURL: uiURL, IntegrationID: integrationID}
+	anyOK := false
 
 	// ── Stats (camera fps, detectors, version, uptime) ────────────────────────
 	type cameraStatEntry struct {
@@ -110,6 +111,7 @@ func fetchFrigatePanelData(db *sql.DB, config map[string]interface{}) (*FrigateP
 	statsMap := map[string]cameraStatEntry{}
 
 	if statsBody, err := frigateGet(baseURL, apiKey, "/api/stats", skipTLS); err == nil {
+		anyOK = true
 		var statsResp struct {
 			Cameras   map[string]cameraStatEntry `json:"cameras"`
 			Detectors map[string]struct {
@@ -134,10 +136,13 @@ func fetchFrigatePanelData(db *sql.DB, config map[string]interface{}) (*FrigateP
 				return out.Detectors[i].Name < out.Detectors[j].Name
 			})
 		}
+	} else {
+		logErrorf("FRIGATE", "stats error: %v", err)
 	}
 
 	// ── Config (cameras + zones) ───────────────────────────────────────────────
 	if configBody, err := frigateGet(baseURL, apiKey, "/api/config", skipTLS); err == nil {
+		anyOK = true
 		var configResp struct {
 			Cameras map[string]struct {
 				Zones map[string]struct {
@@ -182,10 +187,13 @@ func fetchFrigatePanelData(db *sql.DB, config map[string]interface{}) (*FrigateP
 				out.TotalCameras++
 			}
 		}
+	} else {
+		logErrorf("FRIGATE", "config error: %v", err)
 	}
 
 	// ── Recent events ─────────────────────────────────────────────────────────
 	if eventsBody, err := frigateGet(baseURL, apiKey, "/api/events?limit=10&include_thumbnails=0", skipTLS); err == nil {
+		anyOK = true
 		var rawEvents []struct {
 			ID        string   `json:"id"`
 			Camera    string   `json:"camera"`
@@ -209,6 +217,13 @@ func fetchFrigatePanelData(db *sql.DB, config map[string]interface{}) (*FrigateP
 				})
 			}
 		}
+	} else {
+		logErrorf("FRIGATE", "events error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("frigate unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

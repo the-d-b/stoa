@@ -105,9 +105,11 @@ func fetchPfSensePanelData(db *sql.DB, config map[string]interface{}) (*PfSenseP
 		Interfaces:    []PfSenseIface{},
 		Gateways:      []PfSenseGateway{},
 	}
+	anyOK := false
 
 	// ── System stats ──────────────────────────────────────────────────────────
 	if body, err := pfSenseGet(apiURL, apiKey, "/api/v1/status/system", skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			Data struct {
 				CPUUsage json.Number `json:"cpu_usage"`
@@ -138,10 +140,13 @@ func fetchPfSensePanelData(db *sql.DB, config map[string]interface{}) (*PfSenseP
 				}
 			}
 		}
+	} else {
+		logErrorf("PFSENSE", "system stats error: %v", err)
 	}
 
 	// ── Interfaces with traffic delta ─────────────────────────────────────────
 	if body, err := pfSenseGet(apiURL, apiKey, "/api/v1/status/interface", skipTLS); err == nil {
+		anyOK = true
 		var raw struct {
 			Data map[string]struct {
 				If       string      `json:"if"`
@@ -220,10 +225,13 @@ func fetchPfSensePanelData(db *sql.DB, config map[string]interface{}) (*PfSenseP
 				return data.Interfaces[i].Descr < data.Interfaces[j].Descr
 			})
 		}
+	} else {
+		logErrorf("PFSENSE", "interfaces error: %v", err)
 	}
 
 	// ── Gateways ──────────────────────────────────────────────────────────────
 	if body, err := pfSenseGet(apiURL, apiKey, "/api/v1/status/gateway", skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			Data []struct {
 				Name      string `json:"name"`
@@ -244,10 +252,13 @@ func fetchPfSensePanelData(db *sql.DB, config map[string]interface{}) (*PfSenseP
 				})
 			}
 		}
+	} else {
+		logErrorf("PFSENSE", "gateways error: %v", err)
 	}
 
 	// ── Firewall states ───────────────────────────────────────────────────────
 	if body, err := pfSenseGet(apiURL, apiKey, "/api/v1/firewall/states/size", skipTLS); err == nil {
+		anyOK = true
 		var resp struct {
 			Data struct {
 				Current int `json:"current"`
@@ -258,6 +269,13 @@ func fetchPfSensePanelData(db *sql.DB, config map[string]interface{}) (*PfSenseP
 			data.StatesCurrent = resp.Data.Current
 			data.StatesLimit = resp.Data.Limit
 		}
+	} else {
+		logErrorf("PFSENSE", "firewall states error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("pfsense unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

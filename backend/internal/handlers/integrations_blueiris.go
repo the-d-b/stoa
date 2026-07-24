@@ -197,9 +197,11 @@ func fetchBlueIrisPanelData(db *sql.DB, config map[string]interface{}) (*BlueIri
 	}
 	out.UIURL = uiURL
 	out.IntegrationID = integrationID
+	anyOK := false
 
 	// ── System status (signal + active profile) ───────────────────────────────
 	if statusData, err := biCmd(client, baseURL, session, hash, "status", nil); err == nil {
+		anyOK = true
 		var s struct {
 			Signal  int `json:"signal"`
 			Profile int `json:"profile"`
@@ -208,10 +210,13 @@ func fetchBlueIrisPanelData(db *sql.DB, config map[string]interface{}) (*BlueIri
 			out.Signal = s.Signal
 			out.ActiveProfile = s.Profile
 		}
+	} else {
+		logErrorf("BLUEIRIS", "status error: %v", err)
 	}
 
 	// ── Camera list ───────────────────────────────────────────────────────────
 	if camData, err := biCmd(client, baseURL, session, hash, "camlist", nil); err == nil {
+		anyOK = true
 		var rawCams []struct {
 			ShortName    string  `json:"optionValue"`
 			Name         string  `json:"optionDisplay"`
@@ -292,12 +297,15 @@ func fetchBlueIrisPanelData(db *sql.DB, config map[string]interface{}) (*BlueIri
 				return out.Cameras[i].Name < out.Cameras[j].Name
 			})
 		}
+	} else {
+		logErrorf("BLUEIRIS", "camlist error: %v", err)
 	}
 
 	// ── Recent alerts ─────────────────────────────────────────────────────────
 	if alertData, err := biCmd(client, baseURL, session, hash, "alertlist", map[string]interface{}{
 		"camera": "@Index",
 	}); err == nil {
+		anyOK = true
 		var rawAlerts []struct {
 			Camera string  `json:"camera"`
 			Date   float64 `json:"date"`
@@ -321,6 +329,13 @@ func fetchBlueIrisPanelData(db *sql.DB, config map[string]interface{}) (*BlueIri
 				})
 			}
 		}
+	} else {
+		logErrorf("BLUEIRIS", "alertlist error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("blue iris unreachable — check URL and credentials (see server log for details)")
 	}
 
 	return out, nil

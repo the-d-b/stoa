@@ -198,9 +198,11 @@ type omvNetSnapshot struct {
 func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnapshot, skipTLS bool) (*OMVPanelData, error) {
 	data := &OMVPanelData{UIURL: uiURL}
 	now := time.Now()
+	anyOK := false
 
 	// ── System info ───────────────────────────────────────────────────────
 	if raw, err := omvRPC(apiURL, sessionID, "System", "getInformation", map[string]interface{}{}, skipTLS); err == nil {
+		anyOK = true
 		var info struct {
 			Hostname       string  `json:"hostname"`
 			Version        string  `json:"version"`
@@ -225,11 +227,14 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 		}
 	} else if errors.Is(err, errOMVUnauth) {
 		return nil, err
+	} else {
+		logErrorf("OMV", "system info error: %v", err)
 	}
 
 	// ── Filesystems (data volumes only, not the root OS partition) ────────
 	if raw, err := omvRPC(apiURL, sessionID, "FileSystemMgmt", "enumerateMountedFilesystems",
 		map[string]interface{}{"includeroot": false}, skipTLS); err == nil {
+		anyOK = true
 		var fsList []struct {
 			DeviceFile string `json:"devicefile"`
 			Label      string `json:"label"`
@@ -264,11 +269,14 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 		}
 	} else if errors.Is(err, errOMVUnauth) {
 		return nil, err
+	} else {
+		logErrorf("OMV", "filesystems error: %v", err)
 	}
 
 	// ── Disks with temperatures ───────────────────────────────────────────
 	if raw, err := omvRPC(apiURL, sessionID, "DiskMgmt", "getList",
 		map[string]interface{}{"start": 0, "limit": -1, "sortfield": "devicename", "sortdir": "asc"}, skipTLS); err == nil {
+		anyOK = true
 		var diskResp struct {
 			Data []struct {
 				DeviceName  string `json:"devicename"`
@@ -299,10 +307,13 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 				})
 			}
 		}
+	} else {
+		logErrorf("OMV", "disks error: %v", err)
 	}
 
 	// ── Network interfaces (cumulative counters → rate via diff) ──────────
 	if raw, err := omvRPC(apiURL, sessionID, "Network", "enumerateDevices", map[string]interface{}{}, skipTLS); err == nil {
+		anyOK = true
 		var ifaceList []struct {
 			DeviceName string `json:"devicename"`
 			Link       bool   `json:"link"`
@@ -340,10 +351,13 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 				})
 			}
 		}
+	} else {
+		logErrorf("OMV", "network interfaces error: %v", err)
 	}
 
 	// ── Services (enabled/running counts) ─────────────────────────────────
 	if raw, err := omvRPC(apiURL, sessionID, "services", "getStatus", map[string]interface{}{}, skipTLS); err == nil {
+		anyOK = true
 		var svcResp struct {
 			Data []struct {
 				Enabled bool `json:"enabled"`
@@ -360,10 +374,13 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 				}
 			}
 		}
+	} else {
+		logErrorf("OMV", "services error: %v", err)
 	}
 
 	// ── Shared folders ────────────────────────────────────────────────────
 	if raw, err := omvRPC(apiURL, sessionID, "ShareMgmt", "enumerateSharedFolders", map[string]interface{}{}, skipTLS); err == nil {
+		anyOK = true
 		var shares []struct {
 			Name string `json:"name"`
 		}
@@ -374,6 +391,13 @@ func omvFetchAll(apiURL, sessionID, uiURL string, prevNet map[string]omvNetSnaps
 				}
 			}
 		}
+	} else {
+		logErrorf("OMV", "shared folders error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("openmediavault unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

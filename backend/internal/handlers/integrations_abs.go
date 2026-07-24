@@ -306,8 +306,11 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 		return body, gerr
 	}
 
+	anyOK := false
+
 	// Libraries — list, then fetch stats per library (ABS does not embed stats in the list response)
 	if libBody, lerr := get("/api/libraries"); lerr == nil {
+		anyOK = true
 		var libResp struct {
 			Libraries []struct {
 				ID        string `json:"id"`
@@ -347,6 +350,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 	// User — current user ID for stats
 	userID := ""
 	if meBody, merr := get("/api/me"); merr == nil {
+		anyOK = true
 		logDebugf("ABS", "/api/me response (%d bytes): %.200s", len(meBody), meBody)
 		var me struct {
 			ID string `json:"id"`
@@ -362,6 +366,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 	// User listening stats
 	if userID != "" {
 		if statsBody, serr := get("/api/users/" + userID + "/listening-stats"); serr == nil {
+			anyOK = true
 			logDebugf("ABS", "listening-stats response (%d bytes): %.400s", len(statsBody), statsBody)
 			var stats struct {
 				TotalTime     float64 `json:"totalTime"`
@@ -382,6 +387,7 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 	// In-progress items — ABS returns libraryItems[] with userMediaProgress nested.
 	// For podcasts, progress is per-episode and lives in recentEpisode.userEpisodeProgress.
 	if progBody, perr := get("/api/me/items-in-progress?limit=5"); perr == nil {
+		anyOK = true
 		logDebugf("ABS", "items-in-progress response (%d bytes): %.800s", len(progBody), progBody)
 		var resp struct {
 			LibraryItems []struct {
@@ -545,6 +551,11 @@ func fetchABSPanelData(db *sql.DB, config map[string]interface{}) (*ABSPanelData
 		}
 	} else {
 		logErrorf("ABS", "items-in-progress error: %v", perr)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("audiobookshelf unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

@@ -120,10 +120,12 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 	get := func(path string) ([]byte, error) {
 		return fittrackeeGet(baseURL, token, path, skipTLS)
 	}
+	anyOK := false
 
 	// Build sport id→label map
 	sportLabels := map[int]string{}
 	if b, err := get("/api/sports"); err == nil {
+		anyOK = true
 		var resp struct {
 			Data struct {
 				Sports []struct {
@@ -143,6 +145,7 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 
 	// Profile stats
 	if b, err := get("/api/auth/profile"); err == nil {
+		anyOK = true
 		var resp struct {
 			Data struct {
 				NbWorkouts    int     `json:"nb_workouts"`
@@ -165,6 +168,7 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 
 	// Recent workouts
 	if b, err := get("/api/workouts?per_page=10&order=desc&order_by=workout_date"); err == nil {
+		anyOK = true
 		var resp struct {
 			Data struct {
 				Workouts []struct {
@@ -200,6 +204,11 @@ func fetchFittrackeePanelData(db *sql.DB, config map[string]interface{}) (*Fittr
 		}
 	} else {
 		logErrorf("Fittrackee", "workouts error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("fittrackee unreachable — check URL and credentials (see server log for details)")
 	}
 
 	return out, nil

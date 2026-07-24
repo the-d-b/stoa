@@ -161,6 +161,8 @@ func fetchPrometheusPanelData(db *sql.DB, config map[string]interface{}) (*Prome
 		if json.Unmarshal(body, &r) == nil {
 			out.Version = r.Data.Version
 		}
+	} else {
+		logErrorf("PROMETHEUS", "buildinfo error: %v", err)
 	}
 
 	// ── Targets ───────────────────────────────────────────────────────────────
@@ -264,6 +266,8 @@ func fetchPrometheusPanelData(db *sql.DB, config map[string]interface{}) (*Prome
 				return out.Alerts[i].Name < out.Alerts[j].Name
 			})
 		}
+	} else {
+		logErrorf("PROMETHEUS", "alerts error: %v", err)
 	}
 
 	// ── Custom metrics — read from integration config, not panel config ──────

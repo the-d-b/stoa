@@ -220,9 +220,11 @@ func fetchOpenWrtPanelData(db *sql.DB, config map[string]interface{}) (*OpenWrtP
 	call := func(object, method string, args interface{}) ([]byte, error) {
 		return owrtCallRetry(apiURL, apiKey, integrationID, session, object, method, args, skipTLS)
 	}
+	anyOK := false
 
 	// ── System info ───────────────────────────────────────────────────────────
 	if body, err := call("system", "info", map[string]interface{}{}); err == nil {
+		anyOK = true
 		var info struct {
 			Uptime   int64   `json:"uptime"`
 			Hostname string  `json:"hostname"`
@@ -245,11 +247,14 @@ func fetchOpenWrtPanelData(db *sql.DB, config map[string]interface{}) (*OpenWrtP
 				data.Load1 = float64(info.Load[0]) / 65536.0
 			}
 		}
+	} else {
+		logErrorf("OPENWRT", "system info error: %v", err)
 	}
 
 	// ── Board info (firmware version) — separate ubus call from "system info"
 	// above; "system board" is the one that carries the release/version block.
 	if body, err := call("system", "board", map[string]interface{}{}); err == nil {
+		anyOK = true
 		var board struct {
 			Release struct {
 				Version string `json:"version"`
@@ -266,6 +271,7 @@ func fetchOpenWrtPanelData(db *sql.DB, config map[string]interface{}) (*OpenWrtP
 
 	// ── Network interfaces ────────────────────────────────────────────────────
 	if body, err := call("network.device", "status", map[string]interface{}{}); err == nil {
+		anyOK = true
 		var raw map[string]json.RawMessage
 		if json.Unmarshal(body, &raw) == nil {
 			now := time.Now()
@@ -339,10 +345,13 @@ func fetchOpenWrtPanelData(db *sql.DB, config map[string]interface{}) (*OpenWrtP
 				return a.Name < b.Name
 			})
 		}
+	} else {
+		logErrorf("OPENWRT", "network devices error: %v", err)
 	}
 
 	// ── WiFi clients ──────────────────────────────────────────────────────────
 	if body, err := call("iwinfo", "devices", map[string]interface{}{}); err == nil {
+		anyOK = true
 		var devResult struct {
 			Devices []string `json:"devices"`
 		}
@@ -379,12 +388,19 @@ func fetchOpenWrtPanelData(db *sql.DB, config map[string]interface{}) (*OpenWrtP
 				}
 			}
 		}
+	} else {
+		logErrorf("OPENWRT", "wifi devices error: %v", err)
 	}
 	// Sort clients: best signal first
 	sort.Slice(data.Clients, func(i, j int) bool {
 		return data.Clients[i].Signal > data.Clients[j].Signal
 	})
 	data.ClientCount = len(data.Clients)
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("openwrt unreachable — check URL, credentials, and TLS settings (see server log for details)")
+	}
 
 	return data, nil
 }

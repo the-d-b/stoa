@@ -254,8 +254,11 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 		return body, err
 	}
 
+	anyOK := false
+
 	// ── Sites ─────────────────────────────────────────────────────────────────
 	if body, err := get("/api/v2/openapi/sites?currentPage=1&currentPageSize=100"); err == nil {
+		anyOK = true
 		var resp struct {
 			Result struct {
 				Data []struct {
@@ -290,12 +293,15 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 				data.APCount += s.APCount
 			}
 		}
+	} else {
+		logErrorf("OMADA", "sites error: %v", err)
 	}
 
 	// ── Devices per site ──────────────────────────────────────────────────────
 	for _, site := range data.Sites {
 		path := fmt.Sprintf("/api/v2/openapi/devices?siteId=%s&currentPage=1&currentPageSize=100", site.SiteID)
 		if body, err := get(path); err == nil {
+			anyOK = true
 			var resp struct {
 				Result struct {
 					Data []struct {
@@ -320,6 +326,8 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 					})
 				}
 			}
+		} else {
+			logErrorf("OMADA", "devices error (site %s): %v", site.SiteID, err)
 		}
 	}
 
@@ -355,6 +363,7 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 		}
 		path := fmt.Sprintf("/api/v2/openapi/clients?siteId=%s&currentPage=1&currentPageSize=50", site.SiteID)
 		if body, err := get(path); err == nil {
+			anyOK = true
 			var resp struct {
 				Result struct {
 					Data []struct {
@@ -383,6 +392,8 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 					})
 				}
 			}
+		} else {
+			logErrorf("OMADA", "clients error (site %s): %v", site.SiteID, err)
 		}
 	}
 	// Wireless clients first, sorted by signal level desc
@@ -398,6 +409,7 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 	if len(data.Sites) > 0 {
 		path := fmt.Sprintf("/api/v2/openapi/alerts?siteId=%s&currentPage=1&currentPageSize=10", data.Sites[0].SiteID)
 		if body, err := get(path); err == nil {
+			anyOK = true
 			var resp struct {
 				Result struct {
 					Data []struct {
@@ -418,7 +430,14 @@ func fetchOmadaPanelData(db *sql.DB, config map[string]interface{}) (*OmadaPanel
 					})
 				}
 			}
+		} else {
+			logErrorf("OMADA", "alerts error: %v", err)
 		}
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("omada unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

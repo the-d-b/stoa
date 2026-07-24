@@ -122,19 +122,24 @@ func fetchTdarrPanelData(db *sql.DB, config map[string]interface{}) (*TdarrPanel
 	}
 
 	out := &TdarrPanelData{Workers: []TdarrWorkerInfo{}}
+	anyOK := false
 
 	// Version from status endpoint
 	if b, err := tdarrGet(baseURL, apiKey, "/api/v2/status", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Version string `json:"version"`
 		}
 		if json.Unmarshal(b, &r) == nil {
 			out.Version = r.Version
 		}
+	} else {
+		logErrorf("TDARR", "status error: %v", err)
 	}
 
 	// Worker nodes — response is a flat map: { nodeId: { nodeName, workers: { workerId: worker }, queueLengths: {...} } }
 	if b, err := tdarrGet(baseURL, apiKey, "/api/v2/get-nodes", skipTLS); err == nil {
+		anyOK = true
 		var nodes map[string]struct {
 			NodeName string `json:"nodeName"`
 			Workers  map[string]struct {
@@ -175,6 +180,8 @@ func fetchTdarrPanelData(db *sql.DB, config map[string]interface{}) (*TdarrPanel
 				}
 			}
 		}
+	} else {
+		logErrorf("TDARR", "get-nodes error: %v", err)
 	}
 
 	// Aggregate library stats — best-effort, gracefully ignored on failure
@@ -187,6 +194,7 @@ func fetchTdarrPanelData(db *sql.DB, config map[string]interface{}) (*TdarrPanel
 		},
 	}
 	if b, err := tdarrPost(baseURL, apiKey, "/api/v2/cruddb", skipTLS, statsPayload); err == nil {
+		anyOK = true
 		var statsArr []struct {
 			TotalTranscodeCount   int     `json:"totalTranscodeCount"`
 			TotalHealthCheckCount int     `json:"totalHealthCheckCount"`
@@ -201,6 +209,13 @@ func fetchTdarrPanelData(db *sql.DB, config map[string]interface{}) (*TdarrPanel
 				out.TotalFiles += s.TotalFileCount
 			}
 		}
+	} else {
+		logErrorf("TDARR", "stats error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("tdarr unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

@@ -122,19 +122,24 @@ func fetchEmbyPanelData(db *sql.DB, config map[string]interface{}) (*EmbyPanelDa
 		return nil, err
 	}
 	data := &EmbyPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// Server identity + version
 	if body, err := embyGet(apiURL, apiKey, "/System/Info", skipTLS); err == nil {
+		anyOK = true
 		var info embySystemInfo
 		if json.Unmarshal(body, &info) == nil {
 			data.ServerName = info.ServerName
 			data.Version = info.Version
 		}
+	} else {
+		logErrorf("EMBY", "system info error: %v", err)
 	}
 
 	// Libraries — iterate virtual folders and count each one individually
 	// so we show per-library names and counts (same approach as Jellyfin/Plex)
 	if libBody, err := embyGet(apiURL, apiKey, "/Library/VirtualFolders", skipTLS); err == nil {
+		anyOK = true
 		var folders []embyVirtualFolder
 		if json.Unmarshal(libBody, &folders) == nil {
 			for _, f := range folders {
@@ -153,10 +158,13 @@ func fetchEmbyPanelData(db *sql.DB, config map[string]interface{}) (*EmbyPanelDa
 				})
 			}
 		}
+	} else {
+		logErrorf("EMBY", "libraries error: %v", err)
 	}
 
 	// Active sessions — only those with NowPlayingItem (i.e. actually streaming)
 	if sessBody, err := embyGet(apiURL, apiKey, "/Sessions", skipTLS); err == nil {
+		anyOK = true
 		var sessions []embySessionResponse
 		if json.Unmarshal(sessBody, &sessions) == nil {
 			ratingsFilter := allowedRatings(config)
@@ -170,6 +178,8 @@ func fetchEmbyPanelData(db *sql.DB, config map[string]interface{}) (*EmbyPanelDa
 				data.Sessions = append(data.Sessions, embySessionToPanel(s, integrationID))
 			}
 		}
+	} else {
+		logErrorf("EMBY", "sessions error: %v", err)
 	}
 
 	// Tally transcode vs direct
@@ -180,6 +190,12 @@ func fetchEmbyPanelData(db *sql.DB, config map[string]interface{}) (*EmbyPanelDa
 			data.TranscodeCount++
 		}
 	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("emby unreachable — check URL, API key, and TLS settings (see server log for details)")
+	}
+
 	return data, nil
 }
 

@@ -94,9 +94,11 @@ func fetchNetbirdPanelData(db *sql.DB, config map[string]interface{}) (*NetbirdP
 	}
 
 	out := &NetbirdPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	anyOK := false
 
 	// ── Peers ─────────────────────────────────────────────────────────────────
 	if body, err := netbirdGet(baseURL, apiKey, "/api/peers", skipTLS); err == nil {
+		anyOK = true
 		var rawPeers []struct {
 			ID           string `json:"id"`
 			Name         string `json:"name"`
@@ -155,10 +157,13 @@ func fetchNetbirdPanelData(db *sql.DB, config map[string]interface{}) (*NetbirdP
 				return out.Peers[i].Name < out.Peers[j].Name
 			})
 		}
+	} else {
+		logErrorf("NETBIRD", "peers error: %v", err)
 	}
 
 	// ── Groups ────────────────────────────────────────────────────────────────
 	if body, err := netbirdGet(baseURL, apiKey, "/api/groups", skipTLS); err == nil {
+		anyOK = true
 		var rawGroups []struct {
 			ID         string `json:"id"`
 			Name       string `json:"name"`
@@ -177,10 +182,13 @@ func fetchNetbirdPanelData(db *sql.DB, config map[string]interface{}) (*NetbirdP
 				return out.Groups[i].Name < out.Groups[j].Name
 			})
 		}
+	} else {
+		logErrorf("NETBIRD", "groups error: %v", err)
 	}
 
 	// ── Policies ──────────────────────────────────────────────────────────────
 	if body, err := netbirdGet(baseURL, apiKey, "/api/policies", skipTLS); err == nil {
+		anyOK = true
 		var rawPolicies []struct {
 			ID      string `json:"id"`
 			Name    string `json:"name"`
@@ -199,6 +207,13 @@ func fetchNetbirdPanelData(db *sql.DB, config map[string]interface{}) (*NetbirdP
 				}
 			}
 		}
+	} else {
+		logErrorf("NETBIRD", "policies error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("netbird unreachable — check URL, token, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

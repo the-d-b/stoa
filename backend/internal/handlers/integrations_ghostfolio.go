@@ -139,9 +139,11 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 	}
 
 	out := &GhostfolioPanelData{UIURL: uiURL, IntegrationID: integrationID}
+	anyOK := false
 
 	// ── Currency from user settings ───────────────────────────────────────────
 	if body, err := ghostfolioGet(baseURL, jwt, "/api/v1/user", skipTLS); err == nil {
+		anyOK = true
 		var r struct {
 			Settings struct {
 				BaseCurrency string `json:"baseCurrency"`
@@ -150,6 +152,8 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 		if json.Unmarshal(body, &r) == nil && r.Settings.BaseCurrency != "" {
 			out.Currency = r.Settings.BaseCurrency
 		}
+	} else {
+		logErrorf("GHOSTFOLIO", "user settings error: %v", err)
 	}
 	if out.Currency == "" {
 		out.Currency = "USD"
@@ -157,6 +161,7 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 
 	// ── All-time performance ──────────────────────────────────────────────────
 	if body, err := ghostfolioGet(baseURL, jwt, "/api/v2/portfolio/performance?range=max", skipTLS); err == nil {
+		anyOK = true
 		_, changeAmt, currentValue, totalInvestment := perfFromBody(body)
 		out.CurrentValue = currentValue
 		out.TotalInvestment = totalInvestment
@@ -164,22 +169,30 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 		if totalInvestment > 0 {
 			out.AllTimeChangePct = changeAmt / totalInvestment
 		}
+	} else {
+		logErrorf("GHOSTFOLIO", "all-time performance error: %v", err)
 	}
 
 	// ── Today's performance ───────────────────────────────────────────────────
 	if body, err := ghostfolioGet(baseURL, jwt, "/api/v2/portfolio/performance?range=1d", skipTLS); err == nil {
+		anyOK = true
 		pct, amt, cv, _ := perfFromBody(body)
 		out.TodayChangePct = pct
 		out.TodayChangeAmt = amt
 		if cv > 0 && out.CurrentValue == 0 {
 			out.CurrentValue = cv
 		}
+	} else {
+		logErrorf("GHOSTFOLIO", "today performance error: %v", err)
 	}
 
 	// ── 1-year performance ────────────────────────────────────────────────────
 	if body, err := ghostfolioGet(baseURL, jwt, "/api/v2/portfolio/performance?range=1y", skipTLS); err == nil {
+		anyOK = true
 		pct, _, _, _ := perfFromBody(body)
 		out.YearChangePct = pct
+	} else {
+		logErrorf("GHOSTFOLIO", "1y performance error: %v", err)
 	}
 
 	// ── Holdings ──────────────────────────────────────────────────────────────
@@ -187,6 +200,7 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 	// are nested inside assetProfile. Cash holdings are excluded from display but
 	// included in the CurrentValue total.
 	if body, err := ghostfolioGet(baseURL, jwt, "/api/v1/portfolio/holdings", skipTLS); err == nil {
+		anyOK = true
 		var wrapper struct {
 			Holdings []struct {
 				Quantity               float64 `json:"quantity"`
@@ -240,6 +254,13 @@ func fetchGhostfolioPanelData(db *sql.DB, config map[string]interface{}) (*Ghost
 				}
 			}
 		}
+	} else {
+		logErrorf("GHOSTFOLIO", "holdings error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("ghostfolio unreachable — check URL, security token, and TLS settings (see server log for details)")
 	}
 
 	return out, nil

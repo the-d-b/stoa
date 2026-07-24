@@ -231,9 +231,11 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 		RedirectHosts: []NPMRedirectHost{},
 		Certificates:  []NPMCertificate{},
 	}
+	anyOK := false
 
 	// ── Proxy hosts ───────────────────────────────────────────────────────────
 	if body, err := fetch("/api/nginx/proxy-hosts"); err == nil {
+		anyOK = true
 		var hosts []map[string]interface{}
 		if json.Unmarshal(body, &hosts) == nil {
 			for _, h := range hosts {
@@ -276,10 +278,13 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 				return di < dj
 			})
 		}
+	} else {
+		logErrorf("NPM", "proxy-hosts error: %v", err)
 	}
 
 	// ── Redirection hosts ─────────────────────────────────────────────────────
 	if body, err := fetch("/api/nginx/redirection-hosts"); err == nil {
+		anyOK = true
 		var hosts []map[string]interface{}
 		if json.Unmarshal(body, &hosts) == nil {
 			for _, h := range hosts {
@@ -299,10 +304,13 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 				}
 			}
 		}
+	} else {
+		logErrorf("NPM", "redirection-hosts error: %v", err)
 	}
 
 	// ── Streams ───────────────────────────────────────────────────────────────
 	if body, err := fetch("/api/nginx/streams"); err == nil {
+		anyOK = true
 		var streams []map[string]interface{}
 		if json.Unmarshal(body, &streams) == nil {
 			for _, s := range streams {
@@ -312,10 +320,13 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 				}
 			}
 		}
+	} else {
+		logErrorf("NPM", "streams error: %v", err)
 	}
 
 	// ── Certificates ──────────────────────────────────────────────────────────
 	if body, err := fetch("/api/nginx/certificates"); err == nil {
+		anyOK = true
 		var certs []map[string]interface{}
 		if json.Unmarshal(body, &certs) == nil {
 			now := time.Now()
@@ -365,14 +376,24 @@ func fetchNPMPanelData(db *sql.DB, config map[string]interface{}) (*NPMPanelData
 				return out.Certificates[i].DaysLeft < out.Certificates[j].DaysLeft
 			})
 		}
+	} else {
+		logErrorf("NPM", "certificates error: %v", err)
 	}
 
 	// ── Access lists ──────────────────────────────────────────────────────────
 	if body, err := fetch("/api/nginx/access-lists"); err == nil {
+		anyOK = true
 		var lists []map[string]interface{}
 		if json.Unmarshal(body, &lists) == nil {
 			out.AccessListTotal = len(lists)
 		}
+	} else {
+		logErrorf("NPM", "access-lists error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("nginx proxy manager unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return out, nil
