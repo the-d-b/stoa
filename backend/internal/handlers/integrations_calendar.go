@@ -765,11 +765,39 @@ func icsLoadLocation(tzID string) *time.Location {
 }
 
 // icsUnescape unescapes iCal text values per RFC 5545 §3.3.11.
+//
+// This must be a single left-to-right scan, not sequential ReplaceAll calls:
+// with independent passes, an escaped backslash followed by a literal 'n'
+// (e.g. a Windows path fragment like `path\name`, escaped to `path\\name`)
+// gets its second backslash mis-consumed by the earlier \n->newline pass
+// before the final \\->\ pass ever runs, corrupting the string. A single
+// scan consumes each two-character escape atomically so passes can't
+// interact.
 func icsUnescape(s string) string {
-	s = strings.ReplaceAll(s, `\n`, "\n")
-	s = strings.ReplaceAll(s, `\N`, "\n")
-	s = strings.ReplaceAll(s, `\,`, ",")
-	s = strings.ReplaceAll(s, `\;`, ";")
-	s = strings.ReplaceAll(s, `\\`, `\`)
-	return s
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			switch s[i+1] {
+			case 'n', 'N':
+				b.WriteByte('\n')
+				i++
+				continue
+			case ',':
+				b.WriteByte(',')
+				i++
+				continue
+			case ';':
+				b.WriteByte(';')
+				i++
+				continue
+			case '\\':
+				b.WriteByte('\\')
+				i++
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+	}
+	return b.String()
 }

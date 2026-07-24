@@ -94,8 +94,17 @@ func caldavReportEvents(baseURL, userpass string, start, end time.Time, skipTLS 
 	if err != nil {
 		return nil, err
 	}
+	return parseCaldavMultistatus(raw)
+}
 
-	// Namespace-agnostic multistatus parse — encoding/xml matches local names
+// parseCaldavMultistatus decodes a CalDAV REPORT's multistatus XML body into
+// raw VEVENTs. Namespace-agnostic by construction — encoding/xml matches
+// element local names regardless of the namespace prefix a given server
+// uses (Nextcloud, Radicale, Baïkal, Synology, etc. don't all agree on one),
+// so this must stay tolerant of prefix differences rather than hardcoding
+// one. Split out from caldavReportEvents for testability against fixture
+// XML instead of a live server.
+func parseCaldavMultistatus(raw []byte) ([]icsVEvent, error) {
 	var ms struct {
 		Responses []struct {
 			Propstats []struct {
@@ -129,31 +138,40 @@ func icsEscape(s string) string {
 	return s
 }
 
+// caldavEventTiming builds the DTSTART/DTEND lines for a new VEVENT. Empty
+// startDT creates an all-day event on date (DTEND exclusive, i.e. the next
+// day, per RFC 5545); with startDT, an empty or unparseable endDT defaults
+// to one hour after start. Split out from caldavCreateEvent for testability.
+func caldavEventTiming(date, startDT, endDT string) (string, error) {
+	if startDT == "" {
+		d, err := time.Parse("2006-01-02", date)
+		if err != nil {
+			return "", fmt.Errorf("invalid date %q", date)
+		}
+		return fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\nDTEND;VALUE=DATE:%s\r\n",
+			d.Format("20060102"), d.AddDate(0, 0, 1).Format("20060102")), nil
+	}
+	start, err := time.Parse(time.RFC3339, startDT)
+	if err != nil {
+		return "", fmt.Errorf("invalid start time %q", startDT)
+	}
+	end := start.Add(time.Hour)
+	if endDT != "" {
+		if e, err2 := time.Parse(time.RFC3339, endDT); err2 == nil {
+			end = e
+		}
+	}
+	return fmt.Sprintf("DTSTART:%s\r\nDTEND:%s\r\n",
+		start.UTC().Format("20060102T150405Z"), end.UTC().Format("20060102T150405Z")), nil
+}
+
 // caldavCreateEvent PUTs a new single-VEVENT ICS into the collection. Empty
 // startDT creates an all-day event on date (DTEND exclusive, next day); with
 // startDT, an empty endDT defaults to one hour after start.
 func caldavCreateEvent(baseURL, userpass, title, date, startDT, endDT string, skipTLS bool) error {
-	var timing string
-	if startDT == "" {
-		d, err := time.Parse("2006-01-02", date)
-		if err != nil {
-			return fmt.Errorf("invalid date %q", date)
-		}
-		timing = fmt.Sprintf("DTSTART;VALUE=DATE:%s\r\nDTEND;VALUE=DATE:%s\r\n",
-			d.Format("20060102"), d.AddDate(0, 0, 1).Format("20060102"))
-	} else {
-		start, err := time.Parse(time.RFC3339, startDT)
-		if err != nil {
-			return fmt.Errorf("invalid start time %q", startDT)
-		}
-		end := start.Add(time.Hour)
-		if endDT != "" {
-			if e, err2 := time.Parse(time.RFC3339, endDT); err2 == nil {
-				end = e
-			}
-		}
-		timing = fmt.Sprintf("DTSTART:%s\r\nDTEND:%s\r\n",
-			start.UTC().Format("20060102T150405Z"), end.UTC().Format("20060102T150405Z"))
+	timing, err := caldavEventTiming(date, startDT, endDT)
+	if err != nil {
+		return err
 	}
 
 	randBytes := make([]byte, 16)
