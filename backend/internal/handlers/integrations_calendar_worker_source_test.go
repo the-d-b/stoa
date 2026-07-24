@@ -254,9 +254,9 @@ func TestComputeSportsCalEvents(t *testing.T) {
 		Schedule: []SportsScheduleGame{
 			{League: "NHL", HomeAbbr: "BOS", AwayAbbr: "COL", StartTime: "2026-07-20T18:00:00Z", IsFavorite: true},
 			{League: "NHL", HomeAbbr: "SJS", AwayAbbr: "DAL", StartTime: "2026-07-21T18:00:00Z", IsFavorite: false},
-			{League: "NHL", HomeAbbr: "WPG", AwayAbbr: "VGK", StartTime: "2026-07-10T18:00:00Z"}, // in the past — dropped
+			{League: "NHL", HomeAbbr: "WPG", AwayAbbr: "VGK", StartTime: "2026-07-10T18:00:00Z"},              // in the past — dropped
 			{League: "NHL", HomeAbbr: "TBL", AwayAbbr: "FLA", StartTime: "2026-07-22T18:00:00Z", IsTBD: true}, // no confirmed time — dropped
-			{League: "NHL", HomeAbbr: "NYR", AwayAbbr: "NYI", StartTime: ""}, // no start time at all — dropped
+			{League: "NHL", HomeAbbr: "NYR", AwayAbbr: "NYI", StartTime: ""},                                  // no start time at all — dropped
 		},
 	}
 
@@ -277,4 +277,116 @@ func TestComputeSportsCalEvents(t *testing.T) {
 	if nonFav["title"] != "NHL DAL @ SJS" {
 		t.Errorf("expected unstarred title for non-favorite matchup, got %v", nonFav["title"])
 	}
+}
+
+// ── LubeLogger ────────────────────────────────────────────────────────────
+
+func TestLubeLoggerVehicleIdentity(t *testing.T) {
+	cases := []struct {
+		name     string
+		vehicle  map[string]interface{}
+		wantID   int
+		wantName string
+	}{
+		{
+			name:     "numeric year, full make/model",
+			vehicle:  map[string]interface{}{"id": float64(7), "year": float64(2019), "make": "Honda", "model": "Civic"},
+			wantID:   7,
+			wantName: "2019 Honda Civic",
+		},
+		{
+			name:     "string year (some LubeLogger versions send this)",
+			vehicle:  map[string]interface{}{"id": float64(3), "year": "2020", "make": "Toyota", "model": "Corolla"},
+			wantID:   3,
+			wantName: "2020 Toyota Corolla",
+		},
+		{
+			name:     "missing year does not leak the literal '<nil>' into the name",
+			vehicle:  map[string]interface{}{"id": float64(1), "make": "Ford", "model": "F-150"},
+			wantID:   1,
+			wantName: "Ford F-150",
+		},
+		{
+			name:     "missing make and model",
+			vehicle:  map[string]interface{}{"id": float64(9), "year": float64(2021)},
+			wantID:   9,
+			wantName: "2021",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			id, name := lubeLoggerVehicleIdentity(tc.vehicle)
+			if id != tc.wantID {
+				t.Errorf("id = %d, want %d", id, tc.wantID)
+			}
+			if name != tc.wantName {
+				t.Errorf("vehicleName = %q, want %q", name, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestParseLubeLoggerReminders(t *testing.T) {
+	body := []byte(`[
+		{"description": "Oil change", "urgency": "Past Due", "dueDate": "2026-07-15"},
+		{"description": "Tire rotation", "urgency": "Very Urgent", "dueDate": "2026-07-20"},
+		{"description": "Inspection", "urgency": "Urgent", "dueDate": "2026-07-25"},
+		{"description": "Wiper blades", "urgency": "Not Urgent", "dueDate": "2026-08-01"},
+		{"description": "Unknown urgency level", "urgency": "Something New", "dueDate": "2026-08-05"},
+		{"description": "Mileage-based reminder", "urgency": "Urgent", "dueDate": ""}
+	]`)
+
+	events, err := parseLubeLoggerReminders(body, "2019 Honda Civic", "http://lube.local")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// The dateless (mileage-based) reminder has nowhere to go on a calendar and must be dropped.
+	if len(events) != 5 {
+		t.Fatalf("expected 5 events (dateless reminder dropped), got %d: %v", len(events), events)
+	}
+
+	byDesc := map[string]map[string]interface{}{}
+	for _, e := range events {
+		// title is "vehicleName — description"; pull the description back out
+		title := e["title"].(string)
+		byDesc[title[len("2019 Honda Civic — "):]] = e
+	}
+
+	wantColors := map[string]string{
+		"Oil change":    "#ef4444", // past due
+		"Tire rotation": "#f97316", // very urgent
+		"Inspection":    "#f59e0b", // urgent
+		"Wiper blades":  "#6366f1", // not urgent
+	}
+	for desc, wantColor := range wantColors {
+		e, ok := byDesc[desc]
+		if !ok {
+			t.Fatalf("missing event for %q, got %v", desc, byDesc)
+		}
+		if e["color"] != wantColor {
+			t.Errorf("%s: color = %v, want %v", desc, e["color"], wantColor)
+		}
+		if e["uiUrl"] != "http://lube.local" {
+			t.Errorf("%s: uiUrl = %v, want http://lube.local", desc, e["uiUrl"])
+		}
+		if e["source"] != "lubelogger" {
+			t.Errorf("%s: source = %v, want lubelogger", desc, e["source"])
+		}
+	}
+
+	// An urgency string outside the known set should still get a sane default
+	// color rather than an empty/undefined one.
+	unknown, ok := byDesc["Unknown urgency level"]
+	if !ok {
+		t.Fatalf("missing event for unrecognized urgency, got %v", byDesc)
+	}
+	if unknown["color"] != "#6366f1" {
+		t.Errorf("unrecognized urgency: color = %v, want default #6366f1", unknown["color"])
+	}
+
+	t.Run("malformed JSON returns error", func(t *testing.T) {
+		if _, err := parseLubeLoggerReminders([]byte("not json"), "Vehicle", "http://lube.local"); err == nil {
+			t.Error("expected error for malformed JSON")
+		}
+	})
 }

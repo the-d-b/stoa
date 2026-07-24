@@ -631,47 +631,73 @@ func computeLubeLoggerCalEvents(db *sql.DB, integrationID string) ([]map[string]
 	if err := json.Unmarshal(vBody, &rawVehicles); err != nil {
 		return nil, err
 	}
-	urgencyColor := map[string]string{
-		"past due": "#ef4444", "very urgent": "#f97316", "urgent": "#f59e0b", "not urgent": "#6366f1",
-	}
 	events := []map[string]interface{}{}
 	for _, v := range rawVehicles {
-		id := int(floatVal(v, "id"))
-		year := fmt.Sprintf("%v", v["year"])
-		if year == "<nil>" {
-			year = ""
-		}
-		make_, _ := v["make"].(string)
-		model, _ := v["model"].(string)
-		vehicleName := strings.TrimSpace(year + " " + make_ + " " + model)
+		id, vehicleName := lubeLoggerVehicleIdentity(v)
 
 		rBody, _ := lubeGet(apiURL, apiKey, fmt.Sprintf("/api/vehicle/reminders?vehicleId=%d", id), skipTLS)
 		if rBody == nil {
 			continue
 		}
-		var reminders []struct {
-			Description string `json:"description"`
-			Urgency     string `json:"urgency"`
-			DueDate     string `json:"dueDate"`
-		}
-		if json.Unmarshal(rBody, &reminders) != nil {
+		vehicleEvents, perr := parseLubeLoggerReminders(rBody, vehicleName, uiURL)
+		if perr != nil {
 			continue
 		}
-		for _, r := range reminders {
-			if r.DueDate == "" {
-				continue
-			}
-			u := strings.ToLower(r.Urgency)
-			color := urgencyColor[u]
-			if color == "" {
-				color = "#6366f1"
-			}
-			events = append(events, map[string]interface{}{
-				"source": "lubelogger", "date": r.DueDate,
-				"title": fmt.Sprintf("%s — %s", vehicleName, r.Description),
-				"color": color, "uiUrl": uiURL,
-			})
+		events = append(events, vehicleEvents...)
+	}
+	return events, nil
+}
+
+// lubeLoggerVehicleIdentity extracts a vehicle's ID and builds its display
+// name from year/make/model. LubeLogger's API returns year as either a
+// number or a string depending on version, so it's decoded loosely via
+// fmt.Sprintf rather than a typed field — an absent year becomes the
+// "<nil>" string from formatting a nil interface, which is normalized away
+// here rather than leaking into the displayed vehicle name.
+func lubeLoggerVehicleIdentity(v map[string]interface{}) (id int, vehicleName string) {
+	id = int(floatVal(v, "id"))
+	year := fmt.Sprintf("%v", v["year"])
+	if year == "<nil>" {
+		year = ""
+	}
+	make_, _ := v["make"].(string)
+	model, _ := v["model"].(string)
+	vehicleName = strings.TrimSpace(year + " " + make_ + " " + model)
+	return id, vehicleName
+}
+
+// parseLubeLoggerReminders shapes one vehicle's /api/vehicle/reminders
+// response into calendar events. Reminders without a due date are dropped —
+// LubeLogger tracks mileage-based reminders too, which have no calendar
+// date to place them on. Split out from computeLubeLoggerCalEvents for
+// testability.
+func parseLubeLoggerReminders(body []byte, vehicleName string, uiURL string) ([]map[string]interface{}, error) {
+	var reminders []struct {
+		Description string `json:"description"`
+		Urgency     string `json:"urgency"`
+		DueDate     string `json:"dueDate"`
+	}
+	if err := json.Unmarshal(body, &reminders); err != nil {
+		return nil, err
+	}
+	urgencyColor := map[string]string{
+		"past due": "#ef4444", "very urgent": "#f97316", "urgent": "#f59e0b", "not urgent": "#6366f1",
+	}
+	events := []map[string]interface{}{}
+	for _, r := range reminders {
+		if r.DueDate == "" {
+			continue
 		}
+		u := strings.ToLower(r.Urgency)
+		color := urgencyColor[u]
+		if color == "" {
+			color = "#6366f1"
+		}
+		events = append(events, map[string]interface{}{
+			"source": "lubelogger", "date": r.DueDate,
+			"title": fmt.Sprintf("%s — %s", vehicleName, r.Description),
+			"color": color, "uiUrl": uiURL,
+		})
 	}
 	return events, nil
 }
