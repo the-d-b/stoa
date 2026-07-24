@@ -336,7 +336,14 @@ func fetchSportsScoreboard(league string, favTeams []string) ([]SportsGame, bool
 	if err != nil {
 		return nil, false, espnSeasonWindow{}, err
 	}
+	return parseScoreboardResponse(league, favTeams, body)
+}
 
+// parseScoreboardResponse decodes an ESPN scoreboard JSON payload into games,
+// live status, and the season window. Split out from fetchSportsScoreboard so
+// the parsing — the part that actually breaks when ESPN changes its response
+// shape — can be tested against fixture JSON without hitting the network.
+func parseScoreboardResponse(league string, favTeams []string, body []byte) ([]SportsGame, bool, espnSeasonWindow, error) {
 	var raw struct {
 		Leagues []struct {
 			Season struct {
@@ -449,7 +456,13 @@ func fetchSportsStandings(league string, favTeams []string) ([]SportsStanding, e
 	if err != nil {
 		return nil, err
 	}
+	return parseStandingsResponse(league, favTeams, body)
+}
 
+// parseStandingsResponse decodes an ESPN standings JSON payload into division
+// standings. Split out from fetchSportsStandings for the same reason as
+// parseScoreboardResponse — testable against fixture JSON.
+func parseStandingsResponse(league string, favTeams []string, body []byte) ([]SportsStanding, error) {
 	var raw struct {
 		Children []struct {
 			Name      string `json:"name"`
@@ -549,76 +562,92 @@ func fetchSportsSchedule(league string, daysAhead int, favTeams []string) ([]Spo
 			continue
 		}
 
-		var raw2 struct {
-			Events []struct {
-				Date   string `json:"date"`
-				Name   string `json:"name"`
-				Status struct {
-					Type struct {
-						State       string `json:"state"`
-						Description string `json:"description"`
-						Detail      string `json:"detail"`
-					} `json:"type"`
-				} `json:"status"`
-				Competitions []struct {
-					TimeValid   bool `json:"timeValid"`
-					Competitors []struct {
-						HomeAway string `json:"homeAway"`
-						Team     struct {
-							DisplayName  string `json:"displayName"`
-							Abbreviation string `json:"abbreviation"`
-							Logo         string `json:"logo"`
-						} `json:"team"`
-					} `json:"competitors"`
-				} `json:"competitions"`
-			} `json:"events"`
-		}
-		if err := json.Unmarshal(body, &raw2); err != nil {
+		chunk, err := parseScheduleChunk(league, favTeams, body, seen)
+		if err != nil {
 			logErrorf("SPORTS", "schedule parse error %s: %v", league, err)
 			continue
 		}
-		leagueUpper := strings.ToUpper(league)
-		for _, ev := range raw2.Events {
-			if ev.Status.Type.State == "post" {
-				continue // skip completed games
-			}
-			// timeValid is inside competitions[0] -- false means no confirmed time yet
-			isTBD := len(ev.Competitions) > 0 && !ev.Competitions[0].TimeValid
-			schSt := ev.Date
-			if t, err := parseESPNTime(ev.Date); err == nil {
-				schSt = t.Format(time.RFC3339)
-			}
-			g := SportsScheduleGame{
-				League:    leagueUpper,
-				StartTime: schSt,
-			}
-			if len(ev.Competitions) > 0 {
-				for _, comp := range ev.Competitions[0].Competitors {
-					logo := comp.Team.Logo
-					if logo == "" {
-						logo = logoURL("", league, comp.Team.Abbreviation)
-					}
-					if comp.HomeAway == "home" {
-						g.HomeTeam = comp.Team.DisplayName
-						g.HomeAbbr = comp.Team.Abbreviation
-						g.HomeLogo = logo
-					} else {
-						g.AwayTeam = comp.Team.DisplayName
-						g.AwayAbbr = comp.Team.Abbreviation
-						g.AwayLogo = logo
-					}
+		schedule = append(schedule, chunk...)
+	} // end date chunks
+	return schedule, nil
+}
+
+// parseScheduleChunk decodes one date-range chunk of an ESPN scoreboard JSON
+// payload into upcoming schedule games, skipping completed games and
+// deduplicating against `seen` (shared across chunks by the caller, since the
+// same game can appear in adjacent date-range fetches). Split out from
+// fetchSportsSchedule for the same reason as parseScoreboardResponse —
+// testable against fixture JSON.
+func parseScheduleChunk(league string, favTeams []string, body []byte, seen map[string]bool) ([]SportsScheduleGame, error) {
+	var raw2 struct {
+		Events []struct {
+			Date   string `json:"date"`
+			Name   string `json:"name"`
+			Status struct {
+				Type struct {
+					State       string `json:"state"`
+					Description string `json:"description"`
+					Detail      string `json:"detail"`
+				} `json:"type"`
+			} `json:"status"`
+			Competitions []struct {
+				TimeValid   bool `json:"timeValid"`
+				Competitors []struct {
+					HomeAway string `json:"homeAway"`
+					Team     struct {
+						DisplayName  string `json:"displayName"`
+						Abbreviation string `json:"abbreviation"`
+						Logo         string `json:"logo"`
+					} `json:"team"`
+				} `json:"competitors"`
+			} `json:"competitions"`
+		} `json:"events"`
+	}
+	if err := json.Unmarshal(body, &raw2); err != nil {
+		return nil, err
+	}
+	leagueUpper := strings.ToUpper(league)
+	var schedule []SportsScheduleGame
+	for _, ev := range raw2.Events {
+		if ev.Status.Type.State == "post" {
+			continue // skip completed games
+		}
+		// timeValid is inside competitions[0] -- false means no confirmed time yet
+		isTBD := len(ev.Competitions) > 0 && !ev.Competitions[0].TimeValid
+		schSt := ev.Date
+		if t, err := parseESPNTime(ev.Date); err == nil {
+			schSt = t.Format(time.RFC3339)
+		}
+		g := SportsScheduleGame{
+			League:    leagueUpper,
+			StartTime: schSt,
+		}
+		if len(ev.Competitions) > 0 {
+			for _, comp := range ev.Competitions[0].Competitors {
+				logo := comp.Team.Logo
+				if logo == "" {
+					logo = logoURL("", league, comp.Team.Abbreviation)
+				}
+				if comp.HomeAway == "home" {
+					g.HomeTeam = comp.Team.DisplayName
+					g.HomeAbbr = comp.Team.Abbreviation
+					g.HomeLogo = logo
+				} else {
+					g.AwayTeam = comp.Team.DisplayName
+					g.AwayAbbr = comp.Team.Abbreviation
+					g.AwayLogo = logo
 				}
 			}
-			g.IsFavorite = isFavoriteTeam(g.HomeAbbr, favTeams) || isFavoriteTeam(g.AwayAbbr, favTeams)
-			g.IsTBD = isTBD
-			// Deduplicate by start time + teams
-			key := g.StartTime + g.HomeAbbr + g.AwayAbbr
-			if !seen[key] {
-				seen[key] = true
-				schedule = append(schedule, g)
-			}
 		}
-	} // end date chunks
+		g.IsFavorite = isFavoriteTeam(g.HomeAbbr, favTeams) || isFavoriteTeam(g.AwayAbbr, favTeams)
+		g.IsTBD = isTBD
+		// Deduplicate by start time + teams
+		key := g.StartTime + g.HomeAbbr + g.AwayAbbr
+		if !seen[key] {
+			seen[key] = true
+			schedule = append(schedule, g)
+		}
+	}
 	return schedule, nil
 }
 
