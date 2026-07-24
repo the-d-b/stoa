@@ -237,9 +237,20 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 					}
 					if json.Unmarshal(cb, &content) == nil {
 						for _, m := range content.Items {
-							if m.ImagePath != "" {
-								posters = append(posters, m.ImagePath)
+							if m.ImagePath == "" {
+								continue
 							}
+							imgPath := m.ImagePath
+							// Some items come back as a bare TMDB image hash
+							// rather than a full URL — Maintainerr's own UI
+							// reconstructs the TMDB URL client-side the same
+							// way; confirmed against a live instance that
+							// there's no other prefix or path involved, just
+							// the CDN base + size.
+							if !strings.HasPrefix(imgPath, "http://") && !strings.HasPrefix(imgPath, "https://") {
+								imgPath = "https://image.tmdb.org/t/p/w500/" + strings.TrimPrefix(imgPath, "/")
+							}
+							posters = append(posters, imgPath)
 						}
 					}
 				}
