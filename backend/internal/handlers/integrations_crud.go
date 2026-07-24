@@ -497,6 +497,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testQNAPConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "authentik", "customapi":
 			err = testAuthentikConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "keycloak":
+			err = testKeycloakConnection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}
@@ -919,7 +921,7 @@ func defaultRefreshSecs(igType string) int {
 	// monitoring, network/reverse-proxy status, metrics dashboards, live
 	// game-server process status, smart-home sensor/presence state.
 	case "adguard", "pihole", "nextdns",
-		"authentik", "gluetun", "kuma",
+		"authentik", "keycloak", "gluetun", "kuma",
 		"unifi", "omada", "traefik", "nginxpm",
 		"prometheus", "grafana",
 		"pterodactyl", "homeassistant":

@@ -72,6 +72,7 @@ export const PANEL_TYPES: {
   { id: 'tailscale',    label: 'Tailscale',    desc: 'Mesh VPN — device roster with online/offline status, OS, Tailscale IP, exit nodes, subnet routers, update & key-expiry alerts', needsIntegration: true, category: 'VPN & Security' },
   { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — peer roster with online/offline/expired status, IP, OS, groups, and policy list', needsIntegration: true, category: 'VPN & Security' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'VPN & Security' },
+  { id: 'keycloak',     label: 'Keycloak',     desc: 'Identity provider — logins/failures over a time range, active session count, recent failed-login list', needsIntegration: true, category: 'VPN & Security' },
   // Monitoring
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Monitoring' },
   { id: 'prometheus',   label: 'Prometheus',   desc: 'Metrics server — scrape target health by job, firing & pending alerts with severity, plus optional custom PromQL stat cards with sparklines', needsIntegration: true, category: 'Monitoring' },
@@ -168,7 +169,7 @@ const KAVITA_AGE_RATINGS = [
 const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','mylar3','kapowarr','tranga','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
-  'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
+  'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','keycloak','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
   'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','twitch','trakt','spotify','lastfm','youtube',
 ]
 

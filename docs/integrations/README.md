@@ -111,6 +111,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Tailscale | ✅ Tested | API token — `tskey-api-...` from Tailscale admin console | None (cloud) | 60 s | [tailscale/](tailscale/) |
 | Netbird | 🔶 Need Testing | Personal Access Token — Netbird → Settings → PATs | URL or cloud | 60 s | [netbird/](netbird/) |
 | Authentik | ✅ Tested | Plain API token — Authentik → Admin → System → API Tokens | Required | 5 min | [authentik/](authentik/) |
+| Keycloak | ✅ Tested | `realm:clientId:clientSecret` — confidential client with service account roles view-events + query-users | Required | 2 min | [keycloak/](keycloak/) |
 
 ---
 
@@ -301,7 +302,7 @@ Every integration type has a default polling interval, editable per integration 
 | Tier | Interval | Character | Examples |
 |---|---|---|---|
 | Live | 30s | System/session state worth watching closely — active sessions, live traffic, in-progress transfers, camera events | Plex, TrueNAS, OPNsense, Transmission, Frigate |
-| Operational | 2min | Status that changes over minutes, not seconds | AdGuard Home, Authentik, Uptime Kuma, Home Assistant |
+| Operational | 2min | Status that changes over minutes, not seconds | AdGuard Home, Authentik, Keycloak, Uptime Kuma, Home Assistant |
 | Library/queue | 5min | Media libraries, download/request queues, mesh-VPN device lists | Sonarr, Radarr, Kavita, Tailscale, Overseerr |
 | Slow personal | 1hr | Market data, photo libraries, media-consumption stats, and apps whose data only changes when you edit it by hand | Stocks, PhotoPrism, YouTube, LubeLogger, Mealie |
 | Daily | 4hr | Data that only meaningfully updates a few times a day | Weather, GitHub, RSS, Actual Budget |

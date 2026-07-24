@@ -67,6 +67,7 @@ export const INTEGRATION_TYPES = [
   { id: 'tailscale',    label: 'Tailscale',    desc: 'Tailscale mesh VPN — API token (tskey-api-...) from login.tailscale.com → Settings → Keys. Leave URL blank; Stoa always calls api.tailscale.com.', category: 'VPN & Security' },
   { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — URL is https://api.netbird.io (cloud) or http://netbird:80 (self-hosted). API key field: Personal Access Token from Netbird → Settings → Personal Access Tokens.', category: 'VPN & Security' },
   { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'VPN & Security' },
+  { id: 'keycloak',     label: 'Keycloak',     desc: 'Identity provider — API key field: realm:clientId:clientSecret from a confidential client with service account roles view-events and query-users', category: 'VPN & Security' },
   // Monitoring
   { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Monitoring' },
   { id: 'prometheus',   label: 'Prometheus',   desc: 'Prometheus metrics server — URL is http://prometheus:9090. No auth by default; use username:password for Basic Auth or a bare token for Bearer. Optional PromQL metric cards configured per panel.', category: 'Monitoring' },
@@ -139,7 +140,7 @@ const CAL_DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // securityPostureTypes in backend/internal/handlers/security_posture.go
 const SEC_POSTURE_TYPES = [
   'truenas', 'unraid', 'omv', 'synology', 'qnap', 'proxmox', 'opnsense',
-  'pfsense', 'openwrt', 'traefik', 'nginxpm', 'authentik', 'nextcloud',
+  'pfsense', 'openwrt', 'traefik', 'nginxpm', 'authentik', 'keycloak', 'nextcloud',
   'omada', 'unifi', 'pihole', 'adguard', 'tailscale', 'netbird',
 ]
 

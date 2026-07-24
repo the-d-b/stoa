@@ -59,6 +59,9 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"authentik": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchAuthentikPanelData(db, cfg)
 	},
+	"keycloak": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
+		return fetchKeycloakPanelData(db, cfg)
+	},
 	"rss": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchRSSPanelData(db, cfg) },
 	"sports": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchSportsPanelData(db, cfg)

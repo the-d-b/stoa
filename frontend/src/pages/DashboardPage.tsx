@@ -100,6 +100,7 @@ const YouTubePanel = lazy(() => import('../components/panels/YouTubePanel'))
 const KanbanPanel = lazy(() => import('../components/panels/KanbanPanel'))
 const PhotoPrismPanel = lazy(() => import('../components/panels/PhotoPrismPanel'))
 const AuthentikPanel = lazy(() => import('../components/panels/AuthentikPanel'))
+const KeycloakPanel = lazy(() => import('../components/panels/KeycloakPanel'))
 const ChecklistPanel = lazy(() => import('../components/panels/ChecklistPanel'))
 const CustomAPIPanel = lazy(() => import('../components/panels/CustomAPIPanel'))
 const RSSPanel = lazy(() => import('../components/panels/RSSPanel'))
@@ -1178,6 +1179,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'rutorrent' && <RTorrentPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'photoprism' && <PhotoPrismPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'authentik' && <AuthentikPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'keycloak' && <KeycloakPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'checklist' && <ChecklistPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'notes' && <NotesPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'customapi' && <CustomAPIPanel panel={panel} heightUnits={heightUnits} />}

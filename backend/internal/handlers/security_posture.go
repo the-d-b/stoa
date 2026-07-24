@@ -51,6 +51,7 @@ var securityPostureTypes = map[string]string{
 	"traefik":   "Traefik",
 	"nginxpm":   "Nginx Proxy Manager",
 	"authentik": "Authentik",
+	"keycloak":  "Keycloak",
 	"nextcloud": "Nextcloud",
 	"omada":     "Omada Controller",
 	"unifi":     "UniFi Network",
@@ -395,7 +396,7 @@ func secPostureDetectVersion(igType, integrationID string) string {
 		"synology": "dsmVersion", "qnap": "fwVersion", "proxmox": "version",
 		"opnsense": "version", "traefik": "version", "nextcloud": "version",
 		"unifi": "version", "pihole": "version", "adguard": "version",
-		"authentik": "version", "nginxpm": "version",
+		"authentik": "version", "keycloak": "version", "nginxpm": "version",
 		"openwrt": "version", "omada": "version",
 	}[igType]
 	if field == "" {
