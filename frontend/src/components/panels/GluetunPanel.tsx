@@ -9,7 +9,7 @@ interface GluetunData {
   warning?: string
 }
 
-export default function GluetunPanel({ panel }: { panel: Panel; heightUnits: number }) {
+export default function GluetunPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<GluetunData | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -41,10 +41,19 @@ export default function GluetunPanel({ panel }: { panel: Panel; heightUnits: num
   const statusColor = connected ? 'var(--green)' : 'var(--red)'
   const location = [data.city, data.country].filter(Boolean).join(', ')
 
-  // All sizes show the same compact layout — enough content for 1x
+  // Provider/server/hostname are fetched at every size but only worth the
+  // space at 4x+ — smaller panels stay compact-only.
+  const showDetail = heightUnits >= 4
+  const detailRows = showDetail ? [
+    { label: 'provider', value: data.provider },
+    { label: 'server', value: data.serverName },
+    { label: 'hostname', value: data.hostname },
+  ].filter(r => r.value) : []
+
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column',
-      justifyContent: 'center', gap: 6 }}>
+      justifyContent: showDetail ? 'flex-start' : 'center', gap: 6,
+      overflowY: showDetail ? 'auto' : undefined }}>
       {/* Row 1: status + IP */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 10px',
@@ -84,6 +93,24 @@ export default function GluetunPanel({ panel }: { panel: Panel; heightUnits: num
           </div>
         )}
       </div>
+      {/* Detail rows — 4x+ only */}
+      {detailRows.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
+            letterSpacing: '0.07em' }}>
+            Connection
+          </div>
+          {detailRows.map(row => (
+            <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: 8,
+              padding: '4px 10px', borderRadius: 6, background: 'var(--surface2)',
+              border: '1px solid var(--border)', fontSize: 11 }}>
+              <span style={{ color: 'var(--text-dim)', width: 56, flexShrink: 0 }}>{row.label}</span>
+              <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap' }}>{row.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {data.warning && (
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5, fontSize: 10,
           color: 'var(--amber)', lineHeight: 1.4 }}>
