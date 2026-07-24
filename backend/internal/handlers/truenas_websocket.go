@@ -445,6 +445,21 @@ func tnSlowCalls(data *TrueNASPanelData) []tnCall {
 // ── Realtime handler ──────────────────────────────────────────────────────────
 
 func tnHandleRealtime(integrationID string, fields json.RawMessage) {
+	var base TrueNASPanelData
+	if p := tnGetCached(integrationID); p != nil {
+		base = *p // copy by value so we never mutate the cached pointer
+	}
+	fresh, err := tnApplyRealtime(base, fields)
+	if err != nil {
+		return
+	}
+	cacheSet(integrationID, &fresh)
+}
+
+// tnApplyRealtime decodes a reporting.realtime "changed"/"added" message and
+// merges it into a copy of base. Split out from tnHandleRealtime for
+// testability against fixture JSON instead of a live websocket message.
+func tnApplyRealtime(base TrueNASPanelData, fields json.RawMessage) (TrueNASPanelData, error) {
 	var rt struct {
 		CPU map[string]struct {
 			Usage float64  `json:"usage"`
@@ -466,15 +481,11 @@ func tnHandleRealtime(integrationID string, fields json.RawMessage) {
 			SentBytes     float64 `json:"sent_bytes_rate"`
 		} `json:"interfaces"`
 	}
-	if json.Unmarshal(fields, &rt) != nil {
-		return
+	if err := json.Unmarshal(fields, &rt); err != nil {
+		return base, err
 	}
 
-	// Copy by value so we never mutate the cached pointer
-	var fresh TrueNASPanelData
-	if p := tnGetCached(integrationID); p != nil {
-		fresh = *p
-	}
+	fresh := base
 
 	// CPU — aggregate entry is keyed as "cpu" inside the cpu object
 	if agg, ok := rt.CPU["cpu"]; ok {
@@ -516,7 +527,7 @@ func tnHandleRealtime(integrationID string, fields json.RawMessage) {
 	}
 	fresh.NetInterfaces = ifaces
 
-	cacheSet(integrationID, &fresh)
+	return fresh, nil
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

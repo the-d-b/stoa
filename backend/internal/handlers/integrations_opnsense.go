@@ -69,18 +69,13 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 		return nil, err
 	}
 	data := &OPNsensePanelData{UIURL: uiURL}
+	anyOK := false
 
 	// ── Fetch all initial endpoints concurrently ───────────────────────────
-	type result struct {
-		key  string
-		body []byte
-		err  error
-	}
 	endpoints := []string{
-		"firmware", "firmware_status", "gateways", "interfaces", "dns", "pf",
+		"firmware_status", "gateways", "interfaces", "dns", "pf",
 	}
 	paths := map[string]string{
-		"firmware":        "/api/core/firmware/running",
 		"firmware_status": "/api/core/firmware/status",
 		"gateways":        "/api/routes/gateway/status",
 		"interfaces":      "/api/interfaces/overview/interfacesInfo",
@@ -108,85 +103,26 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 	}
 	wg.Wait()
 
-	// ── Parse firmware version ─────────────────────────────────────────────
-	if body, ok := results["firmware"]; ok {
-		var fw struct {
-			Version string `json:"local_version"`
-		}
-		if json.Unmarshal(body, &fw) == nil {
-			data.Version = fw.Version
-		}
-	}
-
-	// ── Parse update status ────────────────────────────────────────────────
+	// ── Parse firmware version + update status ─────────────────────────────
 	if body, ok := results["firmware_status"]; ok {
-		var fw struct {
-			Status string `json:"status"`
-		}
-		if json.Unmarshal(body, &fw) == nil {
-			data.UpdateAvail = fw.Status == "update"
-		}
+		anyOK = true
+		data.Version, data.UpdateAvail = opnsenseParseFirmwareStatus(body)
 	}
 
 	// ── Parse gateways ─────────────────────────────────────────────────────
 	if body, ok := results["gateways"]; ok {
-		var gw struct {
-			Items []struct {
-				Name    string `json:"name"`
-				Status  string `json:"status_translated"`
-				RTT     string `json:"delay"`
-				Loss    string `json:"loss"`
-				Address string `json:"address"`
-			} `json:"items"`
-		}
-		if json.Unmarshal(body, &gw) == nil {
-			for _, g := range gw.Items {
-				if g.Address == "~" || g.Address == "" {
-					continue
-				}
-				status := "online"
-				if sl := strings.ToLower(g.Status); sl != "online" && sl != "none" && sl != "" {
-					status = "offline"
-				}
-				rtt := g.RTT
-				if rtt == "~" {
-					rtt = ""
-				}
-				loss := g.Loss
-				if loss == "~" {
-					loss = ""
-				}
-				data.Gateways = append(data.Gateways, OPNsenseGateway{
-					Name: g.Name, Status: status, RTT: rtt, Loss: loss, Address: g.Address,
-				})
-			}
-		}
+		anyOK = true
+		data.Gateways = opnsenseParseGateways(body)
 	}
 
 	// ── Parse interface list, then fetch traffic concurrently ──────────────
 	ifaceNames := map[string]string{}
 	ifaceAddrs := map[string]string{}
 	if body, ok := results["interfaces"]; ok {
-		var overview struct {
-			Rows []struct {
-				Identifier  string `json:"identifier"`
-				Description string `json:"description"`
-				Enabled     bool   `json:"enabled"`
-				Addr4       string `json:"addr4"`
-			} `json:"rows"`
-		}
-		if json.Unmarshal(body, &overview) == nil {
-			for _, row := range overview.Rows {
-				if !row.Enabled || row.Identifier == "" || row.Identifier == "lo0" {
-					continue
-				}
-				ifaceNames[row.Identifier] = row.Description
-				addr := row.Addr4
-				if idx := strings.Index(addr, "/"); idx >= 0 {
-					addr = addr[:idx]
-				}
-				ifaceAddrs[row.Identifier] = addr
-			}
+		anyOK = true
+		for id, info := range opnsenseParseInterfacesInfo(body) {
+			ifaceNames[id] = info.Name
+			ifaceAddrs[id] = info.Addr
 		}
 	}
 
@@ -223,26 +159,14 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 						totalIn += rec.RateBitsIn
 						totalOut += rec.RateBitsOut
 					}
-					// Capture top talkers from WAN
-					if ifID == "wan" {
-						mu.Lock()
-						for i, rec := range ifData.Records {
-							if i >= 5 {
-								break
-							}
-							host := strings.TrimSuffix(rec.Rname, ".")
-							if host == "" {
-								host = rec.Address
-							}
-							data.TopTalkers = append(data.TopTalkers, OPNsenseTalker{
-								Host:    host,
-								IP:      rec.Address,
-								InMbps:  rec.RateBitsIn / 1000000,
-								OutMbps: rec.RateBitsOut / 1000000,
-							})
-						}
-						mu.Unlock()
-					}
+				}
+			}
+			// Capture top talkers from WAN
+			if ifID == "wan" {
+				if talkers := opnsenseParseTopTalkers(body, "wan", 5); talkers != nil {
+					mu.Lock()
+					data.TopTalkers = talkers
+					mu.Unlock()
 				}
 			}
 			ifaceCh <- ifaceResult{id: ifID, in: totalIn / 1000000, out: totalOut / 1000000}
@@ -267,32 +191,19 @@ func fetchOPNsensePanelData(db *sql.DB, config map[string]interface{}) (*OPNsens
 
 	// ── Parse DNS stats ────────────────────────────────────────────────────
 	if body, ok := results["dns"]; ok {
-		var stats struct {
-			Data struct {
-				Total struct {
-					Num struct {
-						Queries   string `json:"queries"`
-						CacheHits string `json:"cachehits"`
-						CacheMiss string `json:"cachemiss"`
-					} `json:"num"`
-				} `json:"total"`
-			} `json:"data"`
-		}
-		if json.Unmarshal(body, &stats) == nil {
-			fmt.Sscanf(stats.Data.Total.Num.Queries, "%d", &data.DNSQueries)
-			fmt.Sscanf(stats.Data.Total.Num.CacheHits, "%d", &data.DNSCacheHits)
-			fmt.Sscanf(stats.Data.Total.Num.CacheMiss, "%d", &data.DNSCacheMiss)
-		}
+		anyOK = true
+		data.DNSQueries, data.DNSCacheHits, data.DNSCacheMiss = opnsenseParseDNSStats(body)
 	}
 
 	// ── Parse PF states ────────────────────────────────────────────────────
 	if body, ok := results["pf"]; ok {
-		var pf struct {
-			Current string `json:"current"`
-		}
-		if json.Unmarshal(body, &pf) == nil {
-			fmt.Sscanf(pf.Current, "%d", &data.PFStates)
-		}
+		anyOK = true
+		data.PFStates = opnsenseParsePFStates(body)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("opnsense unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
 	return data, nil

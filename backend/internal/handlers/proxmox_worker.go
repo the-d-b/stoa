@@ -78,29 +78,10 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 					cachedNode = "" // re-resolve next tick
 					continue
 				}
-				var statusResp struct {
-					Data struct {
-						CPU    float64 `json:"cpu"`
-						MaxCPU int     `json:"maxcpu"`
-						Memory struct {
-							Used  int64 `json:"used"`
-							Total int64 `json:"total"`
-						} `json:"memory"`
-						NetIn  float64 `json:"netin"`
-						NetOut float64 `json:"netout"`
-					} `json:"data"`
-				}
-				if json.Unmarshal(body, &statusResp) != nil {
+				cpuPct, memPct, netInMbps, netOutMbps, perr := proxmoxParseFastStatus(body)
+				if perr != nil {
 					continue
 				}
-				d := statusResp.Data
-				cpuPct := d.CPU * 100
-				memPct := 0.0
-				if d.Memory.Total > 0 {
-					memPct = float64(d.Memory.Used) / float64(d.Memory.Total) * 100
-				}
-				netInMbps := d.NetIn * 8 / 1_000_000
-				netOutMbps := d.NetOut * 8 / 1_000_000
 
 				// Merge fast metrics into existing cached data
 				existing, ok := cacheGet(ig.id)
@@ -132,4 +113,34 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 			}
 		}
 	}()
+}
+
+// proxmoxParseFastStatus decodes /nodes/{node}/status for the fast (3s)
+// poll — CPU, memory, and network rate only, the cheap subset of what the
+// full fetchProxmoxPanelData pulls every 60s. Split out from the worker's
+// poll loop for testability.
+func proxmoxParseFastStatus(body []byte) (cpuPct, memPct, netInMbps, netOutMbps float64, err error) {
+	var statusResp struct {
+		Data struct {
+			CPU    float64 `json:"cpu"`
+			MaxCPU int     `json:"maxcpu"`
+			Memory struct {
+				Used  int64 `json:"used"`
+				Total int64 `json:"total"`
+			} `json:"memory"`
+			NetIn  float64 `json:"netin"`
+			NetOut float64 `json:"netout"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &statusResp); err != nil {
+		return 0, 0, 0, 0, err
+	}
+	d := statusResp.Data
+	cpuPct = d.CPU * 100
+	if d.Memory.Total > 0 {
+		memPct = float64(d.Memory.Used) / float64(d.Memory.Total) * 100
+	}
+	netInMbps = d.NetIn * 8 / 1_000_000
+	netOutMbps = d.NetOut * 8 / 1_000_000
+	return cpuPct, memPct, netInMbps, netOutMbps, nil
 }

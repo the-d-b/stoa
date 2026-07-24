@@ -89,42 +89,12 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			if p := opnsenseGetCached(ig.id, uiURL); p != nil {
 				prev = *p // copy by value
 			}
-			prev.Interfaces = nil
-			for id, iface := range evt.Interfaces {
-				name := iface.Name
-				if name == "" {
-					name = strings.ToUpper(id)
-				}
-				inMbps := float64(iface.InBytes) * 8 / 1_000_000
-				outMbps := float64(iface.OutBytes) * 8 / 1_000_000
-				if inMbps < 0 {
-					inMbps = 0
-				}
-				if outMbps < 0 {
-					outMbps = 0
-				}
-				if inMbps > 0 || outMbps > 0 {
-					prev.Interfaces = append(prev.Interfaces, OPNsenseInterface{
-						Name:    name,
-						Device:  id,
-						InMbps:  inMbps,
-						OutMbps: outMbps,
-					})
-				}
-			}
-			// Sort by device name so order is stable on every push
-			sort.Slice(prev.Interfaces, func(i, j int) bool {
-				return prev.Interfaces[i].Device < prev.Interfaces[j].Device
-			})
+			prev = opnsenseApplyTraffic(prev, evt)
 			cacheSet(ig.id, &prev)
 
 		case evt := <-fwCh:
 			// Accumulate firewall events
-			key := evt.Action + "|" + evt.Label
-			if evt.Label == "" {
-				key = evt.Action + "|rule-" + evt.RuleNr
-			}
-			fwCounts[key]++
+			fwCounts[opnsenseFWEventKey(evt)]++
 
 		case <-fwReset.C:
 			// Reset counts — start a fresh 30s window
@@ -136,19 +106,7 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 			if p := opnsenseGetCached(ig.id, uiURL); p != nil {
 				prev = *p // copy by value
 			}
-			prev.FWEvents = nil
-			for key, count := range fwCounts {
-				parts := strings.SplitN(key, "|", 2)
-				action, label := parts[0], ""
-				if len(parts) == 2 {
-					label = parts[1]
-				}
-				prev.FWEvents = append(prev.FWEvents, OPNsenseFWEvent{
-					Action: action,
-					Label:  label,
-					Count:  count,
-				})
-			}
+			prev.FWEvents = opnsenseBuildFWEvents(fwCounts)
 			cacheSet(ig.id, &prev)
 
 		case <-slowTicker.C:
@@ -184,6 +142,70 @@ type opnsenseFWEvent struct {
 	Proto   string `json:"protoname"`
 	SrcPort string `json:"srcport"`
 	DstPort string `json:"dstport"`
+}
+
+// opnsenseApplyTraffic replaces prev's Interfaces with a fresh snapshot
+// derived from one traffic-stream tick — byte deltas converted to Mbps,
+// negative deltas (which the stream can emit around a counter reset)
+// clamped to zero, and idle interfaces (both directions zero) dropped
+// entirely rather than shown as a permanent zero row. Split out from the
+// worker's event loop for testability.
+func opnsenseApplyTraffic(prev OPNsensePanelData, evt opnsenseTrafficEvent) OPNsensePanelData {
+	prev.Interfaces = nil
+	for id, iface := range evt.Interfaces {
+		name := iface.Name
+		if name == "" {
+			name = strings.ToUpper(id)
+		}
+		inMbps := float64(iface.InBytes) * 8 / 1_000_000
+		outMbps := float64(iface.OutBytes) * 8 / 1_000_000
+		if inMbps < 0 {
+			inMbps = 0
+		}
+		if outMbps < 0 {
+			outMbps = 0
+		}
+		if inMbps > 0 || outMbps > 0 {
+			prev.Interfaces = append(prev.Interfaces, OPNsenseInterface{
+				Name:    name,
+				Device:  id,
+				InMbps:  inMbps,
+				OutMbps: outMbps,
+			})
+		}
+	}
+	// Sort by device name so order is stable on every push
+	sort.Slice(prev.Interfaces, func(i, j int) bool {
+		return prev.Interfaces[i].Device < prev.Interfaces[j].Device
+	})
+	return prev
+}
+
+// opnsenseFWEventKey builds the rolling-window accumulator key for a
+// firewall log event. Rules without a human-assigned label (Label == "")
+// are bucketed by rule number instead, so unlabeled rules still aggregate
+// distinctly rather than collapsing into one "action|" bucket together.
+func opnsenseFWEventKey(evt opnsenseFWEvent) string {
+	if evt.Label == "" {
+		return evt.Action + "|rule-" + evt.RuleNr
+	}
+	return evt.Action + "|" + evt.Label
+}
+
+// opnsenseBuildFWEvents converts the rolling-window action|label -> count
+// accumulator into the panel's FWEvents list. Split out from the worker's
+// event loop for testability.
+func opnsenseBuildFWEvents(counts map[string]int) []OPNsenseFWEvent {
+	var events []OPNsenseFWEvent
+	for key, count := range counts {
+		parts := strings.SplitN(key, "|", 2)
+		action, label := parts[0], ""
+		if len(parts) == 2 {
+			label = parts[1]
+		}
+		events = append(events, OPNsenseFWEvent{Action: action, Label: label, Count: count})
+	}
+	return events
 }
 
 func opnsenseStreamTraffic(apiURL, apiKey string, skipTLS bool, ch chan<- opnsenseTrafficEvent, stop <-chan struct{}) {
@@ -334,135 +356,210 @@ func opnsenseFetchSlow(apiURL, apiKey string, skipTLS bool, data *OPNsensePanelD
 		}
 	}
 
+	opnsenseApplySlowResults(data, results)
+}
+
+// opnsenseApplySlowResults parses the batch of slow-loop response bodies and
+// applies each to data. Split out from opnsenseFetchSlow — which owns the
+// concurrent-fetch orchestration — so the parsing itself is testable against
+// fixture bodies without a live OPNsense instance. Each individual parser is
+// also shared with fetchOPNsensePanelData's synchronous cold-start path
+// (integrations_opnsense.go) so the two don't drift out of sync.
+func opnsenseApplySlowResults(data *OPNsensePanelData, results map[string][]byte) {
 	if body, ok := results["firmware_status"]; ok {
-		var fw struct {
-			Status  string `json:"status"`
-			Version string `json:"product_version"`
-		}
-		if json.Unmarshal(body, &fw) == nil {
-			data.UpdateAvail = fw.Status == "update"
-			data.Version = fw.Version
-		}
+		data.Version, data.UpdateAvail = opnsenseParseFirmwareStatus(body)
 	}
 	if body, ok := results["gateways"]; ok {
-		var gw struct {
-			Items []struct {
-				Name    string `json:"name"`
-				Status  string `json:"status_translated"`
-				RTT     string `json:"delay"`
-				Loss    string `json:"loss"`
-				Address string `json:"address"`
-			} `json:"items"`
-		}
-		if json.Unmarshal(body, &gw) == nil {
-			data.Gateways = nil
-			for _, g := range gw.Items {
-				if g.Address == "~" || g.Address == "" {
-					continue
-				}
-				status := "online"
-				if sl := strings.ToLower(g.Status); sl != "online" && sl != "none" && sl != "" {
-					status = "offline"
-				}
-				rtt := g.RTT
-				if rtt == "~" {
-					rtt = ""
-				}
-				loss := g.Loss
-				if loss == "~" {
-					loss = ""
-				}
-				data.Gateways = append(data.Gateways, OPNsenseGateway{
-					Name: g.Name, Status: status, RTT: rtt, Loss: loss, Address: g.Address,
-				})
-			}
-		}
+		data.Gateways = opnsenseParseGateways(body)
 	}
 	if body, ok := results["interfaces_info"]; ok {
-		var overview struct {
-			Rows []struct {
-				Identifier  string `json:"identifier"`
-				Description string `json:"description"`
-				Enabled     bool   `json:"enabled"`
-				Addr4       string `json:"addr4"`
-			} `json:"rows"`
-		}
-		if json.Unmarshal(body, &overview) == nil {
-			addrMap := map[string]string{}
-			for _, row := range overview.Rows {
-				if !row.Enabled || row.Identifier == "" || row.Identifier == "lo0" {
-					continue
-				}
-				addr := row.Addr4
-				if idx := strings.Index(addr, "/"); idx >= 0 {
-					addr = addr[:idx]
-				}
-				addrMap[row.Identifier] = addr
-			}
-			for i := range data.Interfaces {
-				if addr, ok := addrMap[data.Interfaces[i].Device]; ok {
-					data.Interfaces[i].IPAddr = addr
-					data.Interfaces[i].Status = "up"
-				}
+		ifaces := opnsenseParseInterfacesInfo(body)
+		for i := range data.Interfaces {
+			if info, ok := ifaces[data.Interfaces[i].Device]; ok {
+				data.Interfaces[i].IPAddr = info.Addr
+				data.Interfaces[i].Status = "up"
 			}
 		}
 	}
 	if body, ok := results["dns"]; ok {
-		var stats struct {
-			Data struct {
-				Total struct {
-					Num struct {
-						Queries   string `json:"queries"`
-						CacheHits string `json:"cachehits"`
-						CacheMiss string `json:"cachemiss"`
-					} `json:"num"`
-				} `json:"total"`
-			} `json:"data"`
-		}
-		if json.Unmarshal(body, &stats) == nil {
-			fmt.Sscanf(stats.Data.Total.Num.Queries, "%d", &data.DNSQueries)
-			fmt.Sscanf(stats.Data.Total.Num.CacheHits, "%d", &data.DNSCacheHits)
-			fmt.Sscanf(stats.Data.Total.Num.CacheMiss, "%d", &data.DNSCacheMiss)
-		}
+		data.DNSQueries, data.DNSCacheHits, data.DNSCacheMiss = opnsenseParseDNSStats(body)
 	}
 	if body, ok := results["pf"]; ok {
-		var pf struct {
-			Current string `json:"current"`
-		}
-		if json.Unmarshal(body, &pf) == nil {
-			fmt.Sscanf(pf.Current, "%d", &data.PFStates)
-		}
+		data.PFStates = opnsenseParsePFStates(body)
 	}
 	if body, ok := results["top_talkers"]; ok {
-		var res map[string]struct {
-			Records []struct {
-				RateBitsIn  float64 `json:"rate_bits_in"`
-				RateBitsOut float64 `json:"rate_bits_out"`
-				Rname       string  `json:"rname"`
-				Address     string  `json:"address"`
-			} `json:"records"`
-		}
-		if json.Unmarshal(body, &res) == nil {
-			data.TopTalkers = nil
-			if wan, ok := res["wan"]; ok {
-				for i, rec := range wan.Records {
-					if i >= 5 {
-						break
-					}
-					host := strings.TrimSuffix(rec.Rname, ".")
-					if host == "" {
-						host = rec.Address
-					}
-					data.TopTalkers = append(data.TopTalkers, OPNsenseTalker{
-						Host:    host,
-						IP:      rec.Address,
-						InMbps:  rec.RateBitsIn / 1_000_000,
-						OutMbps: rec.RateBitsOut / 1_000_000,
-					})
-				}
-			}
-		}
+		data.TopTalkers = opnsenseParseTopTalkers(body, "wan", 5)
 	}
+}
+
+// ── Shared response parsers ───────────────────────────────────────────────────
+// Used by both the worker's slow loop above and fetchOPNsensePanelData's
+// synchronous cold-start fallback (integrations_opnsense.go).
+
+// opnsenseParseFirmwareStatus decodes /api/core/firmware/status. This is the
+// only endpoint that actually carries the running version — an older
+// implementation queried /api/core/firmware/running instead, which only
+// returns {"status":"ready"}-style subsystem readiness with no version
+// field, confirmed against a real instance.
+func opnsenseParseFirmwareStatus(body []byte) (version string, updateAvail bool) {
+	var fw struct {
+		Status  string `json:"status"`
+		Version string `json:"product_version"`
+	}
+	if json.Unmarshal(body, &fw) != nil {
+		return "", false
+	}
+	return fw.Version, fw.Status == "update"
+}
+
+// opnsenseParseGateways decodes /api/routes/gateway/status. Rows with
+// address "~" or empty are placeholder/disabled gateway groups, not real
+// gateways, and are dropped. OPNsense uses the literal string "~" (not an
+// empty field) to mean "no value" throughout this API, hence the same
+// normalization for RTT/Loss.
+func opnsenseParseGateways(body []byte) []OPNsenseGateway {
+	var gw struct {
+		Items []struct {
+			Name    string `json:"name"`
+			Status  string `json:"status_translated"`
+			RTT     string `json:"delay"`
+			Loss    string `json:"loss"`
+			Address string `json:"address"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(body, &gw) != nil {
+		return nil
+	}
+	var out []OPNsenseGateway
+	for _, g := range gw.Items {
+		if g.Address == "~" || g.Address == "" {
+			continue
+		}
+		status := "online"
+		if sl := strings.ToLower(g.Status); sl != "online" && sl != "none" && sl != "" {
+			status = "offline"
+		}
+		rtt := g.RTT
+		if rtt == "~" {
+			rtt = ""
+		}
+		loss := g.Loss
+		if loss == "~" {
+			loss = ""
+		}
+		out = append(out, OPNsenseGateway{Name: g.Name, Status: status, RTT: rtt, Loss: loss, Address: g.Address})
+	}
+	return out
+}
+
+type opnsenseIfaceInfo struct {
+	Name string
+	Addr string
+}
+
+// opnsenseParseInterfacesInfo decodes /api/interfaces/overview/interfacesInfo
+// into a map keyed by interface identifier (e.g. "igb0"), skipping disabled
+// interfaces, entries with no identifier, and loopback. The IPv4 address is
+// stripped of its CIDR suffix ("/24") since callers display a bare address.
+func opnsenseParseInterfacesInfo(body []byte) map[string]opnsenseIfaceInfo {
+	var overview struct {
+		Rows []struct {
+			Identifier  string `json:"identifier"`
+			Description string `json:"description"`
+			Enabled     bool   `json:"enabled"`
+			Addr4       string `json:"addr4"`
+		} `json:"rows"`
+	}
+	if json.Unmarshal(body, &overview) != nil {
+		return nil
+	}
+	out := map[string]opnsenseIfaceInfo{}
+	for _, row := range overview.Rows {
+		if !row.Enabled || row.Identifier == "" || row.Identifier == "lo0" {
+			continue
+		}
+		addr := row.Addr4
+		if idx := strings.Index(addr, "/"); idx >= 0 {
+			addr = addr[:idx]
+		}
+		out[row.Identifier] = opnsenseIfaceInfo{Name: row.Description, Addr: addr}
+	}
+	return out
+}
+
+// opnsenseParseDNSStats decodes /api/unbound/diagnostics/stats. The upstream
+// fields are strings, not numbers, hence the Sscanf rather than a typed int.
+func opnsenseParseDNSStats(body []byte) (queries, cacheHits, cacheMiss int) {
+	var stats struct {
+		Data struct {
+			Total struct {
+				Num struct {
+					Queries   string `json:"queries"`
+					CacheHits string `json:"cachehits"`
+					CacheMiss string `json:"cachemiss"`
+				} `json:"num"`
+			} `json:"total"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &stats) != nil {
+		return 0, 0, 0
+	}
+	fmt.Sscanf(stats.Data.Total.Num.Queries, "%d", &queries)
+	fmt.Sscanf(stats.Data.Total.Num.CacheHits, "%d", &cacheHits)
+	fmt.Sscanf(stats.Data.Total.Num.CacheMiss, "%d", &cacheMiss)
+	return queries, cacheHits, cacheMiss
+}
+
+// opnsenseParsePFStates decodes /api/diagnostics/firewall/pf_states.
+func opnsenseParsePFStates(body []byte) int {
+	var pf struct {
+		Current string `json:"current"`
+	}
+	if json.Unmarshal(body, &pf) != nil {
+		return 0
+	}
+	var states int
+	fmt.Sscanf(pf.Current, "%d", &states)
+	return states
+}
+
+// opnsenseParseTopTalkers decodes a /api/diagnostics/traffic/top/{iface}
+// response, returning up to `limit` records for the given interface key.
+// Hostnames come back with a trailing DNS root dot ("host.example.com."),
+// trimmed here; when reverse DNS has nothing, it falls back to the bare IP.
+func opnsenseParseTopTalkers(body []byte, ifaceKey string, limit int) []OPNsenseTalker {
+	var res map[string]struct {
+		Records []struct {
+			RateBitsIn  float64 `json:"rate_bits_in"`
+			RateBitsOut float64 `json:"rate_bits_out"`
+			Rname       string  `json:"rname"`
+			Address     string  `json:"address"`
+		} `json:"records"`
+	}
+	if json.Unmarshal(body, &res) != nil {
+		return nil
+	}
+	iface, ok := res[ifaceKey]
+	if !ok {
+		return nil
+	}
+	var out []OPNsenseTalker
+	for i, rec := range iface.Records {
+		if i >= limit {
+			break
+		}
+		host := strings.TrimSuffix(rec.Rname, ".")
+		if host == "" {
+			host = rec.Address
+		}
+		out = append(out, OPNsenseTalker{
+			Host:    host,
+			IP:      rec.Address,
+			InMbps:  rec.RateBitsIn / 1_000_000,
+			OutMbps: rec.RateBitsOut / 1_000_000,
+		})
+	}
+	return out
 }
 
 func opnsenseGetCached(integrationID, uiURL string) *OPNsensePanelData {

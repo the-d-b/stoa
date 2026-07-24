@@ -81,134 +81,199 @@ func fetchTrueNASPanelData(db *sql.DB, config map[string]interface{}) (*TrueNASP
 		return nil, err
 	}
 	data := &TrueNASPanelData{UIURL: uiURL}
+	anyOK := false
 
 	// System info
 	if body, err := truenasGet(apiURL, apiKey, "/system/info", skipTLS); err == nil {
-		var info struct {
-			Hostname string `json:"hostname"`
-			Version  string `json:"version"`
-			PhysMem  int64  `json:"physmem"`
-			Model    string `json:"model"`
-			Cores    int    `json:"cores"`
-		}
-		if json.Unmarshal(body, &info) == nil {
-			data.Hostname = info.Hostname
-			data.Version = info.Version
-			data.CPUModel = info.Model
-			data.CPUCores = info.Cores
-			if info.PhysMem > 0 {
-				gb := float64(info.PhysMem) / 1073741824
-				data.TotalRAM = fmt.Sprintf("%.0f GB RAM", gb)
-			}
-		}
+		anyOK = true
+		truenasApplySystemInfo(data, body)
+	} else {
+		logErrorf("TRUENAS", "system info error: %v", err)
 	}
 
 	// Pools
 	if body, err := truenasGet(apiURL, apiKey, "/pool", skipTLS); err == nil {
-		var pools []struct {
-			Name      string `json:"name"`
-			Status    string `json:"status"`
-			Size      int64  `json:"size"`
-			Allocated int64  `json:"allocated"`
-		}
-		if json.Unmarshal(body, &pools) == nil {
-			for _, p := range pools {
-				totalGB := float64(p.Size) / 1073741824
-				usedGB := float64(p.Allocated) / 1073741824
-				pct := 0.0
-				if totalGB > 0 {
-					pct = usedGB / totalGB * 100
-				}
-				data.Pools = append(data.Pools, TrueNASPool{
-					Name:    p.Name,
-					Status:  p.Status,
-					UsedGB:  usedGB,
-					TotalGB: totalGB,
-					Percent: pct,
-				})
-			}
-		}
+		anyOK = true
+		data.Pools = truenasParsePools(body)
+	} else {
+		logErrorf("TRUENAS", "pools error: %v", err)
 	}
 
 	// Alerts (non-dismissed)
 	if body, err := truenasGet(apiURL, apiKey, "/alert/list", skipTLS); err == nil {
-		var alerts []struct {
-			Level     string `json:"level"`
-			Formatted string `json:"formatted"`
-			Dismissed bool   `json:"dismissed"`
-		}
-		if json.Unmarshal(body, &alerts) == nil {
-			for _, a := range alerts {
-				if a.Dismissed {
-					continue
-				}
-				msg := a.Formatted
-				if len(msg) > 120 {
-					msg = msg[:120] + "…"
-				}
-				data.Alerts = append(data.Alerts, TrueNASAlert{
-					Level:   a.Level,
-					Message: msg,
-				})
-			}
-		}
+		anyOK = true
+		data.Alerts = truenasParseAlerts(body)
+	} else {
+		logErrorf("TRUENAS", "alerts error: %v", err)
 	}
 
 	// Disk temperatures via disk/query with temperature extra
 	if body, err := truenasGet(apiURL, apiKey, "/disk?limit=24&extra=%7B%22include_expired%22%3Afalse%2C%22passwords%22%3Afalse%2C%22supports_smart%22%3Atrue%7D", skipTLS); err == nil {
-		var disks []struct {
-			Name        string  `json:"name"`
-			Temperature float64 `json:"temperature"`
-		}
-		if json.Unmarshal(body, &disks) == nil {
-			for _, d := range disks {
-				if d.Temperature > 0 {
-					data.Disks = append(data.Disks, TrueNASDisk{
-						Name:  d.Name,
-						TempC: d.Temperature,
-					})
-				}
-			}
-		}
+		anyOK = true
+		data.Disks = truenasParseDiskTemps(body)
+	} else {
+		logErrorf("TRUENAS", "disk temps error: %v", err)
 	}
 
 	// VMs
 	if body, err := truenasGet(apiURL, apiKey, "/vm?limit=20", skipTLS); err == nil {
-		var vms []struct {
-			Name   string `json:"name"`
-			Status struct {
-				State string `json:"state"`
-			} `json:"status"`
-		}
-		if json.Unmarshal(body, &vms) == nil {
-			for _, v := range vms {
-				data.VMs = append(data.VMs, TrueNASVM{
-					Name:   v.Name,
-					Status: v.Status.State,
-				})
-			}
-		}
+		anyOK = true
+		data.VMs = truenasParseVMs(body)
+	} else {
+		logErrorf("TRUENAS", "vms error: %v", err)
 	}
 
 	// Apps (Docker containers via TrueNAS Scale apps)
 	if body, err := truenasGet(apiURL, apiKey, "/app?limit=50", skipTLS); err == nil {
-		var apps []struct {
-			Name            string `json:"name"`
-			State           string `json:"state"`
-			UpdateAvailable bool   `json:"update_available"`
-		}
-		if json.Unmarshal(body, &apps) == nil {
-			for _, a := range apps {
-				data.Apps = append(data.Apps, TrueNASApp{
-					Name:            a.Name,
-					Status:          a.State,
-					UpdateAvailable: a.UpdateAvailable,
-				})
-			}
-		}
+		anyOK = true
+		data.Apps = truenasParseApps(body)
+	} else {
+		logErrorf("TRUENAS", "apps error: %v", err)
+	}
+
+	// Every endpoint failed — surface the error instead of rendering zeros
+	if !anyOK {
+		return nil, fmt.Errorf("truenas unreachable — check URL, API key, and TLS settings (see server log for details)")
 	}
 
 	return data, nil
+}
+
+// truenasApplySystemInfo decodes /system/info into the panel's identity
+// fields. Split out from fetchTrueNASPanelData for testability.
+func truenasApplySystemInfo(data *TrueNASPanelData, body []byte) {
+	var info struct {
+		Hostname string `json:"hostname"`
+		Version  string `json:"version"`
+		PhysMem  int64  `json:"physmem"`
+		Model    string `json:"model"`
+		Cores    int    `json:"cores"`
+	}
+	if json.Unmarshal(body, &info) != nil {
+		return
+	}
+	data.Hostname = info.Hostname
+	data.Version = info.Version
+	data.CPUModel = info.Model
+	data.CPUCores = info.Cores
+	if info.PhysMem > 0 {
+		gb := float64(info.PhysMem) / 1073741824
+		data.TotalRAM = fmt.Sprintf("%.0f GB RAM", gb)
+	}
+}
+
+// truenasParsePools decodes /pool into usage-percentage pool summaries.
+// Split out from fetchTrueNASPanelData for testability.
+func truenasParsePools(body []byte) []TrueNASPool {
+	var pools []struct {
+		Name      string `json:"name"`
+		Status    string `json:"status"`
+		Size      int64  `json:"size"`
+		Allocated int64  `json:"allocated"`
+	}
+	if json.Unmarshal(body, &pools) != nil {
+		return nil
+	}
+	var out []TrueNASPool
+	for _, p := range pools {
+		totalGB := float64(p.Size) / 1073741824
+		usedGB := float64(p.Allocated) / 1073741824
+		pct := 0.0
+		if totalGB > 0 {
+			pct = usedGB / totalGB * 100
+		}
+		out = append(out, TrueNASPool{
+			Name:    p.Name,
+			Status:  p.Status,
+			UsedGB:  usedGB,
+			TotalGB: totalGB,
+			Percent: pct,
+		})
+	}
+	return out
+}
+
+// truenasParseAlerts decodes /alert/list, dropping dismissed alerts and
+// truncating long messages to 120 chars. Split out from fetchTrueNASPanelData
+// for testability.
+func truenasParseAlerts(body []byte) []TrueNASAlert {
+	var alerts []struct {
+		Level     string `json:"level"`
+		Formatted string `json:"formatted"`
+		Dismissed bool   `json:"dismissed"`
+	}
+	if json.Unmarshal(body, &alerts) != nil {
+		return nil
+	}
+	var out []TrueNASAlert
+	for _, a := range alerts {
+		if a.Dismissed {
+			continue
+		}
+		msg := a.Formatted
+		if len(msg) > 120 {
+			msg = msg[:120] + "…"
+		}
+		out = append(out, TrueNASAlert{Level: a.Level, Message: msg})
+	}
+	return out
+}
+
+// truenasParseDiskTemps decodes the disk/query response, keeping only disks
+// that reported a positive temperature (0 means "no sensor reading", not
+// "0°C"). Split out from fetchTrueNASPanelData for testability.
+func truenasParseDiskTemps(body []byte) []TrueNASDisk {
+	var disks []struct {
+		Name        string  `json:"name"`
+		Temperature float64 `json:"temperature"`
+	}
+	if json.Unmarshal(body, &disks) != nil {
+		return nil
+	}
+	var out []TrueNASDisk
+	for _, d := range disks {
+		if d.Temperature > 0 {
+			out = append(out, TrueNASDisk{Name: d.Name, TempC: d.Temperature})
+		}
+	}
+	return out
+}
+
+// truenasParseVMs decodes /vm into name/status pairs. Split out from
+// fetchTrueNASPanelData for testability.
+func truenasParseVMs(body []byte) []TrueNASVM {
+	var vms []struct {
+		Name   string `json:"name"`
+		Status struct {
+			State string `json:"state"`
+		} `json:"status"`
+	}
+	if json.Unmarshal(body, &vms) != nil {
+		return nil
+	}
+	var out []TrueNASVM
+	for _, v := range vms {
+		out = append(out, TrueNASVM{Name: v.Name, Status: v.Status.State})
+	}
+	return out
+}
+
+// truenasParseApps decodes /app into name/status/update-available triples.
+// Split out from fetchTrueNASPanelData for testability.
+func truenasParseApps(body []byte) []TrueNASApp {
+	var apps []struct {
+		Name            string `json:"name"`
+		State           string `json:"state"`
+		UpdateAvailable bool   `json:"update_available"`
+	}
+	if json.Unmarshal(body, &apps) != nil {
+		return nil
+	}
+	var out []TrueNASApp
+	for _, a := range apps {
+		out = append(out, TrueNASApp{Name: a.Name, Status: a.State, UpdateAvailable: a.UpdateAvailable})
+	}
+	return out
 }
 
 func truenasGet(baseURL, apiKey, path string, skipTLS bool) ([]byte, error) {
