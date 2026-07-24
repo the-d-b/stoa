@@ -251,8 +251,6 @@ func main() {
 	protected.HandleFunc("/porticos/{id}", handlers.DeletePortico(database)).Methods("DELETE")
 	protected.HandleFunc("/porticos/{id}", handlers.UpdatePortico(database)).Methods("PUT")
 	protected.HandleFunc("/porticos/{id}/tags/{tagId}", handlers.SetPorticoTagActive(database)).Methods("PUT")
-	protected.HandleFunc("/panels/{id}/porticos", handlers.GetPersonalPanelPorticos(database)).Methods("GET")
-	protected.HandleFunc("/panels/{id}/porticos", handlers.SetPersonalPanelPorticos(database)).Methods("PUT")
 
 	// Secrets (any authenticated user can manage their own)
 	protected.HandleFunc("/secrets", handlers.ListSecrets(database)).Methods("GET")

@@ -131,52 +131,6 @@ func UpdatePorticoOrder(db *sql.DB) http.HandlerFunc {
 	}
 }
 
-func GetPersonalPanelPorticos(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		panelID := mux.Vars(r)["id"]
-		rows, err := db.Query(`SELECT portico_id FROM personal_panel_porticos WHERE panel_id = ?`, panelID)
-		if err != nil {
-			writeError(w, http.StatusInternalServerError, "failed to query")
-			return
-		}
-		defer rows.Close()
-		ids := []string{}
-		for rows.Next() {
-			var id string
-			rows.Scan(&id)
-			ids = append(ids, id)
-		}
-		writeJSON(w, http.StatusOK, ids)
-	}
-}
-
-func SetPersonalPanelPorticos(db *sql.DB) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
-		panelID := mux.Vars(r)["id"]
-
-		var ownerID string
-		err := db.QueryRow("SELECT created_by FROM panels WHERE id=? AND scope='personal'", panelID).Scan(&ownerID)
-		if err != nil || ownerID != claims.UserID {
-			writeError(w, http.StatusForbidden, "not your panel")
-			return
-		}
-
-		var req struct {
-			PorticoIDs []string `json:"porticoIds"`
-		}
-		json.NewDecoder(r.Body).Decode(&req)
-
-		tx, _ := db.Begin()
-		tx.Exec("DELETE FROM personal_panel_porticos WHERE panel_id=?", panelID)
-		for _, pid := range req.PorticoIDs {
-			tx.Exec("INSERT OR IGNORE INTO personal_panel_porticos (panel_id, portico_id) VALUES (?,?)", panelID, pid)
-		}
-		tx.Commit()
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}
-}
-
 // ── Secrets ───────────────────────────────────────────────────────────────────
 
 func ListSecrets(db *sql.DB) http.HandlerFunc {

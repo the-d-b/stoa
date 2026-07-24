@@ -290,16 +290,10 @@ export default function DashboardPage() {
 
   // Backend returns panels pre-sorted by saved position
   // We only filter here, do NOT re-sort (would override saved order)
+  // Membership is tags-only for every panel, personal or shared alike:
+  // untagged panels appear everywhere, tagged panels only where a matching
+  // tag is active on the portico. Matches ListPorticoConfigPanels server-side.
   const visiblePanels = activeTags === null ? panels : panels.filter(panel => {
-    // Personal panels: check wall assignment
-    if (panel.scope === 'personal') {
-      if (activePorticoId === 'home' || activePorticoId === '') return true
-      // Check if user has assigned this personal panel to this wall
-      // We use panel config to store wall assignments for simplicity
-      const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-      const assignedWalls: string[] = config.assignedWalls || []
-      return assignedWalls.includes(activePorticoId)
-    }
     if (!panel.tags || panel.tags.length === 0) return true
     return panel.tags.some(t => activeTags.includes(t.id))
   })
@@ -358,10 +352,6 @@ export default function DashboardPage() {
         // (same filter as visiblePanels in the render)
         const wallActiveTags = (wall.tags || []).filter((t: any) => t.active).map((t: any) => t.tagId)
         const filtered = wallActiveTags.length === 0 ? loaded : loaded.filter((p: Panel) => {
-          if (p.scope === 'personal') {
-            const cfg = (() => { try { return JSON.parse(p.config || '{}') } catch { return {} } })()
-            return (cfg.assignedWalls || []).includes(wall.id)
-          }
           if (!p.tags || p.tags.length === 0) return true
           return p.tags.some((t: any) => wallActiveTags.includes(t.id) || wallActiveTags.includes(t.tagId))
         })

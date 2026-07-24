@@ -788,6 +788,19 @@ var migrations = []migration{
 			ALTER TABLE google_oauth_tokens ADD COLUMN days_ahead INTEGER NOT NULL DEFAULT 30;
 		`,
 	},
+	{
+		// personal_panel_porticos backed a portico-assignment mechanism for
+		// personal panels that was never fully wired up end to end (nothing
+		// ever populated it — the only write path, SetPersonalPanelPorticos,
+		// had no caller). Portico membership is tags-only now, for personal
+		// and shared panels alike; see ListPorticoConfigPanels and
+		// DashboardPage.tsx's visiblePanels filter.
+		version: 55,
+		name:    "drop_personal_panel_porticos",
+		up: `
+			DROP TABLE IF EXISTS personal_panel_porticos;
+		`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

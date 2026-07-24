@@ -449,13 +449,6 @@ export const panelsApi = {
     api.put('/panels/order', { porticoId: porticoId ?? null, order }),
 }
 
-// ── Personal Panel Porticos ─────────────────────────────────────────────────
-
-export const personalPanelPorticosApi = {
-  get: (panelId: string) => api.get<string[]>(`/panels/${panelId}/porticos`),
-  set: (panelId: string, porticoIds: string[]) => api.put(`/panels/${panelId}/porticos`, { porticoIds }),
-}
-
 // ── Mail config ──────────────────────────────────────────────────────────────
 export interface MailConfig {
   host: string; port: string; username: string; password: string

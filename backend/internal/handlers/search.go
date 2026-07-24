@@ -33,9 +33,11 @@ func Search(db *sql.DB) http.HandlerFunc {
 		var results []SearchResult
 
 		// ── Notes (user's own panels only) ────────────────────────────────────
+		// Deep-links to 'home' — a note's panel can belong to several porticos
+		// or none (tag-based membership), so there's no single "correct"
+		// portico to point at; home is always a safe landing spot.
 		noteRows, err := db.Query(`
-			SELECT n.id, n.title, SUBSTR(n.body, 1, 120), p.id,
-				COALESCE((SELECT ppp.portico_id FROM personal_panel_porticos ppp WHERE ppp.panel_id = p.id LIMIT 1), 'home')
+			SELECT n.id, n.title, SUBSTR(n.body, 1, 120), p.id, 'home'
 			FROM notes n
 			JOIN panels p ON p.id = n.panel_id
 			WHERE (n.title LIKE ? OR n.body LIKE ?)
