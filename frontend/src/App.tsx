@@ -1,18 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ThemeProvider } from './context/ThemeContext'
 import { UserModeProvider, useUserMode } from './context/UserModeContext'
 import { authApi } from './api'
 
-import SetupPage from './pages/SetupPage'
-import ProfilePage from './pages/ProfilePage'
+// LoginPage and DashboardPage are on the critical path for nearly every
+// session, so they stay in the main bundle. The rest (admin console, the
+// large profile page, one-time setup flows) are only ever visited by a
+// fraction of sessions — code-split so they don't tax everyone's first load.
 import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
-import AdminPage from './pages/AdminPage'
-import HelpPage from './pages/HelpPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import ExpressSetupPage from './pages/ExpressSetupPage'
+const SetupPage = lazy(() => import('./pages/SetupPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const HelpPage = lazy(() => import('./pages/HelpPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const ExpressSetupPage = lazy(() => import('./pages/ExpressSetupPage'))
 import Layout from './components/layout/Layout'
 import ThemeSwitcher from './components/layout/ThemeSwitcher'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -134,7 +138,9 @@ export default function App() {
         <AuthProvider>
           <UserModeProvider>
             <ErrorBoundary>
-              <AppRoutes />
+              <Suspense fallback={<LoadingScreen />}>
+                <AppRoutes />
+              </Suspense>
               <ThemeSwitcher />
             </ErrorBoundary>
           </UserModeProvider>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { glyphsApi, tickersApi, Glyph, dockerApi } from '../../api'
 import GlyphZone from '../glyphs/GlyphZone'
 import TickerStrip from '../tickers/TickerStrip'
@@ -9,7 +9,9 @@ import { StoaLogo } from '../../App'
 import { APP_VERSION } from '../../version'
 import { useSSEStatus, useChatSSE, useDMSSE } from '../../hooks/useSSE'
 import { chatApi, dmApi, pushApi } from '../../api'
-import ChatPanel from './ChatPanel'
+// Chat is a closed-by-default drawer most sessions never open — split out
+// of the main bundle rather than shipping its ~1300 lines to everyone.
+const ChatPanel = lazy(() => import('./ChatPanel'))
 import PresenceWidget from './PresenceWidget'
 import DockerOverlay from '../DockerOverlay'
 import { useUserMode, useAutoLogin, useUserModeLoaded } from '../../context/UserModeContext'
@@ -395,6 +397,7 @@ export default function Layout() {
         </footer>
       </div>
     </div>
+    <Suspense fallback={null}>
     <ChatPanel open={chatOpen} onClose={() => setChatOpen(false)}
       currentUserId={user?.id || ''} singleUser={userMode === 'single'}
       pendingDM={pendingDM}
@@ -404,6 +407,7 @@ export default function Layout() {
           dmApi.unreadTotal().then(r => setDmUnreadCount(r.data.count || 0)).catch(() => {})
         }
       }} />
+    </Suspense>
     <DockerOverlay open={dockerOpen} onClose={() => setDockerOpen(false)} />
     </>
   )

@@ -1,111 +1,115 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, lazy, Suspense } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { panelsApi, porticosApi, bookmarksApi, myBookmarksApi, tagsApi, preferencesApi, customColumnsApi, integrationsApi, Panel, Portico, Tag, BookmarkNode } from '../api'
 import { useSSEConnected } from '../hooks/useSSE'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarkTree from '../components/BookmarkTree'
-import CalendarPanel from '../components/panels/CalendarPanel'
-import SecurityPosturePanel from '../components/panels/SecurityPosturePanel'
-import DockerAppsPanel from '../components/panels/DockerAppsPanel'
-import SonarrPanel from '../components/panels/SonarrPanel'
-import RadarrPanel from '../components/panels/RadarrPanel'
-import LidarrPanel from '../components/panels/LidarrPanel'
-import PlexPanel from '../components/panels/PlexPanel'
-import JellyfinPanel from '../components/panels/JellyfinPanel'
-import HomeAssistantPanel from '../components/panels/HomeAssistantPanel'
-import TautulliPanel from '../components/panels/TautulliPanel'
-import TrueNASPanel from '../components/panels/TrueNASPanel'
-import UnraidPanel from '../components/panels/UnraidPanel'
-import OMVPanel from '../components/panels/OMVPanel'
-import SynologyPanel from '../components/panels/SynologyPanel'
-import QNAPPanel from '../components/panels/QNAPPanel'
-import ProxmoxPanel from '../components/panels/ProxmoxPanel'
-import KumaPanel from '../components/panels/KumaPanel'
-import GluetunPanel from '../components/panels/GluetunPanel'
-import OPNsensePanel from '../components/panels/OPNsensePanel'
-import TransmissionPanel from '../components/panels/TransmissionPanel'
-import QBittorrentPanel from '../components/panels/QBittorrentPanel'
-import DelugePanel from '../components/panels/DelugePanel'
-import RTorrentPanel from '../components/panels/RTorrentPanel'
-import EmbyPanel from '../components/panels/EmbyPanel'
-import JellystatPanel from '../components/panels/JellystatPanel'
-import TracearrPanel from '../components/panels/TracearrPanel'
-import ImmichPanel from '../components/panels/ImmichPanel'
-import KavitaPanel from '../components/panels/KavitaPanel'
-import KomgaPanel from '../components/panels/KomgaPanel'
-import Mylar3Panel from '../components/panels/Mylar3Panel'
-import KapowarrPanel from '../components/panels/KapowarrPanel'
-import TrangaPanel from '../components/panels/TrangaPanel'
-import AudiobookshelfPanel from '../components/panels/AudiobookshelfPanel'
-import NavidromePanel from '../components/panels/NavidromePanel'
-import PfSensePanel from '../components/panels/PfSensePanel'
-import OpenWrtPanel from '../components/panels/OpenWrtPanel'
-import OmadaPanel from '../components/panels/OmadaPanel'
-import UniFiPanel from '../components/panels/UniFiPanel'
-import TraefikPanel from '../components/panels/TraefikPanel'
-import CloudflarePanel from '../components/panels/CloudflarePanel'
-import PiHolePanel from '../components/panels/PiHolePanel'
-import AdGuardPanel from '../components/panels/AdGuardPanel'
-import NextDNSPanel from '../components/panels/NextDNSPanel'
-import NPMPanel from '../components/panels/NPMPanel'
-import WGEasyPanel from '../components/panels/WGEasyPanel'
-import TailscalePanel from '../components/panels/TailscalePanel'
-import PrometheusPanel from '../components/panels/PrometheusPanel'
-import GrafanaPanel from '../components/panels/GrafanaPanel'
-import AutobrrPanel from '../components/panels/AutobrrPanel'
-import BazarrPanel from '../components/panels/BazarrPanel'
-import ProwlarrPanel from '../components/panels/ProwlarrPanel'
-import FrigatePanel from '../components/panels/FrigatePanel'
-import BlueIrisPanel from '../components/panels/BlueIrisPanel'
-import NextcloudPanel from '../components/panels/NextcloudPanel'
-import FireflyPanel from '../components/panels/FireflyPanel'
-import NetbirdPanel from '../components/panels/NetbirdPanel'
-import ActualBudgetPanel from '../components/panels/ActualBudgetPanel'
-import ScrutinyPanel from '../components/panels/ScrutinyPanel'
-import PaperlessPanel from '../components/panels/PaperlessPanel'
-import MealiePanel from '../components/panels/MealiePanel'
-import GrocyPanel from '../components/panels/GrocyPanel'
-import GhostfolioPanel from '../components/panels/GhostfolioPanel'
-import CoinbasePanel from '../components/panels/CoinbasePanel'
-import SABnzbdPanel from '../components/panels/SABnzbdPanel'
-import NZBGetPanel from '../components/panels/NZBGetPanel'
-import TandoorPanel from '../components/panels/TandoorPanel'
-import LubeLoggerPanel from '../components/panels/LubeLoggerPanel'
-import TdarrPanel from '../components/panels/TdarrPanel'
-import DocspellPanel from '../components/panels/DocspellPanel'
-import RommPanel from '../components/panels/RommPanel'
-import PterodactylPanel from '../components/panels/PterodactylPanel'
-import MaintainerrPanel from '../components/panels/MaintainerrPanel'
-import MonicaPanel from '../components/panels/MonicaPanel'
-import HomeboxPanel from '../components/panels/HomeboxPanel'
-import WgerPanel from '../components/panels/WgerPanel'
-import FittrackeePanel from '../components/panels/FittrackeePanel'
-import SpotifyPanel from '../components/panels/SpotifyPanel'
-import LastFmPanel from '../components/panels/LastFmPanel'
-import StravaPanel from '../components/panels/StravaPanel'
-import DuolingoPanel from '../components/panels/DuolingoPanel'
-import GitHubPanel from '../components/panels/GitHubPanel'
-import TraktPanel from '../components/panels/TraktPanel'
-import TwitchPanel from '../components/panels/TwitchPanel'
-import YouTubePanel from '../components/panels/YouTubePanel'
-import KanbanPanel from '../components/panels/KanbanPanel'
-import KanbanOverlay from '../components/panels/KanbanOverlay'
-import PhotoPrismPanel from '../components/panels/PhotoPrismPanel'
-import AuthentikPanel from '../components/panels/AuthentikPanel'
-import ChecklistPanel from '../components/panels/ChecklistPanel'
-import NotesPanel from '../components/panels/NotesPanel'
-import CustomAPIPanel from '../components/panels/CustomAPIPanel'
-import RSSPanel from '../components/panels/RSSPanel'
-import WeatherPanel from '../components/panels/WeatherPanel'
-import SteamPanel from '../components/panels/SteamPanel'
-import ReadarrPanel from '../components/panels/ReadarrPanel'
-import SportsPanel from '../components/panels/SportsPanel'
-import MarketPanel from '../components/panels/MarketPanel'
-import SearchPanel from '../components/panels/SearchPanel'
-import OverseerrPanel from '../components/panels/OverseerrPanel'
 import SearchModal from '../components/SearchModal'
 import { Note } from '../api'
-import { NoteOverlay } from '../components/panels/NotesPanel'
+import NotesPanel, { NoteOverlay } from '../components/panels/NotesPanel'
+import KanbanOverlay from '../components/panels/KanbanOverlay'
+
+// Panel bodies are code-split per integration type — a dashboard only ever
+// renders the handful of panel types the user actually configured, so there's
+// no reason to ship all ~100 integrations' code in the initial bundle. Each
+// panel.type branch below lazily imports its own chunk on first render.
+const CalendarPanel = lazy(() => import('../components/panels/CalendarPanel'))
+const SecurityPosturePanel = lazy(() => import('../components/panels/SecurityPosturePanel'))
+const DockerAppsPanel = lazy(() => import('../components/panels/DockerAppsPanel'))
+const SonarrPanel = lazy(() => import('../components/panels/SonarrPanel'))
+const RadarrPanel = lazy(() => import('../components/panels/RadarrPanel'))
+const LidarrPanel = lazy(() => import('../components/panels/LidarrPanel'))
+const PlexPanel = lazy(() => import('../components/panels/PlexPanel'))
+const JellyfinPanel = lazy(() => import('../components/panels/JellyfinPanel'))
+const HomeAssistantPanel = lazy(() => import('../components/panels/HomeAssistantPanel'))
+const TautulliPanel = lazy(() => import('../components/panels/TautulliPanel'))
+const TrueNASPanel = lazy(() => import('../components/panels/TrueNASPanel'))
+const UnraidPanel = lazy(() => import('../components/panels/UnraidPanel'))
+const OMVPanel = lazy(() => import('../components/panels/OMVPanel'))
+const SynologyPanel = lazy(() => import('../components/panels/SynologyPanel'))
+const QNAPPanel = lazy(() => import('../components/panels/QNAPPanel'))
+const ProxmoxPanel = lazy(() => import('../components/panels/ProxmoxPanel'))
+const KumaPanel = lazy(() => import('../components/panels/KumaPanel'))
+const GluetunPanel = lazy(() => import('../components/panels/GluetunPanel'))
+const OPNsensePanel = lazy(() => import('../components/panels/OPNsensePanel'))
+const TransmissionPanel = lazy(() => import('../components/panels/TransmissionPanel'))
+const QBittorrentPanel = lazy(() => import('../components/panels/QBittorrentPanel'))
+const DelugePanel = lazy(() => import('../components/panels/DelugePanel'))
+const RTorrentPanel = lazy(() => import('../components/panels/RTorrentPanel'))
+const EmbyPanel = lazy(() => import('../components/panels/EmbyPanel'))
+const JellystatPanel = lazy(() => import('../components/panels/JellystatPanel'))
+const TracearrPanel = lazy(() => import('../components/panels/TracearrPanel'))
+const ImmichPanel = lazy(() => import('../components/panels/ImmichPanel'))
+const KavitaPanel = lazy(() => import('../components/panels/KavitaPanel'))
+const KomgaPanel = lazy(() => import('../components/panels/KomgaPanel'))
+const Mylar3Panel = lazy(() => import('../components/panels/Mylar3Panel'))
+const KapowarrPanel = lazy(() => import('../components/panels/KapowarrPanel'))
+const TrangaPanel = lazy(() => import('../components/panels/TrangaPanel'))
+const AudiobookshelfPanel = lazy(() => import('../components/panels/AudiobookshelfPanel'))
+const NavidromePanel = lazy(() => import('../components/panels/NavidromePanel'))
+const PfSensePanel = lazy(() => import('../components/panels/PfSensePanel'))
+const OpenWrtPanel = lazy(() => import('../components/panels/OpenWrtPanel'))
+const OmadaPanel = lazy(() => import('../components/panels/OmadaPanel'))
+const UniFiPanel = lazy(() => import('../components/panels/UniFiPanel'))
+const TraefikPanel = lazy(() => import('../components/panels/TraefikPanel'))
+const CloudflarePanel = lazy(() => import('../components/panels/CloudflarePanel'))
+const PiHolePanel = lazy(() => import('../components/panels/PiHolePanel'))
+const AdGuardPanel = lazy(() => import('../components/panels/AdGuardPanel'))
+const NextDNSPanel = lazy(() => import('../components/panels/NextDNSPanel'))
+const NPMPanel = lazy(() => import('../components/panels/NPMPanel'))
+const WGEasyPanel = lazy(() => import('../components/panels/WGEasyPanel'))
+const TailscalePanel = lazy(() => import('../components/panels/TailscalePanel'))
+const PrometheusPanel = lazy(() => import('../components/panels/PrometheusPanel'))
+const GrafanaPanel = lazy(() => import('../components/panels/GrafanaPanel'))
+const AutobrrPanel = lazy(() => import('../components/panels/AutobrrPanel'))
+const BazarrPanel = lazy(() => import('../components/panels/BazarrPanel'))
+const ProwlarrPanel = lazy(() => import('../components/panels/ProwlarrPanel'))
+const FrigatePanel = lazy(() => import('../components/panels/FrigatePanel'))
+const BlueIrisPanel = lazy(() => import('../components/panels/BlueIrisPanel'))
+const NextcloudPanel = lazy(() => import('../components/panels/NextcloudPanel'))
+const FireflyPanel = lazy(() => import('../components/panels/FireflyPanel'))
+const NetbirdPanel = lazy(() => import('../components/panels/NetbirdPanel'))
+const ActualBudgetPanel = lazy(() => import('../components/panels/ActualBudgetPanel'))
+const ScrutinyPanel = lazy(() => import('../components/panels/ScrutinyPanel'))
+const PaperlessPanel = lazy(() => import('../components/panels/PaperlessPanel'))
+const MealiePanel = lazy(() => import('../components/panels/MealiePanel'))
+const GrocyPanel = lazy(() => import('../components/panels/GrocyPanel'))
+const GhostfolioPanel = lazy(() => import('../components/panels/GhostfolioPanel'))
+const CoinbasePanel = lazy(() => import('../components/panels/CoinbasePanel'))
+const SABnzbdPanel = lazy(() => import('../components/panels/SABnzbdPanel'))
+const NZBGetPanel = lazy(() => import('../components/panels/NZBGetPanel'))
+const TandoorPanel = lazy(() => import('../components/panels/TandoorPanel'))
+const LubeLoggerPanel = lazy(() => import('../components/panels/LubeLoggerPanel'))
+const TdarrPanel = lazy(() => import('../components/panels/TdarrPanel'))
+const DocspellPanel = lazy(() => import('../components/panels/DocspellPanel'))
+const RommPanel = lazy(() => import('../components/panels/RommPanel'))
+const PterodactylPanel = lazy(() => import('../components/panels/PterodactylPanel'))
+const MaintainerrPanel = lazy(() => import('../components/panels/MaintainerrPanel'))
+const MonicaPanel = lazy(() => import('../components/panels/MonicaPanel'))
+const HomeboxPanel = lazy(() => import('../components/panels/HomeboxPanel'))
+const WgerPanel = lazy(() => import('../components/panels/WgerPanel'))
+const FittrackeePanel = lazy(() => import('../components/panels/FittrackeePanel'))
+const SpotifyPanel = lazy(() => import('../components/panels/SpotifyPanel'))
+const LastFmPanel = lazy(() => import('../components/panels/LastFmPanel'))
+const StravaPanel = lazy(() => import('../components/panels/StravaPanel'))
+const DuolingoPanel = lazy(() => import('../components/panels/DuolingoPanel'))
+const GitHubPanel = lazy(() => import('../components/panels/GitHubPanel'))
+const TraktPanel = lazy(() => import('../components/panels/TraktPanel'))
+const TwitchPanel = lazy(() => import('../components/panels/TwitchPanel'))
+const YouTubePanel = lazy(() => import('../components/panels/YouTubePanel'))
+const KanbanPanel = lazy(() => import('../components/panels/KanbanPanel'))
+const PhotoPrismPanel = lazy(() => import('../components/panels/PhotoPrismPanel'))
+const AuthentikPanel = lazy(() => import('../components/panels/AuthentikPanel'))
+const ChecklistPanel = lazy(() => import('../components/panels/ChecklistPanel'))
+const CustomAPIPanel = lazy(() => import('../components/panels/CustomAPIPanel'))
+const RSSPanel = lazy(() => import('../components/panels/RSSPanel'))
+const WeatherPanel = lazy(() => import('../components/panels/WeatherPanel'))
+const SteamPanel = lazy(() => import('../components/panels/SteamPanel'))
+const ReadarrPanel = lazy(() => import('../components/panels/ReadarrPanel'))
+const SportsPanel = lazy(() => import('../components/panels/SportsPanel'))
+const MarketPanel = lazy(() => import('../components/panels/MarketPanel'))
+const SearchPanel = lazy(() => import('../components/panels/SearchPanel'))
+const OverseerrPanel = lazy(() => import('../components/panels/OverseerrPanel'))
 import { integrationIconUrl } from '../integrationIcons'
 
 // GlobalNoteOverlay — listens for stoa-open-note at app level, works across porticos
@@ -1081,6 +1085,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
       {/* Content */}
       {!collapsed && (
         <div key={`${panel.id}-${refreshNonce}`} style={{ padding: '10px 14px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
+        <Suspense fallback={<div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading…</div>}>
           {panel.type === 'bookmarks' && !subtree && (
             <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading...</div>
           )}
@@ -1207,6 +1212,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
               ? <div dangerouslySetInnerHTML={{ __html: cfg.html }} style={{ fontSize: 13 }} />
               : <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: 8 }}>No content configured — edit this panel in My Panels to add HTML.</div>
           })()}
+        </Suspense>
         </div>
       )}
     </div>
