@@ -249,6 +249,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Panel | Status | Notes | Page |
 |---|---|---|---|
 | Calendar | ✅ Tested | Aggregates from Sonarr / Radarr / Lidarr / Readarr / Google Calendar sources | [calendar/](calendar/) |
+| Map | 🧪 Experimental | Live location map — aggregates from Life360 (first source; more planned) | [map/](map/) |
 | Kanban | ✅ Tested | Local task boards — data stored in Stoa's database | [kanban/](kanban/) |
 | Notes | ✅ Tested | Shared markdown-capable notes with multi-user locking | [notes/](notes/) |
 | Checklist | ✅ Tested | Shared checklists with real-time state sync | [checklist/](checklist/) |
@@ -278,7 +279,9 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | `key:secret` | `key:secret` | OPNsense, Coinbase (`apiKey:apiSecret`) |
 | `user@realm!tokenid:secret` | `root@pam!stoa:abc` | Proxmox API token |
 | `account:password` | `collective/user:pass` | Docspell |
+| `realm:clientId:clientSecret` | `master:stoa:abc123...` | Keycloak (confidential client, service account roles view-events + query-users) |
 | Long-lived / PAT token | `hass_token...` | Home Assistant, GitHub, Netbird, Monica, Pterodactyl, Firefly III |
+| Manually-extracted session token (not a real API key) | browser cookie value | Life360 — see [life360/](life360/) for why, and for the extraction steps |
 | Service Account token | `glsa_...` | Grafana |
 | Scoped API token | `cloudflare_token` | Cloudflare (recommended over Global API Key) |
 | Security token | `abc123` | Ghostfolio (exchanged for a short-lived JWT) |
@@ -303,7 +306,7 @@ Every integration type has a default polling interval, editable per integration 
 | Tier | Interval | Character | Examples |
 |---|---|---|---|
 | Live | 30s | System/session state worth watching closely — active sessions, live traffic, in-progress transfers, camera events | Plex, TrueNAS, OPNsense, Transmission, Frigate |
-| Operational | 2min | Status that changes over minutes, not seconds | AdGuard Home, Authentik, Keycloak, Uptime Kuma, Home Assistant |
+| Operational | 2min | Status that changes over minutes, not seconds | AdGuard Home, Authentik, Keycloak, Life360, Uptime Kuma, Home Assistant |
 | Library/queue | 5min | Media libraries, download/request queues, mesh-VPN device lists | Sonarr, Radarr, Kavita, Tailscale, Overseerr |
 | Slow personal | 1hr | Market data, photo libraries, media-consumption stats, and apps whose data only changes when you edit it by hand | Stocks, PhotoPrism, YouTube, LubeLogger, Mealie |
 | Daily | 4hr | Data that only meaningfully updates a few times a day | Weather, GitHub, RSS, Actual Budget |

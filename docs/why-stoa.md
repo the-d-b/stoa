@@ -36,6 +36,8 @@ We wanted to borrow the best of both and build something more opinionated.
 
 **Calendar.** Multi-source calendar that aggregates from Sonarr, Radarr, Lidarr, Readarr, and Google Calendar into a single view. Each source is independently configurable with a days-ahead window. The result is a single calendar that shows media releases alongside personal appointments.
 
+**Map.** Same pluggable-source idea as Calendar, applied to live location — add any GPS source and every marker shows up on one map, with a maximize view and a per-person roster. Life360 is the first source; it's the one integration in Stoa without a real API, so it's marked experimental and documented accordingly rather than pretending it's as solid as everything else.
+
 **Sports, Stocks, Crypto.** Data panels that don't require any self-hosted service. ESPN scores, stock quotes, and cryptocurrency prices — configure a panel and the data appears. No API server to run.
 
 **Glyphs and Tickers.** Persistent widgets that live in the header and footer zones outside the panel grid. A weather glyph in the corner. A sports score ticker scrolling across the bottom. TrueNAS CPU and memory always visible at a glance. These complement the main panel grid rather than competing with it.

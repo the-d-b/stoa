@@ -24,7 +24,8 @@ Connect Stoa to your services and pull live data into a clean, responsive dashbo
 - **Multi-user** — users, groups, and tag-based access control; each user gets their own layout and panel order
 - **Porticos** — named dashboard views with independent tag filters, layouts, and panel ordering; live scaled preview in profile settings
 - **Layout modes** — Stylos (column-fill), Seira (CSS grid rows), Rema (collapsible rows), Custom (manual column assignment)
-- **Calendar** — multi-source calendar aggregating Sonarr/Radarr/Lidarr/Readarr releases and Google Calendar events
+- **Calendar** — multi-source calendar aggregating Sonarr/Radarr/Lidarr/Readarr releases, Google Calendar/CalDAV events, and more
+- **Map** — live location map aggregating GPS sources (Life360 first), same pluggable-source pattern as Calendar
 - **Glyphs & Tickers** — persistent status indicators (weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) in the header and footer
 - **Docker control panel** — view and manage containers across local and remote Docker hosts
 - **Notes & Checklists** — shared panels with per-user locking (notes) and shared state (checklists)
