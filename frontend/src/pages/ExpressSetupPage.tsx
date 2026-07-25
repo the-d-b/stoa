@@ -23,7 +23,7 @@ const OPTIONAL_KEY_TYPES = new Set(['frigate', 'maintainerr', 'tdarr', 'pihole',
 const NO_URL_TYPES = new Set([
   'gemini',                                          // AI chat only — key stored, no integration URL
   'steam', 'lastfm', 'duolingo', 'github', 'trakt',
-  'tailscale', 'nextdns', 'cloudflare',
+  'tailscale', 'nextdns', 'cloudflare', 'life360',
 ])
 
 // ── Secret field label overrides (default: "API Key") ────────────────────────
@@ -38,6 +38,7 @@ const SECRET_LABEL: Record<string, string> = {
   monica:         'Bearer Token',
   authentik:      'API Token',
   keycloak:       'realm:clientId:clientSecret',
+  life360:        'Session Token (see docs — not a normal API key)',
   netbird:        'Access Token',
   tailscale:      'API Token',
   github:         'Access Token',

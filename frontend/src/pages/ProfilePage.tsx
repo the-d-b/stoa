@@ -9,6 +9,7 @@ import { StoaLogo } from '../App'
 import { panelsApi, porticosApi, myPanelsApi, myIntegrationsApi, myTagsApi, mySecretsApi, myBookmarksApi, profileApi, preferencesApi, secretsApi, glyphsApi, tickersApi, integrationsApi, tagsApi, googleApi, customColumnsApi, porticoConfigApi, appIconApi, Integration, Ticker, Glyph, Secret, Panel, Portico, Tag } from '../api'
 import PanelForm, { PANEL_TYPES as SHARED_PANEL_TYPES } from '../components/admin/PanelForm'
 import CalendarSourceAdder from '../components/admin/CalendarSourceAdder'
+import MapSourceAdder from '../components/admin/MapSourceAdder'
 import IntegrationForm, { INTEGRATION_TYPES as SHARED_INTEGRATION_TYPES } from '../components/admin/IntegrationForm'
 import { useUserMode } from '../context/UserModeContext'
 import BookmarksPanel from '../components/admin/BookmarksPanel'
@@ -3320,6 +3321,14 @@ function MyPanelsTab() {
                   >
                     {p.type === 'calendar' && (
                       <CalendarSourceAdder
+                        panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                        isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
+                        integrations={integrations}
+                        onAdded={load}
+                      />
+                    )}
+                    {p.type === 'map' && (
+                      <MapSourceAdder
                         panelId={p.id} panelTitle={p.title} panelConfig={p.config}
                         isSystem={!p.createdBy || p.createdBy === 'SYSTEM'}
                         integrations={integrations}

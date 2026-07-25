@@ -130,6 +130,7 @@ export const PANEL_TYPES: {
   { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',                      needsIntegration: false, category: 'Productivity' },
   { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',                           needsIntegration: false, category: 'Productivity' },
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                         needsIntegration: false, category: 'Productivity' },
+  { id: 'map',          label: 'Map',          desc: 'Live location map with sources — GPS markers from any added source (Life360 first), maximize for a full-screen view with a person roster', needsIntegration: false, category: 'Productivity' },
   { id: 'securityposture', label: 'Security Posture', desc: 'Detected version + known CVEs for your network/storage-facing integrations (auto-discovered — no source picker)', needsIntegration: false, category: 'Monitoring' },
   { id: 'dockerapps', label: 'Docker Apps', desc: 'App launcher tiles auto-discovered from Docker container labels — same homepage.name/icon/href/description/group/weight labels as the Homepage dashboard, grouped and collapsible (auto-discovered — no source picker)', needsIntegration: false, category: 'Monitoring' },
   { id: 'search',       label: 'Search',       desc: 'External search engine panel',                  needsIntegration: false, category: 'Productivity' },

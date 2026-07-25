@@ -35,7 +35,7 @@ var integrationConfigTypes = map[string]bool{
 	"stocks": true, "crypto": true, "sports": true, "weather": true,
 	"youtube": true, "twitch": true, "spotify": true, "lastfm": true,
 	"strava": true, "trakt": true, "github": true, "steam": true, "duolingo": true,
-	"rss": true, "tailscale": true,
+	"rss": true, "tailscale": true, "life360": true,
 }
 
 func ListIntegrations(db *sql.DB) http.HandlerFunc {
@@ -499,6 +499,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testAuthentikConnection(req.APIURL, apiKey, req.SkipTLS)
 		case "keycloak":
 			err = testKeycloakConnection(req.APIURL, apiKey, req.SkipTLS)
+		case "life360":
+			err = testLife360Connection(req.APIURL, apiKey, req.SkipTLS)
 		default:
 			err = testGenericConnection(req.APIURL)
 		}
@@ -921,7 +923,7 @@ func defaultRefreshSecs(igType string) int {
 	// monitoring, network/reverse-proxy status, metrics dashboards, live
 	// game-server process status, smart-home sensor/presence state.
 	case "adguard", "pihole", "nextdns",
-		"authentik", "keycloak", "gluetun", "kuma",
+		"authentik", "keycloak", "life360", "gluetun", "kuma",
 		"unifi", "omada", "traefik", "nginxpm",
 		"prometheus", "grafana",
 		"pterodactyl", "homeassistant":

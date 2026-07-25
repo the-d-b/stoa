@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { panelsApi, tagsApi, bookmarksApi, integrationsApi, groupsApi, Integration, Panel, Tag, BookmarkNode } from '../../api'
 import CalendarSourceAdder from './CalendarSourceAdder'
+import MapSourceAdder from './MapSourceAdder'
 import PanelForm, { PANEL_TYPES } from './PanelForm'
 import SectionHelp from './SectionHelp'
 
@@ -161,6 +162,14 @@ export default function PanelsAdminPanel() {
                   >
                     {p.type === 'calendar' && (
                       <CalendarSourceAdder
+                        panelId={p.id} panelTitle={p.title} panelConfig={p.config}
+                        isSystem={true}
+                        integrations={integrations}
+                        onAdded={load}
+                      />
+                    )}
+                    {p.type === 'map' && (
+                      <MapSourceAdder
                         panelId={p.id} panelTitle={p.title} panelConfig={p.config}
                         isSystem={true}
                         integrations={integrations}

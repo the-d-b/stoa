@@ -101,6 +101,7 @@ const KanbanPanel = lazy(() => import('../components/panels/KanbanPanel'))
 const PhotoPrismPanel = lazy(() => import('../components/panels/PhotoPrismPanel'))
 const AuthentikPanel = lazy(() => import('../components/panels/AuthentikPanel'))
 const KeycloakPanel = lazy(() => import('../components/panels/KeycloakPanel'))
+const MapPanel = lazy(() => import('../components/panels/MapPanel'))
 const ChecklistPanel = lazy(() => import('../components/panels/ChecklistPanel'))
 const CustomAPIPanel = lazy(() => import('../components/panels/CustomAPIPanel'))
 const RSSPanel = lazy(() => import('../components/panels/RSSPanel'))
@@ -1088,6 +1089,9 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           )}
           {panel.type === 'calendar' && (
             <CalendarPanel panel={panel} heightUnits={heightUnits} />
+          )}
+          {panel.type === 'map' && (
+            <MapPanel panel={panel} heightUnits={heightUnits} />
           )}
           {panel.type === 'securityposture' && (
             <SecurityPosturePanel panel={panel} heightUnits={heightUnits} />

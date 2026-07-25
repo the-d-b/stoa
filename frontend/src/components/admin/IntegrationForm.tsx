@@ -102,6 +102,7 @@ export const INTEGRATION_TYPES = [
   { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — URL is http://docspell:7880. API key field: account:password where account is "collective/user" for multi-user setups or just "user" for a single-collective instance.', category: 'Documents' },
   // Personal
   { id: 'monica',     label: 'Monica',     desc: 'Personal CRM — URL is http://monica:8080. API key field: bearer token generated in Monica → Settings → API → Create New Token.', category: 'Personal' },
+  { id: 'life360',   label: 'Life360',   desc: 'Family location sharing — no official API; secret is a session token you extract by hand from your browser (see docs), and it can expire without warning', category: 'Personal' },
   { id: 'homebox',   label: 'Homebox',   desc: 'Home inventory — URL is http://homebox:7745. API key field: email:password of your Homebox account.', category: 'Personal' },
   // Health & Fitness
   { id: 'wger',       label: 'wger',       desc: 'Workout manager — URL is http://wger:80. API key field: permanent API key from wger → Dashboard → API (top-right menu).', category: 'Health & Fitness' },
@@ -129,7 +130,7 @@ export const INTEGRATION_TYPES = [
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale', 'life360']
 // Types whose calendar-source events come from a real windowed upstream
 // query (start/end params) — the only ones where a fetch-size ceiling here
 // actually matters. Others (Kapowarr, Maintainerr, etc.) always fetch

@@ -19,7 +19,7 @@ const ICON_TYPES = new Set([
   'duolingo', 'emby', 'fireflyiii', 'fittrackee', 'frigate', 'ghostfolio',
   'github', 'gluetun', 'grafana', 'grocy', 'homeassistant', 'homebox',
   'iframe', 'immich', 'jellyfin', 'jellystat', 'kanban', 'kapowarr', 'kavita',
-  'keycloak', 'komga', 'kuma', 'lastfm', 'lidarr', 'lubelogger', 'maintainerr', 'mealie',
+  'keycloak', 'komga', 'kuma', 'lastfm', 'lidarr', 'lubelogger', 'maintainerr', 'map', 'mealie',
   'monica', 'mylar3', 'navidrome', 'netbird', 'nextcloud', 'nextdns', 'nginxpm',
   'notes', 'nzbget', 'omada', 'omv', 'openwrt', 'opnsense', 'overseerr',
   'paperless', 'pfsense', 'photoprism', 'pihole', 'plex', 'prometheus',

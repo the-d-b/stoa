@@ -197,6 +197,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|---|---|
 | Monica | 🔶 Need Testing | Bearer `token` — Monica → Settings → API → Personal Access Tokens | Required | 15 min | [monica/](monica/) |
 | Homebox | 🔶 Need Testing | `email:password` — your Homebox login | Required | 15 min | [homebox/](homebox/) |
+| Life360 | 🧪 Experimental | Session token extracted by hand from your browser — **not** an API key, see [life360/](life360/) | Not needed (fixed host) | 2 min | [life360/](life360/) |
 
 ---
 
