@@ -131,6 +131,26 @@ export const INTEGRATION_TYPES = [
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
 const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale', 'life360']
+// Types the backend accepts with an empty api_url when running a connection
+// test — mirrors integrationConfigTypes in
+// backend/internal/handlers/integrations_crud.go. Enables the Test button for
+// no-URL types like Life360/Tailscale (which have a working test that ignores
+// the URL). Deliberately excludes coinbase/cloudflare, whose test path still
+// requires a URL on the backend.
+const URL_OPTIONAL_TEST_TYPES = [
+  'stocks', 'crypto', 'sports', 'weather', 'youtube', 'twitch', 'spotify',
+  'lastfm', 'strava', 'trakt', 'github', 'steam', 'duolingo', 'rss',
+  'tailscale', 'life360',
+]
+// Per-type default refresh interval (seconds) shown when creating an
+// integration. Mirrors defaultRefreshSecs in
+// backend/internal/handlers/integrations_crud.go for the types where the
+// generic 60s default is wrong; the backend stays the source of truth (it
+// re-applies its own default if we ever send a value < 15).
+const DEFAULT_REFRESH_SECS: Record<string, number> = {
+  life360: 120,
+}
+const defaultRefreshFor = (t: string) => DEFAULT_REFRESH_SECS[t] ?? 60
 // Types whose calendar-source events come from a real windowed upstream
 // query (start/end params) — the only ones where a fetch-size ceiling here
 // actually matters. Others (Kapowarr, Maintainerr, etc.) always fetch
@@ -170,7 +190,7 @@ export default function IntegrationForm({
   const [uiUrl, setUiUrl] = useState(integration?.uiUrl ?? '')
   const [secretId, setSecretId] = useState(integration?.secretId ?? '')
   const [skipTls, setSkipTls] = useState(integration?.skipTls ?? false)
-  const [refreshSecs, setRefreshSecs] = useState(integration?.refreshSecs ?? 60)
+  const [refreshSecs, setRefreshSecs] = useState(integration?.refreshSecs ?? defaultRefreshFor(integration?.type ?? 'sonarr'))
   const [calDaysAhead, setCalDaysAhead] = useState<number>(() => {
     try { return JSON.parse(integration?.config || '{}').daysAhead || 30 } catch { return 30 }
   })
@@ -292,7 +312,7 @@ export default function IntegrationForm({
     setUiUrl(integration.uiUrl ?? '')
     setSecretId(integration.secretId ?? '')
     setSkipTls(integration.skipTls ?? false)
-    setRefreshSecs(integration.refreshSecs ?? 60)
+    setRefreshSecs(integration.refreshSecs ?? defaultRefreshFor(integration.type))
     try { setCalDaysAhead(JSON.parse(integration.config || '{}').daysAhead || 30) } catch { setCalDaysAhead(30) }
     setTestResult(null)
     setGeoQuery(''); setGeoResults([])
@@ -322,6 +342,7 @@ export default function IntegrationForm({
       t === 'twitch'    ? 'https://api.twitch.tv' :
       ''
     )
+    setRefreshSecs(defaultRefreshFor(t))
     setTestResult(null)
     setGeoQuery(''); setGeoResults([])
     setSteamVanity('')
@@ -910,6 +931,19 @@ export default function IntegrationForm({
             No URL needed — Stoa always calls api.coinbase.com. Read-only scopes are sufficient.
           </div>
         </div>
+      ) : activeType === 'life360' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', lineHeight: 1.6 }}>
+            No URL needed — Stoa always calls Life360's app API. API key: a session
+            bearer token extracted by hand from your browser after logging into{' '}
+            <a href="https://life360.com" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>life360.com</a>{' '}
+            (DevTools → Application → Cookies → <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>LIFE360_AUTH_TOKEN</code>).
+            It is not a stable credential — it can expire without warning, at which point you re-extract it and update the secret.
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            Add this integration as a source in a Map panel to see family locations.
+          </div>
+        </div>
       ) : activeType === 'rss' ? (
         <div>
           <label className="label">Feed URL</label>
@@ -1131,7 +1165,7 @@ export default function IntegrationForm({
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         {!NO_TEST_TYPES.includes(activeType) && (
           <button className="btn btn-secondary" onClick={test}
-            disabled={testing || !apiUrl}>
+            disabled={testing || (!apiUrl && !URL_OPTIONAL_TEST_TYPES.includes(activeType))}>
             {testing ? <span className="spinner" /> : 'Test'}
           </button>
         )}

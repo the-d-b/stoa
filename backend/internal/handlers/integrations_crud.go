@@ -323,7 +323,14 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			SecretID string `json:"secretId"`
 			SkipTLS  bool   `json:"skipTls"`
 		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.APIURL == "" {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, http.StatusBadRequest, "invalid request")
+			return
+		}
+		// api_url may legitimately be empty for config-driven / fixed-host types
+		// (Life360, Tailscale, RSS, …); those tests ignore it. Everything else
+		// still needs a URL to connect to.
+		if req.APIURL == "" && !integrationConfigTypes[req.Type] {
 			writeError(w, http.StatusBadRequest, "apiUrl required")
 			return
 		}

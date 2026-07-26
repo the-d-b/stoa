@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { integrationsApi, Panel } from '../../api'
+import { useSSERefresh } from '../../hooks/useSSE'
 import MapOverlay from './MapOverlay'
 
 export interface MapMarker {
@@ -18,10 +19,6 @@ export interface MapMarker {
   updatedAt?: string
   groupLabel?: string
 }
-
-// Live GPS data benefits from a real refresh while the panel is on screen,
-// unlike Calendar's fetch-once-per-mount — positions are the whole point.
-const POLL_MS = 60_000
 
 const PALETTE = ['#3b82f6', '#22c55e', '#f59e0b', '#ec4899', '#a855f7', '#06b6d4', '#ef4444', '#84cc16']
 
@@ -127,7 +124,8 @@ export function useLeafletMap(
 
 export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
-  const hasSources = (config.sources || []).length > 0
+  const sourceIds: string[] = (config.sources || []).map((s: any) => s.integrationId).filter(Boolean)
+  const hasSources = sourceIds.length > 0
 
   const [markers, setMarkers] = useState<MapMarker[]>([])
   const [error, setError] = useState('')
@@ -151,11 +149,12 @@ export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightU
     }
   }, [panel.id, hasSources])
 
-  useEffect(() => {
-    load()
-    const t = setInterval(load, POLL_MS)
-    return () => clearInterval(t)
-  }, [load])
+  // Initial fetch on mount; thereafter refresh live whenever any source's
+  // background worker pushes a cache update over SSE — no polling. Each source
+  // is its own integration, so we re-fetch the server-aggregated markers rather
+  // than consume raw per-integration payloads.
+  useEffect(() => { load() }, [load])
+  useSSERefresh(sourceIds, load)
 
   const containerRef = useRef<HTMLDivElement>(null)
   useLeafletMap(containerRef, markers, hiddenIds)

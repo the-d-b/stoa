@@ -255,3 +255,22 @@ export function useDMSSE(cb: (ev: unknown) => void) {
     return mgr.subscribeDM((data) => cbRef.current(data))
   }, [])
 }
+
+// ── useSSERefresh ─────────────────────────────────────────────────────────────
+// Subscribe to cache-update events for several integrations at once, invoking
+// `onUpdate` whenever any of them pushes fresh data. For aggregated panels
+// (Map, Calendar) that merge multiple sources server-side: they don't want the
+// raw per-integration payload, just a signal to re-fetch their combined data.
+export function useSSERefresh(integrationIds: string[], onUpdate: () => void) {
+  const cbRef = useRef(onUpdate)
+  cbRef.current = onUpdate
+  // Sorted, joined key so the effect only re-subscribes when the actual set of
+  // ids changes — not on every render, since the array identity churns.
+  const key = integrationIds.filter(Boolean).slice().sort().join(',')
+  useEffect(() => {
+    if (!key) return
+    const mgr = getSSEManager()
+    const unsubs = key.split(',').map(id => mgr.subscribe(id, () => cbRef.current()))
+    return () => unsubs.forEach(u => u())
+  }, [key])
+}

@@ -463,6 +463,11 @@ export default function PanelForm({
       base.refreshSecs = apiRefreshSecs
     } else if (type === 'calendar') {
       return JSON.stringify({ ...cfg, height, sources: cfg.sources || [] })
+    } else if (type === 'map') {
+      // Map sources are managed by MapSourceAdder (a separate save). Preserve
+      // them here so the panel form's own Save doesn't clobber the sources —
+      // same pattern as calendar above.
+      return JSON.stringify({ ...cfg, height, sources: cfg.sources || [] })
     } else if (type === 'dockerapps') {
       if (dockerGroupFilter.trim()) base.group = dockerGroupFilter.trim()
     } else if (type === 'bookmarks') {
