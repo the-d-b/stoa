@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -89,102 +90,125 @@ func secPostureGetCVEs(igType string) ([]CVEItem, bool) {
 
 var severityRank = map[string]int{"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1, "UNKNOWN": 0}
 
+// nvdResponse is one page of the NVD CVE 2.0 API result.
+type nvdResponse struct {
+	TotalResults    int `json:"totalResults"`
+	Vulnerabilities []struct {
+		CVE struct {
+			ID           string `json:"id"`
+			Published    string `json:"published"`
+			Descriptions []struct {
+				Lang  string `json:"lang"`
+				Value string `json:"value"`
+			} `json:"descriptions"`
+			Metrics struct {
+				CvssMetricV31 []struct {
+					CvssData struct {
+						BaseScore    float64 `json:"baseScore"`
+						BaseSeverity string  `json:"baseSeverity"`
+					} `json:"cvssData"`
+				} `json:"cvssMetricV31"`
+				CvssMetricV30 []struct {
+					CvssData struct {
+						BaseScore    float64 `json:"baseScore"`
+						BaseSeverity string  `json:"baseSeverity"`
+					} `json:"cvssData"`
+				} `json:"cvssMetricV30"`
+				CvssMetricV2 []struct {
+					BaseSeverity string `json:"baseSeverity"`
+					CvssData     struct {
+						BaseScore float64 `json:"baseScore"`
+					} `json:"cvssData"`
+				} `json:"cvssMetricV2"`
+			} `json:"metrics"`
+		} `json:"cve"`
+	} `json:"vulnerabilities"`
+}
+
 func nvdFetchCVEs(searchTerm, apiKey string) ([]CVEItem, error) {
-	params := url.Values{
-		"keywordSearch":  {searchTerm},
-		"resultsPerPage": {"200"},
-	}
-	apiURL := "https://services.nvd.nist.gov/rest/json/cves/2.0?" + params.Encode()
-	req, err := http.NewRequest("GET", apiURL, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("User-Agent", "Stoa/1.0")
-	if apiKey != "" {
-		req.Header.Set("apiKey", apiKey)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode == 403 || resp.StatusCode == 429 {
-		return nil, fmt.Errorf("NVD rate limited or forbidden (HTTP %d)", resp.StatusCode)
-	}
-	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("NVD API HTTP %d", resp.StatusCode)
-	}
+	// NVD paginates. Fetching a single fixed page silently drops everything
+	// past it — and since NVD's default order is not by severity, the dropped
+	// tail can include the worst CVEs. Walk pages by totalResults instead.
+	// resultsPerPage max is 2000 (CVE API), so every currently-covered product
+	// fits in one request today; the loop only matters if one ever exceeds it.
+	const pageSize = 2000
 
-	var parsed struct {
-		Vulnerabilities []struct {
-			CVE struct {
-				ID           string `json:"id"`
-				Published    string `json:"published"`
-				Descriptions []struct {
-					Lang  string `json:"lang"`
-					Value string `json:"value"`
-				} `json:"descriptions"`
-				Metrics struct {
-					CvssMetricV31 []struct {
-						CvssData struct {
-							BaseScore    float64 `json:"baseScore"`
-							BaseSeverity string  `json:"baseSeverity"`
-						} `json:"cvssData"`
-					} `json:"cvssMetricV31"`
-					CvssMetricV30 []struct {
-						CvssData struct {
-							BaseScore    float64 `json:"baseScore"`
-							BaseSeverity string  `json:"baseSeverity"`
-						} `json:"cvssData"`
-					} `json:"cvssMetricV30"`
-					CvssMetricV2 []struct {
-						BaseSeverity string `json:"baseSeverity"`
-						CvssData     struct {
-							BaseScore float64 `json:"baseScore"`
-						} `json:"cvssData"`
-					} `json:"cvssMetricV2"`
-				} `json:"metrics"`
-			} `json:"cve"`
-		} `json:"vulnerabilities"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, err
-	}
+	var items []CVEItem
+	startIndex := 0
+	for {
+		params := url.Values{
+			"keywordSearch":  {searchTerm},
+			"resultsPerPage": {strconv.Itoa(pageSize)},
+			"startIndex":     {strconv.Itoa(startIndex)},
+		}
+		apiURL := "https://services.nvd.nist.gov/rest/json/cves/2.0?" + params.Encode()
+		req, err := http.NewRequest("GET", apiURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "Stoa/1.0")
+		if apiKey != "" {
+			req.Header.Set("apiKey", apiKey)
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return nil, err
+		}
+		if resp.StatusCode == 403 || resp.StatusCode == 429 {
+			resp.Body.Close()
+			return nil, fmt.Errorf("NVD rate limited or forbidden (HTTP %d)", resp.StatusCode)
+		}
+		if resp.StatusCode >= 400 {
+			resp.Body.Close()
+			return nil, fmt.Errorf("NVD API HTTP %d", resp.StatusCode)
+		}
+		var parsed nvdResponse
+		derr := json.NewDecoder(resp.Body).Decode(&parsed)
+		resp.Body.Close()
+		if derr != nil {
+			return nil, derr
+		}
 
-	items := make([]CVEItem, 0, len(parsed.Vulnerabilities))
-	for _, v := range parsed.Vulnerabilities {
-		c := v.CVE
-		desc := ""
-		for _, d := range c.Descriptions {
-			if d.Lang == "en" {
-				desc = d.Value
-				break
+		for _, v := range parsed.Vulnerabilities {
+			c := v.CVE
+			desc := ""
+			for _, d := range c.Descriptions {
+				if d.Lang == "en" {
+					desc = d.Value
+					break
+				}
 			}
+			score, severity := 0.0, "UNKNOWN"
+			switch {
+			case len(c.Metrics.CvssMetricV31) > 0:
+				score = c.Metrics.CvssMetricV31[0].CvssData.BaseScore
+				severity = c.Metrics.CvssMetricV31[0].CvssData.BaseSeverity
+			case len(c.Metrics.CvssMetricV30) > 0:
+				score = c.Metrics.CvssMetricV30[0].CvssData.BaseScore
+				severity = c.Metrics.CvssMetricV30[0].CvssData.BaseSeverity
+			case len(c.Metrics.CvssMetricV2) > 0:
+				score = c.Metrics.CvssMetricV2[0].CvssData.BaseScore
+				severity = c.Metrics.CvssMetricV2[0].BaseSeverity
+			}
+			if severity == "" {
+				severity = "UNKNOWN"
+			}
+			published := c.Published
+			if len(published) >= 10 {
+				published = published[:10]
+			}
+			items = append(items, CVEItem{
+				ID: c.ID, Description: desc, Severity: strings.ToUpper(severity),
+				CVSSScore: score, Published: published,
+				URL: "https://nvd.nist.gov/vuln/detail/" + c.ID,
+			})
 		}
-		score, severity := 0.0, "UNKNOWN"
-		switch {
-		case len(c.Metrics.CvssMetricV31) > 0:
-			score = c.Metrics.CvssMetricV31[0].CvssData.BaseScore
-			severity = c.Metrics.CvssMetricV31[0].CvssData.BaseSeverity
-		case len(c.Metrics.CvssMetricV30) > 0:
-			score = c.Metrics.CvssMetricV30[0].CvssData.BaseScore
-			severity = c.Metrics.CvssMetricV30[0].CvssData.BaseSeverity
-		case len(c.Metrics.CvssMetricV2) > 0:
-			score = c.Metrics.CvssMetricV2[0].CvssData.BaseScore
-			severity = c.Metrics.CvssMetricV2[0].BaseSeverity
+
+		startIndex += len(parsed.Vulnerabilities)
+		if len(parsed.Vulnerabilities) == 0 || startIndex >= parsed.TotalResults {
+			break
 		}
-		if severity == "" {
-			severity = "UNKNOWN"
-		}
-		published := c.Published
-		if len(published) >= 10 {
-			published = published[:10]
-		}
-		items = append(items, CVEItem{
-			ID: c.ID, Description: desc, Severity: strings.ToUpper(severity),
-			CVSSScore: score, Published: published,
-			URL: "https://nvd.nist.gov/vuln/detail/" + c.ID,
-		})
+		time.Sleep(6 * time.Second) // NVD's requested pacing between requests
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -214,6 +238,10 @@ func StartSecurityPostureWorker(db *sql.DB) {
 }
 
 func secPostureTickOnce(db *sql.DB) {
+	// Runs every tick regardless of CVE-fetch due-ness — a detected date only
+	// needs day granularity, and hourly is far finer than upgrades happen.
+	secPostureTrackVersions(db)
+
 	inUse := secPostureTypesInUse(db)
 	if len(inUse) == 0 {
 		return
@@ -247,6 +275,79 @@ func secPostureTickOnce(db *sql.DB) {
 		secPostureCVECache[t] = items
 		secPostureCacheMu.Unlock()
 		logDebugf("SECPOSTURE", "refreshed %s: %d CVEs", t, len(items))
+	}
+}
+
+// secPostureTrackVersions watches each covered integration's running version
+// (read from its existing panel cache, no extra upstream call) and, on a
+// genuine change, stamps cveIgnoreBefore with today's date so the CVE list
+// re-baselines to "published since I upgraded".
+//
+// Rules, deliberately conservative:
+//   - version unknown (cold cache / no version field) → record nothing.
+//   - first observation of a version → store it as the baseline but set NO
+//     date: we can't know when a pre-existing version was actually installed,
+//     and guessing "today" would wrongly hide every older CVE that may still
+//     apply.
+//   - a previously-seen version changing to a different non-empty version →
+//     treat as an upgrade/rollback, store the new version AND set
+//     cveIgnoreBefore = today.
+//
+// The stamped date is only a starting point: the user can override it in the
+// integration form (e.g. to a real release date they've correlated by hand),
+// and that manual value survives because we rewrite ONLY on an actual version
+// transition, never on an unchanged tick. detectedVersion is kept in the same
+// config JSON as cveIgnoreBefore — no schema change, and the integration form
+// already round-trips unknown config keys.
+func secPostureTrackVersions(db *sql.DB) {
+	rows, err := db.Query(`SELECT id, type, COALESCE(config,'{}') FROM integrations WHERE enabled=1`)
+	if err != nil {
+		return
+	}
+	type target struct{ id, igType, config string }
+	var targets []target
+	for rows.Next() {
+		var t target
+		if rows.Scan(&t.id, &t.igType, &t.config) == nil {
+			if _, ok := securityPostureTypes[t.igType]; ok {
+				targets = append(targets, t)
+			}
+		}
+	}
+	rows.Close()
+
+	today := time.Now().Format("2006-01-02")
+	for _, t := range targets {
+		running := strings.TrimSpace(secPostureDetectVersion(t.igType, t.id))
+		if running == "" {
+			continue // cold cache / version unknown — don't record anything
+		}
+		var cfg map[string]interface{}
+		if json.Unmarshal([]byte(t.config), &cfg) != nil || cfg == nil {
+			cfg = map[string]interface{}{}
+		}
+		stored, _ := cfg["detectedVersion"].(string)
+		if stored == running {
+			continue // no change
+		}
+		cfg["detectedVersion"] = running
+		if stored != "" {
+			// Genuine transition (not first observation) — re-baseline the filter.
+			cfg["cveIgnoreBefore"] = today
+		}
+		newConfig, merr := json.Marshal(cfg)
+		if merr != nil {
+			continue
+		}
+		if _, uerr := db.Exec(`UPDATE integrations SET config=? WHERE id=?`, string(newConfig), t.id); uerr != nil {
+			logErrorf("SECPOSTURE", "version-track update %s: %v", t.id, uerr)
+			continue
+		}
+		if stored != "" {
+			logDebugf("SECPOSTURE", "version change %s (%s): %q -> %q, cveIgnoreBefore=%s", t.id, t.igType, stored, running, today)
+		} else {
+			logDebugf("SECPOSTURE", "version baseline %s (%s): %q", t.id, t.igType, running)
+		}
 	}
 }
 

@@ -197,6 +197,11 @@ export default function IntegrationForm({
   const [cveIgnoreBefore, setCveIgnoreBefore] = useState<string>(() => {
     try { return JSON.parse(integration?.config || '{}').cveIgnoreBefore || '' } catch { return '' }
   })
+  // Version last seen by the Security Posture worker (read-only); when it
+  // changes the worker stamps cveIgnoreBefore with the detection date.
+  const detectedVersion: string = (() => {
+    try { return JSON.parse(integration?.config || '{}').detectedVersion || '' } catch { return '' }
+  })()
 
   // ── Prometheus custom metrics ──────────────────────────────────────────────
   type PromMetric = { label: string; query: string; unit: string }
@@ -1140,20 +1145,27 @@ export default function IntegrationForm({
           </div>
         )}
         {SEC_POSTURE_TYPES.includes(activeType) && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}
-              title="Security Posture will hide CVEs published before this date for this integration — a noise filter, not a claim about which versions are affected. Leave blank to show everything NVD has on file.">
-              Ignore CVEs before
-            </label>
-            <input className="input" type="date" value={cveIgnoreBefore}
-              onChange={e => setCveIgnoreBefore(e.target.value)}
-              style={{ width: 150 }} />
-            {cveIgnoreBefore && (
-              <button type="button" className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }}
-                onClick={() => setCveIgnoreBefore('')}>
-                Clear
-              </button>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}
+                title="Security Posture will hide CVEs published before this date for this integration — a noise filter, not a claim about which versions are affected. Leave blank to show everything NVD has on file.">
+                Ignore CVEs before
+              </label>
+              <input className="input" type="date" value={cveIgnoreBefore}
+                onChange={e => setCveIgnoreBefore(e.target.value)}
+                style={{ width: 150 }} />
+              {cveIgnoreBefore && (
+                <button type="button" className="btn btn-ghost" style={{ fontSize: 11, padding: '4px 8px' }}
+                  onClick={() => setCveIgnoreBefore('')}>
+                  Clear
+                </button>
+              )}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', maxWidth: 420, lineHeight: 1.5 }}>
+              {detectedVersion
+                ? <>Detected version: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{detectedVersion}</code>. This date auto-fills with today's date when an upgrade is detected — override it (e.g. with the real release date) if you want to keep older CVEs in view.</>
+                : <>Auto-fills with today's date when a version change is detected. Override it manually to correlate against a real release date.</>}
+            </div>
           </div>
         )}
       </div>
