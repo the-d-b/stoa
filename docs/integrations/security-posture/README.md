@@ -10,13 +10,20 @@ For a curated set of network- and storage-facing integrations, shows the detecte
 
 **No integration or source picker required.** Every integration whose type is in the covered list *and that you can see* appears automatically — add a TrueNAS integration, and it shows up here on the next refresh with no additional setup. See [Access control](#access-control) for what "that you can see" means for a non-admin.
 
-This panel deliberately does **not** try to determine "is my version affected" — CVE affected-version ranges are often unstructured free text, and an automated match that's wrong is worse than no match at all. Instead it shows your detected version and the product's known CVEs side by side, and leaves the correlation to you. If you're running TrueNAS 24.10 and see a CVE description that mentions "before 24.10.1," that's your cue to check the release notes — the panel gets you to that moment quickly without asserting anything it can't verify.
+How CVEs are matched depends on the product, in one of two modes:
+
+- **CPE mode** (precise). For products with clean NVD [CPE](https://nvd.nist.gov/products/cpe) coverage, CVEs are fetched by CPE match and carry NVD's *structured* affected-version ranges. Because those are structured data — not the free-text ranges buried in descriptions — the panel filters the list to your running version automatically, showing only CVEs that actually apply. If a fresh OPNsense install has no applicable CVEs, the list is simply empty; there's nothing to ignore or hand-correlate.
+- **Keyword mode** (broad). For everything else, CVEs are fetched by free-text keyword. This is deliberately noisy and version-blind, so the panel does **not** assert "is my version affected" — it shows your detected version and the product's CVEs side by side and leaves the correlation to you, optionally narrowed by the per-integration **Ignore CVEs before &lt;date&gt;** filter. That date auto-fills with today's date when Stoa detects a version change (an upgrade), on the reasoning that CVEs published before you upgraded are likely already patched; you can override it to a real release date if you'd rather do the correlation by hand. A wrong *automated* keyword-to-version match is worse than no match, which is why this mode never attempts one.
+
+Which products use which mode is a curated call based on how reliable each product's CPE data is (see the CPE-coverage investigation notes); CPE-mode products are marked below.
 
 ### Covered products
 
-Deliberately a small, curated list — not all ~90+ Stoa integration types, only ones where a known vulnerability realistically matters (network-perimeter devices, auth systems, NAS/hypervisor platforms). Each was checked against NVD for real CVE coverage before being added; a few candidates (Gluetun, wg-easy, NextDNS) were dropped because NVD has zero CVEs filed against them, and "Cloudflare" was dropped because as a keyword it matches their entire product portfolio, not the analytics API Stoa's integration actually uses.
+Deliberately a small, curated list — not all ~90+ Stoa integration types, only ones where a known vulnerability realistically matters (network-perimeter devices, auth systems, NAS/hypervisor platforms, self-hosted apps commonly exposed to the internet). Each was checked against NVD for real CVE coverage before being added; a few candidates (Gluetun, wg-easy, NextDNS) were dropped because NVD has zero CVEs filed against them, and "Cloudflare" was dropped because as a keyword it matches their entire product portfolio, not the analytics API Stoa's integration actually uses.
 
-TrueNAS · Unraid · OpenMediaVault · Synology · QNAP · Proxmox VE · OPNsense · pfSense · OpenWrt · Traefik · Nginx Proxy Manager · Authentik · Keycloak · Nextcloud · Omada Controller · UniFi Network · Pi-hole · AdGuard Home · Tailscale · Netbird
+**CPE mode (version-filtered):** OPNsense · Authentik · Traefik · Plex · Jellyfin · Grafana · Home Assistant
+
+**Keyword mode:** TrueNAS · Unraid · OpenMediaVault · Synology · QNAP · Proxmox VE · pfSense · OpenWrt · Nginx Proxy Manager · Keycloak · Nextcloud · Omada Controller · UniFi Network · Pi-hole · AdGuard Home · Tailscale · Netbird
 
 ### Height behavior
 

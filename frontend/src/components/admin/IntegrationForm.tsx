@@ -163,6 +163,14 @@ const SEC_POSTURE_TYPES = [
   'truenas', 'unraid', 'omv', 'synology', 'qnap', 'proxmox', 'opnsense',
   'pfsense', 'openwrt', 'traefik', 'nginxpm', 'authentik', 'keycloak', 'nextcloud',
   'omada', 'unifi', 'pihole', 'adguard', 'tailscale', 'netbird',
+  'plex', 'jellyfin', 'grafana', 'homeassistant',
+]
+// Types the backend fetches via NVD CPE match and filters to the running
+// version automatically — keep in sync with securityPostureCPE in
+// backend/internal/handlers/security_posture.go. For these the ignore-date is
+// not used (version filtering is exact), so the form shows a note instead.
+const SEC_POSTURE_CPE_TYPES = [
+  'opnsense', 'authentik', 'traefik', 'plex', 'jellyfin', 'grafana', 'homeassistant',
 ]
 
 interface Props {
@@ -1144,7 +1152,14 @@ export default function IntegrationForm({
             </select>
           </div>
         )}
-        {SEC_POSTURE_TYPES.includes(activeType) && (
+        {SEC_POSTURE_TYPES.includes(activeType) && SEC_POSTURE_CPE_TYPES.includes(activeType) && (
+          <div style={{ fontSize: 11, color: 'var(--text-dim)', maxWidth: 460, lineHeight: 1.5 }}>
+            🛡 Security Posture matches this product's CVEs against your running version
+            {detectedVersion ? <> (<code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{detectedVersion}</code>)</> : null} via
+            NVD's structured version data — only CVEs that actually apply are shown, so there's no ignore-date to set.
+          </div>
+        )}
+        {SEC_POSTURE_TYPES.includes(activeType) && !SEC_POSTURE_CPE_TYPES.includes(activeType) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <label style={{ fontSize: 12, color: 'var(--text-dim)', whiteSpace: 'nowrap' }}
