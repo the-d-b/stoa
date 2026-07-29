@@ -4,9 +4,10 @@ import { useSSE } from '../../hooks/useSSE'
 
 interface GluetunData {
   uiUrl: string; status: string; publicIp: string
-  country: string; city: string; hostname: string
-  provider: string; serverName: string; port: number
-  warning?: string
+  country: string; city: string; region?: string; hostname?: string
+  organization?: string; timezone?: string
+  provider: string; serverName: string; vpnType?: string; protocol?: string
+  port: number; warning?: string
 }
 
 export default function GluetunPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -41,13 +42,18 @@ export default function GluetunPanel({ panel, heightUnits }: { panel: Panel; hei
   const statusColor = connected ? 'var(--green)' : 'var(--red)'
   const location = [data.city, data.country].filter(Boolean).join(', ')
 
-  // Provider/server/hostname are fetched at every size but only worth the
-  // space at 4x+ — smaller panels stay compact-only.
+  // Provider/server/connection details are fetched at every size but only
+  // worth the space at 4x+ — smaller panels stay compact-only.
   const showDetail = heightUnits >= 4
+  const protocol = [data.vpnType, data.protocol].filter(Boolean).join(' · ')
   const detailRows = showDetail ? [
     { label: 'provider', value: data.provider },
+    { label: 'protocol', value: protocol },
     { label: 'server', value: data.serverName },
+    { label: 'isp', value: data.organization },
+    { label: 'region', value: data.region },
     { label: 'hostname', value: data.hostname },
+    { label: 'timezone', value: data.timezone },
   ].filter(r => r.value) : []
 
   return (

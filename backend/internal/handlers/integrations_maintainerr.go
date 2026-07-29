@@ -13,16 +13,39 @@ import (
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+// MaintainerrPoster is one cover in a collection's carousel: the image plus a
+// deep link to the title's TMDB page (or, when no tmdbId is known, the
+// Maintainerr collection page as a fallback).
+type MaintainerrPoster struct {
+	CoverURL string `json:"coverUrl"`
+	LinkURL  string `json:"linkUrl,omitempty"`
+	Title    string `json:"title,omitempty"`
+}
+
 type MaintainerrCollection struct {
-	ID              int      `json:"id"`
-	Title           string   `json:"title"`
-	Type            string   `json:"type"` // "movie", "show", "season", "episode"
-	IsActive        bool     `json:"isActive"`
-	DeleteAfterDays int      `json:"deleteAfterDays"`
-	ArrAction       int      `json:"arrAction"` // 0=delete 1=unmonitor+delete 2=unmonitor
-	MediaCount      int      `json:"mediaCount"`
-	TotalSizeBytes  int64    `json:"totalSizeBytes"`
-	Posters         []string `json:"posters"` // image_path values from media items
+	ID              int                 `json:"id"`
+	Title           string              `json:"title"`
+	Type            string              `json:"type"` // "movie", "show", "season", "episode"
+	IsActive        bool                `json:"isActive"`
+	DeleteAfterDays int                 `json:"deleteAfterDays"`
+	ArrAction       int                 `json:"arrAction"` // 0=delete 1=unmonitor+delete 2=unmonitor
+	MediaCount      int                 `json:"mediaCount"`
+	TotalSizeBytes  int64               `json:"totalSizeBytes"`
+	Posters         []MaintainerrPoster `json:"posters"` // covers from media items, with deep links
+}
+
+// maintainerrTMDBLink builds a themoviedb.org deep link for a media item, or ""
+// when the tmdbId is unknown. Movies go to /movie/, everything else (show,
+// season, episode) resolves to the parent show's /tv/ page.
+func maintainerrTMDBLink(tmdbID int, mediaType string) string {
+	if tmdbID <= 0 {
+		return ""
+	}
+	kind := "tv"
+	if mediaType == "movie" {
+		kind = "movie"
+	}
+	return fmt.Sprintf("https://www.themoviedb.org/%s/%d", kind, tmdbID)
 }
 
 type MaintainerrPanelData struct {
@@ -203,7 +226,7 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 	if integrationID == "" {
 		return nil, fmt.Errorf("maintainerr: no integration configured")
 	}
-	baseURL, _, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	baseURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
 	if err != nil {
 		return nil, err
 	}
@@ -236,13 +259,24 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 				}
 
 				// Fetch posters via content endpoint — image_path is populated here
-				// for all media types (movies and shows), unlike the collections list
-				posters := []string{}
+				// for all media types (movies and shows), unlike the collections list.
+				// Each item also carries the tmdbId and media type used to build a
+				// TMDB deep link (falling back to the Maintainerr collection page).
+				posters := []MaintainerrPoster{}
+				collectionLink := ""
+				if uiURL != "" {
+					collectionLink = strings.TrimRight(uiURL, "/") + fmt.Sprintf("/collections/%d", c.ID)
+				}
 				path := fmt.Sprintf("/api/collections/media/%d/content/1?size=25&sort=deleteSoonest&sortOrder=asc", c.ID)
 				if cb, cerr := maintainerrGet(baseURL, apiKey, path, skipTLS); cerr == nil {
 					var content struct {
 						Items []struct {
+							TmdbID    int    `json:"tmdbId"`
 							ImagePath string `json:"image_path"`
+							MediaData struct {
+								Title string `json:"title"`
+								Type  string `json:"type"`
+							} `json:"mediaData"`
 						} `json:"items"`
 					}
 					if json.Unmarshal(cb, &content) == nil {
@@ -260,7 +294,15 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 							if !strings.HasPrefix(imgPath, "http://") && !strings.HasPrefix(imgPath, "https://") {
 								imgPath = "https://image.tmdb.org/t/p/w500/" + strings.TrimPrefix(imgPath, "/")
 							}
-							posters = append(posters, imgPath)
+							link := maintainerrTMDBLink(m.TmdbID, m.MediaData.Type)
+							if link == "" {
+								link = collectionLink
+							}
+							posters = append(posters, MaintainerrPoster{
+								CoverURL: imgPath,
+								LinkURL:  link,
+								Title:    m.MediaData.Title,
+							})
 						}
 					}
 				}

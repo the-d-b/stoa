@@ -3,6 +3,12 @@ import { integrationsApi } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 import ScrollableCoverStrip from './CoverStrip'
 
+interface MaintainerrPoster {
+  coverUrl: string
+  linkUrl?: string   // TMDB deep link, or the Maintainerr collection page
+  title?: string
+}
+
 interface MaintainerrCollection {
   id: number
   title: string
@@ -12,7 +18,7 @@ interface MaintainerrCollection {
   arrAction: number  // 0=delete 1=unmonitor+delete 2=unmonitor
   mediaCount: number
   totalSizeBytes: number
-  posters: string[]  // full image_path URLs from media items
+  posters: MaintainerrPoster[]  // covers with per-title deep links
 }
 
 interface MaintainerrData {
@@ -100,7 +106,7 @@ function CollectionRow({ c }: { c: MaintainerrCollection }) {
 
 function CollectionCard({ c }: { c: MaintainerrCollection }) {
   const color = typeColor(c.type)
-  const posterItems = c.posters.map(url => ({ coverUrl: url, title: c.title }))
+  const posterItems = c.posters.map(p => ({ coverUrl: p.coverUrl, linkUrl: p.linkUrl, title: p.title || c.title }))
   return (
     <div style={{
       background: 'var(--surface2)', borderRadius: 8, padding: '9px 12px',

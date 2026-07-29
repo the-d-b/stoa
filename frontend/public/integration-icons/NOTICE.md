@@ -11,12 +11,21 @@ integration type identifiers.
 
 ## simple-icons
 
-`coinbase.svg` and `lastfm.svg` are sourced from the
+`lastfm.svg` is sourced from the
 [simple-icons](https://github.com/simple-icons/simple-icons) project,
 released under CC0 1.0 Universal (public domain) — used because dashboard-icons
-doesn't carry these two brands. Each file has the brand's canonical color
+doesn't carry this brand. The file has the brand's canonical color
 (from simple-icons' own published metadata) added as a `fill` attribute;
 otherwise unmodified.
+
+## SVG Repo
+
+`coinbase.svg` is sourced from [SVG Repo](https://www.svgrepo.com/) — a
+brand-mark glyph used because dashboard-icons doesn't carry Coinbase and the
+simple-icons entry is a full wordmark that becomes illegible at panel-title
+size. SVG Repo hosts icons under a mix of licenses (many CC0/public-domain);
+this file's specific license was not individually verified. It is a
+third-party brand logo used nominatively to identify the service.
 
 ## Lucide
 

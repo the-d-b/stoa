@@ -12,16 +12,32 @@ import (
 // ── Gluetun types ─────────────────────────────────────────────────────────────
 
 type GluetunPanelData struct {
-	UIURL      string `json:"uiUrl"`
-	Status     string `json:"status"`
-	PublicIP   string `json:"publicIp"`
-	Country    string `json:"country"`
-	City       string `json:"city"`
-	Hostname   string `json:"hostname"`
-	Provider   string `json:"provider"`
-	ServerName string `json:"serverName"`
-	Port       int    `json:"port"`
-	Warning    string `json:"warning,omitempty"`
+	UIURL        string `json:"uiUrl"`
+	Status       string `json:"status"`
+	PublicIP     string `json:"publicIp"`
+	Country      string `json:"country"`
+	City         string `json:"city"`
+	Region       string `json:"region,omitempty"`
+	Hostname     string `json:"hostname,omitempty"`
+	Organization string `json:"organization,omitempty"`
+	Timezone     string `json:"timezone,omitempty"`
+	Provider     string `json:"provider"`
+	ServerName   string `json:"serverName"`
+	VPNType      string `json:"vpnType,omitempty"`
+	Protocol     string `json:"protocol,omitempty"`
+	Port         int    `json:"port"`
+	Warning      string `json:"warning,omitempty"`
+}
+
+// firstNonEmpty returns the first list argument that has at least one element —
+// used to pick the most specific Gluetun server-selection field present.
+func firstNonEmpty(lists ...[]string) []string {
+	for _, l := range lists {
+		if len(l) > 0 {
+			return l
+		}
+	}
+	return nil
 }
 
 func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunPanelData, error) {
@@ -66,16 +82,22 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 	if body, err := gluetunGet(apiURL, apiKey, "/v1/publicip/ip", skipTLS); err == nil {
 		anyOK = true
 		var ip struct {
-			PublicIP string `json:"public_ip"`
-			Country  string `json:"country"`
-			City     string `json:"city"`
-			Hostname string `json:"hostname"`
+			PublicIP     string `json:"public_ip"`
+			Country      string `json:"country"`
+			City         string `json:"city"`
+			Region       string `json:"region"`
+			Hostname     string `json:"hostname"`
+			Organization string `json:"organization"`
+			Timezone     string `json:"timezone"`
 		}
 		if json.Unmarshal(body, &ip) == nil {
 			data.PublicIP = ip.PublicIP
 			data.Country = ip.Country
 			data.City = ip.City
+			data.Region = ip.Region
 			data.Hostname = ip.Hostname
+			data.Organization = ip.Organization
+			data.Timezone = ip.Timezone
 		}
 	} else {
 		logErrorf("GLUETUN", "publicip error: %v", err)
@@ -109,16 +131,34 @@ func fetchGluetunPanelData(db *sql.DB, config map[string]interface{}) (*GluetunP
 		logErrorf("GLUETUN", "port forwarding error: %v", pfErr)
 	}
 
-	// Server info
+	// Server info. The settings response nests provider details, and the
+	// chosen "server" is a selection (hostnames/cities/regions/…) rather than a
+	// single hostname — so surface the most specific set that's populated.
 	if body, err := gluetunGet(apiURL, apiKey, "/v1/vpn/settings", skipTLS); err == nil {
 		anyOK = true
 		var settings struct {
-			VPNProvider string `json:"vpn_service_provider"`
-			ServerName  string `json:"server_hostname"`
+			Type     string `json:"type"`
+			Provider struct {
+				Name            string `json:"name"`
+				ServerSelection struct {
+					Countries []string `json:"countries"`
+					Regions   []string `json:"regions"`
+					Cities    []string `json:"cities"`
+					Hostnames []string `json:"hostnames"`
+					Names     []string `json:"names"`
+					OpenVPN   struct {
+						Protocol string `json:"protocol"`
+					} `json:"openvpn"`
+				} `json:"server_selection"`
+			} `json:"provider"`
 		}
 		if json.Unmarshal(body, &settings) == nil {
-			data.Provider = settings.VPNProvider
-			data.ServerName = settings.ServerName
+			data.Provider = settings.Provider.Name
+			data.VPNType = settings.Type
+			data.Protocol = settings.Provider.ServerSelection.OpenVPN.Protocol
+			sel := settings.Provider.ServerSelection
+			data.ServerName = strings.Join(
+				firstNonEmpty(sel.Hostnames, sel.Names, sel.Cities, sel.Regions, sel.Countries), ", ")
 		}
 	} else {
 		logErrorf("GLUETUN", "vpn/settings error: %v", err)
