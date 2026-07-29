@@ -1,25 +1,40 @@
-﻿# QNAP QTS
+---
+id: qnap
+name: QNAP QTS
+category: Storage & Virtualization
+tags: [nas, storage]
+official_url: https://www.qnap.com
+status: needs-testing
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:8080
+---
 
-**Category:** Storage | **Status:** Need Testing | **Polling:** 30 s
+# QNAP QTS
+
+## What is QNAP QTS?
+
+QNAP QTS is the operating system that runs on QNAP NAS appliances. It manages storage volumes and RAID, serves network shares, and runs a broad app catalog — multimedia, backup, virtualization, and containers — through its web-based desktop.
+
+**Official site:** [qnap.com](https://www.qnap.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Use your QNAP WebUI login in `username:password` form (e.g. `admin:yourpassword`).
 
-> Your QNAP WebUI login. Format: admin:yourpassword
+- **Secret format:** `username:password`
+- **URL:** required — point at your QNAP host, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. Format secret as admin:yourpassword
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type QNAP, URL, secret
-4. Admin -> Panels -> New: type QNAP
+1. **Admin → Secrets → New** — paste `admin:yourpassword`.
+2. **Admin → Integrations → New** — select **QNAP**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **QNAP**.
 
 ---
 

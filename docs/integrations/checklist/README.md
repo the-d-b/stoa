@@ -1,6 +1,16 @@
-﻿# Checklist
+---
+id: checklist
+name: Checklist
+category: Stoa Features
+tags: [tasks, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Checklist
+
+## What is the Checklist panel?
+
+Checklist is a built-in Stoa panel for simple checkable lists, stored in Stoa with no external service. State can be personal or shared — on a shared panel, when one user checks an item it's checked for everyone who can see the panel. Items support optional due dates.
 
 ---
 

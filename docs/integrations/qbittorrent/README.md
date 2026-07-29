@@ -1,28 +1,45 @@
+---
+id: qbittorrent
+name: qBittorrent
+category: Downloads
+tags: [torrent, downloads, self-hosted]
+official_url: https://www.qbittorrent.org
+status: tested
+polling: 30s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8080
+---
+
 # qBittorrent
 
-**Category:** Downloads | **Status:** ✅ Tested | **Polling:** 30 s
+## What is qBittorrent?
+
+qBittorrent is a free, open-source BitTorrent client with a full-featured web UI, built-in search, RSS auto-downloading, and no ads. A popular open alternative to older clients, it's frequently run headless on a server.
+
+**Official site:** [qbittorrent.org](https://www.qbittorrent.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** API key (recommended) or `username:password`
+- **API key (qBittorrent 5.2.0+, recommended):** Preferences → Web UI → API Key → **Generate**. The key starts with `qbt_`. Paste it alone (no colon) — it's sent as `Authorization: Bearer <key>`, no login session needed.
+- **Username:password:** your qBittorrent WebUI credentials (default `admin:adminadmin` — change it). Stoa logs in via `/api/v2/auth/login` and caches the session cookie.
 
-> **API key — qBittorrent 5.2.0+ (recommended):** Preferences → Web UI → API Key → Generate. The key starts with `qbt_`. Paste the key alone (no colon). Sent as `Authorization: Bearer <key>` — no login session required.
->
-> **Username:password:** Your qBittorrent WebUI credentials. Default is `admin:adminadmin` (change it). Format as `username:password`. Stoa logs in via `POST /api/v2/auth/login` and caches the `SID` cookie, refreshing automatically on expiry.
+- **Secret format:** API key (recommended) or `username:password`
+- **URL:** required — point at your qBittorrent port, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — paste the API key (e.g. `qbt_abc123...`) or `username:password`.
+2. **Admin → Integrations → New** — select **qBittorrent**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **qBittorrent**.
 
-1. Admin → Secrets → New: paste your API key (e.g. `qbt_abc123...`) or `username:password`
-2. Admin → Integrations → New: type qBittorrent, URL = `http://qbittorrent:8080`, select secret
-3. Admin → Panels → New: type qBittorrent, assign to the integration
+---
 
-### How it works
+## How it works
 
 Stoa uses the **qBittorrent Web API v2**. Three endpoints are called per poll:
 
@@ -30,13 +47,11 @@ Stoa uses the **qBittorrent Web API v2**. Three endpoints are called per poll:
 - `GET /api/v2/transfer/info` — aggregate download/upload speeds
 - `GET /api/v2/sync/maindata` — free space on disk (via `server_state.free_space_on_disk`)
 
-**API key auth (5.2.0+):** The key is sent as `Authorization: Bearer <key>` on every request. No session or login needed.
+**API key auth (5.2.0+):** the key is sent as `Authorization: Bearer <key>` on every request — no session or login needed.
 
-**Username:password auth:** Stoa calls `POST /api/v2/auth/login` with `Referer` and `Origin` headers (required by qBittorrent's CSRF protection since 4.6). The returned `SID` cookie is cached and reused. If a request returns HTTP 403/401, the SID is cleared and a fresh login is attempted. Note: qBittorrent may temporarily ban an IP after repeated failed logins.
+**Username:password auth:** Stoa calls `POST /api/v2/auth/login` with `Referer` and `Origin` headers (required by qBittorrent's CSRF protection since 4.6). The returned `SID` cookie is cached and reused; on a 403/401 the SID is cleared and a fresh login attempted. (qBittorrent may temporarily ban an IP after repeated failed logins.)
 
-Tracker hostnames are extracted from the `tracker` field (announce URL) and parsed to hostname only.
-
-Updates arrive via SSE push every 30 seconds.
+Tracker hostnames are parsed from the announce URL. Updates arrive via SSE push every 30 seconds.
 
 ---
 

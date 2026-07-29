@@ -1,31 +1,40 @@
+---
+id: prowlarr
+name: Prowlarr
+category: Media Management
+tags: [indexers, automation, arr, self-hosted]
+official_url: https://prowlarr.com
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:9696
+---
+
 # Prowlarr
-
-**Category:** Media Management | **Status:** Tested | **Polling:** 60 s
-
----
-
-## Integration
-
-**Secret format:** Plain API key
-
-> Prowlarr → Settings → General → Security → API Key
-
-**URL required:** Required
-
-**Example URL:** `http://192.168.1.10:9696`
-
-### Setup
-
-1. Prowlarr → Settings → General → copy API Key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **Prowlarr**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Prowlarr**
-
----
 
 ## What is Prowlarr?
 
-Prowlarr is an indexer manager and proxy for the \*arr ecosystem. It connects to torrent and usenet indexers and exposes them to Sonarr, Radarr, Lidarr, and other apps through a unified API — so you manage your indexers in one place instead of configuring each one per app.
+Prowlarr is an indexer manager and proxy for the "\*arr" ecosystem. It connects to torrent and usenet indexers and exposes them to Sonarr, Radarr, Lidarr, and other apps through a unified API — so you manage your indexers in one place instead of configuring each one per app.
+
+**Official site:** [prowlarr.com](https://prowlarr.com)
+
+---
+
+## Getting the key
+
+Prowlarr → **Settings → General → Security → API Key** — copy it.
+
+- **Secret format:** plain API key
+- **URL:** required — point at your Prowlarr port, e.g. `http://192.168.1.10:9696`
+
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Prowlarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Prowlarr**.
 
 ---
 

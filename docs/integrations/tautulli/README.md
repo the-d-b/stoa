@@ -1,25 +1,40 @@
+---
+id: tautulli
+name: Tautulli
+category: Media Servers
+tags: [analytics, plex, self-hosted]
+official_url: https://tautulli.com
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8181
+---
+
 # Tautulli
 
-**Category:** Media Servers | **Status:** ✅ Tested | **Polling:** 60 s
+## What is Tautulli?
+
+Tautulli is a monitoring and analytics companion for Plex. It connects to your Plex Media Server and records everything that plays — who watched what, when, for how long, on which device, and whether it transcoded — then turns that into watch history, per-user statistics, most-watched charts, and notifications. It doesn't stream media itself; it's the reporting layer that sits on top of Plex.
+
+**Official site:** [tautulli.com](https://tautulli.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Tautulli → **Settings → Web Interface** → scroll to the API section → copy the **API Key**.
 
-> Tautulli → Settings → Web Interface → scroll to API section → copy the API Key.
+- **Secret format:** plain API key
+- **URL:** required — point at your Tautulli port, e.g. `http://192.168.1.10:8181`
 
-**URL required:** Required — point at your Tautulli port
+---
 
-**Example URL:** `http://192.168.1.10:8181`
+## Add it to Stoa
 
-### Setup
-
-1. Tautulli → Settings → Web Interface → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Tautulli`, URL = `http://tautulli:8181`, select your secret
-4. Admin → Panels → New: type `Tautulli`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Tautulli**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Tautulli**.
 
 ---
 

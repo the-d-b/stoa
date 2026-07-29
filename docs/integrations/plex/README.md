@@ -1,25 +1,40 @@
+---
+id: plex
+name: Plex
+category: Media Servers
+tags: [movies, tv, streaming, self-hosted]
+official_url: https://www.plex.tv
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:32400
+---
+
 # Plex
 
-**Category:** Media Servers | **Status:** ✅ Tested | **Polling:** 60 s
+## What is Plex?
+
+Plex is a media server that organizes your personal collection of movies, TV shows, music, and photos and streams it to apps on phones, tablets, TVs, browsers, and streaming boxes — inside or outside your home. It scans your files, fetches artwork and metadata, tracks watch progress per user, and transcodes on the fly when a device can't play the original format. It's the most widely used self-hosted media server, with polished client apps on nearly every platform.
+
+**Official site:** [plex.tv](https://www.plex.tv)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plex token (`X-Plex-Token`)
+Sign in at plex.tv, open Plex Web in a browser, open DevTools → Network tab, find any `/library` request, and copy the `X-Plex-Token` query parameter. (Alternatively, see Plex's support article on finding an authentication token.)
 
-> Sign in at plex.tv, open Plex Web in a browser, open DevTools → Network tab, find any `/library` request, and copy the `X-Plex-Token` query parameter. Alternatively: Plex → Settings → Account → (any request header or Plex support article).
+- **Secret format:** Plex token (`X-Plex-Token`)
+- **URL:** required — point at your Plex Media Server port, e.g. `http://192.168.1.10:32400`
 
-**URL required:** Required — point at your Plex Media Server port
+---
 
-**Example URL:** `http://192.168.1.10:32400`
+## Add it to Stoa
 
-### Setup
-
-1. Retrieve your Plex token (see hint above)
-2. Admin → Secrets → New: paste the token
-3. Admin → Integrations → New: type `Plex`, URL = `http://plex:32400`, select your secret
-4. Admin → Panels → New: type `Plex`, select the integration
+1. **Admin → Secrets → New** — paste the Plex token.
+2. **Admin → Integrations → New** — select **Plex**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Plex**.
 
 ---
 

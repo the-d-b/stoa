@@ -1,28 +1,45 @@
+---
+id: keycloak
+name: Keycloak
+category: Network & Security
+tags: [sso, identity, self-hosted]
+official_url: https://www.keycloak.org
+status: tested
+polling: 5min
+secret_format: composite
+url_required: true
+example_url: https://auth.example.com
+---
+
 # Keycloak
 
-**Category:** VPN & Security | **Status:** Tested | **Polling:** 5 min
+## What is Keycloak?
+
+Keycloak is an open-source identity and access management server. It provides single sign-on, user federation, and standards-based authentication (OpenID Connect, OAuth2, SAML) for your applications, organized into realms with clients, roles, and MFA — a widely used, enterprise-grade SSO platform.
+
+**Official site:** [keycloak.org](https://www.keycloak.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `realm:clientId:clientSecret`
+Create a confidential client with a service account, and enable event saving:
 
-> Keycloak → Admin console → your realm → Clients → create a confidential client with **Service accounts roles** enabled → Service account roles tab → assign **view-events** and **query-users** under `realm-management` → Credentials tab for the client secret
+1. Keycloak → your realm → **Realm settings → Events** → enable **Save events** (off by default — the events endpoint stays empty otherwise).
+2. Keycloak → your realm → **Clients → Create client** → enable **Client authentication** (confidential) and **Service accounts roles**.
+3. Client → **Service accounts roles → Assign role** → filter by `realm-management` → assign **view-events** and **query-users**.
+4. Client → **Credentials** tab → copy the client secret.
 
-**URL required:** Required
+- **Secret format:** `realm:clientId:clientSecret` (e.g. `master:stoa:abc123...`)
+- **URL:** required — your Keycloak base URL, e.g. `https://auth.example.com`
 
-**Example URL:** `https://auth.example.com`
+---
 
-### Setup
+## Add it to Stoa
 
-1. Keycloak → your realm → Realm settings → Events → enable **Save events** (off by default — the events endpoint stays empty otherwise)
-2. Keycloak → your realm → Clients → Create client → enable **Client authentication** (confidential) and **Service accounts roles**
-3. Client → Service accounts roles → Assign role → filter by `realm-management` → assign **view-events** and **query-users**
-4. Client → Credentials tab → copy the client secret
-5. Stoa → Admin → Secrets → New: paste `realm:clientId:clientSecret` (e.g. `master:stoa:abc123...`)
-6. Stoa → Admin → Integrations → New: select **Keycloak**, enter URL and secret
-7. Stoa → Admin → Panels → New: select **Keycloak**
+1. **Admin → Secrets → New** — paste `realm:clientId:clientSecret`.
+2. **Admin → Integrations → New** — select **Keycloak**, enter the URL, choose the secret. Enable **Skip TLS Verify** if it uses a self-signed certificate.
+3. **Admin → Panels → New** — select **Keycloak**.
 
 ---
 

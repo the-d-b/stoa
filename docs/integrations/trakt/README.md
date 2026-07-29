@@ -1,27 +1,42 @@
+---
+id: trakt
+name: Trakt
+category: Online Content
+tags: [movies, tv, cloud]
+official_url: https://trakt.tv
+status: tested
+polling: 60s
+secret_format: composite
+url_required: false
+---
+
 # Trakt
 
-**Category:** Content | **Status:** Tested | **Polling:** 60 s
+## What is Trakt?
+
+Trakt is a service that automatically tracks the movies and TV shows you watch (scrobbling from Plex, Kodi, and others), with watchlists, ratings, and discovery lists. Stoa reads your public data to show watch history, stats, and Trending/Popular carousels — and can add titles straight to Radarr/Sonarr.
+
+**Official site:** [trakt.tv](https://trakt.tv)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `clientId:username` or `clientId:username:tmdbApiKey`
+Create an API app at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) → **New Application** → copy the **Client ID**. Combine with your Trakt username (and optionally a TMDB key for artwork). Your Trakt profile must be **Public** (Account → Privacy).
 
-- **clientId** — Client ID from your Trakt API app at `trakt.tv/oauth/applications`
-- **username** — your Trakt username (visible at `trakt.tv/users/USERNAME`)
-- **tmdbApiKey** *(optional)* — TMDB API key or v4 Read Access Token for poster artwork. Supports both v3 hex keys (`?api_key=`) and v4 JWT Bearer tokens (`eyJ…`). Get one at `themoviedb.org/settings/api`.
+- **clientId** — from your Trakt API app
+- **username** — your Trakt username (at `trakt.tv/users/USERNAME`)
+- **tmdbApiKey** *(optional)* — TMDB v3 hex key or v4 Read Access Token for poster artwork (from `themoviedb.org/settings/api`)
+- **Secret format:** `clientId:username` or `clientId:username:tmdbApiKey`
+- **URL:** none — always uses `api.trakt.tv`. No OAuth flow needed (public data via Client ID + username).
 
-**URL required:** None — always uses `api.trakt.tv`
+---
 
-> Your Trakt profile must be set to **Public** (Account → Privacy → Public profile).
+## Add it to Stoa
 
-### Setup
-
-1. Go to `trakt.tv/oauth/applications` → **New Application** → copy the **Client ID**
-2. Admin → Secrets → New: value = `clientId:yourUsername` or `clientId:yourUsername:tmdbApiKey`
-3. Admin → Integrations → New: type **Trakt**, no URL, select the secret
-4. Admin → Panels → New: type **Trakt**, select the integration
+1. **Admin → Secrets → New** — value = `clientId:yourUsername` (or `clientId:yourUsername:tmdbApiKey`).
+2. **Admin → Integrations → New** — select **Trakt**, no URL, choose the secret.
+3. **Admin → Panels → New** — select **Trakt**.
 
 ---
 

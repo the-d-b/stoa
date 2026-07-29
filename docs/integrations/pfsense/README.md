@@ -1,25 +1,41 @@
-﻿# pfSense
+---
+id: pfsense
+name: pfSense
+category: Network & Security
+tags: [firewall, router, vpn, self-hosted]
+official_url: https://www.pfsense.org
+status: needs-testing
+polling: 5s
+secret_format: username-password
+url_required: true
+example_url: https://192.168.1.1
+---
 
-**Category:** Networking | **Status:** Need Testing | **Polling:** 5 s
+# pfSense
+
+## What is pfSense?
+
+pfSense is an open-source, FreeBSD-based firewall and router platform. It provides stateful firewalling, VPNs (OpenVPN, IPsec, WireGuard), traffic shaping, and a large package ecosystem through a web UI — one of the most widely deployed open-source perimeter firewalls.
+
+**Official site:** [pfsense.org](https://www.pfsense.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Install the **pfSense-pkg-API** package (System → Package Manager), then use your pfSense WebUI login in `username:password` form.
 
-> Your pfSense WebUI login. Requires the pfSense-pkg-API package to be installed.
+- **Secret format:** `username:password` — requires the pfSense-pkg-API package
+- **URL:** required, HTTPS — e.g. `https://192.168.1.1`
 
-**URL required:** Required
+---
 
-**Example URL:** `https://192.168.1.1`
+## Add it to Stoa
 
-### Setup
-
-1. Install pfSense-pkg-API from pfSense -> System -> Package Manager
-2. Format secret as admin:yourpassword
-3. Admin -> Secrets -> New: paste the credential
-4. Admin -> Integrations -> New: type pfSense, URL = https://pfsense-ip, secret
+1. Install **pfSense-pkg-API** from pfSense → System → Package Manager.
+2. **Admin → Secrets → New** — paste `admin:yourpassword`.
+3. **Admin → Integrations → New** — select **pfSense**, enter the URL, choose the secret. Enable **Skip TLS verify** for the self-signed certificate.
+4. **Admin → Panels → New** — select **pfSense**.
 
 ---
 
@@ -42,6 +58,7 @@ CPU and memory usage, uptime, version, interface traffic rates (Mbps deltas), ga
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

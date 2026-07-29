@@ -1,25 +1,40 @@
-﻿# Traefik
+---
+id: traefik
+name: Traefik
+category: Network & Security
+tags: [proxy, self-hosted]
+official_url: https://traefik.io
+status: needs-testing
+polling: 30s
+secret_format: none
+url_required: true
+example_url: http://192.168.1.10:8080
+---
 
-**Category:** DNS & Proxy | **Status:** Need Testing | **Polling:** 30 s
+# Traefik
+
+## What is Traefik?
+
+Traefik is a modern, cloud-native reverse proxy and load balancer. It automatically discovers your services (Docker, Kubernetes, and more) and routes incoming traffic to them, handling TLS certificates, middleware, and load balancing with minimal manual configuration — a popular front end for containerized homelab services.
+
+**Official site:** [traefik.io](https://traefik.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank (open) or username:password (Basic Auth) or Bearer token
+Most homelab Traefik dashboards run open (no auth) — leave the secret blank. If you've added Basic Auth or a Bearer token, use that. The Traefik API must be enabled (`--api=true`).
 
-> Most home lab Traefik instances run the dashboard open (no auth). If you added Basic Auth or a Bearer token, use that format.
+- **Secret format:** blank (open), `username:password` (Basic Auth), or a bare Bearer token
+- **URL:** required — point at your Traefik dashboard/API, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. No credential needed for open instances - leave secret blank
-2. If Basic Auth: format as username:password; if Bearer token: paste bare token
-3. Admin -> Integrations -> New: type Traefik, URL = http://traefik:8080, secret (or blank)
-4. Admin -> Panels -> New: type Traefik
+1. **Admin → Secrets → New** — leave blank, or paste your Basic Auth / Bearer credential.
+2. **Admin → Integrations → New** — select **Traefik**, enter the URL, choose the secret (or none).
+3. **Admin → Panels → New** — select **Traefik**.
 
 ---
 
@@ -42,6 +57,7 @@ HTTP/TCP route inventory with enabled/warning/disabled status, backend service h
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

@@ -1,26 +1,41 @@
+---
+id: caldav
+name: CalDAV
+category: Digital Life
+tags: [calendar, self-hosted]
+official_url: https://datatracker.ietf.org/doc/html/rfc4791
+status: needs-testing
+url_required: true
+secret_format: username-password
+example_url: https://cloud.example.com/remote.php/dav/calendars/USERNAME/personal/
+---
+
 # CalDAV
 
-**Category:** Personal | **Status:** Need Testing | **Requires integration:** Yes
+## What is CalDAV?
+
+CalDAV is an open standard (RFC 4791) for reading and writing calendars over HTTP, supported by Nextcloud, Fastmail, Radicale, Baïkal, Synology Calendar, Apple iCloud, and many others. In Stoa it isn't a panel of its own — you add a CalDAV calendar as a source in a Calendar panel. Because the protocol supports writing, those sources can also create events.
+
+**Standard:** [RFC 4791](https://datatracker.ietf.org/doc/html/rfc4791)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password` — use an **app password** where the server supports them
+Create an **app password** on your calendar server where supported (Nextcloud: Settings → Security → Devices & sessions → "Create new app password"), then find your calendar collection URL.
 
-**URL required:** Required — must be a specific **calendar collection**, not the server root
-
-**Example URL (Nextcloud):** `https://cloud.example.com/remote.php/dav/calendars/USERNAME/personal/`
+- **Secret format:** `username:password` — use an app password where the server supports them
+- **URL:** required — must be a specific **calendar collection**, not the server root. Example (Nextcloud): `https://cloud.example.com/remote.php/dav/calendars/USERNAME/personal/`
 
 Works with any RFC 4791 CalDAV server: Nextcloud, Fastmail, Radicale, Baïkal, Synology Calendar, and others.
 
-### Setup
+---
 
-1. Create an app password on your calendar server (Nextcloud: Settings → Security → Devices & sessions → "Create new app password")
-2. Find your calendar collection URL (Nextcloud: Calendar → three-dot menu on a calendar → Edit → copy the private link, or build it from the pattern above)
-3. Stoa → Admin → Secrets → New: `username:app-password`
-4. Stoa → Admin → Integrations → New: type **CalDAV**, paste the collection URL, select the secret. The connection test verifies the URL is a DAV collection and the credentials work.
-5. Add it to a Calendar panel: Profile/Admin → Calendar panel → Calendar sources → **Stoa integration**
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — `username:app-password`.
+2. **Admin → Integrations → New** — select **CalDAV**, paste the collection URL, choose the secret. The connection test verifies the URL is a DAV collection and the credentials work.
+3. Add it to a Calendar panel: **Profile/Admin → Calendar panel → Calendar sources → Stoa integration**.
 
 There is no CalDAV panel — this integration exists solely as a calendar source.
 

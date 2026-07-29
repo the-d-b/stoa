@@ -1,40 +1,54 @@
+---
+id: github
+name: GitHub
+category: Digital Life
+tags: [developer, cloud]
+official_url: https://github.com
+status: tested
+polling: 2min
+secret_format: api-key
+url_required: false
+---
+
 # GitHub
 
-**Category:** Development | **Status:** Tested | **Polling:** 2 min
+## What is GitHub?
+
+GitHub is the world's largest platform for hosting and collaborating on code with Git. It provides repositories, pull requests, issues, Actions CI, and social features. Stoa reads your public profile, top repositories, and recent activity via the GitHub API.
+
+**Official site:** [github.com](https://github.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Personal Access Token (classic or fine-grained)
-
-**URL required:** None — always uses `api.github.com`
-
-### Getting a token
+A Personal Access Token (classic or fine-grained). No URL is needed — Stoa always calls `api.github.com`.
 
 **Option A — Classic PAT (simpler)**
 
-1. GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Generate new token (classic)
-3. Set an expiration and a note (e.g. "Stoa dashboard")
-4. Select scopes:
-   - `read:user` — profile, bio, follower counts
-   - `public_repo` — public repository list and metadata
-5. Generate token and copy it immediately (shown once)
+1. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)**
+2. Generate new token (classic); set an expiration and a note (e.g. "Stoa dashboard")
+3. Select scopes: `read:user` (profile, bio, follower counts) and `public_repo` (public repository list and metadata)
+4. Generate and copy the token (shown once)
 
 **Option B — Fine-grained PAT (more secure)**
 
-1. GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens
+1. GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens**
 2. New fine-grained personal access token
-3. Under **Repository access**: select "Public Repositories (read-only)"
-4. Under **Account permissions**: set **Profile** → Read-only
-5. Generate token and copy it immediately
+3. **Repository access:** "Public Repositories (read-only)"
+4. **Account permissions:** set **Profile** → Read-only
+5. Generate and copy the token (shown once)
 
-### Setup
+- **Secret format:** Personal Access Token
+- **URL:** none — always uses `api.github.com`
 
-1. Admin → Secrets → New: paste the token
-2. Admin → Integrations → New: type GitHub, leave URL blank, select the secret
-3. Admin → Panels → New: type GitHub
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **GitHub**, leave URL blank, choose the secret.
+3. **Admin → Panels → New** — select **GitHub**.
 
 ---
 

@@ -1,25 +1,39 @@
+---
+id: tailscale
+name: Tailscale
+category: Network & Security
+tags: [vpn, mesh]
+official_url: https://tailscale.com
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: false
+---
+
 # Tailscale
 
-**Category:** VPN & Security | **Status:** Tested | **Polling:** 60 s
+## What is Tailscale?
+
+Tailscale is a mesh VPN built on WireGuard that connects your devices into a private network (a "tailnet") with almost no configuration. Devices authenticate through your identity provider and reach each other directly wherever they are, with features like subnet routers, exit nodes, and MagicDNS.
+
+**Official site:** [tailscale.com](https://tailscale.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** API token (`tskey-api-...`)
+Tailscale admin console → **Settings → Keys → Generate access token**. The token starts with `tskey-api-`.
 
-> Tailscale admin console → Settings → Keys → Generate access token. The token starts with `tskey-api-`.
+- **Secret format:** API token (`tskey-api-...`)
+- **URL:** none — leave blank to use your default tailnet. If you have a named tailnet (e.g. `yourorg.github`), enter just the tailnet name (not a full URL).
 
-**URL required:** None — leave blank unless you have a named tailnet.
+---
 
-> **URL field (optional):** Leave blank to use your default tailnet. If you have a named tailnet (e.g. `yourorg.github`), enter just the tailnet name in the URL field — not a full URL.
+## Add it to Stoa
 
-### Setup
-
-1. Tailscale admin console → Settings → Keys → **Generate access token** (`tskey-api-...`)
-2. Stoa → **Admin → Secrets → New**: paste the token
-3. Stoa → **Admin → Integrations → New** → select **Tailscale**, leave URL blank, select the secret → **Save**
-4. Stoa → **Admin → Panels → New** → select **Tailscale**, select the integration → **Create**
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **Tailscale**, leave URL blank, choose the secret → **Save**.
+3. **Admin → Panels → New** — select **Tailscale**.
 
 ---
 

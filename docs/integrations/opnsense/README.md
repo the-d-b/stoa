@@ -1,25 +1,40 @@
-﻿# OPNsense
+---
+id: opnsense
+name: OPNsense
+category: Network & Security
+tags: [firewall, router, vpn, self-hosted]
+official_url: https://opnsense.org
+status: tested
+polling: 30s
+secret_format: composite
+url_required: true
+example_url: https://192.168.1.1
+---
 
-**Category:** Networking | **Status:** Tested | **Polling:** 30 s (SSE stream)
+# OPNsense
+
+## What is OPNsense?
+
+OPNsense is an open-source, FreeBSD-based firewall and routing platform. It handles perimeter firewalling, VPNs, traffic shaping, and intrusion detection through a web UI, and is a popular open alternative to commercial firewall appliances (and a fork-sibling of pfSense).
+
+**Official site:** [opnsense.org](https://opnsense.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** key:secret
+OPNsense → **System → Access → Users** → edit your API user → **+ New API Key**. You get a key + secret pair — join them with a colon.
 
-> OPNsense -> System -> Access -> Users -> edit API user -> + New API Key. You get a key + secret pair - join them with a colon: key:secret
+- **Secret format:** `key:secret` (colon-separated)
+- **URL:** required, HTTPS — e.g. `https://192.168.1.1`
 
-**URL required:** Required
+---
 
-**Example URL:** `https://192.168.1.1`
+## Add it to Stoa
 
-### Setup
-
-1. OPNsense -> System -> Access -> Users -> API user -> + New API Key
-2. Format as key:secret (colon-separated)
-3. Admin -> Secrets -> New: paste the credential
-4. Admin -> Integrations -> New: type OPNsense, URL = https://opnsense-ip, secret
+1. **Admin → Secrets → New** — paste `key:secret`.
+2. **Admin → Integrations → New** — select **OPNsense**, enter the URL, choose the secret. Enable **Skip TLS verify** for the self-signed certificate.
+3. **Admin → Panels → New** — select **OPNsense**.
 
 ---
 
@@ -42,6 +57,7 @@ Interface traffic rates (live SSE stream), firewall event donut, top WAN talkers
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

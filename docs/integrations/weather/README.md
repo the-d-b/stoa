@@ -1,21 +1,38 @@
-﻿# Weather
+---
+id: weather
+name: Weather
+category: Online Content
+tags: [weather, built-in]
+official_url: https://open-meteo.com
+status: tested
+polling: 10min
+secret_format: none
+url_required: false
+---
 
-**Category:** Content | **Status:** Tested | **Polling:** 10 min
+# Weather
+
+## What is Weather?
+
+Weather is a built-in Stoa feature — not a self-hosted app you deploy — showing current conditions and a multi-day forecast, sourced from the free public Open-Meteo API. No key is needed; you set a location per panel.
+
+**Data source:** [open-meteo.com](https://open-meteo.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank - no API key needed
+None — Open-Meteo is a public API with no authentication required.
 
-> Open-Meteo is a public API with no authentication required.
+- **Secret format:** none
+- **URL:** none (Open-Meteo public API)
 
-**URL required:** None (Open-Meteo public API)
+---
 
-### Setup
+## Add it to Stoa
 
-1. Admin -> Integrations -> New: type Weather, no URL, no secret
-2. Admin -> Panels -> New: type Weather - configure location (city name or lat/long) and temperature unit in panel config
+1. **Admin → Integrations → New** — select **Weather**, no URL, no secret.
+2. **Admin → Panels → New** — select **Weather**, and configure the location (city name or lat/long) and temperature unit in the panel config.
 
 ---
 
@@ -38,6 +55,7 @@ Current conditions (temperature, feels-like, wind, humidity) and a multi-day for
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

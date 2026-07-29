@@ -1,6 +1,16 @@
+---
+id: calendar
+name: Calendar
+category: Stoa Features
+tags: [calendar, built-in]
+status: tested
+---
+
 # Calendar
 
-**Category:** Productivity | **Status:** ✅ Tested | **Requires integration:** No — sources configured per panel
+## What is the Calendar panel?
+
+The Calendar panel is a built-in Stoa panel that aggregates events from many sources — Google Calendar, CalDAV, ICS/Outlook feeds, the \*arr apps, Home Assistant, finance apps, comics managers, and more — into one calendar. It needs no integration of its own; you add sources per panel, each with its own label, color, and days-ahead window. Google Calendar and CalDAV sources are writable.
 
 ---
 

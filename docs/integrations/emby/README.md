@@ -1,25 +1,40 @@
+---
+id: emby
+name: Emby
+category: Media Servers
+tags: [movies, tv, streaming, self-hosted]
+official_url: https://emby.media
+status: tested
+polling: 30s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8096
+---
+
 # Emby
 
-**Category:** Media Servers | **Status:** ✅ Tested | **Polling:** 30 s
+## What is Emby?
+
+Emby is a media server that organizes and streams your movies, TV shows, music, and photos to apps across phones, tablets, TVs, and browsers. It sits between Plex and Jellyfin in philosophy — a polished product with a free tier plus an optional **Premiere** subscription that unlocks extras like hardware transcoding, mobile sync, and cover art. Core library management and streaming work without Premiere.
+
+**Official site:** [emby.media](https://emby.media)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Emby → **Settings → Advanced → API Keys → New API Key**. Give it any name (e.g. `stoa`) and copy the generated key.
 
-> Emby → Settings → Advanced → API Keys → New API Key. Give it any name (e.g. `stoa`) and copy the generated key.
+- **Secret format:** plain API key
+- **URL:** required — point at your Emby server port, e.g. `http://192.168.1.10:8096`
 
-**URL required:** Required — point at your Emby server port
+---
 
-**Example URL:** `http://192.168.1.10:8096`
+## Add it to Stoa
 
-### Setup
-
-1. Emby → Settings → Advanced → API Keys → create a new key, copy it
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Emby`, URL = `http://emby:8096`, select your secret
-4. Admin → Panels → New: type `Emby`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Emby**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Emby**.
 
 ---
 
@@ -60,4 +75,4 @@ Set **Allowed ratings** in the panel config (e.g. `G, PG, PG-13, TV-PG`) to hide
 ## Notes
 
 - The Emby API key grants read-only access to sessions and library metadata.
-- Emby Premier is not required for API access.
+- Emby Premiere is not required for API access.

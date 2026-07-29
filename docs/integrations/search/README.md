@@ -1,6 +1,16 @@
-﻿# Search
+---
+id: search
+name: Search
+category: Stoa Features
+tags: [search, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Search
+
+## What is Search?
+
+Search is a built-in Stoa panel that provides a search bar, passing your query to a configured search engine — any engine with a URL pattern, including self-hosted options like SearXNG. No external integration; configured directly in the panel.
 
 ---
 
@@ -23,6 +33,7 @@ A search bar panel that passes queries to a configured search engine. Supports a
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

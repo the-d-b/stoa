@@ -1,25 +1,40 @@
-﻿# Synology DSM
+---
+id: synology
+name: Synology DSM
+category: Storage & Virtualization
+tags: [nas, storage]
+official_url: https://www.synology.com
+status: needs-testing
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:5000
+---
 
-**Category:** Storage | **Status:** Need Testing | **Polling:** 30 s
+# Synology DSM
+
+## What is Synology DSM?
+
+Synology DiskStation Manager (DSM) is the operating system that runs on Synology NAS appliances. It manages storage volumes and RAID, serves files over SMB/NFS/AFP, and runs a large ecosystem of first-party apps (Photos, Drive, Surveillance Station, and more) through a polished web-based desktop.
+
+**Official site:** [synology.com](https://www.synology.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Use your Synology DSM login in `username:password` form (e.g. `admin:yourpassword`). A dedicated read-only account is recommended.
 
-> Your Synology DSM login. Format: admin:yourpassword
+- **Secret format:** `username:password`
+- **URL:** required — point at your DSM port, e.g. `http://192.168.1.10:5000`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:5000`
+## Add it to Stoa
 
-### Setup
-
-1. Format secret as admin:yourpassword (use a dedicated account if possible)
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type Synology, URL = http://nas-ip:5000, secret
-4. Admin -> Panels -> New: type Synology
+1. **Admin → Secrets → New** — paste `admin:yourpassword` (use a dedicated account if possible).
+2. **Admin → Integrations → New** — select **Synology**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Synology**.
 
 ---
 
@@ -42,6 +57,7 @@ CPU, memory, network, volume health, disk temperatures and SMART status, shared 
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

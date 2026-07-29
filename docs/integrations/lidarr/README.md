@@ -1,25 +1,40 @@
+---
+id: lidarr
+name: Lidarr
+category: Media Management
+tags: [music, automation, arr, self-hosted]
+official_url: https://lidarr.audio
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8686
+---
+
 # Lidarr
 
-**Category:** Media Management | **Status:** ✅ Tested | **Polling:** 30 min
+## What is Lidarr?
+
+Lidarr is a music collection manager in the "\*arr" family. It tracks the artists and albums you follow, automatically grabs new and wanted releases from your usenet and torrent indexers, hands them to your download client, and organizes the files into your library — the audio equivalent of Sonarr and Radarr.
+
+**Official site:** [lidarr.audio](https://lidarr.audio)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Lidarr → **Settings → General → Security → API Key** — copy it.
 
-> Lidarr → Settings → General → Security → API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Lidarr port, e.g. `http://192.168.1.10:8686`
 
-**URL required:** Required — point at your Lidarr port
+---
 
-**Example URL:** `http://192.168.1.10:8686`
+## Add it to Stoa
 
-### Setup
-
-1. Lidarr → Settings → General → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Lidarr`, URL = `http://lidarr:8686`, select your secret
-4. Admin → Panels → New: type `Lidarr`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Lidarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Lidarr**.
 
 ---
 

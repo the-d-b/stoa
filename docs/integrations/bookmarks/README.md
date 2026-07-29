@@ -1,6 +1,16 @@
-﻿# Bookmarks
+---
+id: bookmarks
+name: Bookmarks
+category: Stoa Features
+tags: [bookmarks, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Bookmarks
+
+## What is Bookmarks?
+
+Bookmarks is a built-in Stoa panel that displays a visual, foldered bookmark tree — a quick-launch board of links — with no external service; data is stored locally in Stoa. Both system (group-shared) and personal bookmarks are supported.
 
 ---
 
@@ -23,6 +33,7 @@ Visual bookmark tree displayed as a panel. Bookmarks are organized into folders 
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

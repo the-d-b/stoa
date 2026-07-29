@@ -1,6 +1,16 @@
+---
+id: map
+name: Map
+category: Stoa Features
+tags: [location, built-in]
+status: experimental
+---
+
 # Map
 
-**Category:** Productivity | **Status:** 🧪 Experimental | **Requires integration:** No — sources configured per panel
+## What is the Map panel?
+
+The Map panel is a built-in Stoa panel that plots live GPS markers on a map, aggregating location sources (currently Life360) added per panel — the same pluggable-source pattern as the Calendar panel. It needs no integration of its own; you add sources on each panel.
 
 ---
 

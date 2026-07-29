@@ -1,6 +1,16 @@
+---
+id: docker-apps
+name: Docker Apps
+category: Stoa Features
+tags: [docker, built-in]
+status: new
+---
+
 # Docker Apps
 
-**Category:** Monitoring | **Status:** New | **Polling:** Live, on panel load
+## What is the Docker Apps panel?
+
+The Docker Apps panel is a built-in Stoa panel that auto-discovers app-launcher tiles from labels on your running Docker containers, reusing [Homepage](https://gethomepage.dev)'s `homepage.*` label convention. No integration or per-app configuration is needed beyond the labels themselves.
 
 ---
 

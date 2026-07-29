@@ -1,25 +1,38 @@
+---
+id: tracearr
+name: Tracearr
+category: Media Servers
+tags: [analytics, monitoring, self-hosted]
+official_url: https://tracearr.com
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8000
+---
+
 # Tracearr
 
-**Category:** Media Servers | **Status:** ✅ Tested | **Polling:** 60 s
+## What is Tracearr?
+
+Tracearr is a cross-platform analytics and account-sharing detection tool that sits on top of Plex, Jellyfin, and Emby at the same time. It aggregates play history from all three into one set of statistics and — its distinguishing feature — flags likely account sharing, surfacing sessions from unexpected locations or too many concurrent streams per user so you can spot abuse across a shared library. Like Tautulli and Jellystat, it's a reporting layer, not a media server.
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Tracearr → **Settings → API** → copy the **API Key**.
 
-> Tracearr → Settings → API → copy the API Key.
+- **Secret format:** plain API key
+- **URL:** required — point at your Tracearr port, e.g. `http://192.168.1.10:8000`
 
-**URL required:** Required — point at your Tracearr port
+---
 
-**Example URL:** `http://192.168.1.10:8000`
+## Add it to Stoa
 
-### Setup
-
-1. Tracearr → Settings → API → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Tracearr`, URL = `http://tracearr:8000`, select your secret
-4. Admin → Panels → New: type `Tracearr`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Tracearr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Tracearr**.
 
 ---
 

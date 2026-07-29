@@ -1,6 +1,22 @@
+---
+id: life360
+name: Life360
+category: Digital Life
+tags: [location, cloud]
+official_url: https://www.life360.com
+status: experimental
+polling: 2min
+secret_format: api-key
+url_required: false
+---
+
 # Life360
 
-**Category:** Personal | **Status:** Experimental | **Polling:** 2 min
+## What is Life360?
+
+Life360 is a family location-sharing app that shows where "circle" members are on a live map, with driving and check-in features. It has no official API — Stoa reads it through an unofficial, browser-extracted session token, which makes this integration **experimental** and prone to breaking without warning (see below). Life360 has no standalone panel; it's a GPS **source** for the Map panel.
+
+**Official site:** [life360.com](https://www.life360.com)
 
 ---
 
@@ -12,22 +28,26 @@ More importantly: **the normal email+password login stops working entirely once 
 
 If that tradeoff isn't worth it for you, this integration isn't a good fit — there's currently no more reliable way to pull Life360 data into Stoa.
 
-## Integration
+---
 
-**Secret format:** Session bearer token (not an API key)
-
-**URL required:** Not needed — Stoa always calls Life360's fixed API host.
-
-### Setup
+## Getting the key
 
 1. Log into [life360.com](https://www.life360.com/login) in your browser
 2. Open DevTools (F12) → **Application** tab (Chrome/Edge) or **Storage** tab (Firefox) → **Cookies** → `https://www.life360.com`
 3. Find the cookie named `LIFE360_AUTH_TOKEN` and copy its value
-4. Stoa → Admin → Secrets → New: paste the token value
-5. Stoa → Admin → Integrations → New: select **Life360**, enter the secret (no URL needed)
-6. Stoa → Admin → Panels → New: select **Map**, then add this Life360 integration as a source (Admin → Panels → your Map panel → Map sources)
 
-When it stops working (an auth error appears on the integration), repeat steps 1–4 with a fresh token.
+When it stops working (an auth error appears on the integration), repeat these steps with a fresh token.
+
+- **Secret format:** session bearer token (not an API key)
+- **URL:** none — Stoa always calls Life360's fixed API host
+
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste the token value.
+2. **Admin → Integrations → New** — select **Life360**, enter the secret (no URL needed).
+3. **Admin → Panels → New** — select **Map**, then add this Life360 integration as a source (Admin → Panels → your Map panel → Map sources).
 
 ---
 

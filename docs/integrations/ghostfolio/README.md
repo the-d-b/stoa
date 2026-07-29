@@ -1,25 +1,40 @@
+---
+id: ghostfolio
+name: Ghostfolio
+category: Finance
+tags: [finance, investments, self-hosted]
+official_url: https://ghostfol.io
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:3333
+---
+
 # Ghostfolio
 
-**Category:** Finance | **Status:** Tested | **Polling:** 5 min
+## What is Ghostfolio?
+
+Ghostfolio is a self-hosted, open-source wealth and investment tracker. It consolidates your stocks, ETFs, crypto, and cash across accounts into one dashboard, showing allocation, performance over time, and net worth — a privacy-friendly alternative to portfolio trackers that monetize your data.
+
+**Official site:** [ghostfol.io](https://ghostfol.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Security token (recovery key)
+Ghostfolio → **My Ghostfolio → User Account → Security Token** — this is the same recovery key Ghostfolio gave you on first login. Stoa exchanges it for a short-lived JWT on each refresh. For production, OIDC is recommended so the recovery key stays an emergency-only credential.
 
-> Your Ghostfolio security token is the recovery key you received on first login — it also appears under **My Ghostfolio → User Account → Security Token**. It is used to exchange for a short-lived JWT on each refresh. For production use, OIDC is strongly recommended so the recovery key remains an emergency-only credential.
+- **Secret format:** security token (recovery key) — leave the username blank
+- **URL:** required — point at your Ghostfolio address, e.g. `http://192.168.1.10:3333`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:3333`
+## Add it to Stoa
 
-### Setup
-
-1. Ghostfolio → **My Ghostfolio → User Account** → copy your **Security Token** (this is the same key Ghostfolio gave you as a "recovery key" on first setup)
-2. Stoa → **Admin → Secrets → New**: paste the token, leave username blank → **Save**
-3. Stoa → **Admin → Integrations → New** → select **Ghostfolio**, URL = your Ghostfolio address, select the secret → **Save**
-4. Stoa → **Admin → Panels → New** → select **Ghostfolio** → **Create**
+1. **Admin → Secrets → New** — paste the token, leave username blank → **Save**.
+2. **Admin → Integrations → New** — select **Ghostfolio**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Ghostfolio**.
 
 ---
 
@@ -48,7 +63,7 @@ Portfolio dashboard showing current net worth, time-range performance metrics, a
 ## Notes
 
 - **Security token = recovery key:** Ghostfolio's anonymous auth model uses this single key as both login credential and API token. The `/api/v1/auth/anonymous` endpoint exchanges it for a short-lived JWT; Stoa does this on every panel refresh.
-- **Cash accounts:** Manual account balances (savings, 401k, checking) count toward the net worth total but are excluded from the holdings donut and list. The donut shows investment allocation only, so percentages reflect how your invested assets are distributed rather than being dominated by cash.
+- **Cash accounts:** Manual account balances (savings, 401k, checking) count toward the net worth total but are excluded from the holdings donut and list. The donut shows investment allocation only.
 - **Market data sync:** Stock prices (Yahoo Finance) sync on Ghostfolio's nightly schedule — holdings may show purchase price as current value on day one. Crypto (CoinGecko) populates immediately. Check **Admin → Market Data** in Ghostfolio to trigger a manual refresh.
 - **Today's change:** Shows 0 outside market hours or before the first intraday price arrives.
 - **API version:** Stoa uses `/api/v2/portfolio/performance` for summary metrics and `/api/v1/portfolio/holdings` for the holdings list, matching current Ghostfolio API versions.

@@ -1,25 +1,40 @@
+---
+id: proxmox
+name: Proxmox
+category: Storage & Virtualization
+tags: [virtualization, self-hosted]
+official_url: https://www.proxmox.com
+status: tested
+polling: 30s
+secret_format: api-key
+url_required: true
+example_url: https://192.168.1.10:8006
+---
+
 # Proxmox
 
-**Category:** Storage | **Status:** Tested | **Polling:** 30 s
+## What is Proxmox?
+
+Proxmox VE (Virtual Environment) is an open-source virtualization platform that combines KVM virtual machines and LXC containers under one web interface, with clustering, live migration, software-defined storage, and integrated backups — a self-hosted alternative to VMware ESXi.
+
+**Official site:** [proxmox.com](https://www.proxmox.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** user@realm!tokenid:secret (full Proxmox API token string)
+Proxmox → **Datacenter → Permissions → API Tokens → Add Token** (assign the Viewer role, or disable Privilege Separation). Use the full token string.
 
-> Proxmox -> Datacenter -> Permissions -> API Tokens -> Add Token. E.g. root@pam!stoa:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+- **Secret format:** `user@realm!tokenid:secret` — e.g. `root@pam!stoa:xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+- **URL:** required, HTTPS — e.g. `https://192.168.1.10:8006`
 
-**URL required:** Required
+---
 
-**Example URL:** `https://192.168.1.10:8006`
+## Add it to Stoa
 
-### Setup
-
-1. Proxmox -> Datacenter -> Permissions -> API Tokens -> Add Token (assign Viewer role or disable Privilege Separation)
-2. Format as user@realm!tokenid:secret (the full string Proxmox shows)
-3. Admin -> Secrets -> New: paste the token
-4. Admin -> Integrations -> New: type Proxmox, URL = https://proxmox-ip:8006, secret
+1. **Admin → Secrets → New** — paste the full token string.
+2. **Admin → Integrations → New** — select **Proxmox**, enter the HTTPS URL, choose the secret. Enable **Skip TLS verify** if using the default self-signed certificate.
+3. **Admin → Panels → New** — select **Proxmox**.
 
 ---
 
@@ -42,6 +57,7 @@ Node CPU and memory, storage, running VMs and containers, cluster overview.
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

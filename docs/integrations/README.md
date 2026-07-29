@@ -16,6 +16,10 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Tautulli | ✅ Tested | Plain API key — Tautulli → Settings → Web Interface → API Key | Required | 60 s | [tautulli/](tautulli/) |
 | Jellystat | ✅ Tested | Plain API key — Jellystat → Settings → API Key | Required | 60 s | [jellystat/](jellystat/) |
 | Tracearr | ✅ Tested | Plain API key — Tracearr → Settings → API | Required | 60 s | [tracearr/](tracearr/) |
+| Immich | ✅ Tested | Plain API key — Immich → Account → API Keys | Required | 30 min | [immich/](immich/) |
+| PhotoPrism | ✅ Tested | `username:password` — your PhotoPrism login | Required | 30 min | [photoprism/](photoprism/) |
+
+> **Lychee — abandoned.** Tested against Lychee v7, the integration failed.  Lychee does not have a modern API.  We are intentionally ommitting this application.  We will reconsider an integration if they modernize their platform with a sane token-based API with documentation. If you need a photo library panel that works, use Immich or PhotoPrism.
 
 ---
 
@@ -36,33 +40,53 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 ---
 
-## Photos & Libraries
+## Downloads
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Immich | ✅ Tested | Plain API key — Immich → Account → API Keys | Required | 30 min | [immich/](immich/) |
-| PhotoPrism | ✅ Tested | `username:password` — your PhotoPrism login | Required | 30 min | [photoprism/](photoprism/) |
-| Lychee | ❌ Abandoned | — | — | — | See note below |
-| Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
-| Komga | ✅ Tested | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
-| Audiobookshelf | ✅ Tested | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
-| Navidrome | ✅ Tested | `username:password` — local Navidrome credentials (not OIDC) | Required | 30 s | [navidrome/](navidrome/) |
-
-> **Lychee — abandoned.** Tested against Lychee v7, the integration failed.  Lychee does not have a modern API.  We are intentionally ommitting this application.  We will reconsider an integration if they modernize their platform with a sane token-based API with documentation. If you need a photo library panel that works, use Immich or PhotoPrism.
+| Transmission | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [transmission/](transmission/) |
+| qBittorrent | ✅ Tested | API key `qbt_...` (5.2.0+, recommended) **or** `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
+| Deluge | ✅ Tested | Bare `password` — Deluge Web UI password (no username) | Required | 30 s | [deluge/](deluge/) |
+| ruTorrent | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [rutorrent/](rutorrent/) |
+| SABnzbd | ✅ Tested | Plain API key — SABnzbd → Config → General → API Key | Required | Adaptive 5 s–configured | [sabnzbd/](sabnzbd/) |
+| NZBGet | ✅ Tested | `username:password` — NZBGet control user credentials | Required | Adaptive 5 s–configured | [nzbget/](nzbget/) |
 
 ---
 
-## Comics & Manga
+## Print Media
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
+| Kavita | ✅ Tested | Plain API key — Kavita → User Settings → API Key | Required | 30 min | [kavita/](kavita/) |
+| Komga | ✅ Tested | `username:password` **or** plain API key | Required | 30 min | [komga/](komga/) |
 | Mylar3 | ✅ Tested | Plain API key — Mylar3 → Settings → Web Interface → API Key | Required | 30 min | [mylar3/](mylar3/) |
 | Kapowarr | ✅ Tested | Plain API key — Kapowarr → Settings → API Key | Required | 30 min | [kapowarr/](kapowarr/) |
 | Tranga | ✅ Tested | Blank (no auth required by default) | Required | 30 min | [tranga/](tranga/) |
+| Audiobookshelf | ✅ Tested | `username:password` **or** plain API key (Settings → Users → API Token) | Required | 60 s | [audiobookshelf/](audiobookshelf/) |
 
 ---
 
-## Storage
+## Music
+
+| Integration | Status | Secret | URL | Polling | Page |
+|---|---|---|---|---|---|
+| Navidrome | ✅ Tested | `username:password` — local Navidrome credentials (not OIDC) | Required | 30 s | [navidrome/](navidrome/) |
+| Spotify | 💰 Requires Premium | `clientId:clientSecret` — Spotify Developer Dashboard; connect account after saving. **Spotify Premium required** — the Web API is locked behind Premium for new developer apps | None (OAuth) | 30 s | [spotify/](spotify/) |
+| Last.fm | ✅ Tested | `username:apiKey` — username + free API key from last.fm/api (no OAuth) | None (Last.fm API) | 30 s | [lastfm/](lastfm/) |
+
+---
+
+## Gaming
+
+| Integration | Status | Secret | URL | Polling | Page |
+|---|---|---|---|---|---|
+| Steam | ✅ Tested | Steam Web API key — `steamcommunity.com/dev/apikey` | None (Steam API) | 5 min | [steam/](steam/) |
+| RomM | 🔶 Need Testing | `username:password` **or** Bearer `token` | Required | 15 min | [romm/](romm/) |
+| Pterodactyl | 🔶 Need Testing | Client API key — Pterodactyl → Account → API Credentials | Required | 60 s | [pterodactyl/](pterodactyl/) |
+
+---
+
+## Storage & Virtualization
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
@@ -77,7 +101,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 ---
 
-## Networking
+## Network & Security
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
@@ -86,86 +110,21 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | OpenWrt | 🔶 Need Testing | `username:password` — default username is `root` | Required | 5 s | [openwrt/](openwrt/) |
 | Omada SDN | 🔶 Need Testing | `username:password` — Omada controller login (Open API v2, requires Omada 5.0+) | Required | 30 s | [omada/](omada/) |
 | UniFi | 🔶 Need Testing | Plain API key (v9.3.43+) **or** `username:password` (legacy) | Required | 30 s | [unifi/](unifi/) |
-
----
-
-## DNS & Proxy
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
 | Traefik | 🔶 Need Testing | Blank (open) **or** `username:password` (Basic Auth) **or** Bearer `token` | Required | 30 s | [traefik/](traefik/) |
 | Nginx Proxy Manager | ✅ Tested | `email:password` — your NPM login | Required | 60 s | [nginxpm/](nginxpm/) |
 | Cloudflare | 🔶 Need Testing | Scoped API `token` **or** `email:globalApiKey` (legacy) | None (cloud) | 5 min | [cloudflare/](cloudflare/) |
 | Pi-hole | 🔶 Need Testing | API `token` (v5) **or** web `password` (v6) | Required | 30 s | [pihole/](pihole/) |
 | AdGuard Home | ✅ Tested | `username:password` — your AdGuard Home login | Required | 30 s | [adguard/](adguard/) |
-| NextDNS | 🔶 Need Testing | Plain API key — NextDNS → Account → API Key | None (cloud) | 30 s | [nextdns/](nextdns/) |
-
----
-
-## VPN & Security
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
+| NextDNS | 🔶 Need Testing | Plain API key — NextDNS → Account → API Key | Required (profile URL) | 30 s | [nextdns/](nextdns/) |
 | Gluetun | ✅ Tested | Blank (no auth by default) | Required | 60 s | [gluetun/](gluetun/) |
 | wg-easy | 🔶 Need Testing | Bare `password` — your wg-easy web UI password | Required | 30 s | [wgeasy/](wgeasy/) |
 | Tailscale | ✅ Tested | API token — `tskey-api-...` from Tailscale admin console | None (cloud) | 60 s | [tailscale/](tailscale/) |
 | Netbird | 🔶 Need Testing | Personal Access Token — Netbird → Settings → PATs | URL or cloud | 60 s | [netbird/](netbird/) |
 | Authentik | ✅ Tested | Plain API token — Authentik → Admin → System → API Tokens | Required | 5 min | [authentik/](authentik/) |
 | Keycloak | ✅ Tested | `realm:clientId:clientSecret` — confidential client with service account roles view-events + query-users | Required | 2 min | [keycloak/](keycloak/) |
-
----
-
-## Monitoring
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
 | Uptime Kuma | ✅ Tested | Blank (no auth) **or** plain API key (Kuma 1.23+) | Required | 60 s | [kuma/](kuma/) |
 | Prometheus | ✅ Tested | Blank (open) **or** `username:password` **or** Bearer `token` | Required | 30 s | [prometheus/](prometheus/) |
 | Grafana | ✅ Tested | Service Account token — Grafana → Administration → Service Accounts | Required | 60 s | [grafana/](grafana/) |
-| Security Posture | 🔶 Need Testing | N/A — auto-discovers existing integrations, no setup of its own | N/A | 24h per product | [security-posture/](security-posture/) |
-| Docker Apps | 🔶 Need Testing | N/A — reads `homepage.*` labels off existing Docker containers | N/A (uses Admin → Docker config) | Live, on load | [docker-apps/](docker-apps/) |
-
----
-
-## Downloads
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| Transmission | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [transmission/](transmission/) |
-| qBittorrent | ✅ Tested | API key `qbt_...` (5.2.0+, recommended) **or** `username:password` | Required | 30 s | [qbittorrent/](qbittorrent/) |
-| Deluge | ✅ Tested | Bare `password` — Deluge Web UI password (no username) | Required | 30 s | [deluge/](deluge/) |
-| ruTorrent | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 30 s | [rutorrent/](rutorrent/) |
-| SABnzbd | ✅ Tested | Plain API key — SABnzbd → Config → General → API Key | Required | Adaptive 5 s–configured | [sabnzbd/](sabnzbd/) |
-| NZBGet | ✅ Tested | `username:password` — NZBGet control user credentials | Required | Adaptive 5 s–configured | [nzbget/](nzbget/) |
-
----
-
-## Smart Home
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| Home Assistant | 🔶 Need Testing | Long-lived access token — HA → Profile → Long-Lived Access Tokens | Required | 60 s | [homeassistant/](homeassistant/) |
-| Frigate | 🔶 Need Testing | Blank (unauthenticated) **or** Bearer `token` from Frigate → Settings → Users | Required | 15 s | [frigate/](frigate/) |
-| Blue Iris | 🔶 Need Testing | `username:password` — Blue Iris user account | Required | 30 s | [blueiris/](blueiris/) |
-| LubeLogger | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 15 min | [lubelogger/](lubelogger/) |
-
----
-
-## Development
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| GitHub | ✅ Tested | Classic or fine-grained PAT — GitHub → Settings → Developer Settings; scopes: `read:user`, `public_repo` | None (GitHub API) | 2 min | [github/](github/) |
-
----
-
-## Gaming
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| Steam | ✅ Tested | Steam Web API key — `steamcommunity.com/dev/apikey` | None (Steam API) | 5 min | [steam/](steam/) |
-| RomM | 🔶 Need Testing | `username:password` **or** Bearer `token` | Required | 15 min | [romm/](romm/) |
-| Pterodactyl | 🔶 Need Testing | Client API key — Pterodactyl → Account → API Credentials | Required | 60 s | [pterodactyl/](pterodactyl/) |
 
 ---
 
@@ -182,56 +141,32 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 ---
 
-## Documents
+## Digital Life
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
-| Paperless-ngx | 🔶 Need Testing | API `token` — Paperless → Settings → API → Generate Token | Required | 5 min | [paperless/](paperless/) |
-| Docspell | 🔶 Need Testing | `account:password` where account is `collective/user` | Required | 15 min | [docspell/](docspell/) |
-
----
-
-## Personal
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| Monica | 🔶 Need Testing | Bearer `token` — Monica → Settings → API → Personal Access Tokens | Required | 15 min | [monica/](monica/) |
-| Homebox | 🔶 Need Testing | `email:password` — your Homebox login | Required | 15 min | [homebox/](homebox/) |
-| Life360 | 🧪 Experimental | Session token extracted by hand from your browser — **not** an API key, see [life360/](life360/) | Not needed (fixed host) | 2 min | [life360/](life360/) |
-
----
-
-## Health & Fitness
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
+| Home Assistant | 🔶 Need Testing | Long-lived access token — HA → Profile → Long-Lived Access Tokens | Required | 60 s | [homeassistant/](homeassistant/) |
+| Frigate | 🔶 Need Testing | Blank (unauthenticated) **or** Bearer `token` from Frigate → Settings → Users | Required | 15 s | [frigate/](frigate/) |
+| Blue Iris | 🔶 Need Testing | `username:password` — Blue Iris user account | Required | 30 s | [blueiris/](blueiris/) |
 | wger | 🔶 Need Testing | Plain API key — wger Dashboard → API (permanent token) | Required | 15 min | [wger/](wger/) |
 | Fittrackee | 🔶 Need Testing | `email:password` — your Fittrackee login | Required | 15 min | [fittrackee/](fittrackee/) |
 | Strava | 🔶 Need Testing | `clientId:clientSecret` — Strava API settings; connect account after saving | None (OAuth) | 60 s | [strava/](strava/) |
 | Duolingo | ✅ Tested | Your Duolingo `username` — public profile API, no password required | None (public API) | 5 min | [duolingo/](duolingo/) |
-
----
-
-## Music
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| Spotify | 💰 Requires Premium | `clientId:clientSecret` — Spotify Developer Dashboard; connect account after saving. **Spotify Premium required** — the Web API is locked behind Premium for new developer apps | None (OAuth) | 30 s | [spotify/](spotify/) |
-| Last.fm | ✅ Tested | `username:apiKey` — username + free API key from last.fm/api (no OAuth) | None (Last.fm API) | 30 s | [lastfm/](lastfm/) |
-
----
-
-## Food & Home
-
-| Integration | Status | Secret | URL | Polling | Page |
-|---|---|---|---|---|---|
-| Mealie | ✅ Tested | Bearer `token` — Mealie → User Settings → API Tokens | Required | 15 min | [mealie/](mealie/) |
+| Homebox | 🔶 Need Testing | `email:password` — your Homebox login | Required | 15 min | [homebox/](homebox/) |
 | Grocy | ✅ Tested | Plain API key — Grocy → Manage API Keys | Required | 5 min | [grocy/](grocy/) |
+| Mealie | ✅ Tested | Bearer `token` — Mealie → User Settings → API Tokens | Required | 15 min | [mealie/](mealie/) |
 | Tandoor | ✅ Tested | Bearer `token` — Tandoor → Settings → API Tokens | Required | 15 min | [tandoor/](tandoor/) |
+| LubeLogger | ✅ Tested | `username:password` **or** blank (if auth disabled) | Required | 15 min | [lubelogger/](lubelogger/) |
+| Monica | 🔶 Need Testing | Bearer `token` — Monica → Settings → API → Personal Access Tokens | Required | 15 min | [monica/](monica/) |
+| Life360 | 🧪 Experimental | Session token extracted by hand from your browser — **not** an API key, see [life360/](life360/) | Not needed (fixed host) | 2 min | [life360/](life360/) |
+| Paperless-ngx | 🔶 Need Testing | API `token` — Paperless → Settings → API → Generate Token | Required | 5 min | [paperless/](paperless/) |
+| Docspell | 🔶 Need Testing | `account:password` where account is `collective/user` | Required | 15 min | [docspell/](docspell/) |
+| GitHub | ✅ Tested | Classic or fine-grained PAT — GitHub → Settings → Developer Settings; scopes: `read:user`, `public_repo` | None (GitHub API) | 2 min | [github/](github/) |
+| CalDAV | 🔶 Need Testing | `username:password` — app password; URL points at a calendar collection | Required | 15 min | [caldav/](caldav/) |
 
 ---
 
-## Content
+## Online Content
 
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
@@ -244,12 +179,14 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 
 ---
 
-## Productivity (standalone panels — no integration required)
+## Stoa Features (built-in panels — no integration required)
 
 | Panel | Status | Notes | Page |
 |---|---|---|---|
-| Calendar | ✅ Tested | Aggregates from Sonarr / Radarr / Lidarr / Readarr / Google Calendar sources | [calendar/](calendar/) |
-| Map | 🧪 Experimental | Live location map — aggregates from Life360 (first source; more planned) | [map/](map/) |
+| Calendar | ✅ Tested | Aggregates many sources (arr apps, Google Calendar, CalDAV, ICS, Home Assistant, finance, comics) into one calendar | [calendar/](calendar/) |
+| Map | 🧪 Experimental | Live location map — aggregates GPS sources (Life360 first; more planned) | [map/](map/) |
+| Security Posture | 🔶 Need Testing | Detected version + known CVEs for your network/storage integrations — auto-discovered, no source picker | [security-posture/](security-posture/) |
+| Docker Apps | 🔶 Need Testing | App-launcher tiles auto-discovered from Docker `homepage.*` labels, grouped and collapsible | [docker-apps/](docker-apps/) |
 | Kanban | ✅ Tested | Local task boards — data stored in Stoa's database | [kanban/](kanban/) |
 | Notes | ✅ Tested | Shared markdown-capable notes with multi-user locking | [notes/](notes/) |
 | Checklist | ✅ Tested | Shared checklists with real-time state sync | [checklist/](checklist/) |
@@ -288,6 +225,22 @@ All credentials use a single "API key / secret" field. The format varies by serv
 | Blank (no auth) | — | Scrutiny, Gluetun (optional), Frigate (optional), Weather, Sports, Stocks |
 
 The colon convention (`username:password`) follows the same format as `curl -u user:pass` — Stoa splits on the **first** colon only, so passwords containing colons are supported.
+
+### `secret_format` front-matter enum
+
+Each integration page's front-matter carries one canonical `secret_format` value — the coarse *kind* of credential, meant for catalog display and filtering. The exact string to paste always lives in that page's **Getting the key** section. The value is one of:
+
+| Value | Meaning |
+|---|---|
+| `none` | No credential needed |
+| `api-key` | A single opaque key or token pasted as-is — API keys, PATs, bearer / session / service-account tokens |
+| `username-password` | Colon-joined login credentials (`username:password` or `email:password`) |
+| `password` | A bare password, no username |
+| `oauth` | App client credentials (`clientId:clientSecret`) plus an OAuth authorize flow |
+| `composite` | A product-specific colon-joined format — see the page (OPNsense `key:secret`, Keycloak `realm:clientId:clientSecret`, Coinbase `keyName:privateKey`, Last.fm `username:apiKey`, Trakt `clientId:username`) |
+| `username` | A public username only (Duolingo) |
+
+Built-in panel types (Kanban, Notes, Calendar, …) omit `secret_format` entirely — they have no credential.
 
 ## Enabling and disabling integrations
 

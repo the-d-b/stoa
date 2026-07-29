@@ -1,9 +1,12 @@
 {
   "name": "stoa-frontend",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "private": true,
   "scripts": {
     "dev": "vite",
+    "gen:catalog": "node scripts/gen-catalog.mjs",
+    "prebuild": "node scripts/gen-catalog.mjs",
+    "predev": "node scripts/gen-catalog.mjs",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },

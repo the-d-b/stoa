@@ -1,25 +1,40 @@
+---
+id: navidrome
+name: Navidrome
+category: Music
+tags: [music, streaming, self-hosted]
+official_url: https://www.navidrome.org
+status: tested
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:4533
+---
+
 # Navidrome
 
-**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 s
+## What is Navidrome?
+
+Navidrome is a self-hosted music streaming server compatible with the Subsonic / OpenSubsonic API. It indexes your personal music collection and streams it to its own web UI and to dozens of third-party Subsonic-compatible apps, with playlists, favorites, and per-user libraries — a self-hosted alternative to Spotify for music you own.
+
+**Official site:** [navidrome.org](https://www.navidrome.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password`
+Use your Navidrome **local account** credentials in `username:password` form — **not** your OIDC/SSO provider credentials (see the OIDC note below).
 
-> Your Navidrome local account credentials — **not** your OIDC/SSO provider credentials. See the OIDC note below.
+- **Secret format:** `username:password`
+- **URL:** required — point at your Navidrome port, e.g. `http://192.168.1.10:4533`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:4533`
+## Add it to Stoa
 
-### Setup
-
-1. Format your secret as `yourusername:yourpassword` using your Navidrome local account
-2. Stoa → Admin → Secrets → New: paste the credential
-3. Stoa → Admin → Integrations → New: select **Navidrome**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Navidrome**
+1. **Admin → Secrets → New** — paste `yourusername:yourpassword` using your Navidrome local account.
+2. **Admin → Integrations → New** — select **Navidrome**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Navidrome**.
 
 ---
 

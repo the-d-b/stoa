@@ -8,6 +8,7 @@
 import { useState, useEffect } from 'react'
 import { panelsApi, myPanelsApi, integrationsApi, secretsApi, weatherApi, Integration, Panel, Tag } from '../../api'
 import TypeCardPicker from './TypeCardPicker'
+import CatalogBrowser from './CatalogBrowser'
 import SportsConfigUI from './SportsConfigUI'
 import StocksConfigUI from './StocksConfigUI'
 import CryptoConfigUI from './CryptoConfigUI'
@@ -23,6 +24,8 @@ export const PANEL_TYPES: {
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                needsIntegration: true,  category: 'Media Servers' },
   { id: 'jellystat',    label: 'Jellystat',    desc: 'Jellyfin analytics',                             needsIntegration: true,  category: 'Media Servers' },
   { id: 'tracearr',     label: 'Tracearr',     desc: 'Cross-platform media analytics & security',      needsIntegration: true,  category: 'Media Servers' },
+  { id: 'immich',       label: 'Immich',       desc: 'Photo library stats & preview carousel',          needsIntegration: true,  category: 'Media Servers' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Media Servers' },
   // Media Management
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show tracking',                              needsIntegration: true,  category: 'Media Management' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie tracking',                                needsIntegration: true,  category: 'Media Management' },
@@ -34,49 +37,6 @@ export const PANEL_TYPES: {
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Request queue & stats',               needsIntegration: true,  category: 'Media Management' },
   { id: 'tdarr',       label: 'Tdarr',       desc: 'Media transcoding — worker status with per-worker type badges (T-CPU/T-GPU/HC-CPU/HC-GPU), progress bars, ETA, and aggregate library stats (files processed, space saved)', needsIntegration: true, category: 'Media Management' },
   { id: 'maintainerr', label: 'Maintainerr', desc: 'Media library cleanup — rule roster with type badges (movies/shows/seasons), item counts queued per collection, action labels, reclaimable storage size, and historical cleanup totals', needsIntegration: true, category: 'Media Management' },
-  // Photos & Libraries
-  { id: 'immich',       label: 'Immich',       desc: 'Photo library stats & preview carousel',          needsIntegration: true,  category: 'Photos & Libraries' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                              needsIntegration: true,  category: 'Photos & Libraries' },
-  { id: 'kavita',       label: 'Kavita',       desc: 'Manga & comic library stats and recent series',   needsIntegration: true,  category: 'Photos & Libraries' },
-  { id: 'komga',        label: 'Komga',        desc: 'Comic & manga server stats and recent series',     needsIntegration: true,  category: 'Photos & Libraries' },
-  { id: 'mylar3',       label: 'Mylar3',       desc: 'Comics manager — series count, wanted & upcoming issues, cover strip', needsIntegration: true, category: 'Photos & Libraries' },
-  { id: 'kapowarr',     label: 'Kapowarr',     desc: 'Western comics downloader — volume counts and download queue',        needsIntegration: true, category: 'Photos & Libraries' },
-  { id: 'tranga',       label: 'Tranga',        desc: 'Manga downloader — job list, chapter progress, source stats',        needsIntegration: true, category: 'Photos & Libraries' },
-  { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook/podcast player with in-progress queue', needsIntegration: true, category: 'Photos & Libraries' },
-  { id: 'navidrome',     label: 'Navidrome',     desc: 'Music server with playlist player',               needsIntegration: true, category: 'Photos & Libraries' },
-  // Storage
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                needsIntegration: true,  category: 'Storage' },
-  { id: 'unraid',       label: 'Unraid',       desc: 'NAS & storage server',                          needsIntegration: true,  category: 'Storage' },
-  { id: 'omv',          label: 'OpenMediaVault', desc: 'NAS & storage server',                        needsIntegration: true,  category: 'Storage' },
-  { id: 'synology',     label: 'Synology',     desc: 'Synology DSM NAS',                              needsIntegration: true,  category: 'Storage' },
-  { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                  needsIntegration: true,  category: 'Storage' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                    needsIntegration: true,  category: 'Storage' },
-  { id: 'nextcloud',  label: 'Nextcloud',   desc: 'File cloud — active users, storage, shares, app updates, server info (PHP, DB, webserver, memory)', needsIntegration: true, category: 'Storage' },
-  { id: 'scrutiny',   label: 'Scrutiny',    desc: 'Disk health — multi-segment fleet health donut (passed/warning/failed), per-drive temperature bars, power-on hours, reallocated and pending sector counts', needsIntegration: true, category: 'Storage' },
-  // Networking
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                         needsIntegration: true,  category: 'Networking' },
-  { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router stats (pfSense-pkg-API)',        needsIntegration: true,  category: 'Networking' },
-  { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router stats, interface traffic & WiFi clients', needsIntegration: true,  category: 'Networking' },
-  { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada controller — device status, client counts, alerts',          needsIntegration: true,  category: 'Networking' },
-  { id: 'unifi',        label: 'UniFi',        desc: 'Ubiquiti UniFi controller — devices, clients, WAN, real-time events',         needsIntegration: true,  category: 'Networking' },
-  // DNS & Proxy
-  { id: 'traefik',      label: 'Traefik',      desc: 'Reverse proxy — routes, backend health, providers',                           needsIntegration: true,  category: 'DNS & Proxy' },
-  { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'Proxy host inventory (enabled/disabled, SSL), certificate expiry countdown, redirect hosts & stream stats', needsIntegration: true, category: 'DNS & Proxy' },
-  { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Zones with 24h analytics, tunnel health and ingress rules',                    needsIntegration: true,  category: 'DNS & Proxy' },
-  { id: 'pihole',       label: 'Pi-hole',      desc: 'DNS sinkhole — query stats, block rates, top domains, clients & query types',   needsIntegration: true,  category: 'DNS & Proxy' },
-  { id: 'adguard',      label: 'AdGuard Home', desc: 'DNS sinkhole — query stats, block rate, safe browsing/search, top domains, clients, blocklists & upstreams', needsIntegration: true, category: 'DNS & Proxy' },
-  { id: 'nextdns',      label: 'NextDNS',      desc: 'Cloud DNS — query stats, block rate, encrypted/IPv6 percentages, top blocked domains, top clients & block reason breakdown', needsIntegration: true, category: 'DNS & Proxy' },
-  // VPN & Security
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'VPN & Security' },
-  { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN — server status, connected/total clients, per-client handshake recency & transfer stats', needsIntegration: true, category: 'VPN & Security' },
-  { id: 'tailscale',    label: 'Tailscale',    desc: 'Mesh VPN — device roster with online/offline status, OS, Tailscale IP, exit nodes, subnet routers, update & key-expiry alerts', needsIntegration: true, category: 'VPN & Security' },
-  { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — peer roster with online/offline/expired status, IP, OS, groups, and policy list', needsIntegration: true, category: 'VPN & Security' },
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'VPN & Security' },
-  { id: 'keycloak',     label: 'Keycloak',     desc: 'Identity provider — logins/failures over a time range, active session count, recent failed-login list', needsIntegration: true, category: 'VPN & Security' },
-  // Monitoring
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Monitoring' },
-  { id: 'prometheus',   label: 'Prometheus',   desc: 'Metrics server — scrape target health by job, firing & pending alerts with severity, plus optional custom PromQL stat cards with sparklines', needsIntegration: true, category: 'Monitoring' },
-  { id: 'grafana',      label: 'Grafana',      desc: 'Observability platform — datasource health by type, firing alerts with severity, plus dashboard/user counts and instance info', needsIntegration: true, category: 'Monitoring' },
   // Downloads
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Downloads' },
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                             needsIntegration: true,  category: 'Downloads' },
@@ -84,62 +44,94 @@ export const PANEL_TYPES: {
   { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',          needsIntegration: true,  category: 'Downloads' },
   { id: 'sabnzbd',    label: 'SABnzbd',         desc: 'Usenet downloader — download speed, queue progress bars with per-slot percentage and time left, category badges, and recent completion history', needsIntegration: true, category: 'Downloads' },
   { id: 'nzbget',     label: 'NZBGet',          desc: 'Usenet downloader — download speed, queue with per-group progress bars and category badges, today\'s downloaded size, free disk space, and recent history', needsIntegration: true, category: 'Downloads' },
-  // Smart Home
-  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',                   needsIntegration: true,  category: 'Smart Home' },
-  { id: 'frigate',     label: 'Frigate',     desc: 'NVR — camera roster with detection fps, zone configuration per camera with object filters, recent detection events by label and score, detector inference speed', needsIntegration: true, category: 'Smart Home' },
-  { id: 'blueiris',   label: 'Blue Iris',   desc: 'NVR — system signal (green/yellow/red), camera roster with recording/motion/alert/PTZ status, active profile, recent alerts with AI memo, trigger and clip counts per camera', needsIntegration: true, category: 'Smart Home' },
-  { id: 'lubelogger', label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — urgency-color-coded reminder list per vehicle (past due/urgent/not urgent), odometer readings, and service history with cost. Also works as a calendar source for date-bound reminders.', needsIntegration: true, category: 'Smart Home' },
-  // Development
-  { id: 'github',      label: 'GitHub',      desc: 'Developer activity — profile with avatar, bio, and follower stats; top repos by stars with language color dots; 30-day event activity chart; recent events feed (push, PR, issue, release, fork, star)', needsIntegration: true, category: 'Development' },
+  // Print Media
+  { id: 'kavita',       label: 'Kavita',       desc: 'Manga & comic library stats and recent series',   needsIntegration: true,  category: 'Print Media' },
+  { id: 'komga',        label: 'Komga',        desc: 'Comic & manga server stats and recent series',     needsIntegration: true,  category: 'Print Media' },
+  { id: 'mylar3',       label: 'Mylar3',       desc: 'Comics manager — series count, wanted & upcoming issues, cover strip', needsIntegration: true, category: 'Print Media' },
+  { id: 'kapowarr',     label: 'Kapowarr',     desc: 'Western comics downloader — volume counts and download queue',        needsIntegration: true, category: 'Print Media' },
+  { id: 'tranga',       label: 'Tranga',        desc: 'Manga downloader — job list, chapter progress, source stats',        needsIntegration: true, category: 'Print Media' },
+  { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook/podcast player with in-progress queue', needsIntegration: true, category: 'Print Media' },
+  // Music
+  { id: 'navidrome',     label: 'Navidrome',     desc: 'Music server with playlist player',               needsIntegration: true, category: 'Music' },
+  { id: 'spotify',      label: 'Spotify',      desc: 'Now playing + recently played. Premium: progress bar and playback controls.', needsIntegration: true, category: 'Music' },
+  { id: 'lastfm',       label: 'Last.fm',      desc: 'Scrobble history — now playing, recent tracks, 7-day top artists (bar chart), top tracks & albums', needsIntegration: true, category: 'Music' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   { id: 'romm',         label: 'RomM',         desc: 'ROM manager — total platform & ROM count, library size, cover art grid of recently added games, platform list with logos and ROM counts', needsIntegration: true, category: 'Gaming' },
   { id: 'pterodactyl',  label: 'Pterodactyl',  desc: 'Game server panel — running/total server count, per-server CPU & RAM usage bars, uptime, state badge', needsIntegration: true, category: 'Gaming' },
+  // Storage & Virtualization
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                needsIntegration: true,  category: 'Storage & Virtualization' },
+  { id: 'unraid',       label: 'Unraid',       desc: 'NAS & storage server',                          needsIntegration: true,  category: 'Storage & Virtualization' },
+  { id: 'omv',          label: 'OpenMediaVault', desc: 'NAS & storage server',                        needsIntegration: true,  category: 'Storage & Virtualization' },
+  { id: 'synology',     label: 'Synology',     desc: 'Synology DSM NAS',                              needsIntegration: true,  category: 'Storage & Virtualization' },
+  { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                  needsIntegration: true,  category: 'Storage & Virtualization' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                    needsIntegration: true,  category: 'Storage & Virtualization' },
+  { id: 'nextcloud',  label: 'Nextcloud',   desc: 'File cloud — active users, storage, shares, app updates, server info (PHP, DB, webserver, memory)', needsIntegration: true, category: 'Storage & Virtualization' },
+  { id: 'scrutiny',   label: 'Scrutiny',    desc: 'Disk health — multi-segment fleet health donut (passed/warning/failed), per-drive temperature bars, power-on hours, reallocated and pending sector counts', needsIntegration: true, category: 'Storage & Virtualization' },
+  // Network & Security
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router stats',                         needsIntegration: true,  category: 'Network & Security' },
+  { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router stats (pfSense-pkg-API)',        needsIntegration: true,  category: 'Network & Security' },
+  { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router stats, interface traffic & WiFi clients', needsIntegration: true,  category: 'Network & Security' },
+  { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada controller — device status, client counts, alerts',          needsIntegration: true,  category: 'Network & Security' },
+  { id: 'unifi',        label: 'UniFi',        desc: 'Ubiquiti UniFi controller — devices, clients, WAN, real-time events',         needsIntegration: true,  category: 'Network & Security' },
+  { id: 'traefik',      label: 'Traefik',      desc: 'Reverse proxy — routes, backend health, providers',                           needsIntegration: true,  category: 'Network & Security' },
+  { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'Proxy host inventory (enabled/disabled, SSL), certificate expiry countdown, redirect hosts & stream stats', needsIntegration: true, category: 'Network & Security' },
+  { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Zones with 24h analytics, tunnel health and ingress rules',                    needsIntegration: true,  category: 'Network & Security' },
+  { id: 'pihole',       label: 'Pi-hole',      desc: 'DNS sinkhole — query stats, block rates, top domains, clients & query types',   needsIntegration: true,  category: 'Network & Security' },
+  { id: 'adguard',      label: 'AdGuard Home', desc: 'DNS sinkhole — query stats, block rate, safe browsing/search, top domains, clients, blocklists & upstreams', needsIntegration: true, category: 'Network & Security' },
+  { id: 'nextdns',      label: 'NextDNS',      desc: 'Cloud DNS — query stats, block rate, encrypted/IPv6 percentages, top blocked domains, top clients & block reason breakdown', needsIntegration: true, category: 'Network & Security' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                 needsIntegration: true,  category: 'Network & Security' },
+  { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN — server status, connected/total clients, per-client handshake recency & transfer stats', needsIntegration: true, category: 'Network & Security' },
+  { id: 'tailscale',    label: 'Tailscale',    desc: 'Mesh VPN — device roster with online/offline status, OS, Tailscale IP, exit nodes, subnet routers, update & key-expiry alerts', needsIntegration: true, category: 'Network & Security' },
+  { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — peer roster with online/offline/expired status, IP, OS, groups, and policy list', needsIntegration: true, category: 'Network & Security' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                             needsIntegration: true,  category: 'Network & Security' },
+  { id: 'keycloak',     label: 'Keycloak',     desc: 'Identity provider — logins/failures over a time range, active session count, recent failed-login list', needsIntegration: true, category: 'Network & Security' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                             needsIntegration: true,  category: 'Network & Security' },
+  { id: 'prometheus',   label: 'Prometheus',   desc: 'Metrics server — scrape target health by job, firing & pending alerts with severity, plus optional custom PromQL stat cards with sparklines', needsIntegration: true, category: 'Network & Security' },
+  { id: 'grafana',      label: 'Grafana',      desc: 'Observability platform — datasource health by type, firing alerts with severity, plus dashboard/user counts and instance info', needsIntegration: true, category: 'Network & Security' },
   // Finance
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance — monthly summary (earned, spent, net-worth, left-to-spend), asset account balances', needsIntegration: true, category: 'Finance' },
   { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — monthly income/spent/balance, spending progress by category group, account balances, net worth. Requires the actual-http-api sidecar.', needsIntegration: true, category: 'Finance' },
   { id: 'ghostfolio',  label: 'Ghostfolio',    desc: 'Portfolio tracker — net worth, today/year/all-time performance, holdings donut chart with allocation, per-holding value and return', needsIntegration: true, category: 'Finance' },
   { id: 'coinbase',    label: 'Coinbase',       desc: 'Coinbase account — total portfolio value, per-asset allocation donut, individual account balances with native USD values', needsIntegration: true, category: 'Finance' },
   { id: 'stocks',       label: 'Stocks & Crypto', desc: 'Stock quotes and crypto prices with sparklines', needsIntegration: true, category: 'Finance' },
-  // Documents
-  { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — total docs, inbox count, document type donut, tag proportional bars with Paperless colors, correspondent breakdown, recent document list with links', needsIntegration: true, category: 'Documents' },
-  { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — total document count, storage used, tag count, and recent document list with correspondent, folder, and tag chips', needsIntegration: true, category: 'Documents' },
-  // Personal
-  { id: 'monica',     label: 'Monica',     desc: 'Personal CRM — contact count, upcoming birthdays and reminders with countdown (days until), color-coded by urgency (today/this week/later)', needsIntegration: true, category: 'Personal' },
-  { id: 'homebox',   label: 'Homebox',   desc: 'Home inventory — total item count, location count, total value, warranted-item count, and a location breakdown with proportional bars', needsIntegration: true, category: 'Personal' },
-  // Health & Fitness
-  { id: 'wger',       label: 'wger',       desc: 'Workout manager — total session count, weight trend sparkline (last 10 entries), recent session list with impression rating', needsIntegration: true, category: 'Health & Fitness' },
-  { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — total workouts, distance, time, ascent; recent workout list with sport emoji, distance, and duration', needsIntegration: true, category: 'Health & Fitness' },
-  { id: 'strava',     label: 'Strava',     desc: 'Running & cycling — recent activities with distance/pace/time, 4-week sport summaries, and 8-week stacked bar chart (Run/Ride/Swim) at larger sizes', needsIntegration: true, category: 'Health & Fitness' },
-  { id: 'duolingo',   label: 'Duolingo',   desc: 'Language learning — streak, daily XP goal progress, course list, league, and 14-day XP bar chart at larger sizes', needsIntegration: true, category: 'Health & Fitness' },
-  // Food & Home
-  { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — total recipe count, this week\'s meal plan day-by-day, shopping list with checked items, recent recipe list with ratings and cook time', needsIntegration: true, category: 'Food & Home' },
-  { id: 'grocy',       label: 'Grocy',           desc: 'Household management — food expiry with urgency color coding (expired/expiring), overdue chores, pending tasks with due dates, shopping list', needsIntegration: true, category: 'Food & Home' },
-  { id: 'tandoor',    label: 'Tandoor',          desc: 'Recipe manager — total recipe count, this week\'s meal plan calendar, shopping list, and recent recipe list with star ratings, cook time, and keyword tags', needsIntegration: true, category: 'Food & Home' },
-  // Content
-  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Content' },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Content' },
-  { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Content' },
-  { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — thumbnail grid of recent videos from channels you follow; click to play inline with fullscreen support', needsIntegration: true, category: 'Content' },
-  { id: 'twitch',       label: 'Twitch',       desc: 'Live stream feed — list of followed channels currently live with viewer count, uptime, category; stream thumbnail cards with title preview at 4x+', needsIntegration: true, category: 'Content' },
-  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV tracking — currently watching indicator, watch history with movie/episode details, stats (movies/episodes watched), and 10-point rating distribution chart at larger sizes', needsIntegration: true, category: 'Content' },
-  { id: 'spotify',      label: 'Spotify',      desc: 'Now playing + recently played. Premium: progress bar and playback controls.', needsIntegration: true, category: 'Content' },
-  { id: 'lastfm',       label: 'Last.fm',      desc: 'Scrobble history — now playing, recent tracks, 7-day top artists (bar chart), top tracks & albums', needsIntegration: true, category: 'Content' },
-  // Productivity
-  { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',                      needsIntegration: false, category: 'Productivity' },
-  { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',                      needsIntegration: false, category: 'Productivity' },
-  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',                           needsIntegration: false, category: 'Productivity' },
-  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                         needsIntegration: false, category: 'Productivity' },
-  { id: 'map',          label: 'Map',          desc: 'Live location map with sources — GPS markers from any added source (Life360 first), maximize for a full-screen view with a person roster', needsIntegration: false, category: 'Productivity' },
-  { id: 'securityposture', label: 'Security Posture', desc: 'Detected version + known CVEs for your network/storage-facing integrations (auto-discovered — no source picker)', needsIntegration: false, category: 'Monitoring' },
-  { id: 'dockerapps', label: 'Docker Apps', desc: 'App launcher tiles auto-discovered from Docker container labels — same homepage.name/icon/href/description/group/weight labels as the Homepage dashboard, grouped and collapsible (auto-discovered — no source picker)', needsIntegration: false, category: 'Monitoring' },
-  { id: 'search',       label: 'Search',       desc: 'External search engine panel',                  needsIntegration: false, category: 'Productivity' },
-  // Productivity
-  { id: 'kanban',      label: 'Kanban',       desc: 'Task boards — multiple boards per panel, list and status (board) views, drag-to-reorder on desktop, calendar source for due dates, full-text search', needsIntegration: false, category: 'Productivity' },
-  // Custom
-  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings',          needsIntegration: false, category: 'Custom' },
-  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',                   needsIntegration: false, category: 'Custom' },
-  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',                              needsIntegration: false, category: 'Custom' },
+  // Digital Life
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home entity states',                   needsIntegration: true,  category: 'Digital Life' },
+  { id: 'frigate',     label: 'Frigate',     desc: 'NVR — camera roster with detection fps, zone configuration per camera with object filters, recent detection events by label and score, detector inference speed', needsIntegration: true, category: 'Digital Life' },
+  { id: 'blueiris',   label: 'Blue Iris',   desc: 'NVR — system signal (green/yellow/red), camera roster with recording/motion/alert/PTZ status, active profile, recent alerts with AI memo, trigger and clip counts per camera', needsIntegration: true, category: 'Digital Life' },
+  { id: 'wger',       label: 'wger',       desc: 'Workout manager — total session count, weight trend sparkline (last 10 entries), recent session list with impression rating', needsIntegration: true, category: 'Digital Life' },
+  { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — total workouts, distance, time, ascent; recent workout list with sport emoji, distance, and duration', needsIntegration: true, category: 'Digital Life' },
+  { id: 'strava',     label: 'Strava',     desc: 'Running & cycling — recent activities with distance/pace/time, 4-week sport summaries, and 8-week stacked bar chart (Run/Ride/Swim) at larger sizes', needsIntegration: true, category: 'Digital Life' },
+  { id: 'duolingo',   label: 'Duolingo',   desc: 'Language learning — streak, daily XP goal progress, course list, league, and 14-day XP bar chart at larger sizes', needsIntegration: true, category: 'Digital Life' },
+  { id: 'homebox',   label: 'Homebox',   desc: 'Home inventory — total item count, location count, total value, warranted-item count, and a location breakdown with proportional bars', needsIntegration: true, category: 'Digital Life' },
+  { id: 'grocy',       label: 'Grocy',           desc: 'Household management — food expiry with urgency color coding (expired/expiring), overdue chores, pending tasks with due dates, shopping list', needsIntegration: true, category: 'Digital Life' },
+  { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — total recipe count, this week\'s meal plan day-by-day, shopping list with checked items, recent recipe list with ratings and cook time', needsIntegration: true, category: 'Digital Life' },
+  { id: 'tandoor',    label: 'Tandoor',          desc: 'Recipe manager — total recipe count, this week\'s meal plan calendar, shopping list, and recent recipe list with star ratings, cook time, and keyword tags', needsIntegration: true, category: 'Digital Life' },
+  { id: 'lubelogger', label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — urgency-color-coded reminder list per vehicle (past due/urgent/not urgent), odometer readings, and service history with cost. Also works as a calendar source for date-bound reminders.', needsIntegration: true, category: 'Digital Life' },
+  { id: 'monica',     label: 'Monica',     desc: 'Personal CRM — contact count, upcoming birthdays and reminders with countdown (days until), color-coded by urgency (today/this week/later)', needsIntegration: true, category: 'Digital Life' },
+  { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — total docs, inbox count, document type donut, tag proportional bars with Paperless colors, correspondent breakdown, recent document list with links', needsIntegration: true, category: 'Digital Life' },
+  { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — total document count, storage used, tag count, and recent document list with correspondent, folder, and tag chips', needsIntegration: true, category: 'Digital Life' },
+  { id: 'github',      label: 'GitHub',      desc: 'Developer activity — profile with avatar, bio, and follower stats; top repos by stars with language color dots; 30-day event activity chart; recent events feed (push, PR, issue, release, fork, star)', needsIntegration: true, category: 'Digital Life' },
+  // Online Content
+  { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — thumbnail grid of recent videos from channels you follow; click to play inline with fullscreen support', needsIntegration: true, category: 'Online Content' },
+  { id: 'twitch',       label: 'Twitch',       desc: 'Live stream feed — list of followed channels currently live with viewer count, uptime, category; stream thumbnail cards with title preview at 4x+', needsIntegration: true, category: 'Online Content' },
+  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV tracking — currently watching indicator, watch history with movie/episode details, stats (movies/episodes watched), and 10-point rating distribution chart at larger sizes', needsIntegration: true, category: 'Online Content' },
+  { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Online Content' },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Online Content' },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Online Content' },
+  // Stoa Features
+  { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                         needsIntegration: false, category: 'Stoa Features' },
+  { id: 'map',          label: 'Map',          desc: 'Live location map with sources — GPS markers from any added source (Life360 first), maximize for a full-screen view with a person roster', needsIntegration: false, category: 'Stoa Features' },
+  { id: 'securityposture', label: 'Security Posture', desc: 'Detected version + known CVEs for your network/storage-facing integrations (auto-discovered — no source picker)', needsIntegration: false, category: 'Stoa Features' },
+  { id: 'dockerapps', label: 'Docker Apps', desc: 'App launcher tiles auto-discovered from Docker container labels — same homepage.name/icon/href/description/group/weight labels as the Homepage dashboard, grouped and collapsible (auto-discovered — no source picker)', needsIntegration: false, category: 'Stoa Features' },
+  { id: 'kanban',      label: 'Kanban',       desc: 'Task boards — multiple boards per panel, list and status (board) views, drag-to-reorder on desktop, calendar source for due dates, full-text search', needsIntegration: false, category: 'Stoa Features' },
+  { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',                      needsIntegration: false, category: 'Stoa Features' },
+  { id: 'checklist',    label: 'Checklist',    desc: 'Todo list with due dates',                      needsIntegration: false, category: 'Stoa Features' },
+  { id: 'bookmarks',    label: 'Bookmarks',    desc: 'Bookmark tree panel',                           needsIntegration: false, category: 'Stoa Features' },
+  { id: 'search',       label: 'Search',       desc: 'External search engine panel',                  needsIntegration: false, category: 'Stoa Features' },
+  { id: 'customapi',    label: 'Custom API',   desc: 'Generic JSON API with field mappings',          needsIntegration: false, category: 'Stoa Features' },
+  { id: 'custom',       label: 'Text/HTML',    desc: 'Custom HTML or text content',                   needsIntegration: false, category: 'Stoa Features' },
+  { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',                              needsIntegration: false, category: 'Stoa Features' },
 ]
 
 const INLINE_NO_URL  = ['sports', 'stocks', 'crypto', 'weather']
@@ -304,6 +296,7 @@ export default function PanelForm({
   // ── form state ─────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [pickerView, setPickerView] = useState<'tiles' | 'catalog'>('tiles')
 
   // ── local integrations copy (appended when user creates inline) ─────────────
   const [localIntegrations, setLocalIntegrations] = useState<Integration[]>(integrations)
@@ -540,16 +533,26 @@ export default function PanelForm({
       {/* Type picker — create mode only, shown first so type drives the rest of the form */}
       {!isEdit && (
         <div>
-          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Panel type</label>
-          <TypeCardPicker
-            types={PANEL_TYPES.map(t => ({
-              ...t,
-              warn: t.needsIntegration && !integrations.some(i => i.type === t.id),
-            }))}
-            value={type}
-            onChange={handleTypeChange}
-            autoFocus
-          />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <label className="label" style={{ margin: 0 }}>Panel type</label>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+              {(['tiles', 'catalog'] as const).map(v => (
+                <button key={v} type="button" onClick={() => setPickerView(v)} style={{
+                  fontSize: 11, padding: '3px 10px', cursor: 'pointer', border: 'none',
+                  background: pickerView === v ? 'var(--accent-bg)' : 'transparent',
+                  color: pickerView === v ? 'var(--accent)' : 'var(--text-dim)',
+                }}>{v === 'tiles' ? 'Tiles' : 'Catalog'}</button>
+              ))}
+            </div>
+          </div>
+          {(() => {
+            const pickTypes = PANEL_TYPES.map(t => ({
+              ...t, warn: t.needsIntegration && !integrations.some(i => i.type === t.id),
+            }))
+            return pickerView === 'tiles'
+              ? <TypeCardPicker types={pickTypes} value={type} onChange={handleTypeChange} autoFocus />
+              : <CatalogBrowser types={pickTypes} value={type} onChange={handleTypeChange} autoFocus />
+          })()}
         </div>
       )}
 

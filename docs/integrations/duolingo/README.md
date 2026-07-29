@@ -1,30 +1,39 @@
+---
+id: duolingo
+name: Duolingo
+category: Digital Life
+tags: [learning, cloud]
+official_url: https://www.duolingo.com
+status: tested
+polling: 5min
+secret_format: username
+url_required: false
+---
+
 # Duolingo
 
-**Category:** Learning | **Status:** Tested | **Polling:** 5 min
+## What is Duolingo?
+
+Duolingo is the popular gamified language-learning app. It teaches languages through bite-sized lessons and tracks your daily streak, XP, crowns, and league. Stoa reads your **public profile** to display your streak and progress — no password or token needed.
+
+**Official site:** [duolingo.com](https://www.duolingo.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `your-duolingo-username`
+Your Duolingo **username** is the only thing needed. It's in your profile URL (`https://www.duolingo.com/profile/USERNAME`) and under **Profile → Edit Profile** in the app. This integration uses Duolingo's public profile API — your profile must be publicly accessible (the default).
 
-**URL required:** None — always uses `duolingo.com`
+- **Secret format:** your Duolingo username
+- **URL:** none — always uses `duolingo.com`
 
-### Getting your username
+---
 
-Your Duolingo username is visible in your profile URL: `https://www.duolingo.com/profile/USERNAME`
+## Add it to Stoa
 
-It is also shown in the app under **Profile → Edit Profile**.
-
-> **Note:** This integration uses Duolingo's public profile API. No password or authentication token is required. Your profile data must be publicly accessible (the default for all Duolingo accounts).
-
-### Setup
-
-1. Admin → Secrets → New
-   - **Name:** e.g. `duolingo-username`
-   - **Value:** your Duolingo username (e.g. `the-d-b`)
-2. Admin → Integrations → New: type **Duolingo**, leave URL blank, select the secret
-3. Admin → Panels → New: type **Duolingo**, select the integration
+1. **Admin → Secrets → New** — Name it e.g. `duolingo-username`, Value = your Duolingo username.
+2. **Admin → Integrations → New** — select **Duolingo**, leave URL blank, choose the secret.
+3. **Admin → Panels → New** — select **Duolingo**.
 
 ---
 

@@ -1,25 +1,40 @@
+---
+id: grafana
+name: Grafana
+category: Network & Security
+tags: [monitoring, self-hosted]
+official_url: https://grafana.com
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:3000
+---
+
 # Grafana
 
-**Category:** Monitoring | **Status:** Tested | **Polling:** 60 s
+## What is Grafana?
+
+Grafana is an open-source observability and dashboarding platform. It connects to data sources like Prometheus, Loki, and InfluxDB and turns their metrics and logs into visual dashboards, with alerting and a large plugin ecosystem — the visualization layer that commonly pairs with Prometheus.
+
+**Official site:** [grafana.com](https://grafana.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Service Account token (`glsa_...`)
+Grafana → **Administration → Service Accounts → Add service account → Add token** (starts with `glsa_`). Assign the **Viewer** role for datasource/alert data, or **Admin** for dashboard and user counts.
 
-> Grafana → Administration → Service Accounts → Add service account → Add token. Assign Viewer role for datasource/alert data, or Admin role for dashboard and user counts.
+- **Secret format:** Service Account token (`glsa_...`)
+- **URL:** required — point at your Grafana port, e.g. `http://192.168.1.10:3000`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:3000`
+## Add it to Stoa
 
-### Setup
-
-1. Grafana → Administration → Service Accounts → Add → create token
-2. Admin → Secrets → New: paste the token
-3. Admin → Integrations → New: type Grafana, URL = `http://grafana:3000`, select secret
-4. Admin → Panels → New: type Grafana
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **Grafana**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Grafana**.
 
 ---
 

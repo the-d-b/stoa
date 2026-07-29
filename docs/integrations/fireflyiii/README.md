@@ -1,25 +1,40 @@
-﻿# Firefly III
+---
+id: fireflyiii
+name: Firefly III
+category: Finance
+tags: [finance, budgeting, self-hosted]
+official_url: https://www.firefly-iii.org
+status: needs-testing
+polling: 60min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8080
+---
 
-**Category:** Finance | **Status:** Need Testing | **Polling:** 60 min
+# Firefly III
+
+## What is Firefly III?
+
+Firefly III is a self-hosted personal finance manager. You record income and expenses across accounts, organize them with budgets, categories, and bills, and track net worth over time — a private, double-entry alternative to commercial budgeting apps.
+
+**Official site:** [firefly-iii.org](https://www.firefly-iii.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Personal Access Token (PAT)
+Firefly III → **Profile** (top-right) → **OAuth → Personal Access Tokens → Create new token** — copy it.
 
-> Firefly III -> Profile -> OAuth -> Personal Access Tokens -> Create new token
+- **Secret format:** Personal Access Token (PAT)
+- **URL:** required — point at your Firefly III port, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. Firefly III -> Profile (top-right) -> OAuth -> Personal Access Tokens -> create token
-2. Admin -> Secrets -> New: paste the token
-3. Admin -> Integrations -> New: type Firefly III, URL = http://firefly:8080, secret
-4. Admin -> Panels -> New: type Firefly III
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **Firefly III**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Firefly III**.
 
 ---
 
@@ -42,6 +57,7 @@ Monthly summary figures (earned, spent, net worth, bills paid/unpaid, left to sp
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Calendar

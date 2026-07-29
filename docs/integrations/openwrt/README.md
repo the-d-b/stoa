@@ -1,25 +1,40 @@
-﻿# OpenWrt
+---
+id: openwrt
+name: OpenWrt
+category: Network & Security
+tags: [router, firewall, self-hosted]
+official_url: https://openwrt.org
+status: needs-testing
+polling: 5s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.1
+---
 
-**Category:** Networking | **Status:** Need Testing | **Polling:** 5 s
+# OpenWrt
+
+## What is OpenWrt?
+
+OpenWrt is an open-source Linux operating system for routers and other network devices. It replaces stock vendor firmware with a fully configurable system — advanced networking, a package manager, and the LuCI web interface — giving you deep control over routing, WiFi, firewall, and network services.
+
+**Official site:** [openwrt.org](https://openwrt.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Use your OpenWrt login in `username:password` form. The default username is `root`.
 
-> Your OpenWrt login. Default username is root. Format: root:yourpassword
+- **Secret format:** `username:password` (e.g. `root:yourpassword`)
+- **URL:** required — point at your router, e.g. `http://192.168.1.1`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.1`
+## Add it to Stoa
 
-### Setup
-
-1. Format secret as root:yourpassword
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type OpenWrt, URL = http://router-ip, secret
-4. Admin -> Panels -> New: type OpenWrt
+1. **Admin → Secrets → New** — paste `root:yourpassword`.
+2. **Admin → Integrations → New** — select **OpenWrt**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **OpenWrt**.
 
 ---
 
@@ -42,6 +57,7 @@ Hostname, uptime, load average, memory usage, per-interface traffic rates (Mbps 
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

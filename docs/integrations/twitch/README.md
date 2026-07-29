@@ -1,30 +1,46 @@
-﻿# Twitch
+---
+id: twitch
+name: Twitch
+category: Online Content
+tags: [video, streaming, cloud, oauth]
+official_url: https://www.twitch.tv
+status: needs-testing
+polling: 60s
+secret_format: oauth
+url_required: false
+---
 
-**Category:** Content | **Status:** Need Testing | **Polling:** 60 s
+# Twitch
+
+## What is Twitch?
+
+Twitch is the leading live-streaming platform for gaming and creators. Stoa connects via OAuth to show which of the channels you follow are currently live, with category, viewer count, and uptime.
+
+**Official site:** [twitch.tv](https://www.twitch.tv)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** clientId:clientSecret
+Register an app in the [Twitch Developer Console](https://dev.twitch.tv/console) → **Register Your Application** → set the Redirect URI to `http://your-stoa:8080/api/twitch/callback` → copy the **Client ID** and **Client Secret**.
 
-> Twitch Developer Console (dev.twitch.tv/console) -> Register Your Application -> copy Client ID and Client Secret. Format: clientId:clientSecret
+- **Secret format:** `clientId:clientSecret`
+- **URL:** none — OAuth against the Twitch Helix API
 
-**URL required:** None (OAuth - Twitch Helix API)
+---
 
-### Setup
+## Add it to Stoa
 
-1. Twitch Developer Console -> Register Your Application -> set Redirect URI to http://your-stoa:8080/api/twitch/callback
-2. Copy Client ID and Client Secret; format as clientId:clientSecret
-3. Admin -> Secrets -> New: paste the credential
-4. Admin -> Integrations -> New: type Twitch, no URL, secret = clientId:clientSecret
-5. On the integration edit page, click Connect Twitch to authorize via OAuth (scope: user:read:follows)
+1. **Admin → Secrets → New** — paste `clientId:clientSecret`.
+2. **Admin → Integrations → New** — select **Twitch**, no URL, choose the secret.
+3. On the integration edit page, click **Connect Twitch** to authorize via OAuth (scope: `user:read:follows`).
+4. **Admin → Panels → New** — select **Twitch**.
 
 ---
 
 ## Panel
 
-Live stream feed panel - followed channels currently live with channel name, stream category, viewer count, and uptime. 2-column thumbnail grid at 4x+.
+Live stream feed panel — followed channels currently live with channel name, stream category, viewer count, and uptime. 2-column thumbnail grid at 4x+.
 
 ### Height behavior
 
@@ -41,6 +57,7 @@ Live stream feed panel - followed channels currently live with channel name, str
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

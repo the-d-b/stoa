@@ -1,22 +1,39 @@
-﻿# Crypto
+---
+id: crypto
+name: Crypto
+category: Finance
+tags: [finance, crypto, built-in]
+official_url: https://www.coingecko.com
+status: tested
+polling: 5min
+secret_format: none
+url_required: false
+---
 
-**Category:** Finance | **Status:** Tested | **Polling:** 5 min
+# Crypto
+
+## What is Crypto?
+
+Crypto is a built-in Stoa feature — not a self-hosted app you deploy — that shows cryptocurrency prices with sparklines, sourced from CoinGecko. It works keyless (subject to rate limits) or with a free CoinGecko Demo key for reliability; you list coin IDs in the panel config.
+
+**Data source:** [coingecko.com](https://www.coingecko.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank or CoinGecko Demo API key (optional)
+Optional. The public CoinGecko API works without a key but has strict rate limits — get a free **Demo** key at coingecko.com for reliable use.
 
-> Public CoinGecko API works without a key but has strict rate limits. Get a free Demo key at coingecko.com for reliable use.
+- **Secret format:** blank, or an optional CoinGecko Demo API key
+- **URL:** none (standalone)
 
-**URL required:** None (standalone)
+---
 
-### Setup
+## Add it to Stoa
 
-1. Optional: get a free Demo API key at coingecko.com
-2. Admin -> Integrations -> New: type Crypto, no URL, secret = API key (or blank)
-3. Admin -> Panels -> New: type Crypto - enter coin IDs in panel config
+1. Optionally get a free Demo API key at coingecko.com.
+2. **Admin → Integrations → New** — select **Crypto**, no URL, secret = API key (or blank).
+3. **Admin → Panels → New** — select **Crypto**, and enter coin IDs in the panel config.
 
 ---
 

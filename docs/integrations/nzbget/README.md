@@ -1,41 +1,54 @@
+---
+id: nzbget
+name: NZBGet
+category: Downloads
+tags: [usenet, downloads, self-hosted]
+official_url: https://nzbget.com
+status: tested
+polling: adaptive
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:6789
+---
+
 # NZBGet
 
-**Category:** Downloads | **Status:** ✅ Tested | **Polling:** Adaptive — 5 s during active downloads, configured interval when idle
+## What is NZBGet?
+
+NZBGet is a lightweight, high-performance Usenet (NZB) downloader written in C++. It downloads, verifies, repairs, and unpacks NZBs with very low resource usage and integrates with the \*arr apps — an efficient alternative to SABnzbd.
+
+**Official site:** [nzbget.com](https://nzbget.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password`
+NZBGet → **Settings → Security** → note or set your **Control username** and **Control password** (default `nzbget:tegbzn6789` — change it before exposing the port). Combine as `username:password`.
 
-> Your NZBGet control user credentials. NZBGet → Settings → Security → Control username / Control password. The default is `nzbget:tegbzn6789` — change it before exposing the port. Format as `username:password` with a colon separator.
+- **Secret format:** `username:password`
+- **URL:** required — point at your NZBGet port, e.g. `http://192.168.1.10:6789`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:6789`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — paste `username:password`.
+2. **Admin → Integrations → New** — select **NZBGet**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **NZBGet**.
 
-1. NZBGet → Settings → Security — note or set your **Control username** and **Control password**
-2. Admin → Secrets → New: paste `username:password`
-3. Admin → Integrations → New: type NZBGet, URL = `http://nzbget:6789`, select secret
-4. Admin → Panels → New: type NZBGet, assign integration
+---
 
-### How it works
+## How it works
 
-Stoa calls NZBGet's **JSON-RPC API** at `/jsonrpc` using HTTP Basic Auth (split from `username:password` at the first colon). Three methods are called per poll cycle:
+Stoa calls NZBGet's **JSON-RPC API** at `/jsonrpc` using HTTP Basic Auth (split from `username:password` at the first colon). Three methods per poll cycle:
 
-- `status` — download rate (bytes/s), remaining MB, session downloaded MB, free disk space on the destination directory (`FreeDiskSpaceMB`), paused state
-- `listgroups` — active download queue: each group's name, status, category, percentage, size, and remaining size; used for both the queue list and donut segment counts
-- `history` — completed/failed items including `HistoryTime` (Unix timestamp) and `FileSizeMB`; used to compute 1d/7d/30d period stats
+- `status` — download rate, remaining MB, session downloaded MB, free disk space on the destination directory (`FreeDiskSpaceMB`), paused state
+- `listgroups` — active download queue: each group's name, status, category, percentage, size, remaining size; used for the queue list and donut segment counts
+- `history` — completed/failed items including `HistoryTime` and `FileSizeMB`; used for 1d/7d/30d period stats
 
-**Per-group state mapping for the donut:** `DOWNLOADING` → downloading (green) · `QUEUED` → queued (accent) · `PAUSED` → paused (amber) · `PP_QUEUED` / `LOADING_PARS` / `VERIFYING` / `REPAIRING` / `RENAMING` / `UNPACKING` / `MOVING` / `PP_FINISHED` → post-processing (purple) · `FAILED` / `DELETED` → failed (red)
+**Per-group state mapping for the donut:** `DOWNLOADING` → downloading (green) · `QUEUED` → queued (accent) · `PAUSED` → paused (amber) · post-processing states (`PP_QUEUED`, `LOADING_PARS`, `VERIFYING`, `REPAIRING`, `RENAMING`, `UNPACKING`, `MOVING`, `PP_FINISHED`) → post-processing (purple) · `FAILED`/`DELETED` → failed (red)
 
-**Period stats:** history items with `Status` starting with `SUCCESS` count as completed; `FAILURE*` or `DELETED` count as failed. Each item's `HistoryTime` determines which 1d/7d/30d buckets it falls into.
-
-**Adaptive worker:** NZBGet shares the same adaptive SSE worker as SABnzbd. While `queueCount > 0` and not paused, it polls every **5 seconds** to drive the sparkline. After the queue drains it holds the 5 s rate for a **30 s coast-down** before returning to the configured interval. A 60-entry MB/s ring buffer is maintained in the goroutine and injected as `speedHistory` on every cache update.
-
-Updates arrive via SSE push — the frontend never polls; it reacts to pushes from the worker.
+**Adaptive worker:** NZBGet shares the same adaptive SSE worker as SABnzbd. While the queue is active it polls every **5 seconds** to drive the sparkline, holds that rate for a **30 s coast-down** after the queue drains, then returns to the configured interval. Updates arrive via SSE push — the frontend never polls.
 
 ---
 
@@ -56,9 +69,9 @@ Queue state donut (5 segments including post-processing), live speed with sparkl
 
 **Donut when queue is empty:** reflects the currently selected period — green = completed downloads, red = failures — so the donut stays informative between download sessions and honors the 1d/7d/30d pill selection.
 
-**Free disk** is `FreeDiskSpaceMB` from NZBGet's status response — free space on the disk where the configured destination directory lives. If your destination is on a network mount or separate volume, this reflects that volume's free space rather than the container's root disk.
+**Free disk** is `FreeDiskSpaceMB` from NZBGet's status response — free space on the disk where the configured destination directory lives.
 
-**Post-processing (purple segment):** NZBGet performs par2 repair, unpack, and move steps after the download completes. These in-progress post-processing tasks appear as a purple segment in the donut and a purple progress bar in the queue list.
+**Post-processing (purple segment):** NZBGet performs par2 repair, unpack, and move steps after the download completes. These in-progress tasks appear as a purple segment in the donut and a purple progress bar in the queue list.
 
 ### Screenshots
 

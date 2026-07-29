@@ -1,39 +1,53 @@
+---
+id: deluge
+name: Deluge
+category: Downloads
+tags: [torrent, downloads, self-hosted]
+official_url: https://deluge-torrent.org
+status: tested
+polling: 30s
+secret_format: password
+url_required: true
+example_url: http://192.168.1.10:8112
+---
+
 # Deluge
 
-**Category:** Downloads | **Status:** ✅ Tested | **Polling:** 30 s
+## What is Deluge?
+
+Deluge is a free, open-source, cross-platform BitTorrent client with a client-server architecture and a plugin system. Its Web UI lets you manage a headless daemon remotely, making it a common pick for always-on server downloading.
+
+**Official site:** [deluge-torrent.org](https://deluge-torrent.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Bare password (no username)
+Use your Deluge Web UI password — no username prefix (Deluge authenticates with a password only). The default is `deluge`; change it under Preferences → Interface.
 
-> Just the password — no username prefix. Deluge Web UI authenticates with a password only. The default password is `deluge` (change it in the Web UI under Preferences → Interface).
+- **Secret format:** bare password (no username)
+- **URL:** required — point at the Deluge **Web UI** (default port 8112), e.g. `http://192.168.1.10:8112`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8112`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — paste your Deluge Web UI password (no `username:` prefix).
+2. **Admin → Integrations → New** — select **Deluge**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Deluge**.
 
-1. Admin → Secrets → New: paste your Deluge Web UI password (no `username:` prefix)
-2. Admin → Integrations → New: type Deluge, URL = `http://deluge:8112`, select secret
-3. Admin → Panels → New: type Deluge, assign to the integration
+---
 
-### How it works
+## How it works
 
 Stoa uses Deluge's **Web UI JSON-RPC API** at `/json`. All data is fetched in a single call:
 
 - `auth.login` — authenticates and returns a `_session_id` cookie; Stoa caches this and re-authenticates automatically when it expires
-- `web.update_ui` — single call that returns all torrent data plus global transfer stats and free space in one response; fields requested: `name`, `state`, `progress`, `total_size`, `download_payload_rate`, `upload_payload_rate`, `eta`, `tracker_host`, `ratio`
+- `web.update_ui` — one call returning all torrent data plus global transfer stats and free space; fields: `name`, `state`, `progress`, `total_size`, `download_payload_rate`, `upload_payload_rate`, `eta`, `tracker_host`, `ratio`
 
-Stoa also calls `web.connected` during connection tests to verify the Web UI daemon connection is active (a disconnected Web UI returns no torrent data).
+Stoa also calls `web.connected` during connection tests to verify the Web UI daemon connection is active.
 
-**Important:** Stoa connects to the Deluge **Web UI** (default port 8112), not to the Deluge daemon directly (default port 58846). The Web UI must be running and connected to a daemon.
-
-Deluge returns all numeric fields (speeds, sizes, eta) as JSON floats. Stoa handles this correctly.
-
-Updates arrive via SSE push every 30 seconds.
+**Important:** Stoa connects to the Deluge **Web UI** (default port 8112), not the Deluge daemon directly (default port 58846). The Web UI must be running and connected to a daemon. Updates arrive via SSE push every 30 seconds.
 
 ---
 

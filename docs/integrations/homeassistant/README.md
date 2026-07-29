@@ -1,25 +1,40 @@
+---
+id: homeassistant
+name: Home Assistant
+category: Digital Life
+tags: [smart-home, automation, self-hosted]
+official_url: https://www.home-assistant.io
+status: needs-testing
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8123
+---
+
 # Home Assistant
 
-**Category:** Smart Home | **Status:** Need Testing | **Polling:** 60 s
+## What is Home Assistant?
+
+Home Assistant is an open-source home-automation platform that connects and controls your smart-home devices locally. It integrates thousands of brands and protocols under one interface, exposes everything as entities you can automate, and keeps control on your own hardware rather than the cloud.
+
+**Official site:** [home-assistant.io](https://www.home-assistant.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Long-lived access token
+Home Assistant → **Profile** (bottom-left) → **Long-Lived Access Tokens → Create Token** (at the very bottom of the Profile page) — copy it.
 
-> Home Assistant -> Profile -> Long-Lived Access Tokens -> Create Token (at the very bottom of the Profile page).
+- **Secret format:** long-lived access token
+- **URL:** required — point at your Home Assistant port, e.g. `http://192.168.1.10:8123`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8123`
+## Add it to Stoa
 
-### Setup
-
-1. Home Assistant -> Profile (bottom-left) -> Long-Lived Access Tokens -> Create Token
-2. Admin -> Secrets -> New: paste the token
-3. Admin -> Integrations -> New: type Home Assistant, URL = http://homeassistant:8123, secret
-4. Admin -> Panels -> New: type Home Assistant - configure domain/entity filters in panel config
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **Home Assistant**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Home Assistant**, and configure domain/entity filters in the panel config.
 
 ---
 
@@ -42,6 +57,7 @@ Entity states for smart home devices. Filter by entity ID or domain (sensor, lig
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Calendar

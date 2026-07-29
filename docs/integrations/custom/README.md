@@ -1,6 +1,16 @@
-﻿# Text / HTML
+---
+id: custom
+name: Text / HTML
+category: Stoa Features
+tags: [custom, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Text / HTML
+
+## What is the Text / HTML panel?
+
+Text / HTML is a built-in Stoa panel that renders arbitrary HTML you write directly into the panel config — no integration or external service needed. Handy for freeform notes, full-panel images, or embedding MJPEG camera streams.
 
 ---
 
@@ -23,8 +33,9 @@ A freeform panel that renders arbitrary HTML content. Write anything directly in
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes
 
-Use <img src='...' style='width:100%;height:100%;object-fit:cover;display:block;'> for full-panel images. Supports Frigate and Blue Iris MJPEG live streams.
+Use `<img src='...' style='width:100%;height:100%;object-fit:cover;display:block;'>` for full-panel images. Supports Frigate and Blue Iris MJPEG live streams.

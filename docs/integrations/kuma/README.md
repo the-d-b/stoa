@@ -1,25 +1,40 @@
-﻿# Uptime Kuma
+---
+id: kuma
+name: Uptime Kuma
+category: Network & Security
+tags: [monitoring, self-hosted]
+official_url: https://github.com/louislam/uptime-kuma
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:3001
+---
 
-**Category:** Monitoring | **Status:** Tested | **Polling:** 60 s
+# Uptime Kuma
+
+## What is Uptime Kuma?
+
+Uptime Kuma is a self-hosted uptime monitoring tool — a lightweight, open-source alternative to services like UptimeRobot. It periodically checks your websites, services, and hosts (HTTP, TCP, ping, DNS, and more), tracks response times and uptime percentages, and can notify you the moment something goes down.
+
+**Official site:** [github.com/louislam/uptime-kuma](https://github.com/louislam/uptime-kuma)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank (no auth) or plain API key (Kuma 1.23+)
+Kuma 1.23+: **Settings → API Keys → Add**. Older versions run without auth — leave the secret blank.
 
-> Kuma 1.23+: Settings -> API Keys -> Add. Older versions run without auth - leave blank.
+- **Secret format:** plain API key (Kuma 1.23+), or blank for older versions
+- **URL:** required — point at your Kuma port, e.g. `http://192.168.1.10:3001`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:3001`
+## Add it to Stoa
 
-### Setup
-
-1. Kuma 1.23+: Settings -> API Keys -> create key (older: leave blank)
-2. Admin -> Secrets -> New: paste key or leave blank
-3. Admin -> Integrations -> New: type Uptime Kuma, URL = http://kuma:3001, secret
-4. Admin -> Panels -> New: type Uptime Kuma
+1. **Admin → Secrets → New** — paste the key, or leave blank.
+2. **Admin → Integrations → New** — select **Uptime Kuma**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Uptime Kuma**.
 
 ---
 

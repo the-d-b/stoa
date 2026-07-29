@@ -1,6 +1,16 @@
-﻿# Kanban
+---
+id: kanban
+name: Kanban
+category: Stoa Features
+tags: [tasks, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Kanban
+
+## What is Kanban?
+
+Kanban is a built-in Stoa panel for tracking tasks on boards — no external service or integration needed; data is stored locally in Stoa. Cards move across swim lanes (Not Started → In Progress → On Hold → Completed → Cancelled), with drag-and-drop on desktop and a lane picker on mobile.
 
 ---
 
@@ -23,6 +33,7 @@ Task tracking panel - multiple named boards per panel. List view (flat table wit
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

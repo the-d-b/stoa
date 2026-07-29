@@ -1,30 +1,46 @@
-﻿# Strava
+---
+id: strava
+name: Strava
+category: Digital Life
+tags: [fitness, cloud, oauth]
+official_url: https://www.strava.com
+status: needs-testing
+polling: 60s
+secret_format: oauth
+url_required: false
+---
 
-**Category:** Health & Fitness | **Status:** Need Testing | **Polling:** 60 s
+# Strava
+
+## What is Strava?
+
+Strava is a popular social fitness platform for tracking running, cycling, and other activities. It records GPS activities, computes stats and segments, and adds a social feed. Stoa connects via OAuth to show your recent activities and rolling totals.
+
+**Official site:** [strava.com](https://www.strava.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** clientId:clientSecret
+Create an app at [strava.com/settings/api](https://www.strava.com/settings/api) and copy the **Client ID** and **Client Secret**. After adding the integration you'll authorize your account via OAuth.
 
-> Strava API settings at strava.com/settings/api -> create an app -> copy Client ID and Client Secret. Format: clientId:clientSecret
+- **Secret format:** `clientId:clientSecret`
+- **URL:** none — OAuth against Strava's cloud API
 
-**URL required:** None (OAuth - Strava cloud API)
+---
 
-### Setup
+## Add it to Stoa
 
-1. strava.com/settings/api -> create an app -> copy Client ID and Client Secret
-2. Format as clientId:clientSecret
-3. Admin -> Secrets -> New: paste the credential
-4. Admin -> Integrations -> New: type Strava, no URL, secret = clientId:clientSecret
-5. On the integration edit page, click Connect Strava to authorize your account via OAuth
+1. **Admin → Secrets → New** — paste `clientId:clientSecret`.
+2. **Admin → Integrations → New** — select **Strava**, no URL, choose the secret.
+3. On the integration **edit** page, click **Connect Strava** to authorize your account via OAuth.
+4. **Admin → Panels → New** — select **Strava**.
 
 ---
 
 ## Panel
 
-Running and cycling activity panel - recent activities with distance, pace/speed, elevation. 4-week totals per sport with colored bars. 8-week stacked bar chart at tall heights.
+Running and cycling activity panel — recent activities with distance, pace/speed, elevation. 4-week totals per sport with colored bars. 8-week stacked bar chart at tall heights.
 
 ### Height behavior
 
@@ -41,6 +57,7 @@ Running and cycling activity panel - recent activities with distance, pace/speed
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

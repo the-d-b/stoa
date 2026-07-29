@@ -1,24 +1,40 @@
+---
+id: lubelogger
+name: LubeLogger
+category: Digital Life
+tags: [vehicles, self-hosted]
+official_url: https://lubelogger.com
+status: tested
+polling: 15min
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:8080
+---
+
 # LubeLogger
 
-**Category:** Smart Home | **Status:** Tested | **Polling:** 15 min
+## What is LubeLogger?
+
+LubeLogger is a self-hosted vehicle-maintenance and fuel-mileage tracker. It records service history, odometer readings, and upcoming maintenance reminders per vehicle, helping you stay on top of oil changes, registrations, and repairs across your fleet.
+
+**Official site:** [lubelogger.com](https://lubelogger.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password` or blank (if auth disabled)
+If authentication is enabled in LubeLogger, use your login in `username:password` form. If auth is disabled (the default for self-hosted installs), leave the secret blank.
 
-> If you have authentication enabled in LubeLogger, use your login credentials. If auth is disabled (the default for self-hosted installs), leave the secret blank.
+- **Secret format:** `username:password`, or blank if auth is disabled
+- **URL:** required — point at your LubeLogger address, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. Stoa → **Admin → Secrets → New**: paste `username:password`, or create a blank secret if auth is disabled
-2. Stoa → **Admin → Integrations → New** → select **LubeLogger**, URL = your LubeLogger address, select the secret → **Save**
-3. Stoa → **Admin → Panels → New** → select **LubeLogger**, select the integration → **Create**
+1. **Admin → Secrets → New** — paste `username:password`, or create a blank secret if auth is disabled.
+2. **Admin → Integrations → New** — select **LubeLogger**, enter the URL, choose the secret → **Save**.
+3. **Admin → Panels → New** — select **LubeLogger**.
 
 ---
 

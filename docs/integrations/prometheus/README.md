@@ -1,32 +1,47 @@
+---
+id: prometheus
+name: Prometheus
+category: Network & Security
+tags: [monitoring, self-hosted]
+official_url: https://prometheus.io
+status: tested
+polling: 30s
+secret_format: none
+url_required: true
+example_url: http://192.168.1.10:9090
+---
+
 # Prometheus
 
-**Category:** Monitoring | **Status:** Tested | **Polling:** 30 s
+## What is Prometheus?
+
+Prometheus is an open-source monitoring system and time-series database. It scrapes metrics from your applications and hosts at intervals, stores them, and lets you query them with PromQL and alert on them — the de facto standard for metrics in cloud-native and homelab setups.
+
+**Official site:** [prometheus.io](https://prometheus.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank (open) or `username:password` or Bearer `token`
+Most homelab Prometheus instances run open (no auth) — leave the secret blank. If you added auth via a reverse proxy, use the matching format.
 
-> Most home lab Prometheus instances run open (no auth). If you added auth via a reverse proxy, use the matching format.
+- **Secret format:** blank (open), `username:password` (Basic Auth), or a bare Bearer token
+- **URL:** required — point at your Prometheus port, e.g. `http://192.168.1.10:9090`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:9090`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — leave blank, or paste your Basic Auth / Bearer credential.
+2. **Admin → Integrations → New** — select **Prometheus**, enter the URL, choose the secret (or none).
+3. Optionally add custom PromQL metrics (see below).
+4. **Admin → Panels → New** — select **Prometheus**.
 
-1. If no auth: leave secret blank. If Basic Auth: format as `username:password`. If Bearer: paste the bare token.
-2. Admin → Secrets → New: paste credential (or leave blank)
-3. Admin → Integrations → New: type Prometheus, URL = `http://prometheus:9090`, select secret
-4. Optionally add custom PromQL metrics (see below)
-5. Admin → Panels → New: type Prometheus
+---
 
-### Custom PromQL metrics
+## Custom PromQL metrics
 
-Custom metric cards are configured on the **integration**, not the panel. This allows the background worker to fetch them on the normal 30 s polling cycle.
-
-In the integration form, use the **Custom Metrics** editor to add expressions:
+Custom metric cards are configured on the **integration**, not the panel — this lets the background worker fetch them on the normal 30 s polling cycle. In the integration form, use the **Custom Metrics** editor to add expressions:
 
 | Field | Description |
 |---|---|

@@ -1,25 +1,39 @@
+---
+id: tranga
+name: Tranga
+category: Print Media
+tags: [manga, downloads, self-hosted]
+official_url: https://github.com/C9Glax/tranga
+status: tested
+polling: 30min
+secret_format: none
+url_required: true
+example_url: http://tranga:9898
+---
+
 # Tranga
 
-**Category:** Comics & Manga | **Status:** Tested | **Polling:** 30 min
+## What is Tranga?
+
+Tranga is a self-hosted manga downloader. It monitors manga series across supported sources, automatically downloads new chapters, and organizes your library with covers and publication status.
+
+**Official site:** [github.com/C9Glax/tranga](https://github.com/C9Glax/tranga)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank (no auth required by default)
+None by default — Tranga runs unauthenticated. Leave the secret blank. If you've configured an API key in Tranga (optional), paste it.
 
-> Tranga runs unauthenticated by default. Leave the API key field blank.
+- **Secret format:** none (or an optional API key)
+- **URL:** required — point at your Tranga port, e.g. `http://tranga:9898`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://tranga:9898`
+## Add it to Stoa
 
-### Setup
-
-1. Stoa → Admin → Integrations → New: select **Tranga**, enter URL, leave API key blank
-2. Stoa → Admin → Panels → New: select **Tranga**
-
-> If you have configured an API key in Tranga (optional), paste it in the API key field.
+1. **Admin → Integrations → New** — select **Tranga**, enter the URL, leave the secret blank (or paste your key).
+2. **Admin → Panels → New** — select **Tranga**.
 
 ---
 

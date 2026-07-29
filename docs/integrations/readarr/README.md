@@ -1,25 +1,40 @@
+---
+id: readarr
+name: Readarr
+category: Media Management
+tags: [books, audiobooks, automation, arr, self-hosted]
+official_url: https://readarr.com
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8787
+---
+
 # Readarr
 
-**Category:** Media Management | **Status:** ✅ Tested | **Polling:** 30 min
+## What is Readarr?
+
+Readarr is an ebook and audiobook collection manager in the "\*arr" family. It follows the authors and books you want, grabs matching releases from your usenet and torrent indexers, hands them to your download client, and organizes them into your library. (Note: the Readarr project was retired by its maintainers in 2024 — existing installs keep working, but it's no longer actively developed.)
+
+**Official site:** [readarr.com](https://readarr.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Readarr → **Settings → General → Security → API Key** — copy it.
 
-> Readarr → Settings → General → Security → API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Readarr port, e.g. `http://192.168.1.10:8787`
 
-**URL required:** Required — point at your Readarr port
+---
 
-**Example URL:** `http://192.168.1.10:8787`
+## Add it to Stoa
 
-### Setup
-
-1. Readarr → Settings → General → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Readarr`, URL = `http://readarr:8787`, select your secret
-4. Admin → Panels → New: type `Readarr`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Readarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Readarr**.
 
 ---
 

@@ -1,25 +1,40 @@
+---
+id: photoprism
+name: PhotoPrism
+category: Media Servers
+tags: [photos, self-hosted]
+official_url: https://www.photoprism.app
+status: tested
+polling: 30min
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:2342
+---
+
 # PhotoPrism
 
-**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 min
+## What is PhotoPrism?
+
+PhotoPrism is a self-hosted, AI-powered photo management app for browsing, organizing, and sharing large personal photo collections. It automatically tags photos by content, recognizes faces, maps geotagged shots, and groups them into moments — running entirely on your own server with no cloud dependency.
+
+**Official site:** [photoprism.app](https://www.photoprism.app)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password`
+Use your PhotoPrism login credentials in `username:password` form (e.g. `admin:yourpassword`). If your instance runs with no password, leave the secret blank.
 
-> Your PhotoPrism login credentials. Format: `admin:yourpassword`
+- **Secret format:** `username:password` (or blank for a public instance)
+- **URL:** required — point at your PhotoPrism port, e.g. `http://192.168.1.10:2342`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:2342`
+## Add it to Stoa
 
-### Setup
-
-1. Format your credentials as `username:password` (e.g. `admin:mypassword`)
-2. Stoa → Admin → Secrets → New: paste the formatted credential
-3. Stoa → Admin → Integrations → New: select **PhotoPrism**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **PhotoPrism**
+1. **Admin → Secrets → New** — paste the `username:password` credential (or leave blank).
+2. **Admin → Integrations → New** — select **PhotoPrism**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **PhotoPrism**.
 
 ---
 

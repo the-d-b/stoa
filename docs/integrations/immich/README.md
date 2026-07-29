@@ -1,25 +1,40 @@
+---
+id: immich
+name: Immich
+category: Media Servers
+tags: [photos, backup, self-hosted]
+official_url: https://immich.app
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:2283
+---
+
 # Immich
 
-**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 min
+## What is Immich?
+
+Immich is a self-hosted photo and video backup and management app — a privacy-focused alternative to Google Photos. It automatically backs up your phone's camera roll, then organizes everything with face recognition, object and scene search, albums, and map and timeline views, all on hardware you control.
+
+**Official site:** [immich.app](https://immich.app)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Immich → top-right avatar → **Account Settings → API Keys → New API Key** — copy it.
 
-> Immich → top-right avatar → Account Settings → API Keys → New API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Immich port, e.g. `http://192.168.1.10:2283`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:2283`
+## Add it to Stoa
 
-### Setup
-
-1. Immich → top-right avatar → Account Settings → API Keys → create a key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **Immich**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Immich**
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Immich**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Immich**.
 
 ---
 

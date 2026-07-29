@@ -1,26 +1,44 @@
+---
+id: transmission
+name: Transmission
+category: Downloads
+tags: [torrent, downloads, self-hosted]
+official_url: https://transmissionbt.com
+status: tested
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:9091
+---
+
 # Transmission
 
-**Category:** Downloads | **Status:** ✅ Tested | **Polling:** 30 s
+## What is Transmission?
+
+Transmission is a lightweight, open-source BitTorrent client known for a minimal, no-frills interface and low resource use. It offers a web UI and an RPC API for remote control, making it a common choice for headless/server torrent downloading.
+
+**Official site:** [transmissionbt.com](https://transmissionbt.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password` or blank
+Use your Transmission Web UI credentials in `username:password` form. Leave blank if authentication is disabled (`rpc-authentication-required: false`).
 
-> Your Transmission Web UI credentials. Leave blank if you have authentication disabled in Transmission's settings (`rpc-authentication-required: false`).
+- **Secret format:** `username:password` or blank
+- **URL:** required — point at your Transmission port, e.g. `http://192.168.1.10:9091`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:9091`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — paste `username:password` (or leave blank if auth is disabled).
+2. **Admin → Integrations → New** — select **Transmission**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Transmission**.
 
-1. Admin → Secrets → New: paste `username:password` (or leave blank if auth is disabled)
-2. Admin → Integrations → New: type Transmission, URL = `http://transmission:9091`, select secret
-3. Admin → Panels → New: type Transmission, assign to the integration
+---
 
-### How it works
+## How it works
 
 Stoa uses Transmission's **JSON-RPC API** at `/transmission/rpc`. Two calls are made per poll:
 
@@ -29,9 +47,7 @@ Stoa uses Transmission's **JSON-RPC API** at `/transmission/rpc`. Two calls are 
 
 Transmission's RPC uses the `X-Transmission-Session-Id` header for CSRF protection. Stoa handles the 409 handshake automatically — if the session ID expires or is missing, the response contains a new token which Stoa stores and retries with immediately.
 
-Authentication uses HTTP Basic Auth sent with each RPC call. If you have auth disabled, leave the secret blank.
-
-Updates arrive via SSE push every 30 seconds.
+Authentication uses HTTP Basic Auth sent with each RPC call. If you have auth disabled, leave the secret blank. Updates arrive via SSE push every 30 seconds.
 
 ---
 

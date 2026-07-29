@@ -1,29 +1,44 @@
-﻿# Nextcloud
+---
+id: nextcloud
+name: Nextcloud
+category: Storage & Virtualization
+tags: [storage, files, self-hosted]
+official_url: https://nextcloud.com
+status: tested
+polling: 5min
+secret_format: username-password
+url_required: true
+example_url: https://cloud.example.com
+---
 
-**Category:** Storage | **Status:** Tested | **Polling:** 5 min
+# Nextcloud
+
+## What is Nextcloud?
+
+Nextcloud is a self-hosted file-sync and collaboration platform — a private alternative to Dropbox and Google Workspace. It stores and syncs your files across devices and adds calendars, contacts, document editing, and much more through its app ecosystem, all running on your own server.
+
+**Official site:** [nextcloud.com](https://nextcloud.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password`
+In Nextcloud → **Settings → Security → Devices & sessions** → scroll to the bottom → enter a name (e.g. "Stoa") → **Create new app password**. Copy it — it's shown only once. Combine with your username: `yourusername:apppassword`.
 
-> Your Nextcloud username and an **app password**, colon-separated: `yourusername:apppassword`
+- **Secret format:** `username:password` — use an **app password**. If your username contains `@` (a UPN from SAML/SSO), that's fine; Stoa splits on the first colon only.
+- **URL:** required — your Nextcloud base URL, e.g. `https://cloud.example.com`
 
-**URL required:** Yes — your Nextcloud base URL, e.g. `https://cloud.example.com`
+> **App passwords bypass SAML / SSO.** If your Nextcloud login goes through an identity provider (Keycloak, Authentik, LDAP, etc.), app passwords are the correct credential type — they authenticate directly against Nextcloud.
 
-### Setup
+> **Admin account required for server stats.** RAM usage and server info come from Nextcloud's **Monitoring** app endpoint (install via Apps → Tools → Monitoring) and require admin credentials. A non-admin account still shows user and file counts, but server stats are absent.
 
-1. In Nextcloud → **Settings → Security → Devices & sessions** → scroll to the bottom → enter a name (e.g. "Stoa") → click **Create new app password**. Copy the generated password — it is only shown once.
-2. Stoa → **Admin → Secrets → New**: paste `yourusername:apppassword` (colon-separated). If your username contains `@` (e.g. a UPN from SAML/SSO), that is fine — Stoa splits on the first colon only.
-3. Stoa → **Admin → Integrations → New** → select **Nextcloud**, enter your Nextcloud base URL, select the secret → **Save & Test**.
-4. Stoa → **Admin → Panels → New** → select **Nextcloud**, select the integration.
+---
 
-> **App passwords bypass SAML / SSO.** If your Nextcloud login goes through an identity provider (Keycloak, Authentik, LDAP, etc.), app passwords are the correct credential type — they authenticate directly against Nextcloud and do not require going through your IdP.
+## Add it to Stoa
 
-> **Admin account required for server stats.** RAM usage and server info come from the Nextcloud **Monitoring** app endpoint. This requires admin-level credentials. A non-admin account will still show user and file counts but server stats will be absent.
-
-> **Monitoring app required for server stats.** Install via Nextcloud → **Apps → Tools → Monitoring**. Without it the serverinfo endpoint returns a 404 and server stats are skipped silently.
+1. **Admin → Secrets → New** — paste `yourusername:apppassword` (colon-separated).
+2. **Admin → Integrations → New** — select **Nextcloud**, enter your base URL, choose the secret → **Save & Test**.
+3. **Admin → Panels → New** — select **Nextcloud**.
 
 ---
 

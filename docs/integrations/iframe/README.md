@@ -1,6 +1,16 @@
-﻿# Web Embed
+---
+id: iframe
+name: Web Embed
+category: Stoa Features
+tags: [custom, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Web Embed
+
+## What is the Web Embed panel?
+
+Web Embed is a built-in Stoa panel that renders any URL inside an iframe filling the panel — useful for embedding web pages, dashboards, or other live content. No integration needed; the URL is set in the panel config.
 
 ---
 
@@ -23,6 +33,7 @@ Renders any URL inside an iframe that fills the panel. Useful for embedding web 
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

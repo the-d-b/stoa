@@ -1,25 +1,40 @@
+---
+id: sonarr
+name: Sonarr
+category: Media Management
+tags: [tv, automation, arr, self-hosted]
+official_url: https://sonarr.tv
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8989
+---
+
 # Sonarr
 
-**Category:** Media Management | **Status:** ✅ Tested | **Polling:** 30 min
+## What is Sonarr?
+
+Sonarr is a PVR (personal video recorder) for TV series in the "\*arr" family. It monitors the shows you follow, automatically grabs new episodes the moment a matching release appears on your configured usenet and torrent indexers, hands them to your download client, then renames and files the results into your library with correct season/episode structure and artwork.
+
+**Official site:** [sonarr.tv](https://sonarr.tv)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Sonarr → **Settings → General → Security → API Key** — copy it.
 
-> Sonarr → Settings → General → Security → API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Sonarr port, e.g. `http://192.168.1.10:8989`
 
-**URL required:** Required — point at your Sonarr port
+---
 
-**Example URL:** `http://192.168.1.10:8989`
+## Add it to Stoa
 
-### Setup
-
-1. Sonarr → Settings → General → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Sonarr`, URL = `http://sonarr:8989`, select your secret
-4. Admin → Panels → New: type `Sonarr`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Sonarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Sonarr**.
 
 ---
 

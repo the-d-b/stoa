@@ -1,28 +1,36 @@
+---
+id: coinbase
+name: Coinbase
+category: Finance
+tags: [finance, crypto, cloud]
+official_url: https://www.coinbase.com
+status: tested
+polling: 5min
+secret_format: composite
+url_required: false
+---
+
 # Coinbase
 
-**Category:** Finance | **Status:** Tested | **Polling:** 5 min
+## What is Coinbase?
+
+Coinbase is a major cryptocurrency exchange and wallet. Its Developer Platform (CDP) API lets read-only apps like Stoa see your account balances and live spot prices to build a portfolio view.
+
+**Official site:** [coinbase.com](https://www.coinbase.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `keyName:privateKey` (colon-separated, values copied directly from the JSON file Coinbase gives you)
+Coinbase issues **CDP (Coinbase Developer Platform) API keys** — JWT-signed keys, not the old HMAC style. You must create a new CDP key even if you have a legacy key.
 
-> Coinbase issues **CDP (Coinbase Developer Platform) API keys** — these are JWT-signed keys, not the old HMAC `apiKey:apiSecret` style. You must create a new CDP key even if you have a legacy key; legacy keys cannot be reactivated.
-
-**URL required:** None (Coinbase cloud API, URL is fixed)
-
-### Creating a CDP API key
-
-1. Go to **coinbase.com → Settings → API** (use the **API** section — not **Advanced API**, which is for day-trading only)
+1. Go to **coinbase.com → Settings → API** (the **API** section — not **Advanced API**, which is for day-trading)
 2. Click **New API Key**
-3. When prompted for an algorithm, select **Ed25519** (the default — it is labeled "Highly recommended")
-4. Set the scopes you need — read-only is sufficient for this panel
-5. Coinbase downloads a JSON file to your computer immediately on creation — **this is the only time you can access the private key, save it**
+3. Choose the **Ed25519** algorithm (the default, "Highly recommended")
+4. Set read-only scopes (sufficient for this panel)
+5. Coinbase downloads a JSON file immediately — **this is the only time you can access the private key, save it**
 
-### JSON file format
-
-The downloaded file looks like this:
+The JSON looks like:
 
 ```json
 {
@@ -31,24 +39,22 @@ The downloaded file looks like this:
 }
 ```
 
-*(Values above are placeholders — yours will be long random strings.)*
-
-### Stoa secret format
-
-Concatenate the two fields with a colon — paste them exactly as they appear in the JSON:
+Concatenate the two fields with a colon, exactly as they appear (no quotes, no spaces):
 
 ```
 organizations/abc123.../apiKeys/xyz789...:AAAAexamplebase64...==
 ```
 
-No quotes, no spaces, no modification to the key material. The private key is raw base64 and should be pasted verbatim.
+- **Secret format:** `keyName:privateKey` (colon-separated, values from the JSON)
+- **URL:** none — the Coinbase API endpoint is fixed (`api.coinbase.com`)
 
-### Setup
+---
 
-1. Create a CDP API key as described above and save the JSON file
-2. Stoa → **Admin → Secrets → New**: paste `{name}:{privateKey}` (colon-separated, values from the JSON) → **Save**
-3. Stoa → **Admin → Integrations → New** → select **Coinbase**, select the secret → **Save** (no URL field — the endpoint is fixed)
-4. Stoa → **Admin → Panels → New** → select **Coinbase** → **Create**
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste `{name}:{privateKey}` → **Save**.
+2. **Admin → Integrations → New** — select **Coinbase**, no URL, choose the secret.
+3. **Admin → Panels → New** — select **Coinbase**.
 
 ---
 
@@ -76,8 +82,8 @@ Portfolio dashboard showing total holdings value in USD, per-asset allocation, a
 
 ## Notes
 
-- **CDP keys only:** Legacy HMAC keys (the old `apiKey + apiSecret` pair from coinbase.com/settings) are no longer supported and cannot be reactivated. Only CDP keys created at coinbase.com/settings/api work.
-- **Ed25519 vs ECDSA:** Both algorithms are supported, but Ed25519 is what Coinbase recommends and what most users will have. The key type is detected automatically from the key material.
+- **CDP keys only:** Legacy HMAC keys are no longer supported and cannot be reactivated. Only CDP keys created at coinbase.com/settings/api work.
+- **Ed25519 vs ECDSA:** Both algorithms are supported, but Ed25519 is what Coinbase recommends. The key type is detected automatically from the key material.
 - **No URL needed:** The Coinbase API endpoint is fixed (`api.coinbase.com`), so the integration form does not show a URL field.
 - **USD values:** Stoa fetches live spot prices from `/v2/prices/{code}-USD/spot` for each held asset and multiplies by the on-chain balance. Stablecoins (USDC, USDT, DAI) and USD cash use $1.00.
 - **Zero-balance accounts:** Wallets with a zero balance are filtered out of the panel display.

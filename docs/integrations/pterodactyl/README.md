@@ -1,25 +1,40 @@
-﻿# Pterodactyl
+---
+id: pterodactyl
+name: Pterodactyl
+category: Gaming
+tags: [gaming, self-hosted]
+official_url: https://pterodactyl.io
+status: needs-testing
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10
+---
 
-**Category:** Gaming | **Status:** Need Testing | **Polling:** 60 s
+# Pterodactyl
+
+## What is Pterodactyl?
+
+Pterodactyl is an open-source game-server management panel. It runs game servers in isolated Docker containers and gives admins and users a web UI to deploy, control, and monitor them, with resource limits and multi-node support.
+
+**Official site:** [pterodactyl.io](https://pterodactyl.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Client API key (Bearer)
+Pterodactyl → **Account** (top right) → **API Credentials → Create API Key**. Use the **client** key (`ptlc_…`), not the admin key.
 
-> Pterodactyl -> Account -> API Credentials -> Create API Key (client key, not admin key).
+- **Secret format:** client API key (Bearer)
+- **URL:** required — point at your Pterodactyl panel, e.g. `http://192.168.1.10`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10`
+## Add it to Stoa
 
-### Setup
-
-1. Pterodactyl -> Account (top right) -> API Credentials -> Create API Key
-2. Admin -> Secrets -> New: paste the key
-3. Admin -> Integrations -> New: type Pterodactyl, URL = http://pterodactyl, secret
-4. Admin -> Panels -> New: type Pterodactyl
+1. **Admin → Secrets → New** — paste the client API key.
+2. **Admin → Integrations → New** — select **Pterodactyl**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Pterodactyl**.
 
 ---
 
@@ -42,6 +57,7 @@ All servers accessible to your API key with state (running/starting/stopping/off
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

@@ -1,31 +1,40 @@
+---
+id: tdarr
+name: Tdarr
+category: Media Management
+tags: [transcoding, automation, self-hosted]
+official_url: https://tdarr.io
+status: tested
+polling: 30s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8265
+---
+
 # Tdarr
-
-**Category:** Media Management | **Status:** Tested | **Polling:** 30 s
-
----
-
-## Integration
-
-**Secret format:** Blank (no auth) **or** plain API key **or** `username:password` (reverse-proxy)
-
-> Tdarr → Tools → API Keys to create a key. Leave the secret blank if your instance has no authentication.
-
-**URL required:** Required
-
-**Example URL:** `http://192.168.1.10:8265`
-
-### Setup
-
-1. If using auth: Tdarr → Tools → API Keys → create a key
-2. Stoa → Admin → Secrets → New: paste key, or leave blank
-3. Stoa → Admin → Integrations → New: select **Tdarr**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Tdarr**
-
----
 
 ## What is Tdarr?
 
 Tdarr is a self-hosted media transcoding automation system. It scans your media libraries, runs files through configurable plugin stacks or flows (e.g. convert to H.265, remove unwanted streams, health-check containers), and manages a distributed worker pool across multiple nodes. Workers can run on the same machine as the server or on remote nodes.
+
+**Official site:** [tdarr.io](https://tdarr.io)
+
+---
+
+## Getting the key
+
+Tdarr → **Tools → API Keys** to create a key. Leave the secret blank if your instance has no authentication; use `username:password` for a reverse-proxy Basic Auth setup.
+
+- **Secret format:** blank (no auth), plain API key, or `username:password` (reverse-proxy)
+- **URL:** required — point at your Tdarr port, e.g. `http://192.168.1.10:8265`
+
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste the key, or leave blank for an unauthenticated instance.
+2. **Admin → Integrations → New** — select **Tdarr**, enter the URL, choose the secret (or none).
+3. **Admin → Panels → New** — select **Tdarr**.
 
 ---
 

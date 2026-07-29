@@ -1,25 +1,40 @@
-﻿# Docspell
+---
+id: docspell
+name: Docspell
+category: Digital Life
+tags: [documents, self-hosted]
+official_url: https://docspell.org
+status: needs-testing
+polling: 15min
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:7880
+---
 
-**Category:** Documents | **Status:** Need Testing | **Polling:** 15 min
+# Docspell
+
+## What is Docspell?
+
+Docspell is a self-hosted document organizer. It ingests your files (email, scans, uploads), OCRs and auto-tags them, links documents to people and organizations, and makes everything full-text searchable — an open-source document archive.
+
+**Official site:** [docspell.org](https://docspell.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** account:password
+Use your Docspell account credentials. Stoa exchanges them for a session token.
 
-> For multi-collective setups: collective/user:password. For single-collective: user:password. Stoa exchanges these for a session token.
+- **Secret format:** `account:password` — `collective/user:password` for multi-collective setups, or `user:password` for a single collective
+- **URL:** required — point at your Docspell port, e.g. `http://192.168.1.10:7880`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:7880`
+## Add it to Stoa
 
-### Setup
-
-1. Format as collective/user:password (or user:password for single-collective)
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type Docspell, URL = http://docspell:7880, secret
-4. Admin -> Panels -> New: type Docspell
+1. **Admin → Secrets → New** — paste the credential.
+2. **Admin → Integrations → New** — select **Docspell**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Docspell**.
 
 ---
 

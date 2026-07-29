@@ -1,31 +1,40 @@
+---
+id: overseerr
+name: Overseerr / Jellyseerr
+category: Media Management
+tags: [requests, movies, tv, self-hosted]
+official_url: https://overseerr.dev
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:5055
+---
+
 # Overseerr / Jellyseerr
-
-**Category:** Media Management | **Status:** Tested | **Polling:** 5 min
-
----
-
-## Integration
-
-**Secret format:** Plain API key
-
-> Overseerr → Settings → General → API Key  |  Jellyseerr → same location
-
-**URL required:** Required
-
-**Example URL:** `http://192.168.1.10:5055`
-
-### Setup
-
-1. Overseerr/Jellyseerr → Settings → General → copy API Key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **Overseerr**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Overseerr**
-
----
 
 ## What is Overseerr / Jellyseerr?
 
-Overseerr (Plex) and Jellyseerr (Jellyfin) are request management tools for your media library. Users browse and request movies and TV shows; admins approve, decline, or let auto-approval handle it. Approved requests are handed off to Radarr and Sonarr for downloading.
+Overseerr (for Plex) and Jellyseerr (for Jellyfin) are request-management tools for your media library. Users browse and request movies and TV shows; admins approve, decline, or let auto-approval handle it. Approved requests are handed off to Radarr and Sonarr for downloading. The two share the same API, so Stoa uses one integration type for both.
+
+**Official site:** [overseerr.dev](https://overseerr.dev)
+
+---
+
+## Getting the key
+
+Overseerr/Jellyseerr → **Settings → General → API Key** — copy it.
+
+- **Secret format:** plain API key
+- **URL:** required — point at your Overseerr/Jellyseerr port, e.g. `http://192.168.1.10:5055`
+
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Overseerr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Overseerr**.
 
 ---
 

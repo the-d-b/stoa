@@ -11,6 +11,7 @@ import SportsConfigUI from './SportsConfigUI'
 import StocksConfigUI from './StocksConfigUI'
 import CryptoConfigUI from './CryptoConfigUI'
 import TypeCardPicker from './TypeCardPicker'
+import CatalogBrowser from './CatalogBrowser'
 
 export const INTEGRATION_TYPES = [
   // Media Servers
@@ -20,6 +21,8 @@ export const INTEGRATION_TYPES = [
   { id: 'tautulli',     label: 'Tautulli',     desc: 'Plex analytics',                                              category: 'Media Servers' },
   { id: 'jellystat',    label: 'Jellystat',    desc: 'Jellyfin statistics & watch history',                          category: 'Media Servers' },
   { id: 'tracearr',     label: 'Tracearr',     desc: 'Cross-platform analytics & account-sharing detection (Plex/Jellyfin/Emby)', category: 'Media Servers' },
+  { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                         category: 'Media Servers' },
+  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Media Servers' },
   // Media Management
   { id: 'sonarr',       label: 'Sonarr',       desc: 'TV show management',                                          category: 'Media Management' },
   { id: 'radarr',       label: 'Radarr',       desc: 'Movie management',                                            category: 'Media Management' },
@@ -31,47 +34,6 @@ export const INTEGRATION_TYPES = [
   { id: 'overseerr',    label: 'Overseerr / Jellyseerr', desc: 'Media request management',                          category: 'Media Management' },
   { id: 'tdarr',        label: 'Tdarr',        desc: 'Media transcoding automation — URL is http://tdarr:8265. API key: token from Tdarr → Tools → API Keys (leave blank for unauthenticated local instances). Use username:password for Basic Auth via a reverse proxy.', category: 'Media Management' },
   { id: 'maintainerr', label: 'Maintainerr',  desc: 'Media library cleanup — URL is http://maintainerr:6246. Runs unauthenticated by default; leave API key blank. For reverse-proxy Basic Auth use username:password; for Bearer use a bare token.', category: 'Media Management' },
-  { id: 'caldav',      label: 'CalDAV',       desc: 'Read/write calendar (Nextcloud, Fastmail, Radicale, Baïkal, Synology). URL is a calendar collection, e.g. https://cloud.example.com/remote.php/dav/calendars/USER/personal/. Secret: username:password — use an app password. Add it to a Calendar panel as a source.', category: 'Personal' },
-  // Photos & Libraries
-  { id: 'immich',       label: 'Immich',       desc: 'Self-hosted photo & video management',                         category: 'Photos & Libraries' },
-  { id: 'photoprism',   label: 'PhotoPrism',   desc: 'Photo management',                                            category: 'Photos & Libraries' },
-  { id: 'kavita',       label: 'Kavita',       desc: 'Self-hosted manga, comic & book server — API key field: Auth Key from Kavita → (your avatar) → User Settings → Manage Auth Keys.', category: 'Photos & Libraries' },
-  { id: 'komga',        label: 'Komga',        desc: 'Self-hosted comic book & manga server',                        category: 'Photos & Libraries' },
-  { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook, podcast & ebook server (username:password or bare API key)', category: 'Photos & Libraries' },
-  { id: 'navidrome',     label: 'Navidrome',     desc: 'Self-hosted music server / Subsonic API (username:password in API key field)', category: 'Photos & Libraries' },
-  // Storage
-  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                              category: 'Storage' },
-  { id: 'unraid',       label: 'Unraid',       desc: 'NAS & storage server',                                        category: 'Storage' },
-  { id: 'omv',          label: 'OpenMediaVault', desc: 'NAS & storage server',                                      category: 'Storage' },
-  { id: 'synology',     label: 'Synology',     desc: 'Synology DSM NAS',                                            category: 'Storage' },
-  { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                                category: 'Storage' },
-  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                                  category: 'Storage' },
-  { id: 'nextcloud',  label: 'Nextcloud',   desc: 'File cloud — URL is https://cloud.example.com. API key field: username:password (use an app password from Nextcloud → Settings → Security → App passwords).', category: 'Storage' },
-  { id: 'scrutiny',   label: 'Scrutiny',    desc: 'Disk SMART health — URL is http://scrutiny:8080. No API key required — leave the field blank. Scrutiny runs unauthenticated by default.', category: 'Storage' },
-  // Networking
-  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Networking' },
-  { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router (requires pfSense-pkg-API package; API key or username:password)', category: 'Networking' },
-  { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router (username:password; default username is root)',         category: 'Networking' },
-  { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada SDN controller — Open API v2 (Omada 5.0+); username:password in API key field', category: 'Networking' },
-  { id: 'unifi',        label: 'UniFi',        desc: 'Ubiquiti UniFi Network Application — API key (v9.3.43+) or username:password; supports WebSocket real-time events', category: 'Networking' },
-  // DNS & Proxy
-  { id: 'traefik',      label: 'Traefik',      desc: 'Traefik reverse proxy — API must be enabled (--api=true); no auth, Basic Auth (username:password), or Bearer token', category: 'DNS & Proxy' },
-  { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'NPM reverse proxy — email:password in API key field. URL is http://your-npm:81/. Creates a JWT session token automatically.', category: 'DNS & Proxy' },
-  { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Cloudflare — API token (Zone:Read + Analytics:Read + Tunnel:Read); or email:globalApiKey for legacy auth. Leave URL blank.', category: 'DNS & Proxy' },
-  { id: 'pihole',       label: 'Pi-hole',      desc: 'Pi-hole DNS sinkhole — v5: bare API token from Settings → API; v6: app password or web password. URL is http://your-pihole/. No auth needed for basic v5 stats.', category: 'DNS & Proxy' },
-  { id: 'adguard',      label: 'AdGuard Home', desc: 'AdGuard Home DNS sinkhole — username:password in API key field. URL is http://your-adguard:3000/. Requires admin credentials.', category: 'DNS & Proxy' },
-  { id: 'nextdns',      label: 'NextDNS',      desc: 'NextDNS cloud DNS — bare API key (from nextdns.io → Account → API). URL: https://api.nextdns.io/profiles/{profileId}. Leave UI URL as https://my.nextdns.io or blank.', category: 'DNS & Proxy' },
-  // VPN & Security
-  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'VPN & Security' },
-  { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN manager — bare password in API key field (leave blank for no-auth instances). URL is http://your-wgeasy:51821/.', category: 'VPN & Security' },
-  { id: 'tailscale',    label: 'Tailscale',    desc: 'Tailscale mesh VPN — API token (tskey-api-...) from login.tailscale.com → Settings → Keys. Leave URL blank; Stoa always calls api.tailscale.com.', category: 'VPN & Security' },
-  { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — URL is https://api.netbird.io (cloud) or http://netbird:80 (self-hosted). API key field: Personal Access Token from Netbird → Settings → Personal Access Tokens.', category: 'VPN & Security' },
-  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'VPN & Security' },
-  { id: 'keycloak',     label: 'Keycloak',     desc: 'Identity provider — API key field: realm:clientId:clientSecret from a confidential client with service account roles view-events and query-users', category: 'VPN & Security' },
-  // Monitoring
-  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Monitoring' },
-  { id: 'prometheus',   label: 'Prometheus',   desc: 'Prometheus metrics server — URL is http://prometheus:9090. No auth by default; use username:password for Basic Auth or a bare token for Bearer. Optional PromQL metric cards configured per panel.', category: 'Monitoring' },
-  { id: 'grafana',      label: 'Grafana',      desc: 'Grafana observability platform — URL is http://grafana:3000. Create a Service Account (Admin → Service Accounts) and generate a token; paste the token in the API key field.', category: 'Monitoring' },
   // Downloads
   { id: 'transmission', label: 'Transmission', desc: 'BitTorrent client',                                           category: 'Downloads' },
   { id: 'qbittorrent', label: 'qBittorrent',  desc: 'BitTorrent client',                                           category: 'Downloads' },
@@ -79,17 +41,51 @@ export const INTEGRATION_TYPES = [
   { id: 'rutorrent',   label: 'ruTorrent',    desc: 'rTorrent/ruTorrent BitTorrent client',                        category: 'Downloads' },
   { id: 'sabnzbd',    label: 'SABnzbd',      desc: 'Usenet downloader — URL is http://sabnzbd:8080. API key found in SABnzbd → Config → General → API Key.',  category: 'Downloads' },
   { id: 'nzbget',    label: 'NZBGet',       desc: 'Usenet downloader — URL is http://nzbget:6789. API key field: username:password (your NZBGet control credentials from Settings → Security).',  category: 'Downloads' },
-  // Smart Home
-  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform',                                      category: 'Smart Home' },
-  { id: 'frigate',     label: 'Frigate',     desc: 'NVR (network video recorder) — URL is http://frigate:8971. Leave API key blank for unauthenticated local instances (port 5000). For authenticated instances, generate a Bearer token in Frigate → Settings → Users.', category: 'Smart Home' },
-  { id: 'blueiris',   label: 'Blue Iris',   desc: 'Windows NVR — URL is http://192.168.1.x:81 (default port 81, configurable). API key field: username:password of a Blue Iris user account. Enable the web server in Blue Iris → Settings → Web server.', category: 'Smart Home' },
-  { id: 'lubelogger',  label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — URL is http://lubelogger:8080. API key field: x-api-key from LubeLogger → Profile → API Keys. Alternatively, use username:password for Basic Auth. Also works as a calendar source for date-bound reminders.', category: 'Smart Home' },
-  // Development
-  { id: 'github',      label: 'GitHub',      desc: 'GitHub activity — no URL needed. API key: Personal Access Token from GitHub → Settings → Developer settings → Personal access tokens. Token needs "public_repo" read scope minimum; "read:user" for profile.', category: 'Development' },
+  // Print Media
+  { id: 'kavita',       label: 'Kavita',       desc: 'Self-hosted manga, comic & book server — API key field: Auth Key from Kavita → (your avatar) → User Settings → Manage Auth Keys.', category: 'Print Media' },
+  { id: 'komga',        label: 'Komga',        desc: 'Self-hosted comic book & manga server',                        category: 'Print Media' },
+  { id: 'mylar3',    label: 'Mylar3',    desc: 'Comics/manga manager — URL is http://mylar3:8090. API key found in Mylar3 → Settings → Web Interface → API Key.', category: 'Print Media' },
+  { id: 'kapowarr',  label: 'Kapowarr',  desc: 'Western comics manager — URL is http://kapowarr:5656. API key found in Kapowarr → Settings → API Key.', category: 'Print Media' },
+  { id: 'tranga',    label: 'Tranga',    desc: 'Manga downloader — URL is http://tranga:9898. No API key required by default.', category: 'Print Media' },
+  { id: 'audiobookshelf', label: 'Audiobookshelf', desc: 'Audiobook, podcast & ebook server (username:password or bare API key)', category: 'Print Media' },
+  // Music
+  { id: 'navidrome',     label: 'Navidrome',     desc: 'Self-hosted music server / Subsonic API (username:password in API key field)', category: 'Music' },
+  { id: 'spotify',    label: 'Spotify',    desc: 'Music streaming — no URL needed. API key: clientId:clientSecret from your Spotify Developer Dashboard app. After creating, connect your Spotify account from the integration edit page.', category: 'Music' },
+  { id: 'lastfm',     label: 'Last.fm',    desc: 'Music scrobbling tracker — no URL needed. API key: username:apiKey (colon-separated). Get your API key at last.fm/api.', category: 'Music' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   { id: 'romm',         label: 'RomM',         desc: 'Self-hosted ROM manager — URL is http://romm:8080. API key field: username:password for Basic Auth, or an rmm_ bearer token from RomM → Settings → API Keys.', category: 'Gaming' },
   { id: 'pterodactyl',  label: 'Pterodactyl',  desc: 'Game server panel — URL is http://pterodactyl. API key field: Client API key (ptlc_…) from Pterodactyl → Account → API Credentials.', category: 'Gaming' },
+  // Storage & Virtualization
+  { id: 'truenas',      label: 'TrueNAS',      desc: 'NAS management',                                              category: 'Storage & Virtualization' },
+  { id: 'unraid',       label: 'Unraid',       desc: 'NAS & storage server',                                        category: 'Storage & Virtualization' },
+  { id: 'omv',          label: 'OpenMediaVault', desc: 'NAS & storage server',                                      category: 'Storage & Virtualization' },
+  { id: 'synology',     label: 'Synology',     desc: 'Synology DSM NAS',                                            category: 'Storage & Virtualization' },
+  { id: 'qnap',         label: 'QNAP',         desc: 'QNAP QTS NAS',                                                category: 'Storage & Virtualization' },
+  { id: 'proxmox',      label: 'Proxmox',      desc: 'Hypervisor',                                                  category: 'Storage & Virtualization' },
+  { id: 'nextcloud',  label: 'Nextcloud',   desc: 'File cloud — URL is https://cloud.example.com. API key field: username:password (use an app password from Nextcloud → Settings → Security → App passwords).', category: 'Storage & Virtualization' },
+  { id: 'scrutiny',   label: 'Scrutiny',    desc: 'Disk SMART health — URL is http://scrutiny:8080. No API key required — leave the field blank. Scrutiny runs unauthenticated by default.', category: 'Storage & Virtualization' },
+  // Network & Security
+  { id: 'opnsense',     label: 'OPNsense',     desc: 'Firewall/router',                                             category: 'Network & Security' },
+  { id: 'pfsense',      label: 'pfSense',      desc: 'Firewall/router (requires pfSense-pkg-API package; API key or username:password)', category: 'Network & Security' },
+  { id: 'openwrt',      label: 'OpenWrt',      desc: 'Router (username:password; default username is root)',         category: 'Network & Security' },
+  { id: 'omada',        label: 'Omada SDN',    desc: 'TP-Link Omada SDN controller — Open API v2 (Omada 5.0+); username:password in API key field', category: 'Network & Security' },
+  { id: 'unifi',        label: 'UniFi',        desc: 'Ubiquiti UniFi Network Application — API key (v9.3.43+) or username:password; supports WebSocket real-time events', category: 'Network & Security' },
+  { id: 'traefik',      label: 'Traefik',      desc: 'Traefik reverse proxy — API must be enabled (--api=true); no auth, Basic Auth (username:password), or Bearer token', category: 'Network & Security' },
+  { id: 'nginxpm',      label: 'Nginx Proxy Manager', desc: 'NPM reverse proxy — email:password in API key field. URL is http://your-npm:81/. Creates a JWT session token automatically.', category: 'Network & Security' },
+  { id: 'cloudflare',   label: 'Cloudflare',   desc: 'Cloudflare — API token (Zone:Read + Analytics:Read + Tunnel:Read); or email:globalApiKey for legacy auth. Leave URL blank.', category: 'Network & Security' },
+  { id: 'pihole',       label: 'Pi-hole',      desc: 'Pi-hole DNS sinkhole — v5: bare API token from Settings → API; v6: app password or web password. URL is http://your-pihole/. No auth needed for basic v5 stats.', category: 'Network & Security' },
+  { id: 'adguard',      label: 'AdGuard Home', desc: 'AdGuard Home DNS sinkhole — username:password in API key field. URL is http://your-adguard:3000/. Requires admin credentials.', category: 'Network & Security' },
+  { id: 'nextdns',      label: 'NextDNS',      desc: 'NextDNS cloud DNS — bare API key (from nextdns.io → Account → API). URL: https://api.nextdns.io/profiles/{profileId}. Leave UI URL as https://my.nextdns.io or blank.', category: 'Network & Security' },
+  { id: 'gluetun',      label: 'Gluetun',      desc: 'VPN container',                                               category: 'Network & Security' },
+  { id: 'wgeasy',       label: 'wg-easy',      desc: 'WireGuard VPN manager — bare password in API key field (leave blank for no-auth instances). URL is http://your-wgeasy:51821/.', category: 'Network & Security' },
+  { id: 'tailscale',    label: 'Tailscale',    desc: 'Tailscale mesh VPN — API token (tskey-api-...) from login.tailscale.com → Settings → Keys. Leave URL blank; Stoa always calls api.tailscale.com.', category: 'Network & Security' },
+  { id: 'netbird',    label: 'Netbird',     desc: 'WireGuard mesh VPN — URL is https://api.netbird.io (cloud) or http://netbird:80 (self-hosted). API key field: Personal Access Token from Netbird → Settings → Personal Access Tokens.', category: 'Network & Security' },
+  { id: 'authentik',    label: 'Authentik',    desc: 'Identity provider',                                           category: 'Network & Security' },
+  { id: 'keycloak',     label: 'Keycloak',     desc: 'Identity provider — API key field: realm:clientId:clientSecret from a confidential client with service account roles view-events and query-users', category: 'Network & Security' },
+  { id: 'kuma',         label: 'Uptime Kuma',  desc: 'Status monitoring',                                           category: 'Network & Security' },
+  { id: 'prometheus',   label: 'Prometheus',   desc: 'Prometheus metrics server — URL is http://prometheus:9090. No auth by default; use username:password for Basic Auth or a bare token for Bearer. Optional PromQL metric cards configured per panel.', category: 'Network & Security' },
+  { id: 'grafana',      label: 'Grafana',      desc: 'Grafana observability platform — URL is http://grafana:3000. Create a Service Account (Admin → Service Accounts) and generate a token; paste the token in the API key field.', category: 'Network & Security' },
   // Finance
   { id: 'fireflyiii',   label: 'Firefly III',  desc: 'Personal finance manager — URL is http://firefly:8080. API key field: Personal Access Token from Firefly III → Profile → OAuth → Personal Access Tokens.', category: 'Finance' },
   { id: 'actualbudget', label: 'Actual Budget', desc: 'Envelope budgeting — requires the actual-http-api sidecar (not your actual-server directly). URL is http://actual-http-api:5007. API key field: the API_KEY you set when deploying actual-http-api.', category: 'Finance' },
@@ -97,36 +93,32 @@ export const INTEGRATION_TYPES = [
   { id: 'coinbase',    label: 'Coinbase',       desc: 'Coinbase portfolio — no URL needed. API key field: keyName:privateKey (colon-separated, values from the JSON file Coinbase downloads when you create the key). Create a CDP key at coinbase.com/settings/api → New API Key, choose Ed25519 (default). The JSON has a "name" field (organizations/…/apiKeys/…) and a "privateKey" field — join them with a colon.', category: 'Finance' },
   { id: 'stocks',       label: 'Stocks',       desc: 'US stock quotes with sparklines (Yahoo Finance, no API key)', category: 'Finance' },
   { id: 'crypto',       label: 'Crypto',       desc: 'Cryptocurrency prices with sparklines (CoinGecko)',           category: 'Finance' },
-  // Documents
-  { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — URL is http://paperless:8000 (or your public URL). API key field: token generated in Paperless-ngx → Settings → API → Generate Token.', category: 'Documents' },
-  { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — URL is http://docspell:7880. API key field: account:password where account is "collective/user" for multi-user setups or just "user" for a single-collective instance.', category: 'Documents' },
-  // Personal
-  { id: 'monica',     label: 'Monica',     desc: 'Personal CRM — URL is http://monica:8080. API key field: bearer token generated in Monica → Settings → API → Create New Token.', category: 'Personal' },
-  { id: 'life360',   label: 'Life360',   desc: 'Family location sharing — no official API; secret is a session token you extract by hand from your browser (see docs), and it can expire without warning', category: 'Personal' },
-  { id: 'homebox',   label: 'Homebox',   desc: 'Home inventory — URL is http://homebox:7745. API key field: email:password of your Homebox account.', category: 'Personal' },
-  // Health & Fitness
-  { id: 'wger',       label: 'wger',       desc: 'Workout manager — URL is http://wger:80. API key field: permanent API key from wger → Dashboard → API (top-right menu).', category: 'Health & Fitness' },
-  { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — URL is http://fittrackee:5000. API key field: email:password of your Fittrackee account.', category: 'Health & Fitness' },
-  { id: 'strava',    label: 'Strava',    desc: 'Running & cycling tracker — no URL needed. API key: clientId:clientSecret from your Strava Developer Portal app. After creating, connect your Strava account from the integration edit page.', category: 'Health & Fitness' },
-  { id: 'duolingo',  label: 'Duolingo',  desc: 'Language learning — no URL needed. API key: username:password of your Duolingo account (unofficial read-only API).', category: 'Health & Fitness' },
-  // Music
-  { id: 'spotify',    label: 'Spotify',    desc: 'Music streaming — no URL needed. API key: clientId:clientSecret from your Spotify Developer Dashboard app. After creating, connect your Spotify account from the integration edit page.', category: 'Music' },
-  { id: 'lastfm',     label: 'Last.fm',    desc: 'Music scrobbling tracker — no URL needed. API key: username:apiKey (colon-separated). Get your API key at last.fm/api.', category: 'Music' },
-  // Food & Home
-  { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Food & Home' },
-  { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Food & Home' },
-  { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Food & Home' },
-  // Comics & Manga
-  { id: 'mylar3',    label: 'Mylar3',    desc: 'Comics/manga manager — URL is http://mylar3:8090. API key found in Mylar3 → Settings → Web Interface → API Key.', category: 'Comics & Manga' },
-  { id: 'kapowarr',  label: 'Kapowarr',  desc: 'Western comics manager — URL is http://kapowarr:5656. API key found in Kapowarr → Settings → API Key.', category: 'Comics & Manga' },
-  { id: 'tranga',    label: 'Tranga',    desc: 'Manga downloader — URL is http://tranga:9898. No API key required by default.', category: 'Comics & Manga' },
-  // Content
-  { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — recent videos from channels you follow. No URL needed. API key: clientId:clientSecret from Google Cloud Console (YouTube Data API v3). After creating, connect your Google account from the integration edit page.', category: 'Content' },
-  { id: 'twitch',       label: 'Twitch',       desc: 'Live stream dashboard — no URL needed. API key: clientId:clientSecret from your Twitch Developer Console app. After creating, connect your Twitch account from the integration edit page.', category: 'Content' },
-  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV watch tracking with artwork carousels and add-to-Radarr/Sonarr. No URL needed. Secret format: clientId:username or clientId:username:tmdbApiKey. Get your Client ID at trakt.tv/oauth/applications (create an app, copy the Client ID). Username is your Trakt profile name. TMDB API key (optional) enables poster artwork — get one at themoviedb.org/settings/api (supports v3 key or v4 Read Access Token). Profile must be public.', category: 'Content' },
-  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Content' },
-  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)', category: 'Content' },
-  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Content' },
+  // Digital Life
+  { id: 'homeassistant', label: 'Home Assistant', desc: 'Smart home platform',                                      category: 'Digital Life' },
+  { id: 'frigate',     label: 'Frigate',     desc: 'NVR (network video recorder) — URL is http://frigate:8971. Leave API key blank for unauthenticated local instances (port 5000). For authenticated instances, generate a Bearer token in Frigate → Settings → Users.', category: 'Digital Life' },
+  { id: 'blueiris',   label: 'Blue Iris',   desc: 'Windows NVR — URL is http://192.168.1.x:81 (default port 81, configurable). API key field: username:password of a Blue Iris user account. Enable the web server in Blue Iris → Settings → Web server.', category: 'Digital Life' },
+  { id: 'wger',       label: 'wger',       desc: 'Workout manager — URL is http://wger:80. API key field: permanent API key from wger → Dashboard → API (top-right menu).', category: 'Digital Life' },
+  { id: 'fittrackee', label: 'Fittrackee', desc: 'Activity tracker — URL is http://fittrackee:5000. API key field: email:password of your Fittrackee account.', category: 'Digital Life' },
+  { id: 'strava',    label: 'Strava',    desc: 'Running & cycling tracker — no URL needed. API key: clientId:clientSecret from your Strava Developer Portal app. After creating, connect your Strava account from the integration edit page.', category: 'Digital Life' },
+  { id: 'duolingo',  label: 'Duolingo',  desc: 'Language learning — no URL needed. API key: username:password of your Duolingo account (unofficial read-only API).', category: 'Digital Life' },
+  { id: 'homebox',   label: 'Homebox',   desc: 'Home inventory — URL is http://homebox:7745. API key field: email:password of your Homebox account.', category: 'Digital Life' },
+  { id: 'grocy',       label: 'Grocy',           desc: 'Household management — URL is http://grocy:80 (or your instance URL). API key field: generated in Grocy → Manage API Keys (or Settings → User API Keys).', category: 'Digital Life' },
+  { id: 'mealie',      label: 'Mealie',         desc: 'Recipe manager & meal planner — URL is http://mealie:9000. API key field: long-lived API token from Mealie → User Settings → API Tokens → Create Token.', category: 'Digital Life' },
+  { id: 'tandoor',     label: 'Tandoor',          desc: 'Recipe manager — URL is http://tandoor:8080. API key field: token from Tandoor → User Menu → API Token.', category: 'Digital Life' },
+  { id: 'lubelogger',  label: 'LubeLogger',       desc: 'Vehicle maintenance tracker — URL is http://lubelogger:8080. API key field: x-api-key from LubeLogger → Profile → API Keys. Alternatively, use username:password for Basic Auth. Also works as a calendar source for date-bound reminders.', category: 'Digital Life' },
+  { id: 'monica',     label: 'Monica',     desc: 'Personal CRM — URL is http://monica:8080. API key field: bearer token generated in Monica → Settings → API → Create New Token.', category: 'Digital Life' },
+  { id: 'life360',   label: 'Life360',   desc: 'Family location sharing — no official API; secret is a session token you extract by hand from your browser (see docs), and it can expire without warning', category: 'Digital Life' },
+  { id: 'paperless',   label: 'Paperless-ngx', desc: 'Document management — URL is http://paperless:8000 (or your public URL). API key field: token generated in Paperless-ngx → Settings → API → Generate Token.', category: 'Digital Life' },
+  { id: 'docspell',    label: 'Docspell',       desc: 'Document manager — URL is http://docspell:7880. API key field: account:password where account is "collective/user" for multi-user setups or just "user" for a single-collective instance.', category: 'Digital Life' },
+  { id: 'github',      label: 'GitHub',      desc: 'GitHub activity — no URL needed. API key: Personal Access Token from GitHub → Settings → Developer settings → Personal access tokens. Token needs "public_repo" read scope minimum; "read:user" for profile.', category: 'Digital Life' },
+  { id: 'caldav',      label: 'CalDAV',       desc: 'Read/write calendar (Nextcloud, Fastmail, Radicale, Baïkal, Synology). URL is a calendar collection, e.g. https://cloud.example.com/remote.php/dav/calendars/USER/personal/. Secret: username:password — use an app password. Add it to a Calendar panel as a source.', category: 'Digital Life' },
+  // Online Content
+  { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — recent videos from channels you follow. No URL needed. API key: clientId:clientSecret from Google Cloud Console (YouTube Data API v3). After creating, connect your Google account from the integration edit page.', category: 'Online Content' },
+  { id: 'twitch',       label: 'Twitch',       desc: 'Live stream dashboard — no URL needed. API key: clientId:clientSecret from your Twitch Developer Console app. After creating, connect your Twitch account from the integration edit page.', category: 'Online Content' },
+  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV watch tracking with artwork carousels and add-to-Radarr/Sonarr. No URL needed. Secret format: clientId:username or clientId:username:tmdbApiKey. Get your Client ID at trakt.tv/oauth/applications (create an app, copy the Client ID). Username is your Trakt profile name. TMDB API key (optional) enables poster artwork — get one at themoviedb.org/settings/api (supports v3 key or v4 Read Access Token). Profile must be public.', category: 'Online Content' },
+  { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Online Content' },
+  { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)', category: 'Online Content' },
+  { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Online Content' },
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
@@ -238,6 +230,7 @@ export default function IntegrationForm({
   // ── Form state ─────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [pickerView, setPickerView] = useState<'tiles' | 'catalog'>('tiles')
 
   // ── Inline secret creation ─────────────────────────────────────────────────
   const [showNewSecret, setShowNewSecret] = useState(false)
@@ -481,13 +474,21 @@ export default function IntegrationForm({
       {/* Type picker — create mode only, shown first so type drives the rest of the form */}
       {!isEdit && (
         <div>
-          <label className="label" style={{ display: 'block', marginBottom: 8 }}>Type</label>
-          <TypeCardPicker
-            types={INTEGRATION_TYPES}
-            value={type}
-            onChange={handleTypeChange}
-            autoFocus
-          />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+            <label className="label" style={{ margin: 0 }}>Type</label>
+            <div style={{ display: 'flex', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+              {(['tiles', 'catalog'] as const).map(v => (
+                <button key={v} type="button" onClick={() => setPickerView(v)} style={{
+                  fontSize: 11, padding: '3px 10px', cursor: 'pointer', border: 'none',
+                  background: pickerView === v ? 'var(--accent-bg)' : 'transparent',
+                  color: pickerView === v ? 'var(--accent)' : 'var(--text-dim)',
+                }}>{v === 'tiles' ? 'Tiles' : 'Catalog'}</button>
+              ))}
+            </div>
+          </div>
+          {pickerView === 'tiles'
+            ? <TypeCardPicker types={INTEGRATION_TYPES} value={type} onChange={handleTypeChange} autoFocus />
+            : <CatalogBrowser types={INTEGRATION_TYPES} value={type} onChange={handleTypeChange} autoFocus />}
         </div>
       )}
 

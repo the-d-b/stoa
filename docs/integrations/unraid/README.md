@@ -1,25 +1,40 @@
-﻿# Unraid
+---
+id: unraid
+name: Unraid
+category: Storage & Virtualization
+tags: [nas, storage, virtualization, self-hosted]
+official_url: https://unraid.net
+status: needs-testing
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10
+---
 
-**Category:** Storage | **Status:** Need Testing | **Polling:** 30 s (WebSocket)
+# Unraid
+
+## What is Unraid?
+
+Unraid is a NAS and application-server operating system built around a flexible, parity-protected array that lets you mix drive sizes and expand one disk at a time. Beyond storage it runs Docker containers and virtual machines, which makes it a popular all-in-one home-server OS.
+
+**Official site:** [unraid.net](https://unraid.net)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Use your Unraid WebUI login in `username:password` form (e.g. `root:yourpassword`).
 
-> Your Unraid WebUI login. Format: root:yourpassword
+- **Secret format:** `username:password`
+- **URL:** required — point at your Unraid host, e.g. `http://192.168.1.10`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10`
+## Add it to Stoa
 
-### Setup
-
-1. Format secret as root:yourpassword (or your admin user)
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type Unraid, URL, secret
-4. Admin -> Panels -> New: type Unraid
+1. **Admin → Secrets → New** — paste `root:yourpassword` (or your admin user).
+2. **Admin → Integrations → New** — select **Unraid**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Unraid**.
 
 ---
 

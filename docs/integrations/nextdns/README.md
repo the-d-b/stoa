@@ -1,29 +1,46 @@
-﻿# NextDNS
+---
+id: nextdns
+name: NextDNS
+category: Network & Security
+tags: [dns, adblock, cloud]
+official_url: https://nextdns.io
+status: needs-testing
+polling: 30s
+secret_format: api-key
+url_required: true
+example_url: https://api.nextdns.io/profiles/{profileId}
+---
 
-**Category:** DNS & Proxy | **Status:** Need Testing | **Polling:** 30 s
+# NextDNS
+
+## What is NextDNS?
+
+NextDNS is a cloud-based DNS resolver that blocks ads, trackers, and malware and enforces filtering and parental-control policies at the DNS level — the cloud counterpart to Pi-hole and AdGuard Home. In Stoa the integration reads your profile's query analytics through the NextDNS API.
+
+**Official site:** [nextdns.io](https://nextdns.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+NextDNS → **Account → API Key** — copy it. Find your Profile ID in the NextDNS dashboard URL, and build the API URL from it.
 
-> NextDNS -> Account -> API Key
+- **Secret format:** plain API key
+- **URL:** required — your profile API endpoint, `https://api.nextdns.io/profiles/{profileId}`
 
-**URL required:** None (cloud API - Profile ID configured in integration settings)
+---
 
-### Setup
+## Add it to Stoa
 
-1. NextDNS -> Account -> copy API Key
-2. Note your Profile ID from the NextDNS dashboard URL
-3. Admin -> Secrets -> New: paste the API key
-4. Admin -> Integrations -> New: type NextDNS, no URL, secret = API key
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **NextDNS**, enter the profile API URL, choose the secret.
+3. **Admin → Panels → New** — select **NextDNS**.
 
 ---
 
 ## Panel
 
-Cloud DNS analytics - total queries, blocked queries and percentage, encrypted %, IPv6 %. 24-hour hourly timeline, top blocked domains, top querying clients, block reason breakdown.
+Cloud DNS analytics — total queries, blocked queries and percentage, encrypted %, IPv6 %. 24-hour hourly timeline, top blocked domains, top querying clients, block reason breakdown.
 
 ### Height behavior
 

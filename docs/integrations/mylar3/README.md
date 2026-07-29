@@ -1,25 +1,40 @@
+---
+id: mylar3
+name: Mylar3
+category: Print Media
+tags: [comics, downloads, self-hosted]
+official_url: https://github.com/mylar3/mylar3
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://mylar3:8090
+---
+
 # Mylar3
 
-**Category:** Comics & Manga | **Status:** Tested | **Polling:** 30 min
+## What is Mylar3?
+
+Mylar3 is a self-hosted automated downloader and manager for Western comics. It tracks the comic series you follow, watches for new and missing issues from your sources, downloads them, and organizes your collection with metadata and covers — the "\*arr" of comics.
+
+**Official site:** [github.com/mylar3/mylar3](https://github.com/mylar3/mylar3)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Mylar3 → **Settings → Web Interface → Enable API** → copy the **API Key**.
 
-> Mylar3 → Settings → Web Interface → Enable API → copy API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Mylar3 port, e.g. `http://mylar3:8090`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://mylar3:8090`
+## Add it to Stoa
 
-### Setup
-
-1. Mylar3 → Settings → Web Interface → enable API, copy the API Key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **Mylar3**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Mylar3**
+1. **Admin → Secrets → New** — paste the key.
+2. **Admin → Integrations → New** — select **Mylar3**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Mylar3**.
 
 ---
 

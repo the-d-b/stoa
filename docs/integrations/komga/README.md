@@ -1,25 +1,40 @@
+---
+id: komga
+name: Komga
+category: Print Media
+tags: [comics, manga, books, self-hosted]
+official_url: https://komga.org
+status: tested
+polling: 30min
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:8080
+---
+
 # Komga
 
-**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 min
+## What is Komga?
+
+Komga is a self-hosted media server for comics, manga, and digital books. It organizes your CBZ/CBR/PDF/EPUB collection into libraries and series with metadata and cover art, and serves them to its own web reader as well as third-party reader apps via its REST API and OPDS feed.
+
+**Official site:** [komga.org](https://komga.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password` or plain API key
+Use your Komga login credentials in `username:password` form, or generate an API key at Komga → **Settings → API Keys**.
 
-> Your Komga login credentials, or an API key from Komga → Settings → API Keys.
+- **Secret format:** `username:password` or plain API key
+- **URL:** required — point at your Komga port, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. Format as `username:password` **or** get an API key from Komga → Settings → API Keys
-2. Stoa → Admin → Secrets → New: paste the credential
-3. Stoa → Admin → Integrations → New: select **Komga**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Komga**
+1. **Admin → Secrets → New** — paste the credential (`username:password` or an API key).
+2. **Admin → Integrations → New** — select **Komga**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Komga**.
 
 ---
 

@@ -1,27 +1,40 @@
+---
+id: grocy
+name: Grocy
+category: Digital Life
+tags: [groceries, inventory, self-hosted]
+official_url: https://grocy.info
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:9283
+---
+
 # Grocy
 
-**Category:** Food & Home | **Status:** Tested | **Polling:** 5 min
+## What is Grocy?
+
+Grocy is a self-hosted "ERP for your groceries" — a household-management app that tracks pantry stock and expiry dates, chores, tasks, and shopping lists, helping cut food waste and stay on top of the home.
+
+**Official site:** [grocy.info](https://grocy.info)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** API key
+Grocy → top-right menu → **Manage API Keys → + Add** → copy the key. (Grocy has no unauthenticated endpoints, so a key is required.)
 
-> Grocy → **Manage API Keys** (top-right menu) → **+ Add** → copy the key
+- **Secret format:** API key
+- **URL:** required — base URL of your Grocy instance, e.g. `http://192.168.1.10:9283`
 
-**URL required:** Yes — base URL of your Grocy instance
+---
 
-**Example URL:** `http://192.168.1.10:9283`
+## Add it to Stoa
 
-### Setup
-
-1. In Grocy, open the top-right menu → **Manage API Keys** → **+ Add** → copy the generated key
-2. Stoa → **Admin → Secrets → New**: paste the API key (no prefix needed)
-3. Stoa → **Admin → Integrations → New**: type **Grocy**, enter your Grocy URL, select the secret
-4. Stoa → **Admin → Panels → New**: type **Grocy**, select the integration
-
-> The API key is required — Grocy has no unauthenticated endpoints. If you see "authentication failed", regenerate the key in Grocy and update the secret in Stoa.
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Grocy**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Grocy**.
 
 ---
 

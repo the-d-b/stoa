@@ -1,25 +1,40 @@
+---
+id: authentik
+name: Authentik
+category: Network & Security
+tags: [sso, identity, self-hosted]
+official_url: https://goauthentik.io
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: true
+example_url: https://auth.example.com
+---
+
 # Authentik
 
-**Category:** VPN & Security | **Status:** Tested | **Polling:** 5 min
+## What is Authentik?
+
+Authentik is a self-hosted identity provider and single-sign-on (SSO) server. It centralizes authentication for your apps via SAML, OAuth2/OpenID Connect, LDAP, and more, with flexible login flows, MFA, and user management — an open-source alternative to Okta and Auth0.
+
+**Official site:** [goauthentik.io](https://goauthentik.io)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** API token
+Authentik → **Admin interface → System → API Tokens → Create** — copy the token.
 
-> Authentik → Admin interface → System → API Tokens → Create
+- **Secret format:** API token
+- **URL:** required — your Authentik base URL, e.g. `https://auth.example.com`
 
-**URL required:** Required
+---
 
-**Example URL:** `https://auth.example.com`
+## Add it to Stoa
 
-### Setup
-
-1. Authentik → Admin → System → API Tokens → create token
-2. Stoa → Admin → Secrets → New: paste the token
-3. Stoa → Admin → Integrations → New: select **Authentik**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Authentik**
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **Authentik**, enter the URL, choose the secret. Enable **Skip TLS Verify** if it uses a self-signed certificate.
+3. **Admin → Panels → New** — select **Authentik**.
 
 ---
 

@@ -1,27 +1,40 @@
+---
+id: audiobookshelf
+name: Audiobookshelf
+category: Print Media
+tags: [audiobooks, books, streaming, self-hosted]
+official_url: https://www.audiobookshelf.org
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:13378
+---
+
 # Audiobookshelf
 
-**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 60 s
+## What is Audiobookshelf?
+
+Audiobookshelf is a self-hosted server for audiobooks, podcasts, and ebooks. It organizes your library, tracks listening and reading progress per user across devices, streams to its own web and mobile apps, and can subscribe to and automatically download podcasts.
+
+**Official site:** [audiobookshelf.org](https://www.audiobookshelf.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password` or plain API key
+ABS → **Settings → Users → your user → API Token** — copy it. For root accounts you can instead use `username:password` (e.g. `root:yourpassword`).
 
-> ABS → Settings → Users → your user → API Token. For root accounts, use `username:password` (e.g. `root:yourpassword`).
+- **Secret format:** API token, or `username:password`
+- **URL:** required — point at your ABS port, e.g. `http://192.168.1.10:13378`. If ABS is served under a sub-path (reverse proxy), include it: `http://192.168.1.10:13378/audiobookshelf`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:13378`
+## Add it to Stoa
 
-If ABS is served under a sub-path (e.g. via a reverse proxy), include it in the URL: `http://192.168.1.10:13378/audiobookshelf`
-
-### Setup
-
-1. ABS → Settings → Users → your user → copy **API Token** (or use `username:password`)
-2. Stoa → Admin → Secrets → New: paste the credential
-3. Stoa → Admin → Integrations → New: select **Audiobookshelf**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Audiobookshelf**
+1. **Admin → Secrets → New** — paste the API token (or `username:password`).
+2. **Admin → Integrations → New** — select **Audiobookshelf**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Audiobookshelf**.
 
 ---
 

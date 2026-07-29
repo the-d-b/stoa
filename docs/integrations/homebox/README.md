@@ -1,31 +1,46 @@
-﻿# Homebox
+---
+id: homebox
+name: Homebox
+category: Digital Life
+tags: [inventory, self-hosted]
+official_url: https://homebox.software
+status: needs-testing
+polling: 15min
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:7745
+---
 
-**Category:** Personal | **Status:** Need Testing | **Polling:** 15 min
+# Homebox
+
+## What is Homebox?
+
+Homebox is a self-hosted home inventory manager. It catalogs your belongings by location and label, tracks purchase details, warranties, and values, and makes it easy to find what you own and where it is — handy for insurance and organization.
+
+**Official site:** [homebox.software](https://homebox.software)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** email:password
+Use your Homebox login in `email:password` form (e.g. `user@example.com:yourpassword`).
 
-> Your Homebox login. Format: user@example.com:yourpassword
+- **Secret format:** `email:password`
+- **URL:** required — point at your Homebox port, e.g. `http://192.168.1.10:7745`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:7745`
+## Add it to Stoa
 
-### Setup
-
-1. Format as email:password (your Homebox login)
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type Homebox, URL = http://homebox:7745, secret
-4. Admin -> Panels -> New: type Homebox
+1. **Admin → Secrets → New** — paste the credential.
+2. **Admin → Integrations → New** — select **Homebox**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Homebox**.
 
 ---
 
 ## Panel
 
-Home inventory panel - total items, locations, labels, warranty count, and inventory value. Per-location item counts with proportional bars.
+Home inventory panel — total items, locations, labels, warranty count, and inventory value. Per-location item counts with proportional bars.
 
 ### Height behavior
 

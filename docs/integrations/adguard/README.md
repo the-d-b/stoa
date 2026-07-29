@@ -1,26 +1,40 @@
+---
+id: adguard
+name: AdGuard Home
+category: Network & Security
+tags: [dns, adblock, self-hosted]
+official_url: https://github.com/AdguardTeam/AdGuardHome
+status: tested
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:3000
+---
+
 # AdGuard Home
 
-**Category:** DNS & Proxy | **Status:** ✅ Tested | **Polling:** 30 s
+## What is AdGuard Home?
+
+AdGuard Home is a self-hosted, network-wide DNS blocker for ads and trackers — a Pi-hole alternative. It runs as your network's DNS server, filtering ad, tracker, and malware domains for all connected devices, and offers per-client rules, encrypted DNS (DoH/DoT), and query analytics.
+
+**Official site:** [github.com/AdguardTeam/AdGuardHome](https://github.com/AdguardTeam/AdGuardHome)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password`
+Use your AdGuard Home web-UI login credentials in `username:password` form (e.g. `admin:yourpassword`). The same credentials that log into the web UI grant API access — no extra setup needed.
 
-> Your AdGuard Home web UI login credentials. Format: `admin:yourpassword`
+- **Secret format:** `username:password`
+- **URL:** required — point directly at the AdGuard Home web UI/API port, e.g. `http://192.168.1.10:3000`
 
-**URL required:** Required — point directly at the AdGuard Home web UI/API port
+---
 
-**Example URL:** `http://192.168.1.10:3000`
+## Add it to Stoa
 
-### Setup
-
-1. Admin → Secrets → New: paste `username:password` (e.g. `admin:yourpassword`)
-2. Admin → Integrations → New: type `AdGuard Home`, URL = `http://adguard-home:3000`, select your secret
-3. Admin → Panels → New: type `AdGuard Home`, select the integration
-
-No additional configuration is required in AdGuard Home itself — the same credentials used for the web UI grant API access.
+1. **Admin → Secrets → New** — paste `admin:yourpassword`.
+2. **Admin → Integrations → New** — select **AdGuard Home**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **AdGuard Home**.
 
 ---
 

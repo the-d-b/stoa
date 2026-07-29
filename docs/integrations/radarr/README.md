@@ -1,25 +1,40 @@
+---
+id: radarr
+name: Radarr
+category: Media Management
+tags: [movies, automation, arr, self-hosted]
+official_url: https://radarr.video
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:7878
+---
+
 # Radarr
 
-**Category:** Media Management | **Status:** ✅ Tested | **Polling:** 30 min
+## What is Radarr?
+
+Radarr is a movie collection manager and the film counterpart to Sonarr in the "\*arr" family. It watches for the movies you want, grabs them from your usenet and torrent indexers the moment a matching release appears, sends them to your download client, and organizes the results into your library with proper naming, artwork, and metadata.
+
+**Official site:** [radarr.video](https://radarr.video)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Radarr → **Settings → General → Security → API Key** — copy it.
 
-> Radarr → Settings → General → Security → API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Radarr port, e.g. `http://192.168.1.10:7878`
 
-**URL required:** Required — point at your Radarr port
+---
 
-**Example URL:** `http://192.168.1.10:7878`
+## Add it to Stoa
 
-### Setup
-
-1. Radarr → Settings → General → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Radarr`, URL = `http://radarr:7878`, select your secret
-4. Admin → Panels → New: type `Radarr`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Radarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Radarr**.
 
 ---
 

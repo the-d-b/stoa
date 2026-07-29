@@ -1,25 +1,40 @@
+---
+id: kapowarr
+name: Kapowarr
+category: Print Media
+tags: [comics, downloads, self-hosted]
+official_url: https://github.com/Casvt/Kapowarr
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://kapowarr:5656
+---
+
 # Kapowarr
 
-**Category:** Comics & Manga | **Status:** Tested | **Polling:** 30 min
+## What is Kapowarr?
+
+Kapowarr is a self-hosted manager and downloader for Western comic-book volumes. It builds and monitors your digital comic library, grabs missing issues, and organizes them with metadata and covers — a modern take on automated comic collecting.
+
+**Official site:** [github.com/Casvt/Kapowarr](https://github.com/Casvt/Kapowarr)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Kapowarr → **Settings → API Key** — copy it.
 
-> Kapowarr → Settings → API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Kapowarr port, e.g. `http://kapowarr:5656`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://kapowarr:5656`
+## Add it to Stoa
 
-### Setup
-
-1. Kapowarr → Settings → copy API Key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **Kapowarr**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Kapowarr**
+1. **Admin → Secrets → New** — paste the key.
+2. **Admin → Integrations → New** — select **Kapowarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Kapowarr**.
 
 ---
 

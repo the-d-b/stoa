@@ -1,31 +1,46 @@
-﻿# Monica
+---
+id: monica
+name: Monica
+category: Digital Life
+tags: [contacts, self-hosted]
+official_url: https://www.monicahq.com
+status: needs-testing
+polling: 15min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8080
+---
 
-**Category:** Personal | **Status:** Need Testing | **Polling:** 15 min
+# Monica
+
+## What is Monica?
+
+Monica is a self-hosted personal CRM (a "personal relationship manager"). It helps you remember details about the people in your life — conversations, important dates, gift ideas, and reminders — so you can stay in better touch, all kept private on your own server.
+
+**Official site:** [monicahq.com](https://www.monicahq.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Bearer token
+Monica → **Settings → API → Personal Access Tokens → Create** — copy the token.
 
-> Monica -> Settings -> API -> Personal Access Tokens -> Create
+- **Secret format:** Bearer token
+- **URL:** required — point at your Monica port, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. Monica -> Settings -> API -> Personal Access Tokens -> create token
-2. Admin -> Secrets -> New: paste the token
-3. Admin -> Integrations -> New: type Monica, URL = http://monica:8080, secret
-4. Admin -> Panels -> New: type Monica
+1. **Admin → Secrets → New** — paste the token.
+2. **Admin → Integrations → New** — select **Monica**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Monica**.
 
 ---
 
 ## Panel
 
-Personal CRM panel - total contact count and upcoming reminders with contact name, date, and days until. Color-coded for reminders due today or within the week.
+Personal CRM panel — total contact count and upcoming reminders with contact name, date, and days until. Color-coded for reminders due today or within the week.
 
 ### Height behavior
 

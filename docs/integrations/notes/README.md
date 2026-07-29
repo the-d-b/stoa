@@ -1,6 +1,16 @@
-﻿# Notes
+---
+id: notes
+name: Notes
+category: Stoa Features
+tags: [notes, built-in]
+status: tested
+---
 
-**Category:** Productivity | **Status:** Tested | **Requires integration:** No - data stored locally in Stoa
+# Notes
+
+## What is the Notes panel?
+
+Notes is a built-in Stoa panel — a shared, markdown-capable notepad stored in Stoa's own database, with no external service. It supports multi-user editing with locking (one editor at a time; others see read-only while locked) and works out of the box with no configuration. Both system (group-shared) and personal notes are supported.
 
 ---
 

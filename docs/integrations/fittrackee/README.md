@@ -1,31 +1,46 @@
-﻿# Fittrackee
+---
+id: fittrackee
+name: Fittrackee
+category: Digital Life
+tags: [fitness, self-hosted]
+official_url: https://github.com/SamR1/FitTrackee
+status: needs-testing
+polling: 15min
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:5000
+---
 
-**Category:** Health & Fitness | **Status:** Need Testing | **Polling:** 15 min
+# Fittrackee
+
+## What is Fittrackee?
+
+FitTrackee is a self-hosted outdoor-activity tracker. Upload GPX files from your runs, rides, and hikes and it maps them and computes distance, duration, speed, and elevation stats — a private alternative to Strava for the workouts you own.
+
+**Official site:** [github.com/SamR1/FitTrackee](https://github.com/SamR1/FitTrackee)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** email:password
+Use your Fittrackee login in `email:password` form (e.g. `user@example.com:yourpassword`).
 
-> Your Fittrackee login. Format: user@example.com:yourpassword
+- **Secret format:** `email:password`
+- **URL:** required — point at your Fittrackee port, e.g. `http://192.168.1.10:5000`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:5000`
+## Add it to Stoa
 
-### Setup
-
-1. Format as email:password (your Fittrackee login)
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type Fittrackee, URL = http://fittrackee:5000, secret
-4. Admin -> Panels -> New: type Fittrackee
+1. **Admin → Secrets → New** — paste the credential.
+2. **Admin → Integrations → New** — select **Fittrackee**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Fittrackee**.
 
 ---
 
 ## Panel
 
-Activity tracker panel - total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity.
+Activity tracker panel — total workouts, sports, distance, duration, and ascent. Recent workout list with sport type, title, distance, speed, and ascent per activity.
 
 ### Height behavior
 

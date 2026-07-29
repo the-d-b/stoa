@@ -1,33 +1,42 @@
+---
+id: autobrr
+name: autobrr
+category: Media Management
+tags: [torrent, automation, indexers, self-hosted]
+official_url: https://autobrr.com
+status: tested
+polling: 30s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:7474
+---
+
 # autobrr
-
-**Category:** Media Management | **Status:** Tested | **Polling:** 30 s
-
----
-
-## Integration
-
-**Secret format:** Plain API key
-
-> autobrr → Settings → API → copy API Key
-
-**URL required:** Required
-
-**Example URL:** `http://192.168.1.10:7474`
-
-### Setup
-
-1. autobrr → Settings → API → copy API Key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **autobrr**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **autobrr**
-
----
 
 ## What is autobrr?
 
 autobrr is a torrent automation tool that monitors IRC announce channels on private trackers and RSS feeds in real time. When a new release is announced that matches one of your filters, autobrr grabs it instantly and pushes it to your configured download client — qBittorrent, Deluge, Radarr, Sonarr, and others.
 
 This is fundamentally faster than letting Sonarr/Radarr poll RSS on their own schedule. IRC announces arrive within seconds of a release being posted; autobrr acts on them immediately.
+
+**Official site:** [autobrr.com](https://autobrr.com)
+
+---
+
+## Getting the key
+
+autobrr → **Settings → API → Create API key** → copy the key.
+
+- **Secret format:** plain API key
+- **URL:** required — e.g. `http://192.168.1.10:7474`
+
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **autobrr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **autobrr**.
 
 ---
 

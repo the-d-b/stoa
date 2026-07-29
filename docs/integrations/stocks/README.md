@@ -1,21 +1,38 @@
-﻿# Stocks
+---
+id: stocks
+name: Stocks
+category: Finance
+tags: [finance, stocks, crypto, built-in]
+official_url: https://finance.yahoo.com
+status: tested
+polling: 5min
+secret_format: none
+url_required: false
+---
 
-**Category:** Finance | **Status:** Tested | **Polling:** 5 min
+# Stocks
+
+## What is Stocks?
+
+Stocks is a built-in Stoa feature — not a self-hosted app you deploy — that shows US stock quotes with mini sparklines, sourced from the free public Yahoo Finance API. No account or key is needed; you just list ticker symbols in the panel config.
+
+**Data source:** [finance.yahoo.com](https://finance.yahoo.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank - no API key needed
+None — Yahoo Finance is a public API, no credentials required.
 
-> Yahoo Finance is a public API. No credentials required.
+- **Secret format:** none
+- **URL:** none (standalone)
 
-**URL required:** None (standalone)
+---
 
-### Setup
+## Add it to Stoa
 
-1. Admin -> Integrations -> New: type Stocks, no URL, no secret
-2. Admin -> Panels -> New: type Stocks - enter ticker symbols in panel config (e.g. AAPL, MSFT, NVDA)
+1. **Admin → Integrations → New** — select **Stocks**, no URL, no secret.
+2. **Admin → Panels → New** — select **Stocks**, and enter ticker symbols in the panel config (e.g. `AAPL, MSFT, NVDA`).
 
 ---
 

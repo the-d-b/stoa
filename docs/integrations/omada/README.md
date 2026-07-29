@@ -1,25 +1,39 @@
-﻿# Omada SDN
+---
+id: omada
+name: Omada SDN
+category: Network & Security
+tags: [network, wifi]
+official_url: https://www.omadanetworks.com
+status: needs-testing
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: https://192.168.1.10:8043
+---
 
-**Category:** Networking | **Status:** Need Testing | **Polling:** 30 s
+# Omada SDN
+
+## What is Omada SDN?
+
+TP-Link Omada is a software-defined networking (SDN) controller for TP-Link's Omada line of access points, switches, and gateways. It centralizes management, monitoring, and configuration of that hardware across one or more sites from a single controller — a self-hostable alternative to per-device management.
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Use your Omada controller login in `username:password` form. Requires Omada **5.0+** with the Open API (v2) enabled in controller settings.
 
-> Omada controller login credentials. Requires Omada 5.0+ with Open API v2 enabled.
+- **Secret format:** `username:password`
+- **URL:** required, HTTPS — e.g. `https://192.168.1.10:8043`
 
-**URL required:** Required
+---
 
-**Example URL:** `https://192.168.1.10:8043`
+## Add it to Stoa
 
-### Setup
-
-1. Omada 5.0+ required; enable Open API in the controller settings
-2. Format secret as username:password
-3. Admin -> Secrets -> New: paste the credential
-4. Admin -> Integrations -> New: type Omada, URL = https://omada-controller:8043, secret
+1. Ensure Omada 5.0+ and enable the Open API in the controller settings.
+2. **Admin → Secrets → New** — paste `username:password`.
+3. **Admin → Integrations → New** — select **Omada**, enter the URL, choose the secret.
+4. **Admin → Panels → New** — select **Omada**.
 
 ---
 

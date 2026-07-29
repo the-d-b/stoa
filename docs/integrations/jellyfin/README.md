@@ -1,25 +1,40 @@
+---
+id: jellyfin
+name: Jellyfin
+category: Media Servers
+tags: [movies, tv, streaming, self-hosted]
+official_url: https://jellyfin.org
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8096
+---
+
 # Jellyfin
 
-**Category:** Media Servers | **Status:** ✅ Tested | **Polling:** 60 s
+## What is Jellyfin?
+
+Jellyfin is a free, fully open-source media server — a community-driven alternative to Plex and Emby with no paid tiers and no account requirement. It catalogs your movies, TV shows, music, and photos with artwork and metadata and streams them to web, mobile, and TV clients, transcoding when a device needs it. Because it's self-contained and open source, nothing phones home and every feature is available without a subscription.
+
+**Official site:** [jellyfin.org](https://jellyfin.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Jellyfin → **Administration → Dashboard → API Keys** → click the `+` button to create a new key, then copy it.
 
-> Jellyfin → Administration → Dashboard → API Keys → click the `+` button to create a new key. Copy the generated key.
+- **Secret format:** plain API key
+- **URL:** required — point at your Jellyfin server port, e.g. `http://192.168.1.10:8096`
 
-**URL required:** Required — point at your Jellyfin server port
+---
 
-**Example URL:** `http://192.168.1.10:8096`
+## Add it to Stoa
 
-### Setup
-
-1. Jellyfin → Administration → Dashboard → API Keys → create a key, copy it
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Jellyfin`, URL = `http://jellyfin:8096`, select your secret
-4. Admin → Panels → New: type `Jellyfin`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Jellyfin**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Jellyfin**.
 
 ---
 

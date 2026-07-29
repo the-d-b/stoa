@@ -1,25 +1,40 @@
+---
+id: bazarr
+name: Bazarr
+category: Media Management
+tags: [subtitles, automation, arr, self-hosted]
+official_url: https://www.bazarr.media
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:6767
+---
+
 # Bazarr
 
-**Category:** Media Management | **Status:** ✅ Tested | **Polling:** 60 s
+## What is Bazarr?
+
+Bazarr is a companion to Sonarr and Radarr that manages subtitles. It monitors your TV and movie libraries and automatically downloads missing subtitles in the languages you choose, pulling from a wide range of subtitle providers and keeping coverage up to date as your library grows.
+
+**Official site:** [bazarr.media](https://www.bazarr.media)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Bazarr → **Settings → General → Security → API Key** — copy it.
 
-> Bazarr → Settings → General → Security → API Key
+- **Secret format:** plain API key
+- **URL:** required — point at your Bazarr port, e.g. `http://192.168.1.10:6767`
 
-**URL required:** Required — point at your Bazarr port
+---
 
-**Example URL:** `http://192.168.1.10:6767`
+## Add it to Stoa
 
-### Setup
-
-1. Bazarr → Settings → General → copy the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Bazarr`, URL = `http://bazarr:6767`, select your secret
-4. Admin → Panels → New: type `Bazarr`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Bazarr**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Bazarr**.
 
 ---
 

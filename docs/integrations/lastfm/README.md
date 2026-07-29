@@ -1,27 +1,41 @@
+---
+id: lastfm
+name: Last.fm
+category: Music
+tags: [music, cloud]
+official_url: https://www.last.fm
+status: tested
+polling: 30s
+secret_format: composite
+url_required: false
+---
+
 # Last.fm
 
-**Category:** Music | **Status:** Tested | **Polling:** 30 s
+## What is Last.fm?
+
+Last.fm is a music-tracking service that "scrobbles" (logs) the songs you play from Spotify, your local player, and many other sources, building a history and charts of your listening. Stoa reads it via the free public API — a no-Premium alternative to the Spotify integration.
+
+**Official site:** [last.fm](https://www.last.fm)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:apiKey`
+Log in to Last.fm, go to [last.fm/api](https://www.last.fm/api) → **Get an API account**, fill in any name/description (leave Callback URL blank), and copy the **API key** shown on the next page (you don't need the Shared Secret). Combine with your username.
 
-> Your Last.fm username and a free API key, colon-separated: `yourusername:yourapikey`
+- **Secret format:** `username:apiKey`
+- **URL:** none — Last.fm's public API
 
-**URL required:** None (Last.fm public API)
+> **Connect Spotify for scrobbling:** In Last.fm → Settings → Music Services → Spotify → Connect. From then on, everything you play on Spotify is recorded automatically, and the panel updates within seconds of a track starting.
 
-### Setup
+---
 
-1. Log in to Last.fm and go to **last.fm/api** → click **"Get an API account"**
-2. Fill in the form — name and description can be anything (e.g. "Stoa"), leave the Callback URL blank
-3. Submit — your **API key** is shown immediately on the next page. Copy it (you do not need the Shared Secret)
-4. Stoa → **Admin → Secrets → New**: paste `yourusername:yourapikey` (colon-separated, no other prefix)
-5. Stoa → **Admin → Integrations → New** → select **Last.fm**, no URL needed, select the secret → **Save**
-6. Stoa → **Admin → Panels → New** → select **Last.fm**, select the integration
+## Add it to Stoa
 
-> **Connect Spotify for scrobbling:** In Last.fm → **Settings → Music Services → Spotify → Connect**. From that point, everything you play on Spotify is recorded automatically. The panel updates within seconds of a track starting.
+1. **Admin → Secrets → New** — paste `yourusername:yourapikey`.
+2. **Admin → Integrations → New** — select **Last.fm**, no URL, choose the secret.
+3. **Admin → Panels → New** — select **Last.fm**.
 
 ---
 

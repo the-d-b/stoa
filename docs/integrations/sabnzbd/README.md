@@ -1,38 +1,53 @@
+---
+id: sabnzbd
+name: SABnzbd
+category: Downloads
+tags: [usenet, downloads, self-hosted]
+official_url: https://sabnzbd.org
+status: tested
+polling: adaptive
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8080
+---
+
 # SABnzbd
 
-**Category:** Downloads | **Status:** ✅ Tested | **Polling:** Adaptive — 5 s during active downloads, configured interval when idle
+## What is SABnzbd?
+
+SABnzbd is a free, open-source Usenet (NZB) downloader. It automates fetching, verifying (par2), repairing, and unpacking Usenet downloads and integrates with the \*arr apps and indexers — the Usenet counterpart to a torrent client.
+
+**Official site:** [sabnzbd.org](https://sabnzbd.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+SABnzbd → **Config → General → API Key** — copy the full key (typically 32 hex characters). Paste it alone — no username, no colon.
 
-> SABnzbd → Config → General → API Key. Copy the full key (typically 32 hex characters). Paste it alone — no username, no colon.
+- **Secret format:** plain API key
+- **URL:** required — point at your SABnzbd port, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **SABnzbd**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **SABnzbd**.
 
-1. SABnzbd → Config → General → copy **API Key**
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type SABnzbd, URL = `http://sabnzbd:8080`, select secret
-4. Admin → Panels → New: type SABnzbd, assign integration
+---
 
-### How it works
+## How it works
 
 Stoa calls two SABnzbd REST endpoints per poll cycle:
 
 - `GET /api?mode=queue&output=json&apikey=<key>` — current queue: speed, slots, status, time left, free disk on the complete folder (`diskspace2`)
-- `GET /api?mode=history&output=json&apikey=<key>&limit=500` — last 500 history items used to compute 1d/7d/30d period stats; only the 10 most recent are sent to the panel for display
+- `GET /api?mode=history&output=json&apikey=<key>&limit=500` — last 500 history items used to compute 1d/7d/30d period stats; only the 10 most recent are shown
 
-> **Note — SABnzbd serializes all numeric fields as JSON strings.** Fields like `kbpersec`, `mbleft`, `diskspace2`, `mb`, `mbleft` (per slot), and `percentage` arrive as `"12.34"` rather than `12.34`. The backend parser handles this transparently using `sabParsePct()`.
+> **Note — SABnzbd serializes all numeric fields as JSON strings.** Fields like `kbpersec`, `mbleft`, `diskspace2`, and `percentage` arrive as `"12.34"` rather than `12.34`. The backend parser handles this transparently.
 
-**Adaptive worker:** SABnzbd runs a dedicated SSE worker (not the generic interval poller). While any slot is actively downloading (`queueCount > 0` and not paused) it polls every **5 seconds** to drive the sparkline. After the queue drains it holds the 5 s rate for a **30 s coast-down**, then falls back to the configured refresh interval. A 60-entry MB/s ring buffer is maintained in the worker goroutine and injected as `speedHistory` into every cache update.
-
-Updates arrive via SSE push — the frontend never polls; it reacts to pushes from the worker.
+**Adaptive worker:** SABnzbd runs a dedicated SSE worker (not the generic interval poller). While any slot is actively downloading it polls every **5 seconds** to drive the sparkline. After the queue drains it holds the 5 s rate for a **30 s coast-down**, then falls back to the configured refresh interval. A 60-entry MB/s ring buffer feeds `speedHistory` on every cache update. Updates arrive via SSE push — the frontend never polls.
 
 ---
 

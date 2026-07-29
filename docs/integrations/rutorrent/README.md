@@ -1,37 +1,51 @@
+---
+id: rutorrent
+name: ruTorrent
+category: Downloads
+tags: [torrent, downloads, self-hosted]
+official_url: https://github.com/Novik/ruTorrent
+status: tested
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:8080
+---
+
 # ruTorrent
 
-**Category:** Downloads | **Status:** ✅ Tested | **Polling:** 30 s
+## What is ruTorrent?
+
+ruTorrent is a feature-rich web front end for the rTorrent BitTorrent client. It adds a full browser UI — plugins, RSS, scheduling, and stats — on top of rTorrent's lightweight daemon, and is a long-standing choice for seedboxes.
+
+**Official site:** [github.com/Novik/ruTorrent](https://github.com/Novik/ruTorrent)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `username:password` or blank
+Use your ruTorrent HTTP Basic Auth credentials in `username:password` form. Leave blank only if ruTorrent has no authentication (not recommended for network-accessible instances). ruTorrent has no API-key system — auth is handled at the web-server level (nginx/Apache/lighttpd), not inside ruTorrent.
 
-> Your ruTorrent HTTP Basic Auth credentials. Leave blank if ruTorrent has no authentication configured (not recommended for network-accessible instances).
->
-> ruTorrent does not have its own API key system — it relies on the web server's HTTP Basic Auth. The credential is set at the web server level (nginx, Apache, or the built-in lighttpd), not inside ruTorrent itself.
+- **Secret format:** `username:password` or blank
+- **URL:** required — your ruTorrent web root, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
+1. **Admin → Secrets → New** — paste `username:password` (or leave blank if no auth).
+2. **Admin → Integrations → New** — select **ruTorrent**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **ruTorrent**.
 
-1. Admin → Secrets → New: paste `username:password` (or leave blank if no auth)
-2. Admin → Integrations → New: type ruTorrent, URL = your ruTorrent web root (e.g. `http://rutorrent:8080`), select secret
-3. Admin → Panels → New: type ruTorrent, assign to the integration
+---
 
-### How it works
+## How it works
 
 Stoa calls ruTorrent's **httprpc plugin** at `/plugins/httprpc/action.php`. Two modes are used:
 
 - `mode=list` — returns all torrents with state, speed, size, progress, and ratio in a single call
-- `mode=trkl` — returns per-torrent tracker announce URLs (used for the tracker breakdown chart); silently skipped if the httprpc plugin version on your install doesn't support it
+- `mode=trkl` — returns per-torrent tracker announce URLs (used for the tracker breakdown chart); silently skipped if your httprpc plugin version doesn't support it
 
-The httprpc plugin must be installed and enabled (it ships with ruTorrent by default). Authentication uses HTTP Basic Auth — the same credentials used to access the ruTorrent web UI.
-
-Updates arrive via SSE push from Stoa's internal polling worker every 30 seconds. No WebSocket connection to ruTorrent is required.
+The httprpc plugin must be installed and enabled (it ships with ruTorrent by default). Authentication uses HTTP Basic Auth — the same credentials as the web UI. Updates arrive via SSE push from Stoa's polling worker every 30 seconds; no WebSocket to ruTorrent is required.
 
 ---
 

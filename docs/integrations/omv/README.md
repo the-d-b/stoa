@@ -1,25 +1,40 @@
-﻿# OpenMediaVault
+---
+id: omv
+name: OpenMediaVault
+category: Storage & Virtualization
+tags: [nas, storage, self-hosted]
+official_url: https://www.openmediavault.org
+status: needs-testing
+polling: 30s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10
+---
 
-**Category:** Storage | **Status:** Need Testing | **Polling:** 30 s
+# OpenMediaVault
+
+## What is OpenMediaVault?
+
+OpenMediaVault (OMV) is a free, Debian-based NAS operating system. It provides a web interface for managing disks, filesystems, and network shares (SMB/NFS/FTP and more), with a plugin system for extra services — a lightweight, fully open-source way to build a home NAS.
+
+**Official site:** [openmediavault.org](https://www.openmediavault.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** username:password
+Use your OMV WebUI login in `username:password` form (e.g. `admin:yourpassword`).
 
-> Your OMV WebUI login. Format: admin:yourpassword
+- **Secret format:** `username:password`
+- **URL:** required — point at your OMV host, e.g. `http://192.168.1.10`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10`
+## Add it to Stoa
 
-### Setup
-
-1. Format secret as admin:yourpassword
-2. Admin -> Secrets -> New: paste the credential
-3. Admin -> Integrations -> New: type OpenMediaVault, URL, secret
-4. Admin -> Panels -> New: type OpenMediaVault
+1. **Admin → Secrets → New** — paste `admin:yourpassword`.
+2. **Admin → Integrations → New** — select **OpenMediaVault**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **OpenMediaVault**.
 
 ---
 

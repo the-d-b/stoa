@@ -1,25 +1,40 @@
-﻿# Kavita
+---
+id: kavita
+name: Kavita
+category: Print Media
+tags: [books, comics, manga, self-hosted]
+official_url: https://www.kavitareader.com
+status: tested
+polling: 30min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:5000
+---
 
-**Category:** Photos & Libraries | **Status:** Tested | **Polling:** 30 min
+# Kavita
+
+## What is Kavita?
+
+Kavita is a self-hosted digital library and reader for manga, comics, ebooks, and other digital books. It scans your collection, organizes it into libraries and series with cover art and metadata, and provides fast in-browser readers for each format — a lightweight, single-binary way to run your own reading server.
+
+**Official site:** [kavitareader.com](https://www.kavitareader.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Kavita → your username (top-right) → **User Settings → API Key** (any account works — admin not required) — copy it.
 
-> Kavita → your username (top-right) → User Settings → API Key (any account works — admin not required)
+- **Secret format:** plain API key
+- **URL:** required — point at your Kavita port, e.g. `http://192.168.1.10:5000`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:5000`
+## Add it to Stoa
 
-### Setup
-
-1. Kavita → your username (top-right) → User Settings → copy API Key
-2. Stoa → Admin → Secrets → New: paste the key
-3. Stoa → Admin → Integrations → New: select **Kavita**, enter URL and secret
-4. Stoa → Admin → Panels → New: select **Kavita**
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Kavita**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Kavita**.
 
 ---
 

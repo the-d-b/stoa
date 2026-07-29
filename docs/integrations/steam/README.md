@@ -1,23 +1,39 @@
+---
+id: steam
+name: Steam
+category: Gaming
+tags: [gaming, cloud]
+official_url: https://store.steampowered.com
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: false
+---
+
 # Steam
 
-**Category:** Gaming | **Status:** Tested | **Polling:** 5 min
+## What is Steam?
+
+Steam is Valve's digital game-distribution platform — the largest PC gaming store and library manager. Its Web API exposes your public profile, owned games, playtime, achievements, and online status, which is what Stoa reads to build the panel.
+
+**Official site:** [store.steampowered.com](https://store.steampowered.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Steam Web API key
+Register a free Steam Web API key at [steamcommunity.com/dev/apikey](https://steamcommunity.com/dev/apikey). You'll also need your **Steam ID64** (from your profile URL or steamid.io), which is entered in the integration settings.
 
-> Register a free key at https://steamcommunity.com/dev/apikey. Also need your Steam ID64 configured in integration settings.
+- **Secret format:** Steam Web API key
+- **URL:** none — Stoa calls the Steam API directly. Your Steam ID64 is configured in the integration form.
 
-**URL required:** None (Steam API)
+---
 
-### Setup
+## Add it to Stoa
 
-1. Register Steam Web API key at steamcommunity.com/dev/apikey
-2. Find your Steam ID64 (from your profile URL or steamid.io)
-3. Admin -> Secrets -> New: paste the API key
-4. Admin -> Integrations -> New: type Steam, no URL, secret = API key (Steam ID64 entered in integration config)
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Steam**, no URL needed, choose the secret, and enter your Steam ID64.
+3. **Admin → Panels → New** — select **Steam**.
 
 ---
 
@@ -40,6 +56,7 @@ Player profile (online state, current game), owned game count and total hours, t
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

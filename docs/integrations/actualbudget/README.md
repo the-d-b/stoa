@@ -1,26 +1,38 @@
+---
+id: actualbudget
+name: Actual Budget
+category: Finance
+tags: [finance, budgeting, self-hosted]
+official_url: https://actualbudget.org
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:3000
+---
+
 # Actual Budget
 
-**Category:** Finance | **Status:** ✅ Tested | **Polling:** 5 min
+## What is Actual Budget?
+
+Actual Budget is a self-hosted, privacy-focused envelope-budgeting app. It uses zero-based budgeting (give every dollar a job) with fast, local-first sync across devices, tracking accounts, categories, and scheduled transactions — an open-source take on YNAB-style budgeting.
+
+**Official site:** [actualbudget.org](https://actualbudget.org)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** API key
+Actual Budget has no HTTP API of its own — Stoa connects through the unofficial [jhonderson/actual-http-api](https://github.com/jhonderson/actual-http-api) sidecar, which wraps Actual's Node API as REST. You choose the sidecar's `API_KEY` and use that same value here.
 
-> Set the `API_KEY` environment variable on the `actual-http-api` sidecar container. Use that same value here.
+- **Secret format:** the `API_KEY` value you set on the sidecar
+- **URL:** required — point at the **sidecar**, not Actual Budget itself, e.g. `http://actual-http-api:3000`
 
-**URL required:** Required — point to the sidecar, not to Actual Budget itself
+---
 
-**Example URL:** `http://192.168.1.10:5006`
+## Sidecar requirement
 
-### Sidecar requirement
-
-Actual Budget does not expose an HTTP API on its own. Stoa connects through the unofficial [jhonderson/actual-http-api](https://github.com/jhonderson/actual-http-api) sidecar, which wraps the Actual Node.js API and exposes it over REST.
-
-**Tested with:** `jhonderson/actual-http-api` (Docker image `jhonderson/actual-http-api:latest`)
-
-Setup is straightforward — the sidecar requires only two environment variables:
+The `jhonderson/actual-http-api` sidecar needs three environment variables:
 
 | Variable | Description |
 |---|---|
@@ -43,12 +55,14 @@ actual-http-api:
 
 The sidecar is stateful — it opens one budget at a time and syncs from the Actual server on each switch. Stoa fetches all budgets sequentially (never concurrently) to avoid race conditions with the sidecar's open-budget state.
 
-### Setup
+---
 
-1. Deploy `jhonderson/actual-http-api` alongside Actual Budget with the env vars above
-2. Admin → Secrets → New: paste the `API_KEY` value you chose
-3. Admin → Integrations → New: type `Actual Budget`, URL = `http://actual-http-api:3000`, select your secret
-4. Admin → Panels → New: type `Actual Budget`, select the integration
+## Add it to Stoa
+
+1. Deploy `jhonderson/actual-http-api` alongside Actual Budget with the env vars above.
+2. **Admin → Secrets → New** — paste the `API_KEY` value you chose.
+3. **Admin → Integrations → New** — select **Actual Budget**, URL = `http://actual-http-api:3000`, choose the secret.
+4. **Admin → Panels → New** — select **Actual Budget**.
 
 ---
 
@@ -75,7 +89,7 @@ Leave it blank to default to the first budget in the list. All budgets remain ac
 
 ### How data flows
 
-On each poll cycle the backend fetches all budgets from the sidecar sequentially, then caches the full dataset keyed by integration ID. The frontend never talks to the sidecar directly — it reads from the backend cache and uses **Server-Sent Events (SSE)** to receive live updates whenever the cache refreshes. This means the panel updates automatically in the background without any user action, and **Refresh Now** (right-click the panel title bar) triggers an immediate out-of-cycle fetch that pushes fresh data to the panel via the same SSE path.
+On each poll cycle the backend fetches all budgets from the sidecar sequentially, then caches the full dataset keyed by integration ID. The frontend never talks to the sidecar directly — it reads from the backend cache and uses **Server-Sent Events (SSE)** to receive live updates whenever the cache refreshes. **Refresh Now** (right-click the panel title bar) triggers an immediate out-of-cycle fetch that pushes fresh data to the panel via the same SSE path.
 
 ### Screenshots
 

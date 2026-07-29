@@ -1,6 +1,16 @@
+---
+id: security-posture
+name: Security Posture
+category: Stoa Features
+tags: [security, cve, built-in]
+status: new
+---
+
 # Security Posture
 
-**Category:** Monitoring | **Status:** New | **Polling:** 24h (per product type, not per integration)
+## What is the Security Posture panel?
+
+The Security Posture panel is a built-in Stoa panel that, for a curated set of network- and storage-facing integrations, shows each one's detected running version alongside known CVEs for that product from the NVD. It auto-discovers your configured integrations — no source picker — and matches CVEs in one of two modes (CPE version-filtered, or keyword), described below.
 
 ---
 

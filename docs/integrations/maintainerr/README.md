@@ -1,30 +1,40 @@
+---
+id: maintainerr
+name: Maintainerr
+category: Media Management
+tags: [cleanup, automation, plex, self-hosted]
+official_url: https://maintainerr.info
+status: tested
+polling: 5min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:6246
+---
+
 # Maintainerr
-
-**Category:** Media Management | **Status:** Tested | **Polling:** 5 min
-
----
-
-## Integration
-
-**Secret format:** Blank (no auth) or Bearer token
-
-> Most Maintainerr instances run without authentication. If you have configured an API key, paste it as a plain token. Leave the field blank if your instance has no auth.
-
-**URL required:** Required
-
-**Example URL:** `http://192.168.1.10:6246`
-
-### Setup
-
-1. Stoa → Admin → Secrets → New: leave blank, or paste your Maintainerr API token
-2. Stoa → Admin → Integrations → New: select **Maintainerr**, enter URL and secret
-3. Stoa → Admin → Panels → New: select **Maintainerr**
-
----
 
 ## What is Maintainerr?
 
-Maintainerr is a self-hosted media management tool that automatically cleans up your Plex library based on rules you define — never-watched movies, shows not played in years, etc. You configure rules that build collections; items that meet the criteria and have aged past your delete-after window are removed automatically from Plex (and optionally unmonitored or deleted from Radarr/Sonarr).
+Maintainerr is a self-hosted media-management tool that automatically cleans up your Plex library based on rules you define — never-watched movies, shows not played in years, and so on. Rules build collections; items that meet the criteria and have aged past your delete-after window are removed automatically from Plex (and optionally unmonitored or deleted from Radarr/Sonarr).
+
+**Official site:** [maintainerr.info](https://maintainerr.info)
+
+---
+
+## Getting the key
+
+Most Maintainerr instances run without authentication — leave the secret blank. If you've put it behind auth, paste your API token (or `username:password` for reverse-proxy Basic Auth).
+
+- **Secret format:** blank (no auth), Bearer token, or `username:password`
+- **URL:** required — point at your Maintainerr port, e.g. `http://192.168.1.10:6246`
+
+---
+
+## Add it to Stoa
+
+1. **Admin → Secrets → New** — leave blank, or paste your Maintainerr token.
+2. **Admin → Integrations → New** — select **Maintainerr**, enter the URL, choose the secret (or none).
+3. **Admin → Panels → New** — select **Maintainerr**.
 
 ---
 

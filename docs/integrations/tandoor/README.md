@@ -1,27 +1,40 @@
+---
+id: tandoor
+name: Tandoor
+category: Digital Life
+tags: [recipes, self-hosted]
+official_url: https://tandoor.dev
+status: tested
+polling: 15min
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:8080
+---
+
 # Tandoor
 
-**Category:** Food & Home | **Status:** Tested | **Polling:** 15 min
+## What is Tandoor?
+
+Tandoor is a self-hosted recipe manager and meal planner. It organizes recipes with rich metadata and photos, imports them from the web, plans meals across the week, and builds shopping lists — a powerful open-source recipe database.
+
+**Official site:** [tandoor.dev](https://tandoor.dev)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** API token (Bearer)
+Tandoor → **Settings → API Tokens** → create a token with read access → copy it. (Tandoor's Copy button can silently fail; paste into a text editor first to verify.)
 
-> Tandoor → **Settings → API Tokens** → create a token with read access → copy it
+- **Secret format:** API token (Stoa adds `Bearer` automatically)
+- **URL:** required — base URL of your Tandoor instance, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Yes — base URL of your Tandoor instance
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. In Tandoor, go to **Settings → API Tokens** → create a new token (read scope is sufficient) → copy it
-2. Stoa → **Admin → Secrets → New**: paste the token (no prefix — Stoa adds `Bearer` automatically)
-3. Stoa → **Admin → Integrations → New**: type **Tandoor**, enter your Tandoor URL, select the secret
-4. Stoa → **Admin → Panels → New**: type **Tandoor**, select the integration
-
-> The API token is required. If you see a 403 error, check that the token was copied correctly — Tandoor's "Copy" button can silently fail; paste into a text editor first to verify.
+1. **Admin → Secrets → New** — paste the token (no prefix).
+2. **Admin → Integrations → New** — select **Tandoor**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Tandoor**.
 
 ---
 

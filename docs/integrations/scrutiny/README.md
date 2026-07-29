@@ -1,30 +1,45 @@
-﻿# Scrutiny
+---
+id: scrutiny
+name: Scrutiny
+category: Storage & Virtualization
+tags: [storage, monitoring, self-hosted]
+official_url: https://github.com/AnalogJ/scrutiny
+status: needs-testing
+polling: 5min
+secret_format: none
+url_required: true
+example_url: http://192.168.1.10:8080
+---
 
-**Category:** Storage | **Status:** Need Testing | **Polling:** 5 min
+# Scrutiny
+
+## What is Scrutiny?
+
+Scrutiny is a self-hosted dashboard for hard-drive SMART health. It collects SMART attributes from your disks, tracks temperature and error trends over time, and warns before a drive fails — wrapping the raw `smartd` data in a clean web UI so you can spot a dying disk early.
+
+**Official site:** [github.com/AnalogJ/scrutiny](https://github.com/AnalogJ/scrutiny)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Blank - no authentication required
+None — Scrutiny runs unauthenticated by default. Leave the secret blank.
 
-> Scrutiny runs unauthenticated by default. Leave the API key field empty.
+- **Secret format:** none (leave blank)
+- **URL:** required — point at your Scrutiny port, e.g. `http://192.168.1.10:8080`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:8080`
+## Add it to Stoa
 
-### Setup
-
-1. No credential needed - leave secret blank
-2. Admin -> Integrations -> New: type Scrutiny, URL = http://scrutiny:8080, no secret
-3. Admin -> Panels -> New: type Scrutiny
+1. **Admin → Integrations → New** — select **Scrutiny**, enter the URL, leave the secret as **None**.
+2. **Admin → Panels → New** — select **Scrutiny**.
 
 ---
 
 ## Panel
 
-Hard drive SMART health - fleet health donut showing passed/warning/failed drive counts, per-drive temperature bars, power-on hours, and reallocated/pending sector warnings.
+Hard drive SMART health — fleet health donut showing passed/warning/failed drive counts, per-drive temperature bars, power-on hours, and reallocated/pending sector warnings.
 
 ### Height behavior
 
@@ -41,6 +56,7 @@ Hard drive SMART health - fleet health donut showing passed/warning/failed drive
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

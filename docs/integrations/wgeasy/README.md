@@ -1,31 +1,46 @@
-﻿# wg-easy
+---
+id: wgeasy
+name: wg-easy
+category: Network & Security
+tags: [vpn, self-hosted]
+official_url: https://github.com/wg-easy/wg-easy
+status: needs-testing
+polling: 30s
+secret_format: password
+url_required: true
+example_url: http://192.168.1.10:51821
+---
 
-**Category:** VPN & Security | **Status:** Need Testing | **Polling:** 30 s
+# wg-easy
+
+## What is wg-easy?
+
+wg-easy is the easiest way to run your own WireGuard VPN server. It wraps WireGuard in a simple web UI for creating and managing client configs (with QR codes for phones), so you can set up secure remote access to your home network without hand-editing WireGuard config files.
+
+**Official site:** [github.com/wg-easy/wg-easy](https://github.com/wg-easy/wg-easy)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Bare password (no username)
+Use your wg-easy web-UI password (bare — no username). Leave the secret blank for a no-auth instance.
 
-> Your wg-easy web UI password. Leave blank for no-auth instances.
+- **Secret format:** bare password (no username)
+- **URL:** required — point at your wg-easy port, e.g. `http://192.168.1.10:51821`
 
-**URL required:** Required
+---
 
-**Example URL:** `http://192.168.1.10:51821`
+## Add it to Stoa
 
-### Setup
-
-1. Your wg-easy password (bare, no username)
-2. Admin -> Secrets -> New: paste the password (or leave blank if no auth)
-3. Admin -> Integrations -> New: type wg-easy, URL = http://wgeasy:51821, secret
-4. Admin -> Panels -> New: type wg-easy
+1. **Admin → Secrets → New** — paste the password (or leave blank for a no-auth instance).
+2. **Admin → Integrations → New** — select **wg-easy**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **wg-easy**.
 
 ---
 
 ## Panel
 
-WireGuard VPN server status and client roster - connected/total client counts, per-client handshake recency, and transfer stats.
+WireGuard VPN server status and client roster — connected/total client counts, per-client handshake recency, and transfer stats.
 
 ### Height behavior
 
@@ -42,6 +57,7 @@ WireGuard VPN server status and client roster - connected/total client counts, p
 | ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
 
 *Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+
 ---
 
 ## Notes

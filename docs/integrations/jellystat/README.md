@@ -1,25 +1,40 @@
+---
+id: jellystat
+name: Jellystat
+category: Media Servers
+tags: [analytics, jellyfin, self-hosted]
+official_url: https://github.com/CyferShepard/Jellystat
+status: tested
+polling: 60s
+secret_format: api-key
+url_required: true
+example_url: http://192.168.1.10:3004
+---
+
 # Jellystat
 
-**Category:** Media Servers | **Status:** ✅ Tested | **Polling:** 60 s
+## What is Jellystat?
+
+Jellystat is a self-hosted statistics and watch-history dashboard for Jellyfin — essentially what Tautulli is to Plex. It syncs with your Jellyfin server and records play activity, then breaks it down by user, media type, and title so you can see what's being watched and by whom. It's an add-on analytics layer, not a media server.
+
+**Official site:** [github.com/CyferShepard/Jellystat](https://github.com/CyferShepard/Jellystat)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** Plain API key
+Jellystat → **Settings** → generate or copy the **API Key** from the API section.
 
-> Jellystat → Settings → generate or copy the API Key from the API section.
+- **Secret format:** plain API key
+- **URL:** required — point at your Jellystat port, e.g. `http://192.168.1.10:3004`
 
-**URL required:** Required — point at your Jellystat port
+---
 
-**Example URL:** `http://192.168.1.10:3004`
+## Add it to Stoa
 
-### Setup
-
-1. Jellystat → Settings → copy or generate the API Key
-2. Admin → Secrets → New: paste the key
-3. Admin → Integrations → New: type `Jellystat`, URL = `http://jellystat:3004`, select your secret
-4. Admin → Panels → New: type `Jellystat`, select the integration
+1. **Admin → Secrets → New** — paste the API key.
+2. **Admin → Integrations → New** — select **Jellystat**, enter the URL, choose the secret.
+3. **Admin → Panels → New** — select **Jellystat**.
 
 ---
 

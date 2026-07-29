@@ -1,43 +1,50 @@
+---
+id: youtube
+name: YouTube
+category: Online Content
+tags: [video, streaming, cloud, oauth]
+official_url: https://www.youtube.com
+status: tested
+polling: 60min
+secret_format: oauth
+url_required: false
+---
+
 # YouTube
 
-**Category:** Content | **Status:** Tested | **Polling:** 60 min
+## What is YouTube?
+
+YouTube is the world's largest video-sharing platform. Stoa connects via Google OAuth to read your subscription feed and show recent uploads from the channels you follow, playable inline in the panel.
+
+**Official site:** [youtube.com](https://www.youtube.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `clientId:clientSecret`
+OAuth 2.0 credentials from the Google Cloud Console. No URL is needed — Stoa calls the YouTube Data API v3 directly.
 
-> OAuth 2.0 credentials from Google Cloud Console, colon-separated: `1234567890-abc.apps.googleusercontent.com:GOCSPX-yourSecret`
+> **Already have a Google Calendar integration?** You can add YouTube to the same Google Cloud project — enable the YouTube Data API v3 on the existing project and add the YouTube redirect URI to the same OAuth client.
 
-**URL required:** None — Stoa calls the YouTube Data API v3 directly.
-
-### Google Cloud Console setup
-
-> **Already have a Google Calendar integration?** You can add YouTube to the same Google Cloud project — just enable the YouTube Data API v3 on the existing project and add the YouTube redirect URI to the same OAuth client. Skip to step 4.
-
-1. Go to [console.cloud.google.com](https://console.cloud.google.com) → **Select a project** → **New Project** (or open your existing Stoa project)
+1. [console.cloud.google.com](https://console.cloud.google.com) → **New Project** (or open your existing Stoa project)
 2. **APIs & Services → Library** → search **YouTube Data API v3** → **Enable**
-3. **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID**
-   - Application type: **Web application**
-   - Under **Authorized redirect URIs**, add: `https://your-stoa-domain/api/youtube/callback`
-   - Click **Create**, copy the **Client ID** and **Client Secret**
-4. Format the secret as `clientId:clientSecret` (no spaces)
+3. **APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID** → Application type **Web application** → under **Authorized redirect URIs** add `https://your-stoa-domain/api/youtube/callback` → **Create**, then copy the **Client ID** and **Client Secret**
 
-> **Redirect URI must be publicly routable.** Google does not allow `http://` for non-localhost redirect URIs. If your Stoa instance is on an internal hostname (e.g. `stoa.home`), use a public domain that reverse-proxies to it, or use a public Stoa instance for the OAuth step and revert afterward.
+- **Secret format:** `clientId:clientSecret` (no spaces)
+- **URL:** none — always uses the YouTube Data API v3
 
-> **Google OAuth consent screen:** The first time you connect, Google will show a consent screen and may display an "unverified app" warning. This is expected for personal Google Cloud projects. Click **Advanced → Go to [app] (unsafe)** to proceed — this is your own app connecting to your own account.
+> **Redirect URI must be publicly routable.** Google does not allow `http://` for non-localhost redirect URIs. On first connect, Google may show an "unverified app" warning — this is expected for personal projects; choose **Advanced → Go to [app]** to proceed.
 
-### Stoa setup
+---
 
-1. Stoa → **Admin → Secrets → New**: paste `clientId:clientSecret`
-2. Stoa → **Admin → Integrations → New** → select **YouTube**, select the secret → **Save**
-   - No URL is required; leave it blank
-3. On the integration edit page, click **Connect YouTube** → complete the Google OAuth consent flow → you will be redirected back to Stoa
-4. The integration edit page should now show your channel name confirming the connection
-5. Stoa → **Admin → Panels → New** → select **YouTube**, select the integration → **Create**
+## Add it to Stoa
 
-> **Personal integrations:** Non-admin users can create YouTube integrations from their profile page under **My Integrations**. The OAuth connect flow works identically.
+1. **Admin → Secrets → New** — paste `clientId:clientSecret`.
+2. **Admin → Integrations → New** — select **YouTube**, no URL, choose the secret.
+3. On the integration edit page, click **Connect YouTube** and complete the Google OAuth consent flow — the page should then show your channel name.
+4. **Admin → Panels → New** — select **YouTube**.
+
+> **Personal integrations:** Non-admin users can create YouTube integrations from their profile page under **My Integrations**; the OAuth flow works identically.
 
 ---
 

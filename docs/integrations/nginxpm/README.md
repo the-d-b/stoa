@@ -1,24 +1,40 @@
-﻿# Nginx Proxy Manager
+---
+id: nginxpm
+name: Nginx Proxy Manager
+category: Network & Security
+tags: [proxy, self-hosted]
+official_url: https://nginxproxymanager.com
+status: tested
+polling: 60s
+secret_format: username-password
+url_required: true
+example_url: http://192.168.1.10:81
+---
 
-**Category:** DNS & Proxy | **Status:** Tested | **Polling:** 60 s
+# Nginx Proxy Manager
+
+## What is Nginx Proxy Manager?
+
+Nginx Proxy Manager (NPM) is a web UI on top of nginx for running a reverse proxy without editing config files. You point domains at your internal services, and it manages the nginx configuration and free Let's Encrypt TLS certificates for you — a beginner-friendly way to expose homelab apps over HTTPS.
+
+**Official site:** [nginxproxymanager.com](https://nginxproxymanager.com)
 
 ---
 
-## Integration
+## Getting the key
 
-**Secret format:** `email:password`
+Use your NPM web-UI login, colon-separated as `email:password` (e.g. `admin@example.com:yourpassword`). Stoa exchanges these for a session token via NPM's `/api/tokens` endpoint automatically — no separate API key needed.
 
-> Your NPM web UI login, colon-separated: `admin@example.com:yourpassword`
+- **Secret format:** `email:password`
+- **URL:** required — your NPM base URL including port, e.g. `http://192.168.1.10:81`
 
-**URL required:** Yes — your NPM base URL including port, e.g. `http://192.168.1.10:81`
+---
 
-### Setup
+## Add it to Stoa
 
-1. Stoa → **Admin → Secrets → New**: paste `youremail@example.com:yourpassword`
-2. Stoa → **Admin → Integrations → New** → select **Nginx Proxy Manager**, enter your NPM URL (e.g. `http://npm:81`), select the secret → **Save & Test**
-3. Stoa → **Admin → Panels → New** → select **Nginx Proxy Manager**, select the integration
-
-> Stoa authenticates via the NPM `/api/tokens` endpoint and caches the token for 23 hours, refreshing automatically. You do not need to create a separate API key — your web UI email and password are all that is needed.
+1. **Admin → Secrets → New** — paste `youremail@example.com:yourpassword`.
+2. **Admin → Integrations → New** — select **Nginx Proxy Manager**, enter the URL, choose the secret → **Save & Test**.
+3. **Admin → Panels → New** — select **Nginx Proxy Manager**.
 
 ---
 
