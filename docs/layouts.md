@@ -1,6 +1,6 @@
 # Layout modes
 
-Each portico can use one of four layout modes, selectable from Profile → Porticos.
+Each portico can use one of four layout modes, selectable from Profile → Porticos. Any layout (except Seira) can also enable [**auto-h**](#dynamic-panel-height-auto-h) — a toggle that trims empty space from panels so the grid fits together far more tightly; it makes a big visual difference and is worth turning on first.
 
 ---
 
@@ -101,15 +101,28 @@ Panels are manually assigned to specific columns. You control exactly which colu
 
 ---
 
-## Dynamic panel height
+## Dynamic panel height (auto-h)
 
-An optional toggle available for Stylos, Rema, and Custom layouts (not Seira). When enabled, panel cards expand vertically to fit their content rather than being clipped at the configured height.
+The **`auto-h`** toggle — the single most impactful layout setting for most dashboards. When off, every panel card is exactly as tall as its configured height units, even when its content doesn't fill that space, leaving dead air at the bottom of taller panels. When on, each card sizes to the height its content actually needs: tall panels with little content **shrink to trim the empty space**, and panels whose content would overflow **grow to fit** instead of clipping. The result is a much tighter, more elegant grid on nearly every layout style — no manual per-panel height tuning required.
 
-- Toggle it per-portico in Profile → Porticos → expand the portico settings
-- Height is capped at 8× height units (~1072px) to prevent runaway growth on content-heavy panels
-- Not available for Seira — that layout uses CSS grid row spans which require fixed heights
+```
+auto-h OFF — 4x panel, ~2x of content     auto-h ON
+┌────────────┐                            ┌────────────┐
+│  content   │                            │  content   │
+│            │                            └────────────┘
+│            │  ← wasted empty space        (card ends at
+│            │                               its content;
+└────────────┘                              rows below rise up)
+```
 
-**Best for:** Porticos where panels vary widely in content length and you'd rather let the content dictate the card size than tune heights manually.
+Because the empty space is gone, the panels below it move up and the whole portico reflows to its natural, compact height.
+
+- Toggle it per-portico from the **`auto-h`** button in the portico's settings row (Profile → Porticos)
+- The **height** setting still matters — it controls how much content a panel renders (e.g. how many rows a list shows). `auto-h` only removes the leftover empty space around that content; it doesn't change what's rendered.
+- Growth is capped at 8× height units (~1072px) so a content-heavy panel can't run away down the page
+- Available for Stylos, Rema, and Custom. Not available for Seira — that layout uses CSS grid row spans which require fixed heights.
+
+**Best for:** Almost everything. Turn it on first, then only fall back to hand-tuned fixed heights on a portico where you specifically want uniform card sizes.
 
 ---
 
@@ -130,4 +143,5 @@ All three modes collapse to a single column on mobile, stacking panels in panel 
 | Media/content dashboard with cards | Seira |
 | Quick-reference panels you toggle open/closed | Rema |
 | Want exact control over which panel is in which column | Custom |
-| Content length varies too much to tune heights manually | Any + Dynamic height |
+| Content length varies too much to tune heights manually | Any + auto-h |
+| Panels leave dead space at the bottom | Any (except Seira) + auto-h |

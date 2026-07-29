@@ -58,43 +58,41 @@ export function markerDivIcon(m: MapMarker): L.DivIcon {
   })
 }
 
-// Basic imperative Leaflet map — created once per mount, markers re-synced
-// whenever the data changes. Bounds are fit only on the first batch of
-// markers so panning/zooming by the user isn't fought on every refresh.
-export function useLeafletMap(
-  containerRef: React.RefObject<HTMLDivElement>,
-  markers: MapMarker[],
-  hiddenIds: Set<string>,
-) {
+// Imperative Leaflet map bound via a *callback ref* so it survives React
+// recreating/reparenting the container node — which happens on a height-tier
+// switch (2x and 4x nest the map at different depths) and on some panel
+// refreshes. A plain ref left the map orphaned on the dead node; rebuilding on
+// the live node keeps it from vanishing. Bounds are fit once per map instance.
+export function useLeafletMap(markers: MapMarker[], hiddenIds: Set<string>) {
   const mapRef = useRef<L.Map | null>(null)
   const layerRef = useRef<L.LayerGroup | null>(null)
+  const roRef = useRef<ResizeObserver | null>(null)
   const firstFitRef = useRef(false)
+  // Refs so the callback ref / ResizeObserver (created once) always see current data.
+  const markersRef = useRef(markers); markersRef.current = markers
+  const hiddenRef = useRef(hiddenIds); hiddenRef.current = hiddenIds
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return
-    const map = L.map(containerRef.current, { zoomControl: true, attributionControl: true })
-    map.setView([20, 0], 2)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map)
-    layerRef.current = L.layerGroup().addTo(map)
-    mapRef.current = map
-    return () => {
-      map.remove()
-      mapRef.current = null
-      layerRef.current = null
-      firstFitRef.current = false
+  // Fit to markers, but only once per map and only after it has a real size —
+  // fitting a zero-size map yields a bogus view.
+  const fitIfNeeded = () => {
+    const map = mapRef.current
+    if (!map || firstFitRef.current || map.getSize().x === 0) return
+    const visible = markersRef.current.filter(m => !hiddenRef.current.has(m.id))
+    if (visible.length === 0) return
+    firstFitRef.current = true
+    if (visible.length === 1) {
+      map.setView([visible[0].lat, visible[0].lng], 13)
+    } else {
+      map.fitBounds(L.latLngBounds(visible.map(m => [m.lat, m.lng] as [number, number])), { padding: [30, 30] })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }
 
-  useEffect(() => {
+  const syncMarkers = () => {
     const map = mapRef.current
     const layer = layerRef.current
     if (!map || !layer) return
     layer.clearLayers()
-    const visible = markers.filter(m => !hiddenIds.has(m.id))
+    const visible = markersRef.current.filter(m => !hiddenRef.current.has(m.id))
     for (const m of visible) {
       const marker = L.marker([m.lat, m.lng], { icon: markerDivIcon(m) })
       const battery = m.battery ? `${m.battery}%${m.charging ? ' ⚡' : ''}` : ''
@@ -107,19 +105,43 @@ export function useLeafletMap(
       )
       marker.addTo(layer)
     }
-    if (!firstFitRef.current && visible.length > 0) {
-      firstFitRef.current = true
-      if (visible.length === 1) {
-        map.setView([visible[0].lat, visible[0].lng], 13)
-      } else {
-        map.fitBounds(L.latLngBounds(visible.map(m => [m.lat, m.lng] as [number, number])), { padding: [30, 30] })
-      }
-    }
-    // Invalidate size in case the container was resized (e.g. height tier change)
-    map.invalidateSize()
+  }
+
+  // React calls this with the node on attach and null on detach. On a height
+  // change or refresh it detaches the old node and attaches a new one, so we
+  // tear down and rebuild the map on whatever node is currently live.
+  const setContainer = useCallback((node: HTMLDivElement | null) => {
+    if (roRef.current) { roRef.current.disconnect(); roRef.current = null }
+    if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; layerRef.current = null }
+    firstFitRef.current = false
+    if (!node) return
+    const map = L.map(node, { zoomControl: true, attributionControl: true })
+    map.setView([20, 0], 2)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map)
+    layerRef.current = L.layerGroup().addTo(map)
+    mapRef.current = map
+    // The container can be 0-height for a frame right after (re)attach; the
+    // ResizeObserver re-measures the instant it gets real dimensions so tiles paint.
+    const ro = new ResizeObserver(() => { map.invalidateSize(); fitIfNeeded() })
+    ro.observe(node); roRef.current = ro
+    syncMarkers()
+    fitIfNeeded()
+    requestAnimationFrame(() => { map.invalidateSize(); fitIfNeeded() })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Re-sync markers whenever the data changes (e.g. Refresh Now / SSE update).
+  useEffect(() => {
+    if (mapRef.current) mapRef.current.invalidateSize()
+    syncMarkers()
+    fitIfNeeded()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [markers, hiddenIds])
 
-  return mapRef
+  return setContainer
 }
 
 export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
@@ -156,8 +178,7 @@ export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightU
   useEffect(() => { load() }, [load])
   useSSERefresh(sourceIds, load)
 
-  const containerRef = useRef<HTMLDivElement>(null)
-  useLeafletMap(containerRef, markers, hiddenIds)
+  const setMapContainer = useLeafletMap(markers, hiddenIds)
 
   if (error) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
   if (!hasSources) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 12, color: 'var(--text-dim)', fontStyle: 'italic' }}>No data sources — configure in Admin → Panels</div>
@@ -224,7 +245,7 @@ export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightU
 
   const mapEl = (
     <div style={{ flex: 1, minHeight: 0, borderRadius: 8, overflow: 'hidden', position: 'relative' }}>
-      <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+      <div ref={setMapContainer} style={{ width: '100%', height: '100%' }} />
     </div>
   )
 
@@ -253,7 +274,7 @@ export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightU
   // ── 4x+ — map + roster ───────────────────────────────────────────────────
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      <div style={{ flex: '0 0 58%', minHeight: 0 }}>
+      <div style={{ flex: '0 0 58%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {mapEl}
         {expandBtn}
       </div>

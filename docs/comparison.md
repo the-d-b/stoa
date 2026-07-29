@@ -1,19 +1,19 @@
 # Dashboard comparison
 
-How Stoa compares to other popular self-hosted dashboard apps. Last updated May 2026 — features change; check each project's docs for the latest.
+How Stoa compares to other popular self-hosted dashboard apps. Last updated July 2026 — features change; check each project's docs for the latest.
 
 ✅ Supported &nbsp;&nbsp; 🟡 Partial / limited &nbsp;&nbsp; ❌ Not supported
 
-| | Multi-user & roles | Per-user layout | Named views | 90+ live integrations | Real-time (WS/SSE) | Google Calendar | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Glyphs & Tickers | OAuth / SSO | Audit log |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Stoa** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Homepage** | ❌ | ❌ | 🟡 | ✅ | 🟡 | 🟡 | ❌ | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ |
-| **Homarr** | ✅ | 🟡 | ✅ | ✅ | ❌ | 🟡 | ❌ | 🟡 | ✅ | ❌ | ❌ | ✅ | ❌ |
-| **Organizr** | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Dashy** | 🟡 | ❌ | ✅ | ✅ | ❌ | 🟡 | 🟡 | 🟡 | ❌ | ❌ | ❌ | ✅ | ❌ |
-| **Glance** | ❌ | ❌ | 🟡 | 🟡 | ❌ | 🟡 | ❌ | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ |
-| **Heimdall** | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ |
-| **Flame** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ |
+| | Multi-user & roles | Per-user layout | Named views | 90+ live integrations | Real-time (WS/SSE) | Google Calendar | Location map | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Kanban boards | Glyphs & Tickers | OAuth / SSO | Audit log |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Stoa** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Homepage** | ❌ | ❌ | 🟡 | ✅ | 🟡 | 🟡 | ❌ | ❌ | ❌ | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ |
+| **Homarr** | ✅ | 🟡 | ✅ | ✅ | ❌ | 🟡 | ❌ | ❌ | 🟡 | ✅ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Organizr** | ✅ | 🟡 | ✅ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Dashy** | 🟡 | ❌ | ✅ | ✅ | ❌ | 🟡 | ❌ | 🟡 | 🟡 | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ |
+| **Glance** | ❌ | ❌ | 🟡 | 🟡 | ❌ | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | 🟡 | ❌ | ❌ |
+| **Heimdall** | 🟡 | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ |
+| **Flame** | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ | 🟡 | ❌ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
@@ -29,7 +29,11 @@ How Stoa compares to other popular self-hosted dashboard apps. Last updated May 
 
 **Google Calendar** — Stoa uses a real OAuth 2.0 flow — users authorize with their Google account and all personal calendars are available. Homepage and Homarr support iCal URLs only, which requires generating a shareable link from Google Calendar settings and doesn't access private calendars directly.
 
+**Location map** — Stoa's Map panel plots live GPS/presence markers from any added location source (Life360 today) on a Leaflet map, with a full-screen view, a per-person roster, and battery/charging/driving status. No other app dashboard in this list has a presence map — it's normally the domain of home-automation platforms.
+
 **Docker management** — Stoa supports start, stop, and restart across local (Unix socket) and remote Docker hosts. Homarr also supports container management. Homepage displays container status only. Flame auto-discovers containers via Docker labels but offers no management actions. Stoa also has its own label-based auto-discovery — a separate Docker Apps panel reads Homepage's own `homepage.name`/`icon`/`href` label convention and turns labeled containers into launcher tiles, so a Homepage config migrates or runs alongside Stoa with no re-tagging.
+
+**Kanban boards** — Stoa's Kanban panel runs multiple task boards per panel with both list and status (board) views, drag-to-reorder on desktop, full-text search, and due dates fed from a calendar source. Task boards are unique among these app dashboards — the others stop at simple notes at most.
 
 **Glyphs & Tickers** — Stoa's header/footer widgets (clock, weather, server stats, ping) and scrolling tickers (sports, stocks, crypto, RSS) are sticky — they stay visible as you scroll and across all portico views. Homepage has "info widgets" (weather, clock, stocks) that render above the panel grid but scroll off with the page. Glance has "head-widgets," a full-width area above the column layout that can show a live markets strip — the closest equivalent in any other app — but it isn't a scrolling ticker and doesn't persist across navigation.
 

@@ -1,14 +1,30 @@
 package handlers
 
 import (
+	"crypto/tls"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 )
+
+// Life360's Cloudflare Bot Management flags Go's default HTTP/2 client
+// fingerprint and returns a 403 block page even with a valid token and the app
+// User-Agent — while the identical request over HTTP/1.1 (e.g. curl) succeeds.
+// Pinning HTTP/1.1 (an empty TLSNextProto map disables h2 negotiation) sidesteps
+// the HTTP/2 fingerprinting entirely. No JA3/TLS spoofing needed.
+var life360HTTPClient = &http.Client{
+	Timeout: 30 * time.Second,
+	Transport: &http.Transport{
+		Proxy:             http.ProxyFromEnvironment,
+		ForceAttemptHTTP2: false,
+		TLSNextProto:      map[string]func(string, *tls.Conn) http.RoundTripper{},
+	},
+}
 
 // Life360 has no public/official API. This talks to the same undocumented
 // REST API the Life360 mobile app uses, which Life360/Cloudflare actively
@@ -57,21 +73,35 @@ func life360Get(token, path string) ([]byte, error) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", life360UserAgent)
 	req.Header.Set("Cache-Control", "no-cache")
-	resp, err := httpClient(false).Do(req)
+	resp, err := life360HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	if resp.StatusCode == 401 {
+		return nil, fmt.Errorf("authentication failed — the extracted session token has likely expired; re-extract it from your browser (see docs)")
+	}
+	if resp.StatusCode == 403 {
+		// A Cloudflare bot-management block returns an HTML page (not Life360's
+		// JSON), so distinguish it — it means the request shape was rejected, not
+		// that the token is bad.
+		if strings.Contains(resp.Header.Get("Content-Type"), "text/html") {
+			return nil, fmt.Errorf("blocked by Life360's Cloudflare bot protection (HTTP 403) — not your token")
+		}
 		return nil, fmt.Errorf("authentication failed — the extracted session token has likely expired; re-extract it from your browser (see docs)")
 	}
 	if resp.StatusCode == 429 {
 		return nil, fmt.Errorf("rate limited by Life360 — this is common with their unofficial API; try again later")
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("HTTP %d from Life360", resp.StatusCode)
+		msg := strings.TrimSpace(string(body))
+		if len(msg) > 200 {
+			msg = msg[:200]
+		}
+		return nil, fmt.Errorf("HTTP %d from Life360: %s", resp.StatusCode, msg)
 	}
-	return io.ReadAll(resp.Body)
+	return body, nil
 }
 
 type life360Circle struct {

@@ -3,13 +3,12 @@
  * pattern as CalendarOverlay: free navigation via Leaflet's own pan/zoom,
  * person filter pills in the header, roster list down the side.
  */
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { colorFor, timeAgo, useLeafletMap, MapMarker } from './MapPanel'
 
 export default function MapOverlay({ markers, onClose }: { markers: MapMarker[]; onClose: () => void }) {
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set())
-  const containerRef = useRef<HTMLDivElement>(null)
-  useLeafletMap(containerRef, markers, hiddenIds)
+  const setMapContainer = useLeafletMap(markers, hiddenIds)
 
   useEffect(() => {
     const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
@@ -67,7 +66,7 @@ export default function MapOverlay({ markers, onClose }: { markers: MapMarker[];
         {/* Body — map + roster side by side */}
         <div style={{ flex: 1, minHeight: 0, display: 'flex' }}>
           <div style={{ flex: 1.7, minWidth: 0, padding: '12px 0 14px 14px' }}>
-            <div ref={containerRef} style={{ width: '100%', height: '100%', borderRadius: 10, overflow: 'hidden' }} />
+            <div ref={setMapContainer} style={{ width: '100%', height: '100%', borderRadius: 10, overflow: 'hidden' }} />
           </div>
 
           <div style={{ flex: 1, minWidth: 280, maxWidth: 380, borderLeft: '1px solid var(--border)',
