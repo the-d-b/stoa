@@ -1,4 +1,8 @@
 # Build stage
+# Go >=1.26 required: Life360's Cloudflare bot protection blocks the TLS
+# ClientHello crypto/tls produces on 1.23 (403) but allows 1.26 (200) —
+# confirmed by running identical client code under each version. Don't
+# downgrade this without re-testing Life360 connectivity.
 FROM golang:1.26-alpine AS builder
 
 RUN apk add --no-cache gcc musl-dev
