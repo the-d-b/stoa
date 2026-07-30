@@ -81,7 +81,7 @@ Add Maintainerr as a calendar source (Profile/Admin → Calendar panel → Calen
 ## Notes
 
 - **Polling and SSE:** Stoa polls Maintainerr every 5 minutes. Results are cached and pushed to all connected browsers via SSE — no manual refresh needed
-- **API calls per poll:** 1 call to `/api/collections` for collection metadata, then 1 call per collection to `/api/collections/media/{id}/content/1` for poster images — typically 3–6 calls total depending on how many collections you have
+- **API calls per poll:** 1 call to `/api/collections` for collection metadata, then 1 call per collection (up to 300 items) to `/api/collections/media/{id}/content/1` for poster images — typically 3–6 calls total depending on how many collections you have. Collections larger than 300 items skip the poster call entirely — that endpoint sorts the whole collection before paginating, so on very large collections it gets slow enough to back up subsequent polls
 - **Poster images:** Fetched from the content endpoint rather than the collections list — the collections list returns `image_path: null` for TV shows; the content endpoint returns populated TMDB poster URLs for both movies and shows
 - **Show size bytes:** Maintainerr tracks `totalSizeBytes` accurately for movie collections (sourced from Radarr) but stores a nominal internal record size for TV show collections — the reclaimable figure is reliable for movies and near-zero/inaccurate for shows. This is a Maintainerr behavior, not a Stoa limitation
 - **Reclaimable vs Freed:** The 4x panel shows reclaimable space when collections have queued items. Once items are deleted and `reclaimableBytes` drops to zero, it switches to showing lifetime bytes freed from the storage-metrics endpoint

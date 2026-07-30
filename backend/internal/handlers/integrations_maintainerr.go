@@ -219,6 +219,15 @@ func testMaintainerrConnection(baseURL, apiKey string, skipTLS bool) error {
 	return nil
 }
 
+// maintainerrPosterMaxItems caps which collections get a poster/content
+// fetch. Maintainerr's content endpoint sorts the whole collection by
+// deleteSoonest before paginating, so the request cost scales with
+// collection size — on multi-thousand-item collections it can run slow
+// enough to back up subsequent polls and eventually time out the cheap
+// /api/collections call too. A 25-item preview strip isn't very
+// informative on a collection that size anyway, so skip it above this size.
+const maintainerrPosterMaxItems = 300
+
 // ── Panel data ────────────────────────────────────────────────────────────────
 
 func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*MaintainerrPanelData, error) {
@@ -268,7 +277,9 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 					collectionLink = strings.TrimRight(uiURL, "/") + fmt.Sprintf("/collections/%d", c.ID)
 				}
 				path := fmt.Sprintf("/api/collections/media/%d/content/1?size=25&sort=deleteSoonest&sortOrder=asc", c.ID)
-				if cb, cerr := maintainerrGet(baseURL, apiKey, path, skipTLS); cerr == nil {
+				if c.MediaCount > maintainerrPosterMaxItems {
+					// skip — see maintainerrPosterMaxItems
+				} else if cb, cerr := maintainerrGet(baseURL, apiKey, path, skipTLS); cerr == nil {
 					var content struct {
 						Items []struct {
 							TmdbID    int    `json:"tmdbId"`
