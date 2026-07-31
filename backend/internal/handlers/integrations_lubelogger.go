@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 )
@@ -113,11 +114,18 @@ func fetchLubeLoggerPanelData(db *sql.DB, config map[string]interface{}) (*LubeL
 
 	for _, rv := range rawVehicles {
 		year := strings.Trim(string(rv.Year), `"`)
-		imageURL := rv.ImageLocation
-		if strings.Contains(imageURL, "noimage") {
-			imageURL = ""
-		} else if imageURL != "" && !strings.HasPrefix(imageURL, "http") {
-			imageURL = strings.TrimRight(baseURL, "/") + imageURL
+		// Proxied through Stoa's backend (not linked directly) — LubeLogger's
+		// /images path sits behind the same auth as its API (OIDC session for
+		// browser requests, api-key/basic for API clients), so a bare <img src>
+		// pointed straight at LubeLogger gets redirected to its login page.
+		imageURL := ""
+		if imgPath := rv.ImageLocation; imgPath != "" && !strings.Contains(imgPath, "noimage") {
+			if strings.HasPrefix(imgPath, "http") {
+				if u, perr := url.Parse(imgPath); perr == nil {
+					imgPath = u.RequestURI()
+				}
+			}
+			imageURL = "/api/images/proxy?integration=" + url.QueryEscape(integrationID) + "&url=" + url.QueryEscape(imgPath)
 		}
 		v := LubeLoggerVehicle{
 			ID:       rv.ID,

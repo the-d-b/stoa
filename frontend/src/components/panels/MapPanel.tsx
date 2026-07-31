@@ -274,11 +274,11 @@ export default function MapPanel({ panel, heightUnits }: { panel: Panel; heightU
   // ── 4x+ — map + roster ───────────────────────────────────────────────────
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
-      <div style={{ flex: '0 0 58%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <div style={{ flex: '29 29 0%', minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative' }}>
         {mapEl}
         {expandBtn}
       </div>
-      <div style={{ flex: 1, minHeight: 0, borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 8, overflow: 'auto' }}>
+      <div style={{ flex: '21 21 0%', minHeight: 0, borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 8, overflow: 'auto' }}>
         {filterPills}
         {allPeople.filter(m => !hiddenIds.has(m.id)).map(m => (
           <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>

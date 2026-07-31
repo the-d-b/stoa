@@ -74,6 +74,12 @@ func ImageProxy(db *sql.DB) http.HandlerFunc {
 			req.URL, _ = url.Parse(upstream + sep + "apikey=" + url.QueryEscape(apiKey))
 		case "tracearr":
 			req.Header.Set("Authorization", "Bearer "+apiKey)
+		case "lubelogger":
+			if idx := strings.Index(apiKey, ":"); idx >= 0 {
+				req.SetBasicAuth(apiKey[:idx], apiKey[idx+1:])
+			} else if apiKey != "" {
+				req.Header.Set("x-api-key", apiKey)
+			}
 		default:
 			// Generic: try Bearer token
 			if apiKey != "" {
