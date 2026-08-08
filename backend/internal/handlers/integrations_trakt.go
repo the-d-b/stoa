@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 )
 
 // ── Credentials ───────────────────────────────────────────────────────────────
@@ -44,78 +43,6 @@ func traktGet(clientID, path string) (int, []byte, error) {
 	defer resp.Body.Close()
 	b, _ := io.ReadAll(resp.Body)
 	return resp.StatusCode, b, nil
-}
-
-// ── TMDB poster cache ─────────────────────────────────────────────────────────
-
-type tmdbCacheEntry struct {
-	url     string
-	expires time.Time
-}
-
-var tmdbPosterCache sync.Map // key: "movie:123" or "tv:456" → tmdbCacheEntry
-
-func tmdbGetPoster(tmdbID int64, mediaType, apiKey string) string {
-	if tmdbID == 0 || apiKey == "" {
-		return ""
-	}
-	cacheKey := fmt.Sprintf("%s:%d", mediaType, tmdbID)
-	if v, ok := tmdbPosterCache.Load(cacheKey); ok {
-		if e := v.(tmdbCacheEntry); time.Now().Before(e.expires) {
-			return e.url
-		}
-	}
-	// Support both v3 API key (?api_key=) and v4 Read Access Token (Bearer JWT).
-	apiURL := fmt.Sprintf("https://api.themoviedb.org/3/%s/%d", mediaType, tmdbID)
-	var req *http.Request
-	if strings.HasPrefix(apiKey, "eyJ") {
-		req, _ = http.NewRequest("GET", apiURL, nil)
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	} else {
-		req, _ = http.NewRequest("GET", apiURL+"?api_key="+apiKey, nil)
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil || resp.StatusCode != 200 {
-		if resp != nil {
-			resp.Body.Close()
-		}
-		return ""
-	}
-	defer resp.Body.Close()
-	var v struct {
-		PosterPath string `json:"poster_path"`
-	}
-	if json.NewDecoder(resp.Body).Decode(&v) != nil || v.PosterPath == "" {
-		return ""
-	}
-	posterURL := "https://image.tmdb.org/t/p/w342" + v.PosterPath
-	tmdbPosterCache.Store(cacheKey, tmdbCacheEntry{url: posterURL, expires: time.Now().Add(24 * time.Hour)})
-	return posterURL
-}
-
-func tmdbEnrichCards(cards []*TraktCard, apiKey string) {
-	if apiKey == "" {
-		return
-	}
-	sem := make(chan struct{}, 20)
-	var wg sync.WaitGroup
-	for _, c := range cards {
-		if c.TMDBID == 0 || c.PosterURL != "" {
-			continue
-		}
-		mt := "movie"
-		if c.Type != "movie" {
-			mt = "tv"
-		}
-		wg.Add(1)
-		go func(card *TraktCard, mediaType string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			card.PosterURL = tmdbGetPoster(card.TMDBID, mediaType, apiKey)
-		}(c, mt)
-	}
-	wg.Wait()
 }
 
 // ── Output types ──────────────────────────────────────────────────────────────
@@ -464,16 +391,7 @@ func parseTraktStats(b []byte) TraktStats {
 
 func traktRatingFilter(config map[string]interface{}, key string) []string {
 	raw, _ := config[key].(string)
-	if raw == "" {
-		return nil
-	}
-	var out []string
-	for _, r := range strings.Split(raw, ",") {
-		if s := strings.ToUpper(strings.TrimSpace(r)); s != "" {
-			out = append(out, s)
-		}
-	}
-	return out
+	return parseCommaRatingList(raw)
 }
 
 func traktCertAllowed(cert string, allowed []string) bool {

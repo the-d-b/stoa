@@ -202,12 +202,31 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 				writeError(w, http.StatusBadRequest, "Sonarr integration not configured on this panel")
 				return
 			}
+			tvdbID := req.TVDbID
+			if tvdbID == 0 && req.TMDbID != 0 {
+				// TMDB-sourced shows don't carry a TVDB ID directly (unlike
+				// Trakt, which returns both) — resolve it here, on demand,
+				// via the panel's own TMDB integration rather than eagerly
+				// enriching every discovered show up front.
+				tmdbIntID, _ := panelCfg["integrationId"].(string)
+				_, _, tmdbAPIKey, _, err := resolveIntegration(db, tmdbIntID)
+				if err != nil || tmdbAPIKey == "" {
+					writeError(w, http.StatusBadRequest, "could not resolve TMDB integration to look up TVDB ID")
+					return
+				}
+				resolved, err := tmdbResolveTVDBID(req.TMDbID, tmdbAPIKey)
+				if err != nil {
+					writeError(w, http.StatusBadGateway, err.Error())
+					return
+				}
+				tvdbID = resolved
+			}
 			apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, iid)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "Sonarr integration not found")
 				return
 			}
-			if err := sonarrAddShow(apiURL, apiKey, skipTLS, req.TVDbID); err != nil {
+			if err := sonarrAddShow(apiURL, apiKey, skipTLS, tvdbID); err != nil {
 				writeError(w, http.StatusBadGateway, err.Error())
 				return
 			}

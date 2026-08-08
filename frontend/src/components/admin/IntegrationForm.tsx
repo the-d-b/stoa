@@ -115,14 +115,15 @@ export const INTEGRATION_TYPES = [
   // Online Content
   { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — recent videos from channels you follow. No URL needed. API key: clientId:clientSecret from Google Cloud Console (YouTube Data API v3). After creating, connect your Google account from the integration edit page.', category: 'Online Content' },
   { id: 'twitch',       label: 'Twitch',       desc: 'Live stream dashboard — no URL needed. API key: clientId:clientSecret from your Twitch Developer Console app. After creating, connect your Twitch account from the integration edit page.', category: 'Online Content' },
-  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV watch tracking with artwork carousels and add-to-Radarr/Sonarr. No URL needed. Secret format: clientId:username or clientId:username:tmdbApiKey. Get your Client ID at trakt.tv/oauth/applications (create an app, copy the Client ID). Username is your Trakt profile name. TMDB API key (optional) enables poster artwork — get one at themoviedb.org/settings/api (supports v3 key or v4 Read Access Token). Profile must be public.', category: 'Online Content' },
+  { id: 'trakt',        label: 'Trakt (legacy)', desc: 'Movie & TV watch tracking with artwork carousels and add-to-Radarr/Sonarr. Trakt ended free API-application access in 2026 (existing apps deactivated, new ones require paid VIP) — this integration is not developed further. See TMDB below for the discovery/add-to-Radarr-Sonarr replacement.', category: 'Online Content' },
+  { id: 'tmdb',         label: 'TMDB',         desc: 'Movie & TV discovery — trending/popular/upcoming/top-rated with poster carousels and one-click add-to-Radarr/Sonarr, sourced directly from TMDB (no third-party dependency risk). No URL needed. API key: v3 key or v4 Read Access Token from themoviedb.org/settings/api. Rating-ceiling filtering and personal account connect available below.', category: 'Online Content' },
   { id: 'rss',          label: 'RSS Feed',     desc: 'RSS or Atom feed reader',                                     category: 'Online Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast (Open-Meteo, no key required)', category: 'Online Content' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Online Content' },
 ]
 
 const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale', 'life360']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'tmdb', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale', 'life360']
 // Types the backend accepts with an empty api_url when running a connection
 // test — mirrors integrationConfigTypes in
 // backend/internal/handlers/integrations_crud.go. Enables the Test button for
@@ -131,7 +132,7 @@ const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto'
 // requires a URL on the backend.
 const URL_OPTIONAL_TEST_TYPES = [
   'stocks', 'crypto', 'sports', 'weather', 'youtube', 'twitch', 'spotify',
-  'lastfm', 'strava', 'trakt', 'github', 'steam', 'duolingo', 'rss',
+  'lastfm', 'strava', 'trakt', 'tmdb', 'github', 'steam', 'duolingo', 'rss',
   'tailscale', 'life360',
 ]
 // Per-type default refresh interval (seconds) shown when creating an
@@ -301,6 +302,18 @@ export default function IntegrationForm({
       .then(r => r.json())
       .then(d => setYoutubeStatus(d))
       .catch(() => setYoutubeStatus({ connected: false }))
+  }, [isEdit, integration?.id, integration?.type])
+
+  // ── TMDB account connect status ────────────────────────────────────────────
+  const [tmdbStatus, setTmdbStatus] = useState<{ connected: boolean; username?: string } | null>(null)
+  const [tmdbDisconnecting, setTmdbDisconnecting] = useState(false)
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'tmdb') return
+    fetch(`/api/tmdb/status?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
+      .then(r => r.json())
+      .then(d => setTmdbStatus(d))
+      .catch(() => setTmdbStatus({ connected: false }))
   }, [isEdit, integration?.id, integration?.type])
 
   // ── Test connection ────────────────────────────────────────────────────────
@@ -790,16 +803,113 @@ export default function IntegrationForm({
         </div>
       ) : activeType === 'trakt' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 11, color: 'var(--amber)' }}>
+            Trakt ended free API-application access in 2026 — existing apps were deactivated and new ones now
+            require a paid VIP subscription, with no official announcement. Stoa is not developing this
+            integration further; see TMDB instead for discovery + add-to-Radarr/Sonarr without the dependency risk.
+          </div>
           <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
             API key: <code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>clientId:username</code> (colon-separated).
             Get your Client ID at{' '}
-            <a href="https://trakt.tv/oauth/applications" target="_blank" rel="noreferrer"
-              style={{ color: 'var(--accent)' }}>trakt.tv/oauth/applications</a> — create an app and copy the Client ID.
-            Username is your Trakt profile name.
+            <a href="https://app.trakt.tv/settings/apps/api" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>app.trakt.tv/settings/apps/api</a> — create an app and copy the Client ID
+              (requires VIP as of 2026). Username is your Trakt profile name.
           </div>
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             No URL or OAuth needed. Requires a public Trakt profile. Shows watch history, currently watching, and stats.
           </div>
+        </div>
+      ) : activeType === 'tmdb' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            API key: v3 key or v4 Read Access Token from{' '}
+            <a href="https://www.themoviedb.org/settings/api" target="_blank" rel="noreferrer"
+              style={{ color: 'var(--accent)' }}>themoviedb.org/settings/api</a> — both formats are auto-detected.
+          </div>
+          <div>
+            <label className="label">
+              Movie ratings ceiling{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+            </label>
+            <input className="input" value={(() => { try { return JSON.parse(igConfig || '{}').movieRatings ?? '' } catch { return '' } })()}
+              onChange={e => {
+                let cfg: any = {}
+                try { cfg = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+                cfg.movieRatings = e.target.value
+                setIgConfig(JSON.stringify(cfg))
+              }}
+              placeholder="e.g. G, PG, PG-13" />
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+              Comma-separated MPAA ratings. This integration's one API key has one fixed ceiling — for a
+              different ceiling for a different audience, create a separate TMDB integration.
+            </div>
+          </div>
+          <div>
+            <label className="label">
+              TV ratings ceiling{' '}
+              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+            </label>
+            <input className="input" value={(() => { try { return JSON.parse(igConfig || '{}').showRatings ?? '' } catch { return '' } })()}
+              onChange={e => {
+                let cfg: any = {}
+                try { cfg = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+                cfg.showRatings = e.target.value
+                setIgConfig(JSON.stringify(cfg))
+              }}
+              placeholder="e.g. TV-Y, TV-G, TV-PG, TV-14" />
+            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+              Comma-separated TV content ratings.
+            </div>
+          </div>
+          {isEdit && integration && (
+            <div style={{ padding: '10px 12px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                TMDB Account
+              </div>
+              {tmdbStatus === null ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+              ) : tmdbStatus.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>
+                    Connected as <strong>{tmdbStatus.username}</strong>
+                    <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2 }}>
+                      Shows your personal TMDB lists on this panel.
+                    </div>
+                  </div>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, flexShrink: 0 }}
+                    disabled={tmdbDisconnecting}
+                    onClick={async () => {
+                      setTmdbDisconnecting(true)
+                      try {
+                        await fetch(`/api/tmdb/disconnect?integrationId=${integration.id}`, {
+                          method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` }
+                        })
+                        setTmdbStatus({ connected: false })
+                      } finally { setTmdbDisconnecting(false) }
+                    }}>
+                    {tmdbDisconnecting ? '…' : 'Disconnect'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-dim)', flex: 1 }}>
+                    Not connected — optional, only needed to show your personal TMDB lists.
+                  </div>
+                  <button className="btn btn-primary"
+                    style={{ fontSize: 11, flexShrink: 0 }}
+                    onClick={() => { const t = localStorage.getItem('stoa_token') ?? ''; window.location.href = `/api/tmdb/auth?integrationId=${integration.id}&token=${t}` }}>
+                    Connect TMDB
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to optionally connect your TMDB account for personal lists.
+            </div>
+          )}
         </div>
       ) : activeType === 'youtube' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

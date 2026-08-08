@@ -27,7 +27,7 @@ const ICON_TYPES = new Set([
   'readarr', 'romm', 'rss', 'rutorrent', 'sabnzbd', 'scrutiny', 'search',
   'securityposture', 'sonarr', 'sports', 'spotify', 'steam', 'stocks',
   'strava', 'synology', 'tailscale', 'tandoor', 'tautulli', 'tdarr',
-  'tracearr', 'traefik', 'trakt', 'tranga', 'transmission', 'truenas', 'twitch',
+  'tmdb', 'tracearr', 'traefik', 'trakt', 'tranga', 'transmission', 'truenas', 'twitch',
   'unifi', 'unraid', 'weather', 'wgeasy', 'wger', 'youtube',
 ])
 

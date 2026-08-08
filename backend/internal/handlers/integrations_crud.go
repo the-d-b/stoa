@@ -34,7 +34,7 @@ type Integration struct {
 var integrationConfigTypes = map[string]bool{
 	"stocks": true, "crypto": true, "sports": true, "weather": true,
 	"youtube": true, "twitch": true, "spotify": true, "lastfm": true,
-	"strava": true, "trakt": true, "github": true, "steam": true, "duolingo": true,
+	"strava": true, "trakt": true, "tmdb": true, "github": true, "steam": true, "duolingo": true,
 	"rss": true, "tailscale": true, "life360": true,
 }
 
@@ -464,6 +464,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 			err = testGitHubConnection(apiKey)
 		case "trakt":
 			err = testTraktConnection(apiKey)
+		case "tmdb":
+			err = testTMDBConnection(apiKey)
 		case "twitch":
 			err = testTwitchConnection(apiKey)
 		case "youtube":
@@ -642,6 +644,8 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 							retryErr = testGitHubConnection(apiKey)
 						case "trakt":
 							retryErr = testTraktConnection(apiKey)
+						case "tmdb":
+							retryErr = testTMDBConnection(apiKey)
 						case "twitch":
 							retryErr = testTwitchConnection(apiKey)
 						case "youtube":
@@ -957,7 +961,7 @@ func defaultRefreshSecs(igType string) int {
 	// you change it by hand.
 	case "crypto", "stocks", "ghostfolio",
 		"photoprism", "immich",
-		"duolingo", "youtube", "twitch", "spotify", "lastfm", "trakt", "strava",
+		"duolingo", "youtube", "twitch", "spotify", "lastfm", "trakt", "tmdb", "strava",
 		"steam", "scrutiny", "paperless", "docspell",
 		"wger", "fittrackee",
 		"lubelogger", "tandoor", "homebox", "monica", "grocy", "mealie", "caldav",

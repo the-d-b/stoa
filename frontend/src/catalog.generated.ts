@@ -1704,13 +1704,35 @@ export const CATALOG: CatalogEntry[] = [
     "gettingKey": "None — ESPN's public API requires no credentials.\n\n- **Secret format:** none\n- **URL:** none (ESPN public API)"
   },
   {
-    "id": "trakt",
-    "name": "Trakt",
+    "id": "tmdb",
+    "name": "TMDB",
     "category": "Online Content",
     "tags": [
       "movies",
       "tv",
-      "cloud"
+      "discovery",
+      "radarr",
+      "sonarr"
+    ],
+    "builtin": false,
+    "status": "tested",
+    "whatIs": "The Movie Database is a free, community-maintained movie/TV metadata source — the same one Radarr, Sonarr, Plex, Jellyfin, and (until recently) Trakt itself all source posters and metadata from. This integration surfaces TMDB's trending/popular/upcoming/top-rated lists directly in a Stoa panel, with one-click add to Radarr/Sonarr and a rating ceiling so it's safe to put on a panel shared with a household.",
+    "officialUrl": "https://www.themoviedb.org",
+    "polling": "1hr",
+    "secretFormat": "api-key",
+    "urlRequired": false,
+    "exampleUrl": "\"\"",
+    "gettingKey": "- **Secret format:** a TMDB v3 API key or v4 Read Access Token — both work, auto-detected. Get either at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api) (free, no VIP or approval process).\n- **URL:** none needed — TMDB is a fixed cloud API."
+  },
+  {
+    "id": "trakt",
+    "name": "Trakt (legacy — not developed further)",
+    "category": "Online Content",
+    "tags": [
+      "movies",
+      "tv",
+      "cloud",
+      "deprecated"
     ],
     "builtin": false,
     "status": "tested",
@@ -1719,7 +1741,7 @@ export const CATALOG: CatalogEntry[] = [
     "polling": "60s",
     "secretFormat": "composite",
     "urlRequired": false,
-    "gettingKey": "Create an API app at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) → **New Application** → copy the **Client ID**. Combine with your Trakt username (and optionally a TMDB key for artwork). Your Trakt profile must be **Public** (Account → Privacy).\n\n- **clientId** — from your Trakt API app\n- **username** — your Trakt username (at `trakt.tv/users/USERNAME`)\n- **tmdbApiKey** *(optional)* — TMDB v3 hex key or v4 Read Access Token for poster artwork (from `themoviedb.org/settings/api`)\n- **Secret format:** `clientId:username` or `clientId:username:tmdbApiKey`\n- **URL:** none — always uses `api.trakt.tv`. No OAuth flow needed (public data via Client ID + username)."
+    "gettingKey": "Create an API app at [app.trakt.tv/settings/apps/api](https://app.trakt.tv/settings/apps/api) → click **+** → copy the **Client ID**. As of 2026 this requires a Trakt VIP subscription (see the notice above). Combine with your Trakt username (and optionally a TMDB key for artwork). Your Trakt profile must be **Public** (Account → Privacy).\n\n- **clientId** — from your Trakt API app\n- **username** — your Trakt username (at `trakt.tv/users/USERNAME`)\n- **tmdbApiKey** *(optional)* — TMDB v3 hex key or v4 Read Access Token for poster artwork (from `themoviedb.org/settings/api`)\n- **Secret format:** `clientId:username` or `clientId:username:tmdbApiKey`\n- **URL:** none — always uses `api.trakt.tv`. No OAuth flow needed (public data via Client ID + username)."
   },
   {
     "id": "twitch",

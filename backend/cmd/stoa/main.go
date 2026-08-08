@@ -84,6 +84,7 @@ func main() {
 	api.HandleFunc("/strava/callback", handlers.StravaOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/twitch/callback", handlers.TwitchOAuthCallback(database)).Methods("GET")
 	api.HandleFunc("/youtube/callback", handlers.YouTubeOAuthCallback(database)).Methods("GET")
+	api.HandleFunc("/tmdb/callback", handlers.TMDBAuthCallback(database)).Methods("GET")
 
 	// ── Health check (public) ───────────────────────────────
 	api.HandleFunc("/health", handlers.HealthCheck(database)).Methods("GET")
@@ -272,6 +273,7 @@ func main() {
 	flex.HandleFunc("/strava/auth", handlers.StravaOAuthRedirect(database)).Methods("GET")
 	flex.HandleFunc("/twitch/auth", handlers.TwitchOAuthRedirect(database)).Methods("GET")
 	flex.HandleFunc("/youtube/auth", handlers.YouTubeOAuthRedirect(database)).Methods("GET")
+	flex.HandleFunc("/tmdb/auth", handlers.TMDBAuthRedirect(database)).Methods("GET")
 
 	// Spotify OAuth + playback
 	protected.HandleFunc("/spotify/status", handlers.SpotifyGetStatus(database)).Methods("GET")
@@ -290,6 +292,11 @@ func main() {
 	// YouTube OAuth
 	protected.HandleFunc("/youtube/status", handlers.YouTubeGetStatus(database)).Methods("GET")
 	protected.HandleFunc("/youtube/disconnect", handlers.YouTubeDisconnect(database)).Methods("DELETE")
+
+	// TMDB account connect (personal lists) + on-demand list item fetch
+	protected.HandleFunc("/tmdb/status", handlers.TMDBGetStatus(database)).Methods("GET")
+	protected.HandleFunc("/tmdb/disconnect", handlers.TMDBDisconnect(database)).Methods("DELETE")
+	protected.HandleFunc("/tmdb/list/{listId}", handlers.TMDBListItems(database)).Methods("GET")
 
 	// Kanban
 	protected.HandleFunc("/kanban/boards", handlers.KanbanListBoards(database)).Methods("GET")

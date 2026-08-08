@@ -264,6 +264,7 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 		return fetchGitHubPanelData(db, cfg)
 	},
 	"trakt": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTraktPanelData(db, cfg) },
+	"tmdb":  func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) { return fetchTMDBPanelData(db, cfg) },
 	"twitch": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchTwitchPanelData(db, cfg)
 	},

@@ -95,6 +95,7 @@ const StravaPanel = lazy(() => import('../components/panels/StravaPanel'))
 const DuolingoPanel = lazy(() => import('../components/panels/DuolingoPanel'))
 const GitHubPanel = lazy(() => import('../components/panels/GitHubPanel'))
 const TraktPanel = lazy(() => import('../components/panels/TraktPanel'))
+const TMDBPanel = lazy(() => import('../components/panels/TMDBPanel'))
 const TwitchPanel = lazy(() => import('../components/panels/TwitchPanel'))
 const YouTubePanel = lazy(() => import('../components/panels/YouTubePanel'))
 const KanbanPanel = lazy(() => import('../components/panels/KanbanPanel'))
@@ -1174,6 +1175,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'duolingo' && <DuolingoPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'github' && <GitHubPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'trakt' && <TraktPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'tmdb' && <TMDBPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'twitch' && <TwitchPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'youtube' && <YouTubePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'kanban' && <KanbanPanel panel={panel} heightUnits={heightUnits} />}

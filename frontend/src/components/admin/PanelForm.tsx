@@ -115,7 +115,8 @@ export const PANEL_TYPES: {
   // Online Content
   { id: 'youtube',      label: 'YouTube',      desc: 'Subscription feed — thumbnail grid of recent videos from channels you follow; click to play inline with fullscreen support', needsIntegration: true, category: 'Online Content' },
   { id: 'twitch',       label: 'Twitch',       desc: 'Live stream feed — list of followed channels currently live with viewer count, uptime, category; stream thumbnail cards with title preview at 4x+', needsIntegration: true, category: 'Online Content' },
-  { id: 'trakt',        label: 'Trakt',        desc: 'Movie & TV tracking — currently watching indicator, watch history with movie/episode details, stats (movies/episodes watched), and 10-point rating distribution chart at larger sizes', needsIntegration: true, category: 'Online Content' },
+  { id: 'trakt',        label: 'Trakt (legacy)', desc: 'Movie & TV tracking — Trakt ended free API access in 2026; not developed further. See TMDB instead.', needsIntegration: true, category: 'Online Content' },
+  { id: 'tmdb',         label: 'TMDB',         desc: 'Movie & TV discovery — trending/popular/upcoming/top-rated with poster carousels, rating-ceiling filtering, personal account lists, and one-click add to Radarr/Sonarr', needsIntegration: true, category: 'Online Content' },
   { id: 'rss',          label: 'RSS Feed',     desc: 'Live RSS/Atom feed reader',                     needsIntegration: true,  category: 'Online Content' },
   { id: 'weather',      label: 'Weather',      desc: 'Current conditions & forecast',                 needsIntegration: true,  category: 'Online Content' },
   { id: 'sports',       label: 'Sports',       desc: 'NHL/NFL/NBA/MLB scores, standings & schedule',  needsIntegration: true,  category: 'Online Content' },
@@ -134,7 +135,7 @@ export const PANEL_TYPES: {
   { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',                              needsIntegration: false, category: 'Stoa Features' },
 ]
 
-const INLINE_NO_URL  = ['sports', 'stocks', 'crypto', 'weather']
+const INLINE_NO_URL  = ['sports', 'stocks', 'crypto', 'weather', 'tmdb']
 const INLINE_NO_TEST = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
 
 const SEARCH_ENGINE_LIST = [
@@ -163,7 +164,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','mylar3','kapowarr','tranga','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','keycloak','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','twitch','trakt','spotify','lastfm','youtube',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','twitch','trakt','tmdb','spotify','lastfm','youtube',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
@@ -490,6 +491,10 @@ export default function PanelForm({
         if (traktSonarrId) base.sonarrIntegrationId = traktSonarrId
         if (traktMovieRatings.trim()) base.movieRatings = traktMovieRatings.trim()
         if (traktShowRatings.trim()) base.showRatings = traktShowRatings.trim()
+      }
+      if (type === 'tmdb') {
+        if (traktRadarrId) base.radarrIntegrationId = traktRadarrId
+        if (traktSonarrId) base.sonarrIntegrationId = traktSonarrId
       }
       if (type === 'lastfm') {
         if (lfmLidarrId) base.lidarrIntegrationId = lfmLidarrId
@@ -875,8 +880,8 @@ export default function PanelForm({
         </label>
       )}
 
-      {/* Trakt: Radarr/Sonarr links + rating filters */}
-      {type === 'trakt' && (
+      {/* Trakt/TMDB: Radarr/Sonarr links (same config keys, shared between both) */}
+      {(type === 'trakt' || type === 'tmdb') && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div>
             <label className="label">
@@ -904,30 +909,40 @@ export default function PanelForm({
               ))}
             </select>
           </div>
-          <div>
-            <label className="label">
-              Movie ratings{' '}
-              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
-            </label>
-            <input className="input" value={traktMovieRatings}
-              onChange={e => setTraktMovieRatings(e.target.value)}
-              placeholder="e.g. G, PG, PG-13" />
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-              Comma-separated MPAA ratings. Unrated / NR content is excluded when a filter is active.
+          {type === 'trakt' && (
+            <>
+              <div>
+                <label className="label">
+                  Movie ratings{' '}
+                  <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+                </label>
+                <input className="input" value={traktMovieRatings}
+                  onChange={e => setTraktMovieRatings(e.target.value)}
+                  placeholder="e.g. G, PG, PG-13" />
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  Comma-separated MPAA ratings. Unrated / NR content is excluded when a filter is active.
+                </div>
+              </div>
+              <div>
+                <label className="label">
+                  TV ratings{' '}
+                  <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
+                </label>
+                <input className="input" value={traktShowRatings}
+                  onChange={e => setTraktShowRatings(e.target.value)}
+                  placeholder="e.g. TV-Y, TV-G, TV-PG, TV-14" />
+                <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
+                  Comma-separated TV content ratings. Unrated / NR content is excluded when a filter is active.
+                </div>
+              </div>
+            </>
+          )}
+          {type === 'tmdb' && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              Rating filtering for TMDB is set on the integration itself (Admin → Integrations), not per-panel —
+              one API key/integration has one fixed rating ceiling.
             </div>
-          </div>
-          <div>
-            <label className="label">
-              TV ratings{' '}
-              <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>(optional — blank = all)</span>
-            </label>
-            <input className="input" value={traktShowRatings}
-              onChange={e => setTraktShowRatings(e.target.value)}
-              placeholder="e.g. TV-Y, TV-G, TV-PG, TV-14" />
-            <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>
-              Comma-separated TV content ratings. Unrated / NR content is excluded when a filter is active.
-            </div>
-          </div>
+          )}
         </div>
       )}
 

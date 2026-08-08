@@ -801,6 +801,17 @@ var migrations = []migration{
 			DROP TABLE IF EXISTS personal_panel_porticos;
 		`,
 	},
+	{
+		version: 56,
+		name:    "tmdb_sessions",
+		up: `CREATE TABLE IF NOT EXISTS tmdb_sessions (
+			integration_id TEXT PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+			session_id     TEXT NOT NULL,
+			account_id     TEXT NOT NULL DEFAULT '',
+			username       TEXT NOT NULL DEFAULT '',
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

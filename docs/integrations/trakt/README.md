@@ -1,8 +1,8 @@
 ---
 id: trakt
-name: Trakt
+name: Trakt (legacy — not developed further)
 category: Online Content
-tags: [movies, tv, cloud]
+tags: [movies, tv, cloud, deprecated]
 official_url: https://trakt.tv
 status: tested
 polling: 60s
@@ -10,7 +10,17 @@ secret_format: composite
 url_required: false
 ---
 
-# Trakt
+# Trakt (legacy)
+
+> **Trakt abandoned its free tier, and Stoa is abandoning this integration in turn.** Sometime in mid-2026,
+> Trakt ended free API-application access — existing free apps were deactivated and creating a new one now
+> requires a paid VIP subscription, with no official announcement of the change (confirmed directly: existing
+> apps deleted, the "create app" page now reads "Creating new apps requires Trakt VIP"). This integration
+> still works if you already hold a paid Trakt app, but it will not receive further development. See the
+> [TMDB integration](../tmdb/README.md) for the discovery + add-to-Radarr/Sonarr replacement, sourced
+> directly from the same underlying metadata provider Trakt itself used, without the third-party
+> monetization risk. TMDB can't replicate the personal watch-history/stats half of this panel — TMDB has no
+> concept of what you've watched — but that wasn't the part that broke.
 
 ## What is Trakt?
 
@@ -22,7 +32,7 @@ Trakt is a service that automatically tracks the movies and TV shows you watch (
 
 ## Getting the key
 
-Create an API app at [trakt.tv/oauth/applications](https://trakt.tv/oauth/applications) → **New Application** → copy the **Client ID**. Combine with your Trakt username (and optionally a TMDB key for artwork). Your Trakt profile must be **Public** (Account → Privacy).
+Create an API app at [app.trakt.tv/settings/apps/api](https://app.trakt.tv/settings/apps/api) → click **+** → copy the **Client ID**. As of 2026 this requires a Trakt VIP subscription (see the notice above). Combine with your Trakt username (and optionally a TMDB key for artwork). Your Trakt profile must be **Public** (Account → Privacy).
 
 - **clientId** — from your Trakt API app
 - **username** — your Trakt username (at `trakt.tv/users/USERNAME`)
