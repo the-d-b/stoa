@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -219,14 +220,95 @@ func testMaintainerrConnection(baseURL, apiKey string, skipTLS bool) error {
 	return nil
 }
 
-// maintainerrPosterMaxItems caps which collections get a poster/content
-// fetch. Maintainerr's content endpoint sorts the whole collection by
-// deleteSoonest before paginating, so the request cost scales with
-// collection size — on multi-thousand-item collections it can run slow
-// enough to back up subsequent polls and eventually time out the cheap
-// /api/collections call too. A 25-item preview strip isn't very
-// informative on a collection that size anyway, so skip it above this size.
+// maintainerrPosterMaxItems is the collection size above which posters are
+// fetched on a slow, cached cycle instead of every poll. Maintainerr's
+// content endpoint sorts the whole collection by deleteSoonest before
+// paginating, so the request cost scales with collection size regardless of
+// how few items are actually requested (size=25) — on multi-thousand-item
+// collections that sort alone can run slow enough to back up subsequent
+// polls and eventually time out the cheap /api/collections call too. See
+// maintainerrLargeCollectionPosters.
 const maintainerrPosterMaxItems = 300
+
+// maintainerrLargePosterRefreshInterval is how often the expensive
+// server-side sort is paid for a single large collection. Between
+// refreshes, the previous poster set (however stale) keeps being served
+// from cache rather than re-fetched every poll.
+const maintainerrLargePosterRefreshInterval = 24 * time.Hour
+
+type maintainerrPosterCacheEntry struct {
+	posters   []MaintainerrPoster
+	fetchedAt time.Time
+}
+
+var maintainerrPosterCache sync.Map // key: collection ID (int) -> maintainerrPosterCacheEntry
+
+// maintainerrLargeCollectionPosters serves posters for a large collection
+// from cache, only paying the expensive fetch once per
+// maintainerrLargePosterRefreshInterval. A cold cache (first time this
+// collection is seen, or after a restart) still fetches immediately so the
+// panel doesn't sit empty for a full day on first load.
+func maintainerrLargeCollectionPosters(baseURL, apiKey string, skipTLS bool, collectionID int, collectionLink string) []MaintainerrPoster {
+	if v, ok := maintainerrPosterCache.Load(collectionID); ok {
+		entry := v.(maintainerrPosterCacheEntry)
+		if time.Since(entry.fetchedAt) < maintainerrLargePosterRefreshInterval {
+			return entry.posters
+		}
+	}
+	posters := maintainerrFetchPosters(baseURL, apiKey, skipTLS, collectionID, collectionLink)
+	maintainerrPosterCache.Store(collectionID, maintainerrPosterCacheEntry{posters: posters, fetchedAt: time.Now()})
+	return posters
+}
+
+// maintainerrFetchPosters fetches and parses the poster/content page for one
+// collection. image_path is populated here for all media types (movies and
+// shows), unlike the collections list. Each item also carries the tmdbId and
+// media type used to build a TMDB deep link (falling back to the
+// Maintainerr collection page).
+func maintainerrFetchPosters(baseURL, apiKey string, skipTLS bool, collectionID int, collectionLink string) []MaintainerrPoster {
+	posters := []MaintainerrPoster{}
+	path := fmt.Sprintf("/api/collections/media/%d/content/1?size=25&sort=deleteSoonest&sortOrder=asc", collectionID)
+	cb, cerr := maintainerrGet(baseURL, apiKey, path, skipTLS)
+	if cerr != nil {
+		return posters
+	}
+	var content struct {
+		Items []struct {
+			TmdbID    int    `json:"tmdbId"`
+			ImagePath string `json:"image_path"`
+			MediaData struct {
+				Title string `json:"title"`
+				Type  string `json:"type"`
+			} `json:"mediaData"`
+		} `json:"items"`
+	}
+	if json.Unmarshal(cb, &content) != nil {
+		return posters
+	}
+	for _, m := range content.Items {
+		if m.ImagePath == "" {
+			continue
+		}
+		imgPath := m.ImagePath
+		// Some items come back as a bare TMDB image hash rather than a full
+		// URL — Maintainerr's own UI reconstructs the TMDB URL client-side
+		// the same way; confirmed against a live instance that there's no
+		// other prefix or path involved, just the CDN base + size.
+		if !strings.HasPrefix(imgPath, "http://") && !strings.HasPrefix(imgPath, "https://") {
+			imgPath = "https://image.tmdb.org/t/p/w500/" + strings.TrimPrefix(imgPath, "/")
+		}
+		link := maintainerrTMDBLink(m.TmdbID, m.MediaData.Type)
+		if link == "" {
+			link = collectionLink
+		}
+		posters = append(posters, MaintainerrPoster{
+			CoverURL: imgPath,
+			LinkURL:  link,
+			Title:    m.MediaData.Title,
+		})
+	}
+	return posters
+}
 
 // ── Panel data ────────────────────────────────────────────────────────────────
 
@@ -269,53 +351,17 @@ func fetchMaintainerrPanelData(db *sql.DB, config map[string]interface{}) (*Main
 
 				// Fetch posters via content endpoint — image_path is populated here
 				// for all media types (movies and shows), unlike the collections list.
-				// Each item also carries the tmdbId and media type used to build a
-				// TMDB deep link (falling back to the Maintainerr collection page).
-				posters := []MaintainerrPoster{}
 				collectionLink := ""
 				if uiURL != "" {
 					collectionLink = strings.TrimRight(uiURL, "/") + fmt.Sprintf("/collections/%d", c.ID)
 				}
-				path := fmt.Sprintf("/api/collections/media/%d/content/1?size=25&sort=deleteSoonest&sortOrder=asc", c.ID)
+				var posters []MaintainerrPoster
 				if c.MediaCount > maintainerrPosterMaxItems {
-					// skip — see maintainerrPosterMaxItems
-				} else if cb, cerr := maintainerrGet(baseURL, apiKey, path, skipTLS); cerr == nil {
-					var content struct {
-						Items []struct {
-							TmdbID    int    `json:"tmdbId"`
-							ImagePath string `json:"image_path"`
-							MediaData struct {
-								Title string `json:"title"`
-								Type  string `json:"type"`
-							} `json:"mediaData"`
-						} `json:"items"`
-					}
-					if json.Unmarshal(cb, &content) == nil {
-						for _, m := range content.Items {
-							if m.ImagePath == "" {
-								continue
-							}
-							imgPath := m.ImagePath
-							// Some items come back as a bare TMDB image hash
-							// rather than a full URL — Maintainerr's own UI
-							// reconstructs the TMDB URL client-side the same
-							// way; confirmed against a live instance that
-							// there's no other prefix or path involved, just
-							// the CDN base + size.
-							if !strings.HasPrefix(imgPath, "http://") && !strings.HasPrefix(imgPath, "https://") {
-								imgPath = "https://image.tmdb.org/t/p/w500/" + strings.TrimPrefix(imgPath, "/")
-							}
-							link := maintainerrTMDBLink(m.TmdbID, m.MediaData.Type)
-							if link == "" {
-								link = collectionLink
-							}
-							posters = append(posters, MaintainerrPoster{
-								CoverURL: imgPath,
-								LinkURL:  link,
-								Title:    m.MediaData.Title,
-							})
-						}
-					}
+					// Large collections still get posters, just on a slower,
+					// cached cycle — see maintainerrLargeCollectionPosters.
+					posters = maintainerrLargeCollectionPosters(baseURL, apiKey, skipTLS, c.ID, collectionLink)
+				} else {
+					posters = maintainerrFetchPosters(baseURL, apiKey, skipTLS, c.ID, collectionLink)
 				}
 
 				out.Collections = append(out.Collections, MaintainerrCollection{
