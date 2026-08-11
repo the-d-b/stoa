@@ -22,7 +22,7 @@ const ICON_TYPES = new Set([
   'keycloak', 'komga', 'kuma', 'lastfm', 'lidarr', 'lubelogger', 'maintainerr', 'map', 'mealie',
   'monica', 'mylar3', 'navidrome', 'netbird', 'nextcloud', 'nextdns', 'nginxpm',
   'notes', 'nzbget', 'omada', 'omv', 'openwrt', 'opnsense', 'overseerr',
-  'paperless', 'pfsense', 'photoprism', 'pihole', 'plex', 'prometheus',
+  'paperless', 'pfsense', 'photoprism', 'pihole', 'plex', 'plexmusic', 'prometheus',
   'prowlarr', 'proxmox', 'pterodactyl', 'qbittorrent', 'qnap', 'radarr',
   'readarr', 'romm', 'rss', 'rutorrent', 'sabnzbd', 'scrutiny', 'search',
   'securityposture', 'sonarr', 'sports', 'spotify', 'steam', 'stocks',

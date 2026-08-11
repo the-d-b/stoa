@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, Ref } from 'react'
 import { integrationsApi, panelsApi, myPanelsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
@@ -75,15 +75,21 @@ function AlbumArt({ coverArt, integId, title, size = 48 }: {
 
 // ── Player ────────────────────────────────────────────────────────────────────
 
-function Player({ queue, integId, uiUrl, initialIdx }: {
-  queue: NavSong[]; integId: string; uiUrl: string; initialIdx: number
+function Player({ queue, integId, uiUrl, activeIdx, onIndexChange }: {
+  queue: NavSong[]; integId: string; uiUrl: string; activeIdx: number; onIndexChange: (i: number) => void
 }) {
-  const [idx, setIdx] = useState(Math.min(initialIdx, queue.length - 1))
+  const idx = Math.min(activeIdx, queue.length - 1)
   const [playing, setPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
   const [duration, setDuration] = useState(0)
   const [seeking, setSeeking] = useState(false)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  // Whether playback should resume once the next track's blob has loaded.
+  // Can't rely on audio.paused (or the `playing` state) at that point — a
+  // natural track-end fires a `pause` event before `ended`, so both would
+  // already read "paused" by the time we're deciding whether to auto-advance
+  // into playing the next track.
+  const wantPlayRef = useRef(false)
   const token = localStorage.getItem('stoa_token') ?? ''
 
   const song = queue[idx]
@@ -99,7 +105,8 @@ function Player({ queue, integId, uiUrl, initialIdx }: {
     const onPlay  = () => setPlaying(true)
     const onPause = () => setPlaying(false)
     const onEnded = () => {
-      if (idx < queue.length - 1) { setIdx(i => i + 1) } else { setPlaying(false) }
+      if (idx < queue.length - 1) { wantPlayRef.current = true; onIndexChange(idx + 1) }
+      else { wantPlayRef.current = false; setPlaying(false) }
     }
 
     audio.addEventListener('loadedmetadata', onMeta)
@@ -120,16 +127,16 @@ function Player({ queue, integId, uiUrl, initialIdx }: {
       .then(r => { if (!r.ok) throw new Error(''); return r.blob() })
       .then(blob => {
         if (ctrl.signal.aborted) return
-        const wasPlaying = !audio.paused
         if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src)
         audio.src = URL.createObjectURL(blob)
-        if (wasPlaying) audio.play().catch(() => {})
+        if (wantPlayRef.current) audio.play().catch(() => {})
       })
       .catch(() => {
         if (!ctrl.signal.aborted) {
           // Fallback: pass token as query param (Subsonic supports this)
           if (audio.src.startsWith('blob:')) URL.revokeObjectURL(audio.src)
           audio.src = streamUrl + `&naviToken=${encodeURIComponent(token)}`
+          if (wantPlayRef.current) audio.play().catch(() => {})
         }
       })
 
@@ -146,12 +153,18 @@ function Player({ queue, integId, uiUrl, initialIdx }: {
   const togglePlay = () => {
     const audio = audioRef.current
     if (!audio) return
-    if (playing) audio.pause()
-    else audio.play().catch(() => {})
+    if (playing) { audio.pause(); wantPlayRef.current = false }
+    else { audio.play().catch(() => {}); wantPlayRef.current = true }
   }
 
-  const prev = () => setIdx(i => Math.max(0, i - 1))
-  const next = () => setIdx(i => Math.min(queue.length - 1, i + 1))
+  const prev = () => {
+    wantPlayRef.current = !!audioRef.current && !audioRef.current.paused
+    onIndexChange(Math.max(0, idx - 1))
+  }
+  const next = () => {
+    wantPlayRef.current = !!audioRef.current && !audioRef.current.paused
+    onIndexChange(Math.min(queue.length - 1, idx + 1))
+  }
 
   const seek = (e: React.ChangeEvent<HTMLInputElement>) => {
     const t = parseFloat(e.target.value)
@@ -223,11 +236,11 @@ function Player({ queue, integId, uiUrl, initialIdx }: {
 
 // ── Track row ─────────────────────────────────────────────────────────────────
 
-function TrackRow({ song, active, onClick }: {
-  song: NavSong; active: boolean; onClick: () => void
+function TrackRow({ song, active, onClick, rowRef }: {
+  song: NavSong; active: boolean; onClick: () => void; rowRef?: Ref<HTMLDivElement>
 }) {
   return (
-    <div onClick={onClick} style={{
+    <div ref={rowRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0',
       borderBottom: '1px solid var(--border)', cursor: 'pointer',
       background: active ? 'var(--surface2)' : 'none',
@@ -266,6 +279,22 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeTrack, setActiveTrack] = useState(0)
+  const activeRowRef = useRef<HTMLDivElement>(null)
+  const trackListRef = useRef<HTMLDivElement>(null)
+
+  // Keep the currently-playing track scrolled to the top of the track list —
+  // matters most when auto-advance moves further down the queue than what's
+  // currently visible. Scoped to the track-list container specifically (via
+  // getBoundingClientRect deltas) rather than scrollIntoView, which would
+  // also scroll the panel's own outer scroll container and jump the whole
+  // panel around.
+  useEffect(() => {
+    const row = activeRowRef.current
+    const container = trackListRef.current
+    if (!row || !container) return
+    const delta = row.getBoundingClientRect().top - container.getBoundingClientRect().top
+    container.scrollTo({ top: container.scrollTop + delta, behavior: 'smooth' })
+  }, [activeTrack])
 
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId = config.integrationId as string | undefined
@@ -273,8 +302,7 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
 
   const load = useCallback(async (playlistId?: string) => {
     try {
-      const suffix = playlistId ? `?playlistId=${encodeURIComponent(playlistId)}` : ''
-      const res = await integrationsApi.getPanelData(panel.id + suffix)
+      const res = await integrationsApi.getPanelData(panel.id, playlistId ? { playlistId } : undefined)
       setData(res.data)
       setActiveTrack(0)
       setError('')
@@ -294,8 +322,22 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
     } finally { setSaving(false) }
   }
 
+  // The background cache worker refreshes per-integration, not per-panel, so
+  // it has no idea which playlist this panel has selected — its broadcasts
+  // always reflect the default (first) playlist. If we blindly applied every
+  // broadcast, a manually-selected playlist would get reverted within ~30s.
+  // Keep the selected queue/playlistId in that case; take everything else live.
   const sseData = useSSE<NavData>(integrationId)
-  useEffect(() => { if (sseData !== null) { setData(sseData); setActiveTrack(0) } }, [sseData])
+  useEffect(() => {
+    if (sseData === null) return
+    if (data && data.playlistId && sseData.playlistId !== data.playlistId) {
+      setData({ ...sseData, playlistId: data.playlistId, queue: data.queue })
+    } else {
+      setData(sseData)
+      setActiveTrack(0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sseData])
   useEffect(() => { load() }, [load])
 
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
@@ -351,10 +393,11 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <PlaylistSelector />
       {queue.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No tracks</div>}
-      <div style={{ overflowY: 'auto', flex: 1 }}>
+      <div ref={trackListRef} style={{ overflowY: 'auto', flex: 1 }}>
         {queue.map((s, i) => (
           <TrackRow key={s.id} song={s}
-            active={i === activeTrack} onClick={() => setActiveTrack(i)} />
+            active={i === activeTrack} onClick={() => setActiveTrack(i)}
+            rowRef={i === activeTrack ? activeRowRef : undefined} />
         ))}
       </div>
     </div>
@@ -366,10 +409,11 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
       display: 'flex', flexDirection: 'column', gap: 8 }}>
       <PlaylistSelector />
       {queue.length > 0 && (
-        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <div ref={trackListRef} style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {queue.map((s, i) => (
             <TrackRow key={s.id} song={s}
-              active={i === activeTrack} onClick={() => setActiveTrack(i)} />
+              active={i === activeTrack} onClick={() => setActiveTrack(i)}
+              rowRef={i === activeTrack ? activeRowRef : undefined} />
           ))}
         </div>
       )}
@@ -379,7 +423,8 @@ export default function NavidromePanel({ panel, heightUnits }: { panel: Panel; h
           queue={queue}
           integId={integId}
           uiUrl={uiUrl}
-          initialIdx={activeTrack}
+          activeIdx={activeTrack}
+          onIndexChange={setActiveTrack}
         />
       )}
       {queue.length === 0 && <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>No tracks in playlist</div>}

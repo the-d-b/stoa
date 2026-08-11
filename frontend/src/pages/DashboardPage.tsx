@@ -90,6 +90,7 @@ const HomeboxPanel = lazy(() => import('../components/panels/HomeboxPanel'))
 const WgerPanel = lazy(() => import('../components/panels/WgerPanel'))
 const FittrackeePanel = lazy(() => import('../components/panels/FittrackeePanel'))
 const SpotifyPanel = lazy(() => import('../components/panels/SpotifyPanel'))
+const PlexMusicPanel = lazy(() => import('../components/panels/PlexMusicPanel'))
 const LastFmPanel = lazy(() => import('../components/panels/LastFmPanel'))
 const StravaPanel = lazy(() => import('../components/panels/StravaPanel'))
 const DuolingoPanel = lazy(() => import('../components/panels/DuolingoPanel'))
@@ -1170,6 +1171,7 @@ function PanelCard({ panel, subtree, onCollapseChange, allExpanded, onResize, dy
           {panel.type === 'wger' && <WgerPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'fittrackee' && <FittrackeePanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'spotify' && <SpotifyPanel panel={panel} heightUnits={heightUnits} />}
+          {panel.type === 'plexmusic' && <PlexMusicPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'lastfm' && <LastFmPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'strava' && <StravaPanel panel={panel} heightUnits={heightUnits} />}
           {panel.type === 'duolingo' && <DuolingoPanel panel={panel} heightUnits={heightUnits} />}

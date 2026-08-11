@@ -640,6 +640,25 @@ export const CATALOG: CatalogEntry[] = [
     "gettingKey": "Use your Navidrome **local account** credentials in `username:password` form — **not** your OIDC/SSO provider credentials (see the OIDC note below).\n\n- **Secret format:** `username:password`\n- **URL:** required — point at your Navidrome port, e.g. `http://192.168.1.10:4533`"
   },
   {
+    "id": "plexmusic",
+    "name": "Plex Music",
+    "category": "Music",
+    "tags": [
+      "music",
+      "plex",
+      "personal",
+      "self-hosted"
+    ],
+    "builtin": false,
+    "status": "tested",
+    "whatIs": "A personal companion to Stoa's system-wide Plex integration — instead of showing server-wide sessions and video libraries, this connects **as an individual household member** and gives them a real in-panel music player: pick a playlist, see the track list, and play it right there in the browser (like the Navidrome panel). It also shows their music library stats, what's currently playing on their other Plex sessions, and — as a bonus — their personal Plex Watchlist (movies/TV saved to watch later). Each person in your household can have their own Plex Music integration and panel, isolated from everyone else's.\n\nThis exists because Stoa's main Plex integration is deliberately system/shared and video-focused — it has no concept of \"whose session is this\" beyond display, and nothing music-specific. Standing up Navidrome as a separate music server was considered and passed on; Plex + Plexamp already covers day-to-day listening well, so this fills the one real gap (per-user, personal views) without running a second service.\n\n**v1 scope: Home users only.** Plex Home members (family profiles on your server without their own separate plex.tv email login) connect via an admin-mediated flow described below. External users you've shared libraries with (real, independent plex.tv accounts) aren't supported yet — that's a different, self-service auth flow (PIN-link OAuth) that's a natural v2 addition in the same architectural slot, just deferred to keep this release scoped.",
+    "officialUrl": "https://www.plex.tv",
+    "polling": "30s",
+    "secretFormat": "none",
+    "urlRequired": false,
+    "exampleUrl": "\"\""
+  },
+  {
     "id": "spotify",
     "name": "Spotify",
     "category": "Music",

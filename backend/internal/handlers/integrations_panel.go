@@ -251,6 +251,9 @@ var panelFetchers = map[string]func(*sql.DB, map[string]interface{}) (interface{
 	"spotify": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchSpotifyPanelData(db, cfg)
 	},
+	"plexmusic": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
+		return fetchPlexMusicPanelData(db, cfg)
+	},
 	"lastfm": func(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
 		return fetchLastFmPanelData(db, cfg)
 	},

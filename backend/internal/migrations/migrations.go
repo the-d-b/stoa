@@ -812,6 +812,29 @@ var migrations = []migration{
 			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
 		)`,
 	},
+	{
+		version: 57,
+		name:    "plex_music_tokens",
+		up: `CREATE TABLE IF NOT EXISTS plex_music_tokens (
+			integration_id TEXT PRIMARY KEY REFERENCES integrations(id) ON DELETE CASCADE,
+			plex_token     TEXT NOT NULL,
+			plex_user_id   TEXT NOT NULL DEFAULT '',
+			plex_username  TEXT NOT NULL DEFAULT '',
+			thumb_url      TEXT NOT NULL DEFAULT '',
+			created_at     DATETIME DEFAULT CURRENT_TIMESTAMP
+		)`,
+	},
+	{
+		// plex_token (added in migration 57) is the per-server access token
+		// — required for the server itself, but not valid against plex.tv's
+		// account-level Discover API (Watchlist). account_token holds the
+		// switch-user token that plex_token replaced there, kept alongside
+		// it for that purpose. Existing connections predate this column and
+		// need to be reconnected once for Watchlist to start working.
+		version: 58,
+		name:    "plex_music_account_token",
+		up: `ALTER TABLE plex_music_tokens ADD COLUMN account_token TEXT NOT NULL DEFAULT ''`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

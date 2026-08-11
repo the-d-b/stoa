@@ -35,7 +35,7 @@ var integrationConfigTypes = map[string]bool{
 	"stocks": true, "crypto": true, "sports": true, "weather": true,
 	"youtube": true, "twitch": true, "spotify": true, "lastfm": true,
 	"strava": true, "trakt": true, "tmdb": true, "github": true, "steam": true, "duolingo": true,
-	"rss": true, "tailscale": true, "life360": true,
+	"rss": true, "tailscale": true, "life360": true, "plexmusic": true,
 }
 
 func ListIntegrations(db *sql.DB) http.HandlerFunc {
@@ -922,7 +922,7 @@ func defaultRefreshSecs(igType string) int {
 	// ── 30s — live system/session state ──────────────────────────────────
 	// Media server sessions, NAS/hypervisor live stats, active download
 	// progress, router/firewall live state, live camera detection events.
-	case "plex", "jellyfin", "emby",
+	case "plex", "jellyfin", "emby", "plexmusic",
 		"opnsense", "pfsense", "openwrt",
 		"proxmox", "truenas", "unraid", "omv", "synology", "qnap",
 		"transmission", "qbittorrent", "deluge", "rutorrent", "sabnzbd", "nzbget", "tdarr",

@@ -31,32 +31,36 @@ type PlexLibrary struct {
 }
 
 type PlexSession struct {
-	User              string  `json:"user"`
-	Title             string  `json:"title"`
-	GrandparentTitle  string  `json:"grandparentTitle"`
-	Type              string  `json:"type"`
-	State             string  `json:"state"`
-	Progress          float64 `json:"progress"`
-	TranscodeDecision string  `json:"transcodeDecision"`
-	Quality           string  `json:"quality"`
-	Player            string  `json:"player"`
-	ContentRating     string  `json:"contentRating,omitempty"`
-	ThumbURL          string  `json:"thumbUrl,omitempty"`
+	User               string  `json:"user"`
+	UserID             string  `json:"userId,omitempty"` // Plex account ID — more reliable than User (display name) for matching a specific person, see PlexMusic now-playing filter
+	Title              string  `json:"title"`
+	GrandparentTitle   string  `json:"grandparentTitle"`
+	Type               string  `json:"type"`
+	State              string  `json:"state"`
+	Progress           float64 `json:"progress"`
+	PositionSecs       int     `json:"positionSecs,omitempty"` // for clients that want to crawl the bar locally between polls
+	DurationSecs       int     `json:"durationSecs,omitempty"`
+	TranscodeDecision  string  `json:"transcodeDecision"`
+	Quality            string  `json:"quality"`
+	Player             string  `json:"player"`
+	ContentRating      string  `json:"contentRating,omitempty"`
+	ThumbURL           string  `json:"thumbUrl,omitempty"`
 }
 
 // ── Plex XML response types ───────────────────────────────────────────────────
 
 type plexMediaContainer struct {
-	XMLName          xml.Name      `xml:"MediaContainer"`
-	Size             int           `xml:"size,attr"`
-	TotalSize        int           `xml:"totalSize,attr"`
-	Version          string        `xml:"version,attr"`
-	FriendlyName     string        `xml:"friendlyName,attr"`
-	CanInstallUpdate string        `xml:"canInstallUpdate,attr"`
-	Directories      []plexDir     `xml:"Directory"`
-	Videos           []plexVideo   `xml:"Video"`
-	Tracks           []plexTrack   `xml:"Track"`
-	Releases         []plexRelease `xml:"Release"`
+	XMLName           xml.Name      `xml:"MediaContainer"`
+	Size              int           `xml:"size,attr"`
+	TotalSize         int           `xml:"totalSize,attr"`
+	Version           string        `xml:"version,attr"`
+	FriendlyName      string        `xml:"friendlyName,attr"`
+	CanInstallUpdate  string        `xml:"canInstallUpdate,attr"`
+	MachineIdentifier string        `xml:"machineIdentifier,attr"` // used by PlexMusic to match this server in a resources lookup
+	Directories       []plexDir     `xml:"Directory"`
+	Videos            []plexVideo   `xml:"Video"`
+	Tracks            []plexTrack   `xml:"Track"`
+	Releases          []plexRelease `xml:"Release"`
 }
 
 type plexRelease struct {
@@ -103,6 +107,7 @@ type plexTrack struct {
 }
 
 type plexUser struct {
+	ID    string `xml:"id,attr"`
 	Title string `xml:"title,attr"`
 }
 
@@ -317,6 +322,7 @@ func plexSessionFromTrack(t plexTrack, integrationID string) PlexSession {
 	}
 	if t.User != nil {
 		sess.User = t.User.Title
+		sess.UserID = t.User.ID
 	}
 	if t.Player != nil {
 		sess.Player = t.Player.Product
@@ -324,6 +330,8 @@ func plexSessionFromTrack(t plexTrack, integrationID string) PlexSession {
 	}
 	if t.Duration > 0 {
 		sess.Progress = float64(t.ViewOffset) / float64(t.Duration) * 100
+		sess.PositionSecs = int(t.ViewOffset / 1000)
+		sess.DurationSecs = int(t.Duration / 1000)
 	}
 	if t.TranscodeSession != nil {
 		sess.TranscodeDecision = t.TranscodeSession.Decision

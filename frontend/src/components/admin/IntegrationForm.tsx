@@ -52,6 +52,7 @@ export const INTEGRATION_TYPES = [
   { id: 'navidrome',     label: 'Navidrome',     desc: 'Self-hosted music server / Subsonic API (username:password in API key field)', category: 'Music' },
   { id: 'spotify',    label: 'Spotify',    desc: 'Music streaming — no URL needed. API key: clientId:clientSecret from your Spotify Developer Dashboard app. After creating, connect your Spotify account from the integration edit page.', category: 'Music' },
   { id: 'lastfm',     label: 'Last.fm',    desc: 'Music scrobbling tracker — no URL needed. API key: username:apiKey (colon-separated). Get your API key at last.fm/api.', category: 'Music' },
+  { id: 'plexmusic',  label: 'Plex Music', desc: 'Personal Plex music companion — now playing with playback controls, music library stats, playlists, and your Watchlist. No secret needed; borrows connectivity from an existing system Plex integration and connects as one of its Home users (family members without separate plex.tv logins). External shared-library users aren\'t supported yet.', category: 'Music' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',                             category: 'Gaming' },
   { id: 'romm',         label: 'RomM',         desc: 'Self-hosted ROM manager — URL is http://romm:8080. API key field: username:password for Basic Auth, or an rmm_ bearer token from RomM → Settings → API Keys.', category: 'Gaming' },
@@ -122,8 +123,8 @@ export const INTEGRATION_TYPES = [
   { id: 'sports',       label: 'Sports',       desc: 'NHL, NFL, NBA, MLB scores, standings & schedule (ESPN)',      category: 'Online Content' },
 ]
 
-const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube']
-const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'tmdb', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale', 'life360']
+const NO_TEST_TYPES = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'youtube', 'plexmusic']
+const NO_URL_REQUIRED = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto', 'spotify', 'lastfm', 'strava', 'duolingo', 'github', 'trakt', 'tmdb', 'twitch', 'youtube', 'coinbase', 'cloudflare', 'tailscale', 'life360', 'plexmusic']
 // Types the backend accepts with an empty api_url when running a connection
 // test — mirrors integrationConfigTypes in
 // backend/internal/handlers/integrations_crud.go. Enables the Test button for
@@ -315,6 +316,65 @@ export default function IntegrationForm({
       .then(d => setTmdbStatus(d))
       .catch(() => setTmdbStatus({ connected: false }))
   }, [isEdit, integration?.id, integration?.type])
+
+  // ── Plex Music (borrows connectivity from a system Plex integration) ──────
+  const [plexSourceOptions, setPlexSourceOptions] = useState<{ id: string; name: string }[]>([])
+  const [plexMusicStatus, setPlexMusicStatus] = useState<{ connected: boolean; username?: string; thumbUrl?: string } | null>(null)
+  const [plexHomeUsers, setPlexHomeUsers] = useState<{ id: string; title: string; thumb: string; protected: boolean }[] | null>(null)
+  const [plexSelectedHomeUser, setPlexSelectedHomeUser] = useState('')
+  const [plexPin, setPlexPin] = useState('')
+  const [plexConnecting, setPlexConnecting] = useState(false)
+  const [plexDisconnecting, setPlexDisconnecting] = useState(false)
+  const [plexConnectError, setPlexConnectError] = useState('')
+
+  useEffect(() => {
+    if ((isEdit ? integration?.type : type) !== 'plexmusic') return
+    integrationsApi.list()
+      .then(r => setPlexSourceOptions((r.data || []).filter((i: any) => i.type === 'plex').map((i: any) => ({ id: i.id, name: i.name }))))
+      .catch(() => setPlexSourceOptions([]))
+  }, [isEdit, integration?.type, type])
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'plexmusic') return
+    fetch(`/api/plexmusic/status?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
+      .then(r => r.json())
+      .then(d => setPlexMusicStatus(d))
+      .catch(() => setPlexMusicStatus({ connected: false }))
+  }, [isEdit, integration?.id, integration?.type])
+
+  useEffect(() => {
+    if (!isEdit || integration?.type !== 'plexmusic' || plexMusicStatus === null || plexMusicStatus.connected) return
+    fetch(`/api/plexmusic/home-users?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
+      .then(r => r.json())
+      .then(d => setPlexHomeUsers(d.users || []))
+      .catch(() => setPlexHomeUsers([]))
+  }, [isEdit, integration?.id, integration?.type, plexMusicStatus])
+
+  const plexMusicConnect = async () => {
+    if (!integration || !plexSelectedHomeUser) return
+    setPlexConnecting(true)
+    setPlexConnectError('')
+    try {
+      const chosen = plexHomeUsers?.find(u => u.id === plexSelectedHomeUser)
+      const resp = await fetch('/api/plexmusic/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` },
+        body: JSON.stringify({
+          integrationId: integration.id, homeUserId: plexSelectedHomeUser,
+          homeUserTitle: chosen?.title ?? '', homeUserThumb: chosen?.thumb ?? '', pin: plexPin,
+        }),
+      })
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => null)
+        setPlexConnectError(body?.error || `Connect failed (HTTP ${resp.status})`)
+        return
+      }
+      const r = await fetch(`/api/plexmusic/status?integrationId=${integration.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
+      setPlexMusicStatus(await r.json())
+    } catch {
+      setPlexConnectError('Connect failed — request error')
+    } finally { setPlexConnecting(false) }
+  }
 
   // ── Test connection ────────────────────────────────────────────────────────
   const [testResult, setTestResult] = useState<{
@@ -716,6 +776,108 @@ export default function IntegrationForm({
           <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
             No URL or OAuth needed — read-only data only (scrobbling requires a separate app like Scrobbler).
           </div>
+        </div>
+      ) : activeType === 'plexmusic' ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            No secret needed — this borrows connectivity from an existing system Plex integration and
+            connects as one of its Home users (family members without separate plex.tv logins). External
+            shared-library users (separate plex.tv accounts) aren't supported yet.
+          </div>
+          <div>
+            <label className="label">Plex server</label>
+            <select className="input" value={(() => { try { return JSON.parse(igConfig || '{}').sourceIntegrationId ?? '' } catch { return '' } })()}
+              onChange={e => {
+                let cfg: any = {}
+                try { cfg = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+                cfg.sourceIntegrationId = e.target.value
+                setIgConfig(JSON.stringify(cfg))
+                setPlexHomeUsers(null)
+              }}
+              style={{ cursor: 'pointer' }}>
+              <option value="">— Select —</option>
+              {plexSourceOptions.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+            </select>
+            {plexSourceOptions.length === 0 && (
+              <div style={{ fontSize: 11, color: 'var(--amber)', marginTop: 4 }}>
+                No system Plex integration found — add one first (Admin → Integrations → Plex).
+              </div>
+            )}
+          </div>
+          {isEdit && integration && (
+            <div style={{ padding: '10px 12px', borderRadius: 8,
+              background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>
+                Plex Account
+              </div>
+              {plexMusicStatus === null ? (
+                <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading…</div>
+              ) : plexMusicStatus.connected ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {plexMusicStatus.thumbUrl && (
+                    <img src={plexMusicStatus.thumbUrl} alt="" width={28} height={28}
+                      style={{ borderRadius: '50%', objectFit: 'cover' }} />
+                  )}
+                  <div style={{ fontSize: 12, color: 'var(--text)', flex: 1 }}>
+                    Connected as <strong>{plexMusicStatus.username}</strong>
+                  </div>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, flexShrink: 0 }}
+                    disabled={plexDisconnecting}
+                    onClick={async () => {
+                      setPlexDisconnecting(true)
+                      try {
+                        await fetch(`/api/plexmusic/disconnect?integrationId=${integration.id}`, {
+                          method: 'DELETE', headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` }
+                        })
+                        setPlexMusicStatus({ connected: false })
+                        setPlexHomeUsers(null)
+                      } finally { setPlexDisconnecting(false) }
+                    }}>
+                    {plexDisconnecting ? '…' : 'Disconnect'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {plexHomeUsers === null ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>Loading household members…</div>
+                  ) : plexHomeUsers.length === 0 ? (
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+                      No Home users found — save a Plex server selection above first, or set up Plex Home
+                      (Plex Settings → Manage Library Access) if you haven't.
+                    </div>
+                  ) : (
+                    <>
+                      <select className="input" value={plexSelectedHomeUser}
+                        onChange={e => { setPlexSelectedHomeUser(e.target.value); setPlexConnectError('') }} style={{ cursor: 'pointer' }}>
+                        <option value="">— Which one are you? —</option>
+                        {plexHomeUsers.map(u => <option key={u.id} value={u.id}>{u.title}</option>)}
+                      </select>
+                      {plexHomeUsers.find(u => u.id === plexSelectedHomeUser)?.protected && (
+                        <input className="input" type="password" value={plexPin}
+                          onChange={e => setPlexPin(e.target.value)}
+                          placeholder="PIN" />
+                      )}
+                      <button className="btn btn-primary" style={{ fontSize: 11, alignSelf: 'flex-start' }}
+                        disabled={!plexSelectedHomeUser || plexConnecting}
+                        onClick={plexMusicConnect}>
+                        {plexConnecting ? '…' : 'Connect'}
+                      </button>
+                      {plexConnectError && (
+                        <div style={{ fontSize: 11, color: 'var(--red)', wordBreak: 'break-word' }}>
+                          ⚠ {plexConnectError}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          {!isEdit && (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to connect as one of your Plex Home users.
+            </div>
+          )}
         </div>
       ) : activeType === 'strava' ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>

@@ -298,6 +298,13 @@ func main() {
 	protected.HandleFunc("/tmdb/disconnect", handlers.TMDBDisconnect(database)).Methods("DELETE")
 	protected.HandleFunc("/tmdb/list/{listId}", handlers.TMDBListItems(database)).Methods("GET")
 
+	// Plex Music — admin-mediated home-user connect, no browser redirect involved
+	protected.HandleFunc("/plexmusic/home-users", handlers.PlexMusicListHomeUsers(database)).Methods("GET")
+	protected.HandleFunc("/plexmusic/connect", handlers.PlexMusicConnect(database)).Methods("POST")
+	protected.HandleFunc("/plexmusic/status", handlers.PlexMusicGetStatus(database)).Methods("GET")
+	protected.HandleFunc("/plexmusic/disconnect", handlers.PlexMusicDisconnect(database)).Methods("DELETE")
+	protected.HandleFunc("/plexmusic/{integrationId}/stream", handlers.PlexMusicStream(database)).Methods("GET")
+
 	// Kanban
 	protected.HandleFunc("/kanban/boards", handlers.KanbanListBoards(database)).Methods("GET")
 	protected.HandleFunc("/kanban/boards", handlers.KanbanCreateBoard(database)).Methods("POST")

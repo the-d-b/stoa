@@ -55,6 +55,7 @@ export const PANEL_TYPES: {
   { id: 'navidrome',     label: 'Navidrome',     desc: 'Music server with playlist player',               needsIntegration: true, category: 'Music' },
   { id: 'spotify',      label: 'Spotify',      desc: 'Now playing + recently played. Premium: progress bar and playback controls.', needsIntegration: true, category: 'Music' },
   { id: 'lastfm',       label: 'Last.fm',      desc: 'Scrobble history — now playing, recent tracks, 7-day top artists (bar chart), top tracks & albums', needsIntegration: true, category: 'Music' },
+  { id: 'plexmusic',    label: 'Plex Music',   desc: 'Personal Plex music companion — now playing with playback controls, music library stats, playlists, and your Watchlist', needsIntegration: true, category: 'Music' },
   // Gaming
   { id: 'steam',        label: 'Steam',        desc: 'Steam library, activity & store',               needsIntegration: true,  category: 'Gaming' },
   { id: 'romm',         label: 'RomM',         desc: 'ROM manager — total platform & ROM count, library size, cover art grid of recently added games, platform list with logos and ROM counts', needsIntegration: true, category: 'Gaming' },
@@ -135,7 +136,7 @@ export const PANEL_TYPES: {
   { id: 'iframe',       label: 'Web embed',    desc: 'Embed a web page',                              needsIntegration: false, category: 'Stoa Features' },
 ]
 
-const INLINE_NO_URL  = ['sports', 'stocks', 'crypto', 'weather', 'tmdb']
+const INLINE_NO_URL  = ['sports', 'stocks', 'crypto', 'weather', 'tmdb', 'plexmusic']
 const INLINE_NO_TEST = ['weather', 'steam', 'rss', 'sports', 'stocks', 'crypto']
 
 const SEARCH_ENGINE_LIST = [
@@ -164,7 +165,7 @@ const INTEGRATION_TYPES = [
   'sonarr','radarr','readarr','lidarr','plex','jellyfin','emby','homeassistant','tautulli','jellystat','tracearr','immich','kavita','komga','mylar3','kapowarr','tranga','audiobookshelf','navidrome','truenas','unraid','omv','synology','qnap','proxmox',
   'kuma','gluetun','opnsense','pfsense','openwrt','omada','unifi','traefik','cloudflare','pihole','adguard','nextdns','nginxpm','wgeasy','tailscale','prometheus','grafana','autobrr','bazarr','prowlarr','frigate','blueiris','nextcloud','netbird','scrutiny',
   'transmission','qbittorrent','deluge','rutorrent','sabnzbd','nzbget','lubelogger','tdarr','photoprism','authentik','keycloak','overseerr','fireflyiii','actualbudget','ghostfolio','coinbase','paperless','docspell','mealie','grocy','tandoor',
-  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','twitch','trakt','tmdb','spotify','lastfm','youtube',
+  'weather','steam','rss','sports','stocks','crypto','romm','pterodactyl','maintainerr','monica','homebox','wger','fittrackee','strava','duolingo','github','twitch','trakt','tmdb','spotify','lastfm','youtube','plexmusic',
 ]
 
 function IfaceCapEditor({ initialCaps, onChange }: {
