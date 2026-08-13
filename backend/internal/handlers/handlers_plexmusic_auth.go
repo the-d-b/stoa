@@ -9,6 +9,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // Plex Home users don't have their own plex.tv email/password login — the
@@ -148,6 +151,11 @@ func PlexMusicListHomeUsers(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		adminToken, err := plexMusicSourceIntegration(db, integrationID)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err.Error())
@@ -206,6 +214,11 @@ func PlexMusicConnect(db *sql.DB) http.HandlerFunc {
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.IntegrationID == "" || req.HomeUserID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId and homeUserId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, req.IntegrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		adminToken, err := plexMusicSourceIntegration(db, req.IntegrationID)
@@ -296,6 +309,11 @@ func PlexMusicGetStatus(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		var username, thumb string
 		err := db.QueryRow("SELECT plex_username, thumb_url FROM plex_music_tokens WHERE integration_id=?", integrationID).
 			Scan(&username, &thumb)
@@ -318,6 +336,11 @@ func PlexMusicDisconnect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		db.Exec("DELETE FROM plex_music_tokens WHERE integration_id=?", integrationID) //nolint:errcheck

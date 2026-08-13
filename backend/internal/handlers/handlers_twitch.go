@@ -9,6 +9,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 func twitchRedirectURI(r *http.Request) string {
@@ -35,6 +38,11 @@ func TwitchOAuthRedirect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		_, _, apiKey, _, err := resolveIntegration(db, integrationID)
@@ -122,6 +130,11 @@ func TwitchGetStatus(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		var userLogin, userName string
 		err := db.QueryRow(
 			"SELECT user_login, user_name FROM twitch_tokens WHERE integration_id=?",
@@ -148,6 +161,11 @@ func TwitchDisconnect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		db.Exec("DELETE FROM twitch_tokens WHERE integration_id=?", integrationID)

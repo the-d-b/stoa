@@ -148,6 +148,14 @@ func CreatePanel(db *sql.DB) http.HandlerFunc {
 		if req.Config == "" {
 			req.Config = "{}"
 		}
+		if cfg := parsePanelConfig(req.Config); cfg != nil {
+			for _, iid := range extractPanelIntegrationIDs(cfg) {
+				if !userCanAccessIntegration(db, claims, iid) {
+					writeError(w, http.StatusForbidden, "not authorized to use one of the referenced integrations")
+					return
+				}
+			}
+		}
 
 		// Admin creating from admin page = system panel (NULL owner)
 		// Admin via profile (scope=personal) or non-admin = owned panel
@@ -185,6 +193,14 @@ func UpdatePanel(db *sql.DB) http.HandlerFunc {
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
+		}
+		if cfg := parsePanelConfig(req.Config); cfg != nil {
+			for _, iid := range extractPanelIntegrationIDs(cfg) {
+				if !userCanAccessIntegration(db, claims, iid) {
+					writeError(w, http.StatusForbidden, "not authorized to use one of the referenced integrations")
+					return
+				}
+			}
 		}
 		// Admins can update SYSTEM-owned panels; users can only update their own
 		var result sql.Result
@@ -389,6 +405,97 @@ func parsePanelConfig(configStr string) map[string]interface{} {
 		return nil
 	}
 	return cfg
+}
+
+// extractPanelIntegrationIDs collects every integration ID a panel's config
+// references — either the common single "integrationId" field, or the
+// "sources" array multi-source panels (Map, Calendar) use, each entry shaped
+// like {type, integrationId, ...}.
+func extractPanelIntegrationIDs(config map[string]interface{}) []string {
+	var ids []string
+	if id, _ := config["integrationId"].(string); id != "" {
+		ids = append(ids, id)
+	}
+	if sources, ok := config["sources"].([]interface{}); ok {
+		for _, s := range sources {
+			if src, ok := s.(map[string]interface{}); ok {
+				if id, _ := src["integrationId"].(string); id != "" {
+					ids = append(ids, id)
+				}
+			}
+		}
+	}
+	return ids
+}
+
+// userCanAccessPanel reports whether claims' user is allowed to view/use this
+// panel, mirroring ListPanels' exact visibility rules: own panels; SYSTEM
+// panels with no group restriction; SYSTEM panels restricted to a group the
+// user belongs to. Admins see any SYSTEM panel plus their own, same as
+// ListPanels' admin branch — no group check applies to them.
+func userCanAccessPanel(db *sql.DB, claims *models.Claims, panelID, createdBy string) bool {
+	if createdBy == claims.UserID {
+		return true
+	}
+	if createdBy != "SYSTEM" {
+		return false
+	}
+	if claims.Role == models.RoleAdmin {
+		return true
+	}
+	var count int
+	db.QueryRow(`
+		SELECT COUNT(*) FROM panels p
+		WHERE p.id = ?
+		AND (
+			NOT EXISTS (SELECT 1 FROM panel_groups WHERE panel_id = p.id)
+			OR EXISTS (
+				SELECT 1 FROM panel_groups pg
+				JOIN user_groups ug ON pg.group_id = ug.group_id
+				WHERE pg.panel_id = p.id AND ug.user_id = ?
+			)
+		)
+	`, panelID, claims.UserID).Scan(&count)
+	return count > 0
+}
+
+// userCanAccessIntegration reports whether claims' user is allowed to use
+// this integration, mirroring ListIntegrations' exact visibility rules: own
+// integrations; SYSTEM integrations with no group restriction; SYSTEM
+// integrations restricted to a group the user belongs to. Admins see any
+// SYSTEM integration plus their own, same as ListIntegrations' admin branch —
+// no group check applies to them. An empty ID (nothing referenced) passes.
+func userCanAccessIntegration(db *sql.DB, claims *models.Claims, integrationID string) bool {
+	if integrationID == "" {
+		return true
+	}
+	var createdBy string
+	if err := db.QueryRow("SELECT created_by FROM integrations WHERE id=?", integrationID).Scan(&createdBy); err != nil {
+		return false
+	}
+	if createdBy == claims.UserID {
+		return true
+	}
+	if createdBy != "SYSTEM" {
+		return false
+	}
+	if claims.Role == models.RoleAdmin {
+		return true
+	}
+	var count int
+	db.QueryRow(`
+		SELECT COUNT(*) FROM integrations i
+		WHERE i.id = ?
+		AND (
+			NOT EXISTS (SELECT 1 FROM integration_groups WHERE integration_id = i.id)
+			OR EXISTS (
+				SELECT 1 FROM integration_groups ig
+				JOIN user_groups ug ON ig.group_id = ug.group_id
+				WHERE ig.integration_id = i.id AND ug.user_id = ?
+			)
+		)
+	`, integrationID, claims.UserID).Scan(&count)
+	return count > 0
 }
 
 func loadPanelTags(db *sql.DB, panelID string) []models.Tag {

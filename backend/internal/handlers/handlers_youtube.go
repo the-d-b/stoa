@@ -9,6 +9,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 func youtubeRedirectURI(r *http.Request) string {
@@ -35,6 +38,11 @@ func YouTubeOAuthRedirect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		_, _, apiKey, _, err := resolveIntegration(db, integrationID)
@@ -125,6 +133,11 @@ func YouTubeGetStatus(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		var channelTitle, profileImageURL string
 		err := db.QueryRow(
 			"SELECT channel_title, profile_image_url FROM youtube_tokens WHERE integration_id=?",
@@ -151,6 +164,11 @@ func YouTubeDisconnect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		db.Exec("DELETE FROM youtube_tokens WHERE integration_id=?", integrationID)

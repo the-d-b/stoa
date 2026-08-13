@@ -10,6 +10,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -42,6 +45,11 @@ func SpotifyOAuthRedirect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		_, _, apiKey, _, err := resolveIntegration(db, integrationID)
@@ -135,6 +143,11 @@ func SpotifyGetStatus(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		var displayName, product string
 		var expiresAt time.Time
 		err := db.QueryRow(
@@ -164,6 +177,11 @@ func SpotifyDisconnect(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		db.Exec("DELETE FROM spotify_tokens WHERE integration_id=?", integrationID)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -175,6 +193,11 @@ func SpotifyGetToken(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		token, err := spotifyGetValidToken(db, integrationID)

@@ -10,6 +10,8 @@ import (
 	"sync"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── ABS types ─────────────────────────────────────────────────────────────────
@@ -569,6 +571,12 @@ func ProxyABSCover(db *sql.DB) http.HandlerFunc {
 		integID := vars["integrationId"]
 		itemID := vars["itemId"]
 
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
+			return
+		}
+
 		apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, integID)
 		if err != nil {
 			http.Error(w, "integration not found", http.StatusNotFound)
@@ -647,6 +655,12 @@ func ProxyABSStream(db *sql.DB) http.HandlerFunc {
 		trackNum := r.URL.Query().Get("track")
 		if trackNum == "" {
 			trackNum = "1"
+		}
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
+			return
 		}
 
 		apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, integID)
@@ -748,6 +762,12 @@ func SyncABSProgress(db *sql.DB) http.HandlerFunc {
 		vars := mux.Vars(r)
 		integID := vars["integrationId"]
 		itemID := vars["itemId"]
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 
 		var req struct {
 			CurrentTime float64 `json:"currentTime"`

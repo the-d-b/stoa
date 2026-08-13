@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ImageProxy fetches artwork from an integration's API server and streams it
@@ -21,6 +24,12 @@ func ImageProxy(db *sql.DB) http.HandlerFunc {
 		imgPath := r.URL.Query().Get("url")
 		if integrationID == "" || imgPath == "" {
 			http.NotFound(w, r)
+			return
+		}
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
 			return
 		}
 

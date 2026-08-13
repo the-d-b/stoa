@@ -7,6 +7,9 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── API types (private) ───────────────────────────────────────────────────────
@@ -126,6 +129,11 @@ func SpotifyPlaybackControl(db *sql.DB) http.HandlerFunc {
 		action := r.URL.Query().Get("action")
 		if integrationID == "" || action == "" {
 			writeError(w, http.StatusBadRequest, "integrationId and action required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		token, err := spotifyGetValidToken(db, integrationID)

@@ -8,6 +8,8 @@ import (
 	"net/url"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── Tranga types ──────────────────────────────────────────────────────────────
@@ -122,6 +124,12 @@ func ProxyTrangaCover(db *sql.DB) http.HandlerFunc {
 		mangaId := r.URL.Query().Get("id")
 		if mangaId == "" {
 			http.Error(w, "missing id", http.StatusBadRequest)
+			return
+		}
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
 			return
 		}
 

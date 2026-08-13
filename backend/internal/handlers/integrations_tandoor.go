@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -228,6 +230,12 @@ func ProxyTandoorImage(db *sql.DB) http.HandlerFunc {
 		vars := mux.Vars(r)
 		integID := vars["integrationId"]
 		recipeID := vars["recipeId"]
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
+			return
+		}
 
 		baseURL, _, token, skipTLS, err := resolveIntegration(db, integID)
 		if err != nil {

@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 func radarrAddMovie(apiURL, apiKey string, skipTLS bool, tmdbID int64, title string) error {
@@ -152,9 +154,15 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		panelID := mux.Vars(r)["id"]
 
-		var configStr string
-		if err := db.QueryRow(`SELECT COALESCE(config, '{}') FROM panels WHERE id = ?`, panelID).Scan(&configStr); err != nil {
+		var configStr, panelCreatedBy string
+		if err := db.QueryRow(`SELECT COALESCE(config, '{}'), COALESCE(created_by,'') FROM panels WHERE id = ?`, panelID).
+			Scan(&configStr, &panelCreatedBy); err != nil {
 			writeError(w, http.StatusNotFound, "panel not found")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessPanel(db, claims, panelID, panelCreatedBy) {
+			writeError(w, http.StatusForbidden, "not authorized to act on this panel")
 			return
 		}
 		var panelCfg map[string]interface{}

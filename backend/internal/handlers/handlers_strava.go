@@ -9,6 +9,9 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 func stravaRedirectURI(r *http.Request) string {
@@ -35,6 +38,11 @@ func StravaOAuthRedirect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		_, _, apiKey, _, err := resolveIntegration(db, integrationID)
@@ -117,6 +125,11 @@ func StravaGetStatus(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		var athleteName string
 		var athleteID int64
 		err := db.QueryRow(
@@ -144,6 +157,11 @@ func StravaDisconnect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		db.Exec("DELETE FROM strava_tokens WHERE integration_id=?", integrationID)

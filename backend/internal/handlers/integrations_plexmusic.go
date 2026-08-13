@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // Plex Music is a personal (per-user) companion to the system Plex
@@ -419,6 +421,11 @@ func PlexMusicStream(db *sql.DB) http.HandlerFunc {
 		key := r.URL.Query().Get("key")
 		if integrationID == "" || key == "" {
 			http.Error(w, "integrationId and key required", http.StatusBadRequest)
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
 			return
 		}
 		var personalToken string

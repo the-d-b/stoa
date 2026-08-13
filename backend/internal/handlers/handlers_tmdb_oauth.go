@@ -9,6 +9,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // TMDB's "personal account" connect flow — not standard OAuth2. There's no
@@ -37,6 +39,11 @@ func TMDBAuthRedirect(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		_, _, apiKey, _, err := resolveIntegration(db, integrationID)
 		if err != nil {
 			writeError(w, http.StatusNotFound, "integration not found")
@@ -48,7 +55,13 @@ func TMDBAuthRedirect(db *sql.DB) http.HandlerFunc {
 		}
 
 		code, b, err := tmdbGet("/authentication/token/new", apiKey)
-		if err != nil || code != 200 {
+		if err != nil {
+			logErrorf("TMDB", "request token: network/TLS error: %v", err)
+			writeError(w, http.StatusBadGateway, "tmdb: failed to create request token")
+			return
+		}
+		if code != 200 {
+			logErrorf("TMDB", "request token: unexpected status %d, body: %s", code, strings.TrimSpace(string(b)))
 			writeError(w, http.StatusBadGateway, "tmdb: failed to create request token")
 			return
 		}
@@ -57,6 +70,7 @@ func TMDBAuthRedirect(db *sql.DB) http.HandlerFunc {
 			RequestToken string `json:"request_token"`
 		}
 		if json.Unmarshal(b, &tok) != nil || !tok.Success || tok.RequestToken == "" {
+			logErrorf("TMDB", "request token: unexpected response body: %s", strings.TrimSpace(string(b)))
 			writeError(w, http.StatusBadGateway, "tmdb: failed to create request token")
 			return
 		}
@@ -123,6 +137,11 @@ func TMDBGetStatus(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "integrationId required")
 			return
 		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
 		var username string
 		err := db.QueryRow("SELECT username FROM tmdb_sessions WHERE integration_id=?", integrationID).Scan(&username)
 		if err == sql.ErrNoRows {
@@ -142,6 +161,11 @@ func TMDBDisconnect(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if integrationID == "" {
 			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		db.Exec("DELETE FROM tmdb_sessions WHERE integration_id=?", integrationID) //nolint:errcheck
@@ -210,6 +234,11 @@ func TMDBListItems(db *sql.DB) http.HandlerFunc {
 		integrationID := r.URL.Query().Get("integrationId")
 		if listID == "" || integrationID == "" {
 			writeError(w, http.StatusBadRequest, "listId and integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
 			return
 		}
 		_, _, apiKey, _, err := resolveIntegration(db, integrationID)

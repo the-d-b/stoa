@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── Navidrome types ───────────────────────────────────────────────────────────
@@ -206,6 +208,12 @@ func ProxyNavidromeCover(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
+			return
+		}
+
 		apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, integID)
 		if err != nil {
 			http.Error(w, "integration not found", http.StatusNotFound)
@@ -240,6 +248,12 @@ func ProxyNavidromeStream(db *sql.DB) http.HandlerFunc {
 		songID := r.URL.Query().Get("id")
 		if songID == "" {
 			http.Error(w, "id required", http.StatusBadRequest)
+			return
+		}
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
 			return
 		}
 

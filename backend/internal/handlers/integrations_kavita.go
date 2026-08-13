@@ -10,6 +10,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // ── Kavita types ──────────────────────────────────────────────────────────────
@@ -249,6 +251,12 @@ func ProxyKavitaCover(db *sql.DB) http.HandlerFunc {
 		vars := mux.Vars(r)
 		integID := vars["integrationId"]
 		seriesID := vars["seriesId"]
+
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integID) {
+			http.Error(w, "not authorized", http.StatusForbidden)
+			return
+		}
 
 		apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, integID)
 		if err != nil {

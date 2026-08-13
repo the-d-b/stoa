@@ -283,14 +283,24 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
 
-		var panelType, configStr string
-		if err := db.QueryRow("SELECT type, COALESCE(config,'{}') FROM panels WHERE id=?", id).
-			Scan(&panelType, &configStr); err != nil {
+		var panelType, configStr, panelCreatedBy string
+		if err := db.QueryRow("SELECT type, COALESCE(config,'{}'), COALESCE(created_by,'') FROM panels WHERE id=?", id).
+			Scan(&panelType, &configStr, &panelCreatedBy); err != nil {
 			writeError(w, http.StatusNotFound, "panel not found")
 			return
 		}
 
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+
+		// Panel data is only visible to whoever can see the panel itself —
+		// same rules as ListPanels (own panels, unrestricted SYSTEM panels,
+		// or SYSTEM panels shared to a group the requester belongs to). Without
+		// this, any authenticated user who knows/guesses a panel ID could pull
+		// its data regardless of ownership.
+		if !userCanAccessPanel(db, claims, id, panelCreatedBy) {
+			writeError(w, http.StatusForbidden, "not authorized to view this panel")
+			return
+		}
 
 		// "dockerapps" reads live container labels, which are gated the same
 		// way as the existing admin Docker container list — by docker_enabled
@@ -369,6 +379,19 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		if !ok {
 			writeError(w, http.StatusBadRequest, "unsupported panel type: "+panelType)
 			return
+		}
+
+		// A panel's own visibility doesn't guarantee its config actually points
+		// at integration(s) the requester is allowed to see — nothing prevents
+		// (pre-existing) a panel from being saved referencing someone else's
+		// integration ID. Re-check every referenced integration (covers both
+		// the single integrationId panels use and the multi-source array Map/
+		// Calendar panels use) before any data is fetched or served from cache.
+		for _, iid := range extractPanelIntegrationIDs(config) {
+			if !userCanAccessIntegration(db, claims, iid) {
+				writeError(w, http.StatusForbidden, "not authorized to use one of this panel's integrations")
+				return
+			}
 		}
 
 		// Serve from cache only when no query param overrides are active.
