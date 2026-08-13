@@ -3,12 +3,17 @@ package handlers
 import (
 	"bytes"
 	"crypto/tls"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/the-d-b/stoa/internal/auth"
+	"github.com/the-d-b/stoa/internal/models"
 )
 
 // Package-level HTTP clients with connection pooling and TLS session reuse.
@@ -97,4 +102,59 @@ func arrGet(apiURL, apiKey, path string, skipTLS ...bool) ([]byte, error) {
 		return nil, fmt.Errorf("HTTP %d from %s", resp.StatusCode, url)
 	}
 	return io.ReadAll(resp.Body)
+}
+
+// ── Add-defaults options (quality profiles + root folders) ────────────────────
+
+type arrQualityProfile struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+}
+
+type arrRootFolder struct {
+	Path string `json:"path"`
+}
+
+// GetArrOptions lists quality profiles and root folders for a Radarr/Sonarr
+// (or any Servarr-family) integration — used to populate the "default
+// quality profile" / "default root folder" pickers on the integration's own
+// config, so add-to-Radarr/Sonarr actions don't have to blindly take
+// whichever profile/folder the server happens to return first.
+func GetArrOptions(db *sql.DB) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		integrationID := r.URL.Query().Get("integrationId")
+		if integrationID == "" {
+			writeError(w, http.StatusBadRequest, "integrationId required")
+			return
+		}
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
+		if !userCanAccessIntegration(db, claims, integrationID) {
+			writeError(w, http.StatusForbidden, "not authorized")
+			return
+		}
+		apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+		if err != nil {
+			writeError(w, http.StatusNotFound, "integration not found")
+			return
+		}
+
+		var profiles []arrQualityProfile
+		if b, err := arrGet(apiURL, apiKey, "/api/v3/qualityprofile", skipTLS); err == nil {
+			json.Unmarshal(b, &profiles) //nolint:errcheck
+		}
+		var folders []arrRootFolder
+		if b, err := arrGet(apiURL, apiKey, "/api/v3/rootfolder", skipTLS); err == nil {
+			json.Unmarshal(b, &folders) //nolint:errcheck
+		}
+		if profiles == nil {
+			profiles = []arrQualityProfile{}
+		}
+		if folders == nil {
+			folders = []arrRootFolder{}
+		}
+		writeJSON(w, http.StatusOK, map[string]interface{}{
+			"qualityProfiles": profiles,
+			"rootFolders":     folders,
+		})
+	}
 }

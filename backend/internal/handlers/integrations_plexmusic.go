@@ -77,6 +77,10 @@ type plexPlaylistsResponse struct {
 
 type plexPlaylistXML struct {
 	RatingKey string `xml:"ratingKey,attr"`
+	// Key is only populated for radio stations, which — confirmed via a live
+	// hubs response — carry no ratingKey at all; they're identified by their
+	// own section-relative path instead (e.g. /library/sections/13/stations/1).
+	Key       string `xml:"key,attr"`
 	Title     string `xml:"title,attr"`
 	LeafCount int    `xml:"leafCount,attr"`
 	Composite string `xml:"composite,attr"`
@@ -223,6 +227,14 @@ func fetchPlexMusicPanelData(db *sql.DB, config map[string]interface{}) (*PlexMu
 				if dir.Type != "artist" {
 					continue
 				}
+				// Audiobooks libraries are also type="artist" in Plex (they
+				// piggyback on the music library type) but use the audnexus
+				// agent instead of a real music agent — confirmed live via
+				// an audiobook library's stations/stats incorrectly showing
+				// up here. Skip them; only real music libraries belong here.
+				if strings.Contains(strings.ToLower(dir.Agent), "audnexus") {
+					continue
+				}
 				out.ArtistCount += plexLibraryTypeCount(serverURL, personalToken, skipTLS, dir.Key, 8)
 				out.AlbumCount += plexLibraryTypeCount(serverURL, personalToken, skipTLS, dir.Key, 9)
 				out.TrackCount += plexLibraryTypeCount(serverURL, personalToken, skipTLS, dir.Key, 10)
@@ -354,8 +366,16 @@ func fetchPlexMusicStations(baseURL, token string, skipTLS bool, sectionKey, sou
 		}
 		out := make([]PlexMusicPlaylist, 0, len(hub.Playlists))
 		for _, p := range hub.Playlists {
+			// Confirmed via a live response: station Playlist stubs carry no
+			// ratingKey at all — fall back to their own key path, which also
+			// doubles as the fetch endpoint for their (dynamically generated)
+			// tracks. leafCount is always 0 for stations too (no fixed count).
+			id := p.RatingKey
+			if id == "" {
+				id = p.Key
+			}
 			out = append(out, PlexMusicPlaylist{
-				RatingKey: p.RatingKey,
+				RatingKey: id,
 				Title:     p.Title,
 				ItemCount: p.LeafCount,
 				ThumbURL:  plexThumbURL(sourceIntegrationID, p.Composite),
@@ -367,11 +387,23 @@ func fetchPlexMusicStations(baseURL, token string, skipTLS bool, sectionKey, sou
 	return nil
 }
 
-// fetchPlexMusicPlaylistTracks fetches the tracks of one playlist, mirroring
-// Navidrome's getPlaylist.view fetch (integrations_navidrome.go). Tracks
-// with no playable Part are skipped — nothing to stream for them.
-func fetchPlexMusicPlaylistTracks(baseURL, token string, skipTLS bool, playlistRatingKey, sourceIntegrationID string) []PlexMusicTrack {
-	path := fmt.Sprintf("/playlists/%s/items", url.QueryEscape(playlistRatingKey))
+// fetchPlexMusicPlaylistTracks fetches the tracks of one playlist or radio
+// station, mirroring Navidrome's getPlaylist.view fetch
+// (integrations_navidrome.go). Tracks with no playable Part are skipped —
+// nothing to stream for them.
+func fetchPlexMusicPlaylistTracks(baseURL, token string, skipTLS bool, playlistID, sourceIntegrationID string) []PlexMusicTrack {
+	if strings.HasPrefix(playlistID, "/") {
+		// Radio stations have no ratingKey — they're identified by their own
+		// section-relative path (e.g. /library/sections/13/stations/1).
+		// Confirmed (via python-plexapi's own Playlist._fetchItems, which
+		// returns [] immediately for radio=1 playlists — even the reference
+		// client doesn't try to list a station's items directly) and via two
+		// live 404s of our own (bare key, key+/items) that stations have no
+		// listable items endpoint at all — they only generate tracks when
+		// actually "played" via a PlayQueue.
+		return fetchPlexMusicStationTracks(baseURL, token, skipTLS, playlistID, sourceIntegrationID)
+	}
+	path := fmt.Sprintf("/playlists/%s/items", url.QueryEscape(playlistID))
 	body, err := plexGet(baseURL, token, path, skipTLS)
 	if err != nil {
 		logErrorf("PLEXMUSIC", "playlist items error: %v", err)
@@ -382,8 +414,72 @@ func fetchPlexMusicPlaylistTracks(baseURL, token string, skipTLS bool, playlistR
 		logErrorf("PLEXMUSIC", "playlist items: unexpected response: %s", strings.TrimSpace(string(body)))
 		return nil
 	}
-	out := make([]PlexMusicTrack, 0, len(pr.Tracks))
-	for _, t := range pr.Tracks {
+	if len(pr.Tracks) == 0 {
+		logErrorf("PLEXMUSIC", "playlist items: parsed OK but 0 tracks (id=%s), raw response: %s", playlistID, strings.TrimSpace(string(body)))
+	}
+	return mapPlexMusicTracks(pr.Tracks, sourceIntegrationID)
+}
+
+// fetchPlexMusicStationTracks generates a radio station's track list by
+// creating a Plex PlayQueue — confirmed against python-plexapi's
+// PlayQueue.create(), which for a Playlist-type item (stations are
+// type="playlist" with radio="1") POSTs to /playQueues with
+// uri=server://{machineIdentifier}/com.plexapp.plugins.library{stationKey}.
+// The PlayQueue response uses the same <Track> shape as a regular playlist's
+// /items response, so it reuses the same parsing struct and track mapper.
+func fetchPlexMusicStationTracks(baseURL, token string, skipTLS bool, stationKey, sourceIntegrationID string) []PlexMusicTrack {
+	idBody, err := plexGet(baseURL, token, "/", skipTLS)
+	if err != nil {
+		logErrorf("PLEXMUSIC", "station playqueue: could not identify server: %v", err)
+		return nil
+	}
+	var idmc plexMediaContainer
+	if xml.Unmarshal(idBody, &idmc) != nil || idmc.MachineIdentifier == "" {
+		logErrorf("PLEXMUSIC", "station playqueue: could not identify server (missing machineIdentifier)")
+		return nil
+	}
+	uri := fmt.Sprintf("server://%s/com.plexapp.plugins.library%s", idmc.MachineIdentifier, stationKey)
+	path := fmt.Sprintf("/playQueues?type=audio&uri=%s&shuffle=0&repeat=0", url.QueryEscape(uri))
+	// A PlayQueue is a stateful, client-owned object — unlike the plain reads
+	// used everywhere else in this file, Plex rejects this one with HTTP 400
+	// unless the request identifies which client it belongs to (confirmed
+	// live: adding X-Plex-Client-Identifier, the same one used for the
+	// plex.tv account-level connect flow, is what this endpoint requires).
+	reqURL := strings.TrimRight(baseURL, "/") + path + "&X-Plex-Token=" + token
+	httpReq, herr := http.NewRequest("POST", reqURL, nil)
+	if herr != nil {
+		logErrorf("PLEXMUSIC", "station playqueue: bad request: %v", herr)
+		return nil
+	}
+	httpReq.Header.Set("X-Plex-Client-Identifier", plexClientIdentifier)
+	resp, err := httpClient(skipTLS).Do(httpReq)
+	if err != nil {
+		logErrorf("PLEXMUSIC", "station playqueue error: %v", err)
+		return nil
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		logErrorf("PLEXMUSIC", "station playqueue: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+		return nil
+	}
+	var pq plexPlaylistItemsResponse
+	if xml.Unmarshal(body, &pq) != nil {
+		logErrorf("PLEXMUSIC", "station playqueue: unexpected response: %s", strings.TrimSpace(string(body)))
+		return nil
+	}
+	if len(pq.Tracks) == 0 {
+		logErrorf("PLEXMUSIC", "station playqueue: parsed OK but 0 tracks, raw response: %s", strings.TrimSpace(string(body)))
+	}
+	return mapPlexMusicTracks(pq.Tracks, sourceIntegrationID)
+}
+
+// mapPlexMusicTracks converts raw <Track> XML (shared by both the regular
+// /playlists/{id}/items response and the /playQueues response) into playable
+// track entries. Tracks with no playable Part are skipped.
+func mapPlexMusicTracks(tracks []plexPlaylistTrackXML, sourceIntegrationID string) []PlexMusicTrack {
+	out := make([]PlexMusicTrack, 0, len(tracks))
+	for _, t := range tracks {
 		var streamKey string
 		if len(t.Media) > 0 && len(t.Media[0].Parts) > 0 {
 			streamKey = t.Media[0].Parts[0].Key

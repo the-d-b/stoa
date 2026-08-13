@@ -11,7 +11,46 @@ import (
 	"github.com/the-d-b/stoa/internal/models"
 )
 
-func radarrAddMovie(apiURL, apiKey string, skipTLS bool, tmdbID int64, title string) error {
+// arrAddDefaults holds the per-integration preferences for how a
+// add-to-Radarr/Sonarr action should behave — which quality profile and root
+// folder to use, and whether to kick off an immediate search. Without this,
+// adds always took whichever profile/folder the server happened to return
+// first, which for a multi-profile setup (e.g. a 2160p profile sorting
+// before a 720p one) could silently trigger a huge, unwanted download.
+type arrAddDefaults struct {
+	QualityProfileID int
+	RootFolderPath   string
+	AutoSearch       bool
+}
+
+// readArrAddDefaults reads the optional defaultQualityProfileId/
+// defaultRootFolderPath/autoSearchOnAdd keys from a Radarr/Sonarr
+// integration's own config. AutoSearch defaults to true (today's fixed
+// behavior) when the key is absent, so integrations that never touch the
+// new config UI keep working exactly as before.
+func readArrAddDefaults(db *sql.DB, integrationID string) arrAddDefaults {
+	d := arrAddDefaults{AutoSearch: true}
+	cfgJSON, err := readIntegrationConfig(db, integrationID)
+	if err != nil {
+		return d
+	}
+	var cfg struct {
+		DefaultQualityProfileID int    `json:"defaultQualityProfileId"`
+		DefaultRootFolderPath   string `json:"defaultRootFolderPath"`
+		AutoSearchOnAdd         *bool  `json:"autoSearchOnAdd"`
+	}
+	if json.Unmarshal([]byte(cfgJSON), &cfg) != nil {
+		return d
+	}
+	d.QualityProfileID = cfg.DefaultQualityProfileID
+	d.RootFolderPath = cfg.DefaultRootFolderPath
+	if cfg.AutoSearchOnAdd != nil {
+		d.AutoSearch = *cfg.AutoSearchOnAdd
+	}
+	return d
+}
+
+func radarrAddMovie(apiURL, apiKey string, skipTLS bool, tmdbID int64, title string, defaults arrAddDefaults) error {
 	b, err := arrGet(apiURL, apiKey, "/api/v3/qualityprofile", skipTLS)
 	if err != nil {
 		return fmt.Errorf("radarr qualityprofile: %w", err)
@@ -34,19 +73,40 @@ func radarrAddMovie(apiURL, apiKey string, skipTLS bool, tmdbID int64, title str
 		return fmt.Errorf("radarr: no root folders configured")
 	}
 
+	// Use the configured default only if it still exists on the server —
+	// otherwise fall back to "whatever comes back first", same as before.
+	qualityProfileID := profiles[0].ID
+	if defaults.QualityProfileID != 0 {
+		for _, p := range profiles {
+			if p.ID == defaults.QualityProfileID {
+				qualityProfileID = p.ID
+				break
+			}
+		}
+	}
+	rootFolderPath := folders[0].Path
+	if defaults.RootFolderPath != "" {
+		for _, f := range folders {
+			if f.Path == defaults.RootFolderPath {
+				rootFolderPath = f.Path
+				break
+			}
+		}
+	}
+
 	payload, _ := json.Marshal(map[string]interface{}{
 		"tmdbId":           tmdbID,
 		"title":            title,
-		"qualityProfileId": profiles[0].ID,
-		"rootFolderPath":   folders[0].Path,
+		"qualityProfileId": qualityProfileID,
+		"rootFolderPath":   rootFolderPath,
 		"monitored":        true,
-		"addOptions":       map[string]bool{"searchForMovie": true},
+		"addOptions":       map[string]bool{"searchForMovie": defaults.AutoSearch},
 	})
 	_, err = arrPost(apiURL, apiKey, "/api/v3/movie", skipTLS, payload)
 	return err
 }
 
-func sonarrAddShow(apiURL, apiKey string, skipTLS bool, tvdbID int64) error {
+func sonarrAddShow(apiURL, apiKey string, skipTLS bool, tvdbID int64, defaults arrAddDefaults) error {
 	b, err := arrGet(apiURL, apiKey, fmt.Sprintf("/api/v3/series/lookup?term=tvdb%%3A%d", tvdbID), skipTLS)
 	if err != nil {
 		return fmt.Errorf("sonarr lookup: %w", err)
@@ -79,10 +139,29 @@ func sonarrAddShow(apiURL, apiKey string, skipTLS bool, tvdbID int64) error {
 		return fmt.Errorf("sonarr: no root folders configured")
 	}
 
-	series["qualityProfileId"] = profiles[0].ID
-	series["rootFolderPath"] = folders[0].Path
+	qualityProfileID := profiles[0].ID
+	if defaults.QualityProfileID != 0 {
+		for _, p := range profiles {
+			if p.ID == defaults.QualityProfileID {
+				qualityProfileID = p.ID
+				break
+			}
+		}
+	}
+	rootFolderPath := folders[0].Path
+	if defaults.RootFolderPath != "" {
+		for _, f := range folders {
+			if f.Path == defaults.RootFolderPath {
+				rootFolderPath = f.Path
+				break
+			}
+		}
+	}
+
+	series["qualityProfileId"] = qualityProfileID
+	series["rootFolderPath"] = rootFolderPath
 	series["monitored"] = true
-	series["addOptions"] = map[string]interface{}{"searchForMissingEpisodes": true}
+	series["addOptions"] = map[string]interface{}{"searchForMissingEpisodes": defaults.AutoSearch}
 
 	payload, _ := json.Marshal(series)
 	_, err = arrPost(apiURL, apiKey, "/api/v3/series", skipTLS, payload)
@@ -198,7 +277,8 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 				writeError(w, http.StatusInternalServerError, "Radarr integration not found")
 				return
 			}
-			if err := radarrAddMovie(apiURL, apiKey, skipTLS, req.TMDbID, req.Title); err != nil {
+			defaults := readArrAddDefaults(db, iid)
+			if err := radarrAddMovie(apiURL, apiKey, skipTLS, req.TMDbID, req.Title, defaults); err != nil {
 				writeError(w, http.StatusBadGateway, err.Error())
 				return
 			}
@@ -234,7 +314,8 @@ func PanelAction(db *sql.DB) http.HandlerFunc {
 				writeError(w, http.StatusInternalServerError, "Sonarr integration not found")
 				return
 			}
-			if err := sonarrAddShow(apiURL, apiKey, skipTLS, tvdbID); err != nil {
+			defaults := readArrAddDefaults(db, iid)
+			if err := sonarrAddShow(apiURL, apiKey, skipTLS, tvdbID, defaults); err != nil {
 				writeError(w, http.StatusBadGateway, err.Error())
 				return
 			}

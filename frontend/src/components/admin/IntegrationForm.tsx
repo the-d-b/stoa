@@ -376,6 +376,18 @@ export default function IntegrationForm({
     } finally { setPlexConnecting(false) }
   }
 
+  // ── Radarr/Sonarr add defaults (quality profile, root folder, auto-search) ─
+  const [arrQualityProfiles, setArrQualityProfiles] = useState<{ id: number; name: string }[]>([])
+  const [arrRootFolders, setArrRootFolders] = useState<{ path: string }[]>([])
+
+  useEffect(() => {
+    if (!isEdit || (integration?.type !== 'radarr' && integration?.type !== 'sonarr')) return
+    fetch(`/api/arr/options?integrationId=${integration!.id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('stoa_token') ?? ''}` } })
+      .then(r => r.json())
+      .then(d => { setArrQualityProfiles(d.qualityProfiles || []); setArrRootFolders(d.rootFolders || []) })
+      .catch(() => { setArrQualityProfiles([]); setArrRootFolders([]) })
+  }, [isEdit, integration?.id, integration?.type])
+
   // ── Test connection ────────────────────────────────────────────────────────
   const [testResult, setTestResult] = useState<{
     ok: boolean; error?: string; tlsError?: boolean; skipTlsWorks?: boolean
@@ -877,6 +889,66 @@ export default function IntegrationForm({
             <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
               After creating the integration, open it to connect as one of your Plex Home users.
             </div>
+          )}
+        </div>
+      ) : (activeType === 'radarr' || activeType === 'sonarr') ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+            Controls what happens when you click "add to {activeType === 'radarr' ? 'Radarr' : 'Sonarr'}" from a
+            discovery panel (Trakt/TMDB). Leave unset to use whichever profile/folder {activeType === 'radarr' ? 'Radarr' : 'Sonarr'} returns first.
+          </div>
+          {!isEdit ? (
+            <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+              After creating the integration, open it to set a default quality profile, root folder, and
+              auto-search behavior.
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="label">Default quality profile</label>
+                <select className="input" value={(() => { try { return JSON.parse(igConfig || '{}').defaultQualityProfileId ?? '' } catch { return '' } })()}
+                  onChange={e => {
+                    let cfg: any = {}
+                    try { cfg = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+                    cfg.defaultQualityProfileId = e.target.value ? Number(e.target.value) : undefined
+                    setIgConfig(JSON.stringify(cfg))
+                  }}
+                  style={{ cursor: 'pointer' }}>
+                  <option value="">Use whichever comes first</option>
+                  {arrQualityProfiles.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="label">Default root folder</label>
+                <select className="input" value={(() => { try { return JSON.parse(igConfig || '{}').defaultRootFolderPath ?? '' } catch { return '' } })()}
+                  onChange={e => {
+                    let cfg: any = {}
+                    try { cfg = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+                    cfg.defaultRootFolderPath = e.target.value || undefined
+                    setIgConfig(JSON.stringify(cfg))
+                  }}
+                  style={{ cursor: 'pointer' }}>
+                  <option value="">Use whichever comes first</option>
+                  {arrRootFolders.map(f => <option key={f.path} value={f.path}>{f.path}</option>)}
+                </select>
+              </div>
+              {arrQualityProfiles.length === 0 && arrRootFolders.length === 0 && (
+                <div style={{ fontSize: 11, color: 'var(--amber)' }}>
+                  Couldn't reach {activeType === 'radarr' ? 'Radarr' : 'Sonarr'} to list profiles/folders — check the URL and API key above.
+                </div>
+              )}
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text)', cursor: 'pointer' }}>
+                <input type="checkbox"
+                  checked={(() => { try { return JSON.parse(igConfig || '{}').autoSearchOnAdd ?? true } catch { return true } })()}
+                  onChange={e => {
+                    let cfg: any = {}
+                    try { cfg = JSON.parse(igConfig || '{}') } catch { /* ignore malformed */ }
+                    cfg.autoSearchOnAdd = e.target.checked
+                    setIgConfig(JSON.stringify(cfg))
+                  }} />
+                Start search automatically when added
+              </label>
+            </>
           )}
         </div>
       ) : activeType === 'strava' ? (

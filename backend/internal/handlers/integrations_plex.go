@@ -73,6 +73,11 @@ type plexDir struct {
 	Type  string `xml:"type,attr"`
 	Count int    `xml:"count,attr"`
 	Key   string `xml:"key,attr"`
+	// Agent distinguishes a real music library from an Audiobooks library —
+	// confirmed live that Plex types Audiobooks sections as type="artist"
+	// too (it piggybacks on the music library type), but Audiobooks sections
+	// use the audnexus metadata agent instead of a standard music agent.
+	Agent string `xml:"agent,attr"`
 }
 
 type plexVideo struct {
@@ -353,6 +358,25 @@ func plexGet(baseURL, token, path string, skipTLS ...bool) ([]byte, error) {
 	}
 	client := httpClient(len(skipTLS) > 0 && skipTLS[0])
 	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("HTTP %d from Plex", resp.StatusCode)
+	}
+	return io.ReadAll(resp.Body)
+}
+
+func plexPost(baseURL, token, path string, skipTLS ...bool) ([]byte, error) {
+	url := strings.TrimRight(baseURL, "/") + path
+	if strings.Contains(url, "?") {
+		url += "&X-Plex-Token=" + token
+	} else {
+		url += "?X-Plex-Token=" + token
+	}
+	client := httpClient(len(skipTLS) > 0 && skipTLS[0])
+	resp, err := client.Post(url, "", nil)
 	if err != nil {
 		return nil, err
 	}

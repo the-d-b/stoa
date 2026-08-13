@@ -375,6 +375,7 @@ func main() {
 	protected.HandleFunc("/integrations", handlers.ListIntegrations(database)).Methods("GET")
 	protected.HandleFunc("/panels/{id}/data", handlers.GetPanelData(database)).Methods("GET")
 	protected.HandleFunc("/panels/{id}/action", handlers.PanelAction(database)).Methods("POST")
+	protected.HandleFunc("/arr/options", handlers.GetArrOptions(database)).Methods("GET")
 	protected.HandleFunc("/integrations", handlers.CreateIntegration(database)).Methods("POST")
 	admin.HandleFunc("/integrations/{id}", handlers.UpdateIntegration(database)).Methods("PUT")
 	admin.HandleFunc("/integrations/{id}", handlers.DeleteIntegration(database)).Methods("DELETE")
