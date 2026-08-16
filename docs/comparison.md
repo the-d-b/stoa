@@ -2,6 +2,10 @@
 
 How Stoa compares to other popular self-hosted dashboard apps. Last updated July 2026 — features change; check each project's docs for the latest.
 
+### Beyond the checklist
+
+The table below is a feature checklist, but the more meaningful gap isn't any single row in it. Most of these tools — Stoa included, originally — are viewports: they display the state of your other services and link out to them. As Stoa has grown, it's increasingly become something else: it *acts* on your infrastructure instead of only showing it. Add a movie to Radarr or a show to Sonarr straight from a discovery panel. Create a real calendar event from inside Stoa. Play your Plex or Navidrome library — including personal, per-person playlists and radio stations — directly in the browser, not just see that it's running. Combined with genuine multi-user awareness (each household member gets their own personal integrations and panels, not just a shared login), Stoa is less "a dashboard that competes with the tools below" and more "a personal, interactive command center for a household" — those tools were the inspiration, not really the competition anymore.
+
 ✅ Supported &nbsp;&nbsp; 🟡 Partial / limited &nbsp;&nbsp; ❌ Not supported
 
 | | Multi-user & roles | Per-user layout | Named views | 90+ live integrations | Real-time (WS/SSE) | Google Calendar | Location map | Sports scores | Stocks & Crypto | Docker management | Notes & Checklists | Kanban boards | Glyphs & Tickers | OAuth / SSO | Audit log |
