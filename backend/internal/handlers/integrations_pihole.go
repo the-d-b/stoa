@@ -31,6 +31,15 @@ type PiHoleUpstream struct {
 	Percent float64 `json:"percent"`
 }
 
+// PiHoleList is one configured adlist (block or allow). v6 only — there's no
+// v5 equivalent wired up, so this is always empty on a v5 integration.
+type PiHoleList struct {
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	Type    string `json:"type"` // "block" or "allow"
+	Count   int    `json:"count"`
+}
+
 type PiHolePanelData struct {
 	UIURL           string  `json:"uiUrl"`
 	IntegrationID   string  `json:"integrationId"`
@@ -43,14 +52,14 @@ type PiHolePanelData struct {
 	GravityDomains  int     `json:"gravityDomains"`
 	GravityUpdated  int64   `json:"gravityUpdated"` // unix timestamp; 0 for v5
 	BlockingEnabled bool    `json:"blockingEnabled"`
-	// Last 24h in 10-minute buckets (up to 144 entries)
-	OverTimeTotal   []int              `json:"overTimeTotal"`
-	OverTimeBlocked []int              `json:"overTimeBlocked"`
-	TopPermitted    []PiHoleDomain     `json:"topPermitted"`
-	TopBlocked      []PiHoleDomain     `json:"topBlocked"`
-	TopClients      []PiHoleClient     `json:"topClients"`
-	QueryTypes      map[string]float64 `json:"queryTypes"` // e.g. "A": 78.5
-	Upstreams       []PiHoleUpstream   `json:"upstreams"`
+	// Last 24h (or selected range) in 10-minute buckets
+	OverTimeTotal   []int            `json:"overTimeTotal"`
+	OverTimeBlocked []int            `json:"overTimeBlocked"`
+	TopPermitted    []PiHoleDomain   `json:"topPermitted"`
+	TopBlocked      []PiHoleDomain   `json:"topBlocked"`
+	TopClients      []PiHoleClient   `json:"topClients"`
+	Upstreams       []PiHoleUpstream `json:"upstreams"`
+	Lists           []PiHoleList     `json:"lists"`
 }
 
 // ── Session cache (v6) ────────────────────────────────────────────────────────
@@ -74,8 +83,12 @@ var (
 
 // ── Version detection ─────────────────────────────────────────────────────────
 
-// phDetectVersion probes GET /api/info/version (no auth in v6).
-// Returns "v6" if the endpoint responds 200, else "v5".
+// phDetectVersion probes GET /api/info/version. Confirmed live that some
+// Pi-hole v6 builds require auth on this endpoint (401, not a bare 200) —
+// the endpoint's mere existence is what signals v6, since v5 has no /api
+// namespace at all and 404s here. So treat anything other than 404 (or a
+// failed request) as v6, not just a literal 200.
+// Returns "v6" if the endpoint exists (any non-404 response), else "v5".
 func phDetectVersion(integID, baseURL string, skipTLS bool) string {
 	phVerCacheMu.Lock()
 	if v, ok := phVerCache[integID]; ok {
@@ -90,7 +103,7 @@ func phDetectVersion(integID, baseURL string, skipTLS bool) string {
 		resp, err2 := httpClient(skipTLS).Do(req)
 		if err2 == nil {
 			resp.Body.Close()
-			if resp.StatusCode == 200 {
+			if resp.StatusCode != http.StatusNotFound {
 				v = "v6"
 			}
 		}
@@ -283,9 +296,23 @@ func phV6Blocking(integID, baseURL, pass string, skipTLS bool) bool {
 	return r.Blocking != "disabled"
 }
 
-func phV6OverTime(integID, baseURL, pass string, skipTLS bool) ([]int, []int) {
-	raw, err := phV6Get(integID, baseURL, pass, "/api/stats/overTimeData10mins", skipTLS)
+// phV6OverTime fetches 10-minute-bucketed query history. Confirmed live that
+// the v5-era /api/stats/overTimeData10mins path 404s — v6 moved this to a
+// bare /api/history (no /stats/ prefix, no query params needed; it already
+// returns the full day by default).
+// days <= 1 uses the bare /api/history call with no params — the one
+// confirmed-working shape (defaults to the last 24h). Wider ranges append
+// from/until, which is UNCONFIRMED — the environment this was built against
+// had less than a day of retained history to test a wider window against.
+func phV6OverTime(integID, baseURL, pass string, skipTLS bool, days float64) ([]int, []int) {
+	path := "/api/history"
+	if days > 1 {
+		from, until := phRangeFromDays(days)
+		path = fmt.Sprintf("/api/history?from=%d&until=%d", from, until)
+	}
+	raw, err := phV6Get(integID, baseURL, pass, path, skipTLS)
 	if err != nil {
+		logErrorf("PIHOLE", "overtime error: %v", err)
 		return nil, nil
 	}
 	var r struct {
@@ -296,7 +323,11 @@ func phV6OverTime(integID, baseURL, pass string, skipTLS bool) ([]int, []int) {
 		} `json:"history"`
 	}
 	if err := json.Unmarshal(raw, &r); err != nil {
+		logErrorf("PIHOLE", "overtime: unexpected response: %s", strings.TrimSpace(string(raw)))
 		return nil, nil
+	}
+	if len(r.History) == 0 {
+		logErrorf("PIHOLE", "overtime: parsed OK but 0 history entries, raw response: %s", strings.TrimSpace(string(raw)))
 	}
 	totals := make([]int, len(r.History))
 	blocked := make([]int, len(r.History))
@@ -307,11 +338,19 @@ func phV6OverTime(integID, baseURL, pass string, skipTLS bool) ([]int, []int) {
 	return totals, blocked
 }
 
-// phV6TopDomains fetches top domains from a v6 endpoint, handling both
-// the nested map format and flat items array format.
-func phV6TopDomains(integID, baseURL, pass, endpoint string, skipTLS bool) []PiHoleDomain {
-	raw, err := phV6Get(integID, baseURL, pass, endpoint+"?count=10", skipTLS)
+// phV6TopDomains fetches top permitted or top blocked domains from v6.
+// The old separate top_items/top_ad_items endpoints 404 live — confirmed
+// FTL's own OpenAPI spec merged these into one endpoint with a `blocked`
+// param instead (the spec's URL prefix didn't match this server's confirmed
+// /api/stats/database/ naming, so the exact path here is a best-informed
+// guess, not directly confirmed live — if this still 404s, the logging
+// below will show it plainly rather than failing silently).
+func phV6TopDomains(integID, baseURL, pass string, blocked bool, skipTLS bool, days float64) []PiHoleDomain {
+	from, until := phRangeFromDays(days)
+	path := fmt.Sprintf("/api/stats/database/top_domains?count=10&blocked=%t&from=%d&until=%d", blocked, from, until)
+	raw, err := phV6Get(integID, baseURL, pass, path, skipTLS)
 	if err != nil {
+		logErrorf("PIHOLE", "top domains (blocked=%t) error: %v", blocked, err)
 		return nil
 	}
 	// Format 1: {"queries": {"top_queries": {"domain": N}}} or top_ads
@@ -343,99 +382,144 @@ func phV6TopDomains(integID, baseURL, pass, endpoint string, skipTLS bool) []PiH
 		}
 		return out
 	}
-	return nil
-}
-
-func phV6TopClients(integID, baseURL, pass string, skipTLS bool) []PiHoleClient {
-	raw, err := phV6Get(integID, baseURL, pass, "/api/stats/database/top_clients?count=10", skipTLS)
-	if err != nil {
-		return nil
+	// Format 3: {"domains": [{"domain": "...", "count": N}], "total_queries": N}
+	var r3 struct {
+		Domains []struct {
+			Domain string `json:"domain"`
+			Count  int    `json:"count"`
+		} `json:"domains"`
 	}
-	// Format 1: {"clients": {"top_sources": {"name": N}}}
-	var r1 struct {
-		Clients struct {
-			TopSources map[string]int `json:"top_sources"`
-		} `json:"clients"`
-	}
-	if json.Unmarshal(raw, &r1) == nil && len(r1.Clients.TopSources) > 0 {
-		return phMapToClients(r1.Clients.TopSources)
-	}
-	// Format 2: {"items": [{"name": "...", "count": N}]}
-	var r2 struct {
-		Items []struct {
-			Name  string `json:"name"`
-			Count int    `json:"count"`
-		} `json:"items"`
-	}
-	if json.Unmarshal(raw, &r2) == nil && len(r2.Items) > 0 {
-		out := make([]PiHoleClient, 0, len(r2.Items))
-		for _, item := range r2.Items {
-			out = append(out, PiHoleClient{Name: item.Name, Count: item.Count})
+	if json.Unmarshal(raw, &r3) == nil && len(r3.Domains) > 0 {
+		out := make([]PiHoleDomain, 0, len(r3.Domains))
+		for _, item := range r3.Domains {
+			out = append(out, PiHoleDomain{Name: item.Domain, Count: item.Count})
 		}
 		return out
 	}
+	logErrorf("PIHOLE", "top domains (blocked=%t): no known response shape matched, raw response: %s", blocked, strings.TrimSpace(string(raw)))
 	return nil
 }
 
-func phV6QueryTypes(integID, baseURL, pass string, skipTLS bool) map[string]float64 {
-	raw, err := phV6Get(integID, baseURL, pass, "/api/stats/database/query_types", skipTLS)
+// ph24hRange returns a (from, until) unix-seconds pair covering the last 24h —
+// confirmed live that Pi-hole v6's /database/ endpoints 400 with "You need to
+// specify both from and until" unless both are supplied (unix seconds, per
+// FTL's own OpenAPI spec); the non-database endpoints (e.g. /api/stats/upstreams)
+// don't need this and work on whatever window Pi-hole itself is tracking.
+// days <= 0 defaults to 1 (the original 24h behavior, still the default
+// with no picker selection). NOTE: whether the underlying endpoints actually
+// return more than ~24h of data for days > 1 is unconfirmed — the test
+// environment this was built against didn't have enough retained history to
+// verify a wider window actually returns more buckets.
+func phRangeFromDays(days float64) (int64, int64) {
+	if days <= 0 {
+		days = 1
+	}
+	now := time.Now().Unix()
+	return now - int64(days*86400), now
+}
+
+func phV6TopClients(integID, baseURL, pass string, skipTLS bool, days float64) []PiHoleClient {
+	from, until := phRangeFromDays(days)
+	path := fmt.Sprintf("/api/stats/database/top_clients?count=10&from=%d&until=%d", from, until)
+	raw, err := phV6Get(integID, baseURL, pass, path, skipTLS)
 	if err != nil {
+		logErrorf("PIHOLE", "top clients error: %v", err)
 		return nil
 	}
-	// Outer structure varies; look for a nested map[string]float64 or map[string]int
-	var outer map[string]json.RawMessage
-	if json.Unmarshal(raw, &outer) != nil {
-		return nil
+	// Confirmed live shape: a flat array under "clients" with ip/name/count —
+	// name is often empty (no reverse-DNS/DHCP hostname known), fall back to ip.
+	var r struct {
+		Clients []struct {
+			IP    string `json:"ip"`
+			Name  string `json:"name"`
+			Count int    `json:"count"`
+		} `json:"clients"`
 	}
-	for _, v := range outer {
-		var inner map[string]interface{}
-		if json.Unmarshal(v, &inner) == nil && len(inner) > 0 {
-			result := make(map[string]float64, len(inner))
-			for k, vv := range inner {
-				switch val := vv.(type) {
-				case float64:
-					result[phNormalizeQType(k)] = val
-				}
+	if json.Unmarshal(raw, &r) == nil && len(r.Clients) > 0 {
+		out := make([]PiHoleClient, 0, len(r.Clients))
+		for _, c := range r.Clients {
+			name := c.Name
+			if name == "" {
+				name = c.IP
 			}
-			if len(result) > 0 {
-				return result
-			}
+			out = append(out, PiHoleClient{Name: name, Count: c.Count})
 		}
+		return out
 	}
+	logErrorf("PIHOLE", "top clients: unexpected response: %s", strings.TrimSpace(string(raw)))
 	return nil
 }
 
 func phV6Upstreams(integID, baseURL, pass string, skipTLS bool) []PiHoleUpstream {
 	raw, err := phV6Get(integID, baseURL, pass, "/api/stats/upstreams", skipTLS)
 	if err != nil {
+		logErrorf("PIHOLE", "upstreams error: %v", err)
 		return nil
 	}
-	// Format: {"upstreams": {"name|ip|port": {"count": N, "percentage": F}}}
-	var r1 struct {
-		Upstreams map[string]struct {
-			Count      int     `json:"count"`
-			Percentage float64 `json:"percentage"`
+	// Confirmed live shape: a flat array of {ip, name, port, count, statistics},
+	// plus a top-level total_queries — no explicit percentage field, so it's
+	// derived from count/total_queries. Includes pseudo-sources ("blocklist",
+	// "cache") alongside real upstream DNS servers, matching what Pi-hole's
+	// own dashboard shows as "where queries were answered from."
+	var r struct {
+		Upstreams []struct {
+			IP    string `json:"ip"`
+			Name  string `json:"name"`
+			Count int    `json:"count"`
 		} `json:"upstreams"`
+		TotalQueries int `json:"total_queries"`
 	}
-	if json.Unmarshal(raw, &r1) == nil && len(r1.Upstreams) > 0 {
-		var out []PiHoleUpstream
-		for raw, u := range r1.Upstreams {
-			out = append(out, PiHoleUpstream{Name: phUpstreamName(raw), Percent: u.Percentage})
+	if json.Unmarshal(raw, &r) == nil && len(r.Upstreams) > 0 && r.TotalQueries > 0 {
+		out := make([]PiHoleUpstream, 0, len(r.Upstreams))
+		for _, u := range r.Upstreams {
+			label := u.Name
+			if u.IP != "" && u.IP != u.Name {
+				label = fmt.Sprintf("%s (%s)", u.Name, u.IP)
+			}
+			out = append(out, PiHoleUpstream{
+				Name:    label,
+				Percent: float64(u.Count) / float64(r.TotalQueries) * 100,
+			})
 		}
 		sort.Slice(out, func(i, j int) bool { return out[i].Percent > out[j].Percent })
 		return out
 	}
-	// Flat fallback
-	var r2 map[string]float64
-	if json.Unmarshal(raw, &r2) == nil && len(r2) > 0 {
-		var out []PiHoleUpstream
-		for k, pct := range r2 {
-			out = append(out, PiHoleUpstream{Name: phUpstreamName(k), Percent: pct})
-		}
-		sort.Slice(out, func(i, j int) bool { return out[i].Percent > out[j].Percent })
-		return out
-	}
+	logErrorf("PIHOLE", "upstreams: unexpected response: %s", strings.TrimSpace(string(raw)))
 	return nil
+}
+
+// phV6Lists fetches configured adlists (block and allow) — confirmed live
+// shape: {"lists": [{"address","comment","enabled","type","number",...}]}.
+// v6 only; no v5 equivalent is wired up here.
+func phV6Lists(integID, baseURL, pass string, skipTLS bool) []PiHoleList {
+	raw, err := phV6Get(integID, baseURL, pass, "/api/lists", skipTLS)
+	if err != nil {
+		logErrorf("PIHOLE", "lists error: %v", err)
+		return nil
+	}
+	var r struct {
+		Lists []struct {
+			Address string `json:"address"`
+			Comment string `json:"comment"`
+			Enabled bool   `json:"enabled"`
+			Type    string `json:"type"`
+			Number  int    `json:"number"`
+		} `json:"lists"`
+	}
+	if json.Unmarshal(raw, &r) != nil {
+		logErrorf("PIHOLE", "lists: unexpected response: %s", strings.TrimSpace(string(raw)))
+		return nil
+	}
+	out := make([]PiHoleList, 0, len(r.Lists))
+	for _, l := range r.Lists {
+		name := l.Comment
+		if name == "" {
+			name = l.Address
+		}
+		out = append(out, PiHoleList{Name: name, Enabled: l.Enabled, Type: l.Type, Count: l.Number})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Count > out[j].Count })
+	return out
 }
 
 // ── v5 data fetchers ──────────────────────────────────────────────────────────
@@ -532,25 +616,6 @@ func phV5TopClients(baseURL, token string, skipTLS bool) []PiHoleClient {
 	return phMapToClients(r.TopSources)
 }
 
-func phV5QueryTypes(baseURL, token string, skipTLS bool) map[string]float64 {
-	raw, err := phV5Get(baseURL, token, "/admin/api.php?getQueryTypes", skipTLS)
-	if err != nil {
-		return nil
-	}
-	var r struct {
-		QueryTypes map[string]float64 `json:"querytypes"`
-	}
-	if err := json.Unmarshal(raw, &r); err != nil {
-		return nil
-	}
-	// Normalize keys: "A (IPv4)" → "A"
-	result := make(map[string]float64, len(r.QueryTypes))
-	for k, v := range r.QueryTypes {
-		result[phNormalizeQType(k)] = v
-	}
-	return result
-}
-
 func phV5Upstreams(baseURL, token string, skipTLS bool) []PiHoleUpstream {
 	raw, err := phV5Get(baseURL, token, "/admin/api.php?getForwardDests", skipTLS)
 	if err != nil {
@@ -601,23 +666,6 @@ func phMapToClients(m map[string]int) []PiHoleClient {
 	return out
 }
 
-// phNormalizeQType strips parenthetical suffixes: "A (IPv4)" → "A".
-func phNormalizeQType(k string) string {
-	if idx := strings.Index(k, " ("); idx >= 0 {
-		return k[:idx]
-	}
-	return k
-}
-
-// phUpstreamName extracts a display name from v6 upstream keys like "name|ip|port".
-func phUpstreamName(k string) string {
-	parts := strings.Split(k, "|")
-	if len(parts) >= 2 {
-		return parts[1] // IP address
-	}
-	return parts[0]
-}
-
 // ── Panel data builder ────────────────────────────────────────────────────────
 
 func fetchPiHolePanelData(db *sql.DB, cfg map[string]interface{}) (interface{}, error) {
@@ -634,16 +682,17 @@ func fetchPiHolePanelData(db *sql.DB, cfg map[string]interface{}) (interface{}, 
 	}
 
 	ver := phDetectVersion(integID, apiURL, skipTLS)
+	days, _ := cfg["days"].(float64) // 0/absent → phRangeFromDays defaults to 1 (24h)
 
 	pd := &PiHolePanelData{
 		UIURL:         uiURL,
 		IntegrationID: integID,
 		Version:       ver,
-		QueryTypes:    map[string]float64{},
 		TopPermitted:  []PiHoleDomain{},
 		TopBlocked:    []PiHoleDomain{},
 		TopClients:    []PiHoleClient{},
 		Upstreams:     []PiHoleUpstream{},
+		Lists:         []PiHoleList{},
 	}
 
 	if ver == "v6" {
@@ -660,14 +709,12 @@ func fetchPiHolePanelData(db *sql.DB, cfg map[string]interface{}) (interface{}, 
 		pd.GravityUpdated = sum.gravityUpdated
 		pd.BlockingEnabled = phV6Blocking(integID, apiURL, apiKey, skipTLS)
 
-		pd.OverTimeTotal, pd.OverTimeBlocked = phV6OverTime(integID, apiURL, apiKey, skipTLS)
-		pd.TopPermitted = phV6TopDomains(integID, apiURL, apiKey, "/api/stats/database/top_items", skipTLS)
-		pd.TopBlocked = phV6TopDomains(integID, apiURL, apiKey, "/api/stats/database/top_ad_items", skipTLS)
-		pd.TopClients = phV6TopClients(integID, apiURL, apiKey, skipTLS)
-		if qt := phV6QueryTypes(integID, apiURL, apiKey, skipTLS); qt != nil {
-			pd.QueryTypes = qt
-		}
+		pd.OverTimeTotal, pd.OverTimeBlocked = phV6OverTime(integID, apiURL, apiKey, skipTLS, days)
+		pd.TopPermitted = phV6TopDomains(integID, apiURL, apiKey, false, skipTLS, days)
+		pd.TopBlocked = phV6TopDomains(integID, apiURL, apiKey, true, skipTLS, days)
+		pd.TopClients = phV6TopClients(integID, apiURL, apiKey, skipTLS, days)
 		pd.Upstreams = phV6Upstreams(integID, apiURL, apiKey, skipTLS)
+		pd.Lists = phV6Lists(integID, apiURL, apiKey, skipTLS)
 	} else {
 		sum, err := phV5Summary(apiURL, apiKey, skipTLS)
 		if err != nil {
@@ -684,9 +731,6 @@ func fetchPiHolePanelData(db *sql.DB, cfg map[string]interface{}) (interface{}, 
 		pd.OverTimeTotal, pd.OverTimeBlocked = phV5OverTime(apiURL, apiKey, skipTLS)
 		pd.TopPermitted, pd.TopBlocked = phV5TopItems(apiURL, apiKey, skipTLS)
 		pd.TopClients = phV5TopClients(apiURL, apiKey, skipTLS)
-		if qt := phV5QueryTypes(apiURL, apiKey, skipTLS); qt != nil {
-			pd.QueryTypes = qt
-		}
 		pd.Upstreams = phV5Upstreams(apiURL, apiKey, skipTLS)
 	}
 
