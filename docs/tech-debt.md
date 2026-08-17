@@ -52,3 +52,15 @@ Raised while discussing whether Stoa should notify on events (a download finishi
 **What it would take:** some kind of lightweight, always-on process decoupled from the full per-integration worker lifecycle — e.g. a separate, much-lower-frequency poller for just the handful of "worth notifying about" event types, rather than resurrecting full workers for every integration around the clock. Not scoped further than that yet.
 
 **Current state:** not started, and not really "roadmap-able" until the lifecycle question above has an answer.
+
+---
+
+## Pi-hole time-range picker (7d/30d) — built to spec, not yet confirmed live
+
+**Status:** shipped, pending real-world verification.
+
+The Pi-hole panel's time-range picker (`frontend/src/components/panels/PiHolePanel.tsx`) offers 1d/7d/30d. Only 1d is confirmed working — it's the exact no-parameter call already validated against a live v6 instance. The 7d/30d options add `from`/`until` params to `/api/history` and the `/database/` endpoints (`backend/internal/handlers/integrations_pihole.go`, `phRangeFromDays`), based on FTL's documented parameter format, but nothing has confirmed live that these endpoints actually return more than ~24h of data for a wider window — the test environment this was built against had less than a day of retained history, so a wider range couldn't be exercised.
+
+**What to check once there's enough retained history (a week+):** click 7d/30d and confirm the sparkline and detail lists (top domains/clients) actually reflect more data, not just the same 24h repeated or an empty response. If it's empty/unchanged, Pi-hole's v6 API likely needs a different mechanism for wider windows than what's implemented here.
+
+**Current state:** shipped in 0.17.10; user plans to let Pi-hole accumulate history for about a week before checking this specifically.
