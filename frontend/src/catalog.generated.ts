@@ -1135,7 +1135,7 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Pi-hole is a self-hosted, network-wide DNS ad and tracker blocker. It acts as your LAN's DNS resolver, blocking requests to known ad, tracking, and malware domains for every device on the network — no per-device software required — and reports on exactly what it blocked.",
     "officialUrl": "https://pi-hole.net",
     "polling": "30s",
@@ -1536,14 +1536,14 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Homebox is a self-hosted home inventory manager. It catalogs your belongings by location and label, tracks purchase details, warranties, and values, and makes it easy to find what you own and where it is — handy for insurance and organization.",
     "officialUrl": "https://homebox.software",
     "polling": "15min",
-    "secretFormat": "username-password",
+    "secretFormat": "api-key",
     "urlRequired": true,
     "exampleUrl": "http://192.168.1.10:7745",
-    "gettingKey": "Use your Homebox login in `email:password` form (e.g. `user@example.com:yourpassword`).\n\n- **Secret format:** `email:password`\n- **URL:** required — point at your Homebox port, e.g. `http://192.168.1.10:7745`"
+    "gettingKey": "**Recommended:** create an API token — Homebox → Profile → API Tokens — and paste it as-is.\n\nAlternatively, use your Homebox login in `email:password` form (e.g. `user@example.com:yourpassword`); Stoa exchanges it for a session token on each connection.\n\n- **Secret format:** API token (recommended), or `email:password`\n- **URL:** required — point at your Homebox port, e.g. `http://192.168.1.10:7745`"
   },
   {
     "id": "life360",

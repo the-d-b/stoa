@@ -125,6 +125,7 @@ See [docker-compose.yml](docker-compose.yml) for a full reference including opti
 |---|---|
 | [Comparison](docs/comparison.md) | How Stoa compares to Homepage, Homarr, Organizr, and others |
 | [Getting started](docs/getting-started.md) | Install, volume mounts, order of operations, express setup |
+| [Dev setup (Windows, no Docker)](docs/dev-setup-windows.md) | Run backend + frontend from source for development/beta testing |
 | [Concepts](docs/concepts.md) | Users, groups, tags, panels, porticos, and single- vs multi-user mode |
 | [Integrations](docs/integrations/) | Master chart + per-integration setup guides with panel screenshots |
 | [Layouts](docs/layouts.md) | Stylos, Seira, Rema, and Custom layout modes |

@@ -80,6 +80,10 @@ If you only want read-only container listing (no start/stop/restart), you can ad
 
 On first launch, Stoa creates the database and runs all migrations. Navigate to `http://your-host:8080` and you'll be prompted to create the first admin account.
 
+### Running from source instead
+
+No Docker host available? See [Dev setup (Windows, no Docker)](dev-setup-windows.md) for running the backend and frontend directly.
+
 ---
 
 ## Order of operations

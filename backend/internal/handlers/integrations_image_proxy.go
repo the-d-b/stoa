@@ -89,6 +89,15 @@ func ImageProxy(db *sql.DB) http.HandlerFunc {
 			} else if apiKey != "" {
 				req.Header.Set("x-api-key", apiKey)
 			}
+		case "homebox":
+			// apiKey may be a raw API token or an email:password pair needing
+			// the login exchange — homeboxResolveToken handles either, same
+			// as the panel-data fetch and connection test.
+			if token, terr := homeboxResolveToken(apiURL, apiKey, skipTLS); terr == nil {
+				req.Header.Set("Authorization", "Bearer "+token)
+			} else {
+				log.Printf("ImageProxy: homebox token resolve failed: %v", terr)
+			}
 		default:
 			// Generic: try Bearer token
 			if apiKey != "" {

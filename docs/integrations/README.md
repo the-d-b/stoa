@@ -152,7 +152,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Fittrackee | 🔶 Need Testing | `email:password` — your Fittrackee login | Required | 15 min | [fittrackee/](fittrackee/) |
 | Strava | 🔶 Need Testing | `clientId:clientSecret` — Strava API settings; connect account after saving | None (OAuth) | 60 s | [strava/](strava/) |
 | Duolingo | ✅ Tested | Your Duolingo `username` — public profile API, no password required | None (public API) | 5 min | [duolingo/](duolingo/) |
-| Homebox | 🔶 Need Testing | `email:password` — your Homebox login | Required | 15 min | [homebox/](homebox/) |
+| Homebox | ✅ Tested | API token (Profile → API Tokens) **or** `email:password` | Required | 15 min | [homebox/](homebox/) |
 | Grocy | ✅ Tested | Plain API key — Grocy → Manage API Keys | Required | 5 min | [grocy/](grocy/) |
 | Mealie | ✅ Tested | Bearer `token` — Mealie → User Settings → API Tokens | Required | 15 min | [mealie/](mealie/) |
 | Tandoor | ✅ Tested | Bearer `token` — Tandoor → Settings → API Tokens | Required | 15 min | [tandoor/](tandoor/) |
@@ -206,10 +206,10 @@ All credentials use a single "API key / secret" field. The format varies by serv
 
 | Format | Example | Used by |
 |---|---|---|
-| Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy |
-| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Homebox, Fittrackee |
+| Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy, Homebox (or `email:password`, see below) |
+| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Fittrackee |
 | Bare password (no username) | `mysecret` | Deluge, wg-easy |
-| `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox |
+| `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox (fallback — API token preferred) |
 | `username:apiKey` | `alice:abc123` | Last.fm |
 | `clientId:clientSecret` → OAuth | `abc:xyz` | Spotify, Strava, Twitch, YouTube |
 | `clientId:username[:tmdbApiKey]` | `abc123:alice` or `abc123:alice:eyJ...` | Trakt (TMDB key optional — enables poster artwork) |

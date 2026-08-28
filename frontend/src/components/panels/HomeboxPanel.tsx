@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react'
 import { integrationsApi } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
+import AuthCoverStrip from './AuthCoverStrip'
 
 interface HomeboxLocation {
   id: string
   name: string
   itemCount: number
+  link?: string
+}
+
+interface HomeboxPhoto {
+  id: string
+  name: string
+  thumbUrl: string
+  link?: string
 }
 
 interface HomeboxData {
@@ -15,6 +24,8 @@ interface HomeboxData {
   totalWithWarranty: number
   totalItemPrice: number
   locations: HomeboxLocation[]
+  tags: HomeboxLocation[]
+  photos: HomeboxPhoto[]
 }
 
 function fmtCurrency(v: number) {
@@ -26,12 +37,17 @@ function fmtCurrency(v: number) {
 
 function LocationBar({ loc, maxCount }: { loc: HomeboxLocation; maxCount: number }) {
   const pct = maxCount > 0 ? Math.round((loc.itemCount / maxCount) * 100) : 0
+  const nameStyle: React.CSSProperties = { fontSize: 12, color: 'var(--text)', width: 130, flexShrink: 0,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0' }}>
-      <span style={{ fontSize: 12, color: 'var(--text)', width: 130, flexShrink: 0,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {loc.name}
-      </span>
+      {loc.link
+        ? <a href={loc.link} target="_blank" rel="noopener noreferrer"
+            style={{ ...nameStyle, color: 'var(--text)', textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>{loc.name}</a>
+        : <span style={nameStyle}>{loc.name}</span>
+      }
       <div style={{ flex: 1, height: 6, borderRadius: 3, background: 'var(--surface2)', overflow: 'hidden' }}>
         <div style={{ width: `${pct}%`, height: '100%', background: 'var(--accent)',
           borderRadius: 3, transition: 'width 0.3s' }} />
@@ -45,11 +61,18 @@ function LocationBar({ loc, maxCount }: { loc: HomeboxLocation; maxCount: number
 }
 
 function LocationRow({ loc }: { loc: HomeboxLocation }) {
+  const nameStyle: React.CSSProperties = { flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden',
+    textOverflow: 'ellipsis', whiteSpace: 'nowrap' }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0',
       borderBottom: '1px solid var(--border)' }}>
-      <span style={{ flex: 1, fontSize: 12, color: 'var(--text)', overflow: 'hidden',
-        textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.name}</span>
+      {loc.link
+        ? <a href={loc.link} target="_blank" rel="noopener noreferrer"
+            style={{ ...nameStyle, textDecoration: 'none' }}
+            onMouseEnter={e => (e.currentTarget.style.textDecoration = 'underline')}
+            onMouseLeave={e => (e.currentTarget.style.textDecoration = 'none')}>{loc.name}</a>
+        : <span style={nameStyle}>{loc.name}</span>
+      }
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', flexShrink: 0 }}>
         {loc.itemCount}
       </span>
@@ -77,7 +100,10 @@ export default function HomeboxPanel({ panel, heightUnits }: { panel: any; heigh
   if (!data) return <div style={{ padding: 16 }}><span className="spinner" /></div>
 
   const locations = data.locations || []
+  const tags = data.tags || []
+  const photos = data.photos || []
   const maxCount = locations.length > 0 ? Math.max(...locations.map(l => l.itemCount)) : 1
+  const maxTagCount = tags.length > 0 ? Math.max(...tags.map(t => t.itemCount)) : 1
 
   // ── 1x ──────────────────────────────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -109,6 +135,7 @@ export default function HomeboxPanel({ panel, heightUnits }: { panel: any; heigh
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
             {data.totalItems.toLocaleString()} items · {data.totalLocations} locations
             {data.totalItemPrice > 0 ? ` · ${fmtCurrency(data.totalItemPrice)}` : ''}
+            {data.totalWithWarranty > 0 ? ` · ${data.totalWithWarranty} warranted` : ''}
           </span>
         </div>
         <div style={{ flex: 1, overflow: 'auto' }}>
@@ -140,8 +167,8 @@ export default function HomeboxPanel({ panel, heightUnits }: { panel: any; heigh
         ))}
       </div>
 
-      {/* Location breakdown */}
-      <div style={{ flex: 1, overflow: 'auto' }}>
+      {/* Location + tag breakdown */}
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
           textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
           By Location
@@ -150,7 +177,28 @@ export default function HomeboxPanel({ panel, heightUnits }: { panel: any; heigh
           ? <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>No locations configured</div>
           : locations.map(l => <LocationBar key={l.id} loc={l} maxCount={maxCount} />)
         }
+
+        {tags.length > 0 && (
+          <>
+            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+              textTransform: 'uppercase', letterSpacing: '0.07em', margin: '12px 0 6px' }}>
+              By Tag
+            </div>
+            {tags.map(t => <LocationBar key={t.id} loc={t} maxCount={maxTagCount} />)}
+          </>
+        )}
       </div>
+
+      {/* Photos */}
+      {photos.length > 0 && (
+        <div style={{ flexShrink: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)',
+            textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 6 }}>
+            Photos
+          </div>
+          <AuthCoverStrip items={photos.map(p => ({ coverUrl: p.thumbUrl, title: p.name, linkUrl: p.link }))} height={56} />
+        </div>
+      )}
     </div>
   )
 }

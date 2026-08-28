@@ -4,6 +4,7 @@ backend/stoa-cli
 backend/stoa.exe
 backend/stoa-cli.exe
 backend/*.db
+backend/devdata/
 
 # Node
 frontend/node_modules/
