@@ -10,7 +10,7 @@ import { panelsApi, myPanelsApi, googleApi, Panel } from '../../api'
 
 const DAYS_OPTIONS = [7, 14, 30, 60, 90]
 // Source types where daysAhead controls the fetch window
-const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii', 'kapowarr', 'mylar3', 'maintainerr', 'homeassistant', 'caldav'])
+const DAYS_AHEAD_TYPES = new Set(['sonarr', 'radarr', 'readarr', 'lidarr', 'google', 'ical', 'actualbudget', 'fireflyiii', 'kapowarr', 'mylar3', 'maintainerr', 'homeassistant', 'caldav', 'monica'])
 // Types whose upstream fetch is actually windowed — the integration itself
 // has a configured days-ahead ceiling, and a panel can only show up to that
 // many days (never more). Everything else in DAYS_AHEAD_TYPES just filters
@@ -41,7 +41,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
 
   // Integrations eligible as calendar sources
   const calIntegrations = integrations.filter((i: any) =>
-    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger','actualbudget','fireflyiii','kapowarr','mylar3','maintainerr','homeassistant','caldav'].includes(i.type)
+    ['sonarr','radarr','readarr','lidarr','weather','sports','lubelogger','actualbudget','fireflyiii','kapowarr','mylar3','maintainerr','homeassistant','caldav','monica'].includes(i.type)
   )
 
   useEffect(() => {
@@ -141,6 +141,7 @@ export default function CalendarSourceAdder({ panelId, panelTitle, panelConfig, 
     if (src.type === 'maintainerr') return `🗑 ${src.label || ig?.name || 'Maintainerr'}`
     if (src.type === 'homeassistant') return `🏠 ${src.label || ig?.name || 'Home Assistant'}`
     if (src.type === 'caldav') return `🗓 ${src.label || ig?.name || 'CalDAV'}`
+    if (src.type === 'monica') return `🎂 ${src.label || ig?.name || 'Monica'}`
     return ig?.name ?? src.label ?? src.type
   }
 

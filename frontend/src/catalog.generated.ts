@@ -1607,7 +1607,7 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Monica is a self-hosted personal CRM (a \"personal relationship manager\"). It helps you remember details about the people in your life — conversations, important dates, gift ideas, and reminders — so you can stay in better touch, all kept private on your own server.",
     "officialUrl": "https://www.monicahq.com",
     "polling": "15min",

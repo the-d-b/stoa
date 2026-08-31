@@ -81,6 +81,7 @@ var calEventComputers = map[string]func(db *sql.DB, integrationID string) ([]map
 	"homeassistant": computeHomeAssistantCalEvents,
 	"caldav":        computeCaldavCalEvents,
 	"lubelogger":    computeLubeLoggerCalEvents,
+	"monica":        computeMonicaCalEvents,
 }
 
 // calWindowFor returns the fetch window for one integration's background
@@ -698,6 +699,85 @@ func parseLubeLoggerReminders(body []byte, vehicleName string, uiURL string) ([]
 			"title": fmt.Sprintf("%s — %s", vehicleName, r.Description),
 			"color": color, "uiUrl": uiURL,
 		})
+	}
+	return events, nil
+}
+
+// ── Monica ────────────────────────────────────────────────────────────────
+
+// monicaCalMonths is how many months ahead to fetch from Monica's
+// month-indexed reminders endpoint. Monica has no date-range query (unlike
+// Sonarr/Radarr's ?start=&end=) — the calendar panel's own daysAhead slider
+// (up to 90 days) is enforced by lookupAndFilter at serve time, so fetching
+// months 0-3 safely covers it.
+const monicaCalMonths = 4
+
+func computeMonicaCalEvents(db *sql.DB, integrationID string) ([]map[string]interface{}, error) {
+	apiURL, uiURL, apiKey, skipTLS, err := resolveIntegration(db, integrationID)
+	if err != nil {
+		return nil, err
+	}
+	if uiURL == "" {
+		uiURL = apiURL
+	}
+	intName := integrationName(db, integrationID, "Monica")
+
+	today := timeNow().UTC().Truncate(24 * time.Hour)
+	seen := map[int]bool{}
+	events := []map[string]interface{}{}
+	anyOK := false
+
+	for month := 0; month < monicaCalMonths; month++ {
+		b, ferr := monicaGet(apiURL, apiKey, fmt.Sprintf("/api/reminders/upcoming/%d", month), skipTLS)
+		if ferr != nil {
+			logErrorf("CAL", "monica reminders (month=%d) error: %v", month, ferr)
+			continue
+		}
+		anyOK = true
+		var r struct {
+			Data []struct {
+				ID          int    `json:"id"`
+				Title       string `json:"title"`
+				PlannedDate string `json:"planned_date"`
+				Contact     struct {
+					CompleteName string `json:"complete_name"`
+				} `json:"contact"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(b, &r) != nil {
+			logErrorf("CAL", "monica reminders (month=%d): unexpected response: %s", month, strings.TrimSpace(string(b)))
+			continue
+		}
+		for _, item := range r.Data {
+			if seen[item.ID] {
+				continue
+			}
+			t, perr := time.Parse(time.RFC3339Nano, item.PlannedDate)
+			if perr != nil {
+				logErrorf("CAL", "monica reminders (month=%d): could not parse planned_date %q for reminder id=%d", month, item.PlannedDate, item.ID)
+				continue
+			}
+			t = t.UTC()
+			if t.Before(today) {
+				continue
+			}
+			seen[item.ID] = true
+			title := item.Title
+			if item.Contact.CompleteName != "" {
+				title = fmt.Sprintf("%s — %s", item.Contact.CompleteName, item.Title)
+			}
+			events = append(events, map[string]interface{}{
+				"source": intName,
+				"date":   t.Format("2006-01-02"),
+				"title":  title,
+				"color":  "#f472b6",
+				"uiUrl":  uiURL,
+			})
+		}
+	}
+
+	if !anyOK {
+		return nil, fmt.Errorf("monica unreachable — check URL and credentials (see server log for details)")
 	}
 	return events, nil
 }

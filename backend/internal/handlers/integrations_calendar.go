@@ -318,6 +318,11 @@ func fetchCalendarData(db *sql.DB, config map[string]interface{}) (map[string]in
 				return computeLubeLoggerCalEvents(db, integrationID)
 			})
 
+		case "monica":
+			lookupAndFilter(integrationID, func() ([]map[string]interface{}, error) {
+				return computeMonicaCalEvents(db, integrationID)
+			})
+
 		}
 	}
 

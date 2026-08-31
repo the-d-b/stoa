@@ -25,6 +25,7 @@ A multi-source calendar that aggregates events from any combination of:
 - **Checklist panels** — due dates from Stoa checklist items
 - **Kanban panels** — due dates from Stoa kanban cards
 - **LubeLogger** — upcoming vehicle maintenance reminders
+- **Monica** — upcoming personal CRM reminders (birthdays, anniversaries, follow-ups)
 - **Actual Budget** — upcoming scheduled transactions (bills), surfaced 3 days before their due date
 - **Firefly III** — upcoming bill payment dates and recurring transactions, surfaced 3 days before their due date
 - **Kapowarr** — upcoming comic issue release dates for monitored volumes
@@ -190,9 +191,17 @@ Upcoming scheduled media cleanup actions appear as all-day events, aggregated pe
 
 ---
 
+### Monica
+
+Requires a Monica integration (see [Monica](../monica/README.md)). Add source → **Stoa integration** → select the integration.
+
+Upcoming reminders (birthdays, anniversaries, life-event reminders, manually-created reminders) appear as all-day events on their actual due date, titled `Contact Name — Reminder Title`. Clicking an event opens the integration's UI URL. Monica has no date-range calendar query — Stoa fetches its month-indexed `/api/reminders/upcoming/{month}` endpoint a few months ahead and lets the days-ahead filter narrow the result, the same "everything upcoming, filtered at serve time" approach Kapowarr/Mylar3/Maintainerr use. Recurring reminders (e.g. an annual anniversary) are already resolved to concrete upcoming dates by Monica itself, so no recurrence expansion happens on Stoa's side.
+
+---
+
 ## Polling
 
-Every integration-backed source (Sonarr, Radarr, Readarr, Lidarr, LubeLogger, Kapowarr, Mylar3, Maintainerr, Actual Budget, Firefly III, Home Assistant, CalDAV, sports) computes its calendar events on its **own integration's existing background refresh cycle** — the same worker tick that already refreshes that integration's panel data. Viewing or returning to a calendar panel reads that pre-computed result; it never triggers a live fetch to Sonarr, Radarr, or any other source. This means a calendar panel's freshness for a given source matches that integration's configured refresh interval (Admin → Integrations → refresh interval), and viewing the panel is instant regardless of how many sources it has or how slow any one of them is to respond.
+Every integration-backed source (Sonarr, Radarr, Readarr, Lidarr, LubeLogger, Kapowarr, Mylar3, Maintainerr, Actual Budget, Firefly III, Home Assistant, CalDAV, Monica, sports) computes its calendar events on its **own integration's existing background refresh cycle** — the same worker tick that already refreshes that integration's panel data. Viewing or returning to a calendar panel reads that pre-computed result; it never triggers a live fetch to Sonarr, Radarr, or any other source. This means a calendar panel's freshness for a given source matches that integration's configured refresh interval (Admin → Integrations → refresh interval), and viewing the panel is instant regardless of how many sources it has or how slow any one of them is to respond.
 
 **Google Calendar** works the same way but on its own schedule, since a connected Google account isn't a normal integration: each connected account has an independent refresh interval (default 30 minutes, configurable per account in Profile → Google or Admin → Google Calendar). Token refresh happens transparently as part of that background cycle — no user-facing delay, ever.
 
@@ -211,4 +220,4 @@ Sonarr, Radarr, Readarr, Lidarr, Home Assistant, CalDAV, and Google are the sour
 
 If you want a calendar panel to show more days for one of these sources, raise the ceiling on the **integration** first — the panel's own selector will then offer the larger values.
 
-Kapowarr, Mylar3, Maintainerr, Actual Budget, Firefly III, and LubeLogger don't have this two-tier setting — their upstream APIs always return "everything upcoming" with no windowed query to constrain, so their calendar-source days-ahead is a pure display filter with no integration-level ceiling to respect (same as before).
+Kapowarr, Mylar3, Maintainerr, Actual Budget, Firefly III, LubeLogger, and Monica don't have this two-tier setting — their upstream APIs always return "everything upcoming" with no windowed query to constrain, so their calendar-source days-ahead is a pure display filter with no integration-level ceiling to respect (same as before).
