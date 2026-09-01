@@ -1443,7 +1443,7 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "FitTrackee is a self-hosted outdoor-activity tracker. Upload GPX files from your runs, rides, and hikes and it maps them and computes distance, duration, speed, and elevation stats — a private alternative to Strava for the workouts you own.",
     "officialUrl": "https://github.com/SamR1/FitTrackee",
     "polling": "15min",

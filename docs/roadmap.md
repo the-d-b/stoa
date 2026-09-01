@@ -8,9 +8,9 @@ Aggregated from scattered notes. Organized, not prioritized — grouped by what 
 
 Existing integrations that are built but not yet validated against a real instance. Original difficulty tiers kept as-is:
 
-**Easier** (probably just need an instance spun up): NextDNS, WG-Easy, Home Assistant, Firefly III, Traefik, Wger, FitTrackee, Keycloak
+**Easier** (probably just need an instance spun up): NextDNS, WG-Easy, Home Assistant, Firefly III, Traefik, Wger, Keycloak
 
-**Done:** Pi-hole (0.17.9–0.17.10 — v6 API overhaul, time-range picker, blocklists), Homebox (0.17.11 — API token auth, By Tag, photo strip, deep links), Monica (0.17.12 — reminders field/date fix, error logging, Calendar panel source, found and reported an upstream Monica 4.1.2 bug where built-in life event types silently can't create reminders)
+**Done:** Pi-hole (0.17.9–0.17.10 — v6 API overhaul, time-range picker, blocklists), Homebox (0.17.11 — API token auth, By Tag, photo strip, deep links), Monica (0.17.12 — reminders field/date fix, error logging, Calendar panel source, found and reported an upstream Monica 4.1.2 bug where built-in life event types silently can't create reminders), FitTrackee (0.17.13 — fixed a multi-day duration display bug, expanded sport icon coverage, added a live 7d/30d/90d/All time-range pill selector)
 
 **Harder** (need something already in place to test against): Unraid, OMV, Synology DSM, pfSense, Cloudflare, Paperless, Docspell, Strava, Twitch, Netbird, RomM, Pterodactyl, OpenWrt
 

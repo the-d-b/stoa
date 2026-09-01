@@ -1,6 +1,13 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
+
+const TIME_RANGES = [
+  { label: '7d', value: 7 },
+  { label: '30d', value: 30 },
+  { label: '90d', value: 90 },
+  { label: 'All', value: 0 },
+]
 
 interface FittrackeeWorkout {
   id: string
@@ -25,17 +32,26 @@ interface FittrackeeData {
 }
 
 const SPORT_EMOJI: Record<string, string> = {
-  'Running':              '🏃',
-  'Cycling (Sport)':     '🚴',
-  'Cycling (Transport)': '🚲',
-  'Hiking':              '🥾',
-  'Mountain Biking':     '🚵',
-  'Walking':             '🚶',
-  'Trail':               '🏔️',
-  'Swimming':            '🏊',
-  'Rowing':              '🚣',
-  'Skiing':              '⛷️',
-  'Snowboard':           '🏂',
+  'Running':                   '🏃',
+  'Cycling (Sport)':           '🚴',
+  'Cycling (Transport)':       '🚲',
+  'Mountain Biking':           '🚵',
+  'Mountain Biking (Electric)':'🚵',
+  'Hiking':                    '🥾',
+  'Walking':                   '🚶',
+  'Trail':                     '🏔️',
+  'Snowshoes':                 '🥾',
+  'Swimming':                  '🏊',
+  'Rowing':                    '🚣',
+  'Canoeing (Whitewater)':     '🛶',
+  'Kayaking (Whitewater)':     '🛶',
+  'Standup Paddleboarding':    '🏄',
+  'Skiing':                    '⛷️',
+  'Skiing (Alpine)':           '⛷️',
+  'Skiing (Cross Country)':    '⛷️',
+  'Snowboard':                 '🏂',
+  'Ice Skating':               '⛸️',
+  'Inline Skating':            '⛸️',
 }
 
 function sportEmoji(label: string) {
@@ -49,10 +65,16 @@ function fmtDist(km: number | null | undefined) {
 
 function fmtDuration(dur: string | null | undefined) {
   if (!dur) return ''
-  // "H:MM:SS" or "HH:MM:SS" — trim to H:MM
-  const parts = dur.split(':')
+  // FitTrackee formats durations as Python's str(timedelta): "H:MM:SS" under
+  // 24h, but "N day(s), H:MM:SS" at or past 24h (e.g. total_duration summed
+  // across many workouts) — the day count must be folded into the hour count
+  // or a multi-day total silently reads as just its trailing hours.
+  const dayMatch = dur.match(/^(\d+)\s*days?,\s*(.+)$/)
+  const days = dayMatch ? parseInt(dayMatch[1], 10) : 0
+  const rest = dayMatch ? dayMatch[2] : dur
+  const parts = rest.split(':')
   if (parts.length >= 2) {
-    const h = parseInt(parts[0], 10)
+    const h = parseInt(parts[0], 10) + days * 24
     const m = parseInt(parts[1], 10)
     if (h > 0) return `${h}h ${m}m`
     return `${m}m`
@@ -104,6 +126,7 @@ function WorkoutRow({ w, uiUrl }: { w: FittrackeeWorkout; uiUrl: string }) {
 }
 
 export default function FittrackeePanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
+  const [days, setDays] = useState<number>(0)
   const [data, setData] = useState<FittrackeeData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -113,16 +136,23 @@ export default function FittrackeePanel({ panel, heightUnits }: { panel: Panel; 
 
   const load = useCallback(async () => {
     try {
-      const r = await integrationsApi.getPanelData(panel.id)
+      const r = await integrationsApi.getPanelData(panel.id, { days })
       setData(r.data)
       setError('')
     } catch (e: any) {
       setError(e.response?.data?.error || 'Failed to load')
     } finally { setLoading(false) }
-  }, [panel.id])
+  }, [panel.id, days])
 
+  const loadRef = useRef(load)
+  loadRef.current = load
+
+  // Mirrors PiHolePanel's pattern: a background SSE broadcast reflects the
+  // integration's default (all-time) fetch, not necessarily whatever period
+  // this panel has selected — so on any SSE signal, re-fetch live with the
+  // current `days` instead of applying the broadcast payload directly.
   const sseData = useSSE<FittrackeeData>(integrationId)
-  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
+  useEffect(() => { if (sseData !== null) loadRef.current() }, [sseData])
 
   useEffect(() => { load() }, [load])
 
@@ -187,6 +217,19 @@ export default function FittrackeePanel({ panel, heightUnits }: { panel: Panel; 
   return (
     <div style={{ padding: '10px 14px', height: '100%', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+        {TIME_RANGES.map(tr => (
+          <button key={tr.value} onClick={() => setDays(tr.value)}
+            style={{
+              padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 600,
+              cursor: 'pointer', border: 'none', transition: 'all 0.12s',
+              background: days === tr.value ? 'var(--accent)' : 'var(--border)',
+              color: days === tr.value ? 'white' : 'var(--text-dim)',
+            }}>
+            {tr.label}
+          </button>
+        ))}
+      </div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
         {chips.map(c => (
           <div key={c.label} style={{ background: 'var(--surface2)', borderRadius: 6,
