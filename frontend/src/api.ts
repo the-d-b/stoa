@@ -692,7 +692,7 @@ export interface KanbanBoard {
 }
 
 export interface KanbanCard {
-  id: string; boardId: string; title: string; status: string
+  id: string; boardId: string; title: string; status: string; priority: string
   dueDate?: string; notes?: string; sortOrder: number; createdAt: string; updatedAt: string
 }
 
@@ -707,9 +707,9 @@ export const kanbanApi = {
     api.delete(`/kanban/boards/${id}`),
   listCards: (boardId: string) =>
     api.get<KanbanCard[]>(`/kanban/boards/${boardId}/cards`),
-  createCard: (boardId: string, data: { title: string; status?: string; dueDate?: string; notes?: string }) =>
+  createCard: (boardId: string, data: { title: string; status?: string; priority?: string; dueDate?: string; notes?: string }) =>
     api.post<KanbanCard>(`/kanban/boards/${boardId}/cards`, data),
-  updateCard: (id: string, data: { title: string; status: string; dueDate?: string; notes?: string; sortOrder?: number }) =>
+  updateCard: (id: string, data: { title: string; status: string; priority?: string; dueDate?: string; notes?: string; sortOrder?: number }) =>
     api.put(`/kanban/cards/${id}`, data),
   deleteCard: (id: string) =>
     api.delete(`/kanban/cards/${id}`),

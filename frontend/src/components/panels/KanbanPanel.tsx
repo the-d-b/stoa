@@ -22,13 +22,15 @@ function countByStatus(cards: any[], boardId: string) {
   return { inProgress, notStarted, total: bCards.length }
 }
 
-export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: number }) {
+export default function KanbanPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
   const [data, setData] = useState<KanbanPanelData | null>(null)
   const [loading, setLoading] = useState(true)
   const [addingBoard, setAddingBoard] = useState(false)
   const [newBoardName, setNewBoardName] = useState('')
   const [saving, setSaving] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [editingBoardId, setEditingBoardId] = useState<string | null>(null)
+  const [editBoardName, setEditBoardName] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -62,6 +64,23 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
     } finally { setSaving(false) }
   }
 
+  const startEditBoard = (board: KanbanBoard, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingBoardId(board.id)
+    setEditBoardName(board.name)
+  }
+
+  const saveEditBoard = async () => {
+    if (!editingBoardId || !editBoardName.trim()) return
+    const id = editingBoardId
+    const name = editBoardName.trim()
+    setEditingBoardId(null)
+    try {
+      await kanbanApi.updateBoard(id, name)
+      await load()
+    } catch {}
+  }
+
   const deleteBoard = async (board: KanbanBoard, e: React.MouseEvent) => {
     e.stopPropagation()
     const msg = board.cardCount > 0
@@ -78,6 +97,45 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
   const boards = data?.boards ?? []
   const cards = data?.cards ?? []
 
+  // ── 1x ───────────────────────────────────────────────────────────────────────
+  // The full board list (drag targets, add-board form) needs real vertical
+  // room to be usable — at 1x there's only a few px to work with, so this is
+  // a compact aggregate summary instead, matching every other panel's 1x
+  // convention of a single stat row rather than a squeezed copy of the full view.
+  if (heightUnits <= 1) {
+    const totalTasks = boards.reduce((sum, b) => sum + b.cardCount, 0)
+    const totalOverdue = boards.reduce((sum, b) => sum + b.overdue, 0)
+    const totalDueSoon = boards.reduce((sum, b) => sum + b.dueSoon, 0)
+    return (
+      <div style={{ padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 12,
+        height: '100%', overflow: 'hidden' }}>
+        {boards.length === 0 ? (
+          <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>No boards yet</span>
+        ) : (
+          <>
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+              <strong style={{ color: 'var(--text)' }}>{boards.length}</strong> board{boards.length !== 1 ? 's' : ''}
+            </span>
+            <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
+              <strong style={{ color: 'var(--text)' }}>{totalTasks}</strong> task{totalTasks !== 1 ? 's' : ''}
+            </span>
+            {totalOverdue > 0 && (
+              <span style={{ fontSize: 12, color: STATUS_COLOR.cancelled }}>
+                <strong>{totalOverdue}</strong> past due
+              </span>
+            )}
+            {totalDueSoon > 0 && (
+              <span style={{ fontSize: 12, color: 'var(--amber)' }}>
+                <strong>{totalDueSoon}</strong> upcoming
+              </span>
+            )}
+          </>
+        )}
+      </div>
+    )
+  }
+
+  // ── 2x+ ──────────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: '8px 12px', gap: 6 }}>
       {/* Board list */}
@@ -89,10 +147,11 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
         )}
         {boards.map(board => {
           const { inProgress, notStarted, total } = countByStatus(cards, board.id)
+          const editing = editingBoardId === board.id
           return (
-            <div key={board.id} onClick={() => openBoard(board)}
+            <div key={board.id} onClick={() => !editing && openBoard(board)}
               style={{ display: 'flex', alignItems: 'center', gap: 8,
-                padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                padding: '8px 10px', borderRadius: 8, cursor: editing ? 'default' : 'pointer',
                 border: '1px solid var(--border)', background: 'var(--surface2)',
                 transition: 'border-color 0.15s',
                 opacity: deletingId === board.id ? 0.4 : 1 }}
@@ -114,24 +173,52 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
                 )}
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {board.name}
-                </div>
-                <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-                  {total} card{total !== 1 ? 's' : ''}
-                  {board.dueSoon > 0 && (
-                    <span style={{ color: 'var(--amber)', marginLeft: 6 }}>
-                      {board.dueSoon} due soon
-                    </span>
-                  )}
-                  {board.overdue > 0 && (
-                    <span style={{ color: STATUS_COLOR.cancelled, marginLeft: 6 }}>
-                      {board.overdue} overdue
-                    </span>
-                  )}
-                </div>
+                {editing ? (
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}
+                    onClick={e => e.stopPropagation()}>
+                    <input className="input" value={editBoardName}
+                      onChange={e => setEditBoardName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEditBoard(); if (e.key === 'Escape') setEditingBoardId(null) }}
+                      autoFocus style={{ fontSize: 12, flex: 1 }} />
+                    <button className="btn btn-primary" style={{ fontSize: 11 }}
+                      disabled={!editBoardName.trim()} onClick={saveEditBoard}>Save</button>
+                    <button className="btn btn-ghost" style={{ fontSize: 11 }}
+                      onClick={() => setEditingBoardId(null)}>Cancel</button>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {board.name}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+                      {total} card{total !== 1 ? 's' : ''}
+                      {board.dueSoon > 0 && (
+                        <span style={{ color: 'var(--amber)', marginLeft: 6 }}>
+                          {board.dueSoon} due soon
+                        </span>
+                      )}
+                      {board.overdue > 0 && (
+                        <span style={{ color: STATUS_COLOR.cancelled, marginLeft: 6 }}>
+                          {board.overdue} overdue
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
+              {!editing && (
+                <button onClick={e => startEditBoard(board, e)}
+                  title="Rename"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer',
+                    color: 'var(--text-dim)', fontSize: 12, padding: '2px 4px', opacity: 0.4,
+                    flexShrink: 0 }}
+                  onMouseOver={e => { e.stopPropagation(); e.currentTarget.style.opacity = '1'; e.currentTarget.style.color = 'var(--accent)' }}
+                  onMouseOut={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = 'var(--text-dim)' }}>
+                  ✎
+                </button>
+              )}
+              {!editing && (
               <button onClick={e => deleteBoard(board, e)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer',
                   color: 'var(--text-dim)', fontSize: 13, padding: '2px 4px', opacity: 0.4,
@@ -140,6 +227,7 @@ export default function KanbanPanel({ panel }: { panel: Panel; heightUnits: numb
                 onMouseOut={e => { e.currentTarget.style.opacity = '0.4'; e.currentTarget.style.color = 'var(--text-dim)' }}>
                 ✕
               </button>
+              )}
             </div>
           )
         })}

@@ -387,7 +387,19 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 		// integration ID. Re-check every referenced integration (covers both
 		// the single integrationId panels use and the multi-source array Map/
 		// Calendar panels use) before any data is fetched or served from cache.
+		//
+		// A reference to an integration that no longer exists (deleted after
+		// a calendar/map source was configured to use it) is deliberately
+		// NOT treated the same as a denied one: a multi-source panel can
+		// have several sources, and one stale/deleted source shouldn't 403
+		// the whole panel — that source's own fetch will simply fail to
+		// resolve and contribute no events, same as any other per-source
+		// fetch error. Only a source that exists but this user genuinely
+		// isn't allowed to see blocks the request.
 		for _, iid := range extractPanelIntegrationIDs(config) {
+			if !integrationExists(db, iid) {
+				continue
+			}
 			if !userCanAccessIntegration(db, claims, iid) {
 				writeError(w, http.StatusForbidden, "not authorized to use one of this panel's integrations")
 				return

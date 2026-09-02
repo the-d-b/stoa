@@ -16,6 +16,16 @@ const STATUS_MAP = Object.fromEntries(STATUSES.map(s => [s.value, s]))
 function statusLabel(v: string) { return STATUS_MAP[v]?.label ?? v }
 function statusColor(v: string) { return STATUS_MAP[v]?.color ?? 'var(--text-muted)' }
 
+export const PRIORITIES = [
+  { value: 'normal', label: 'Normal', color: 'var(--text-muted)' },
+  { value: 'high',   label: 'High',   color: 'var(--amber)' },
+  { value: 'urgent', label: 'Urgent', color: '#ef4444' },
+]
+const PRIORITY_MAP = Object.fromEntries(PRIORITIES.map(p => [p.value, p]))
+
+function priorityLabel(v: string) { return PRIORITY_MAP[v]?.label ?? v }
+function priorityColor(v: string) { return PRIORITY_MAP[v]?.color ?? 'var(--text-muted)' }
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fmtDate(iso: string) {
@@ -56,12 +66,13 @@ function StatusBadge({ status, small }: { status: string; small?: boolean }) {
 function CardModal({ card, defaultStatus = 'not_started', onSave, onCancel, onDelete }: {
   card?: KanbanCard
   defaultStatus?: string
-  onSave: (data: { title: string; status: string; dueDate: string; notes: string }) => Promise<void>
+  onSave: (data: { title: string; status: string; priority: string; dueDate: string; notes: string }) => Promise<void>
   onCancel: () => void
   onDelete?: () => void
 }) {
   const [title, setTitle] = useState(card?.title ?? '')
   const [status, setStatus] = useState(card?.status ?? defaultStatus)
+  const [priority, setPriority] = useState(card?.priority ?? 'normal')
   const [dueDate, setDueDate] = useState(card?.dueDate ?? '')
   const [notes, setNotes] = useState(card?.notes ?? '')
   const [saving, setSaving] = useState(false)
@@ -69,7 +80,7 @@ function CardModal({ card, defaultStatus = 'not_started', onSave, onCancel, onDe
   const submit = async () => {
     if (!title.trim()) return
     setSaving(true)
-    try { await onSave({ title: title.trim(), status, dueDate, notes }) }
+    try { await onSave({ title: title.trim(), status, priority, dueDate, notes }) }
     finally { setSaving(false) }
   }
 
@@ -97,6 +108,14 @@ function CardModal({ card, defaultStatus = 'not_started', onSave, onCancel, onDe
             placeholder="Card title" autoFocus />
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1 }}>
+            <label className="label">Priority</label>
+            <select className="input" value={priority} onChange={e => setPriority(e.target.value)}
+              style={{ cursor: 'pointer', color: priority !== 'normal' ? priorityColor(priority) : undefined,
+                fontWeight: priority !== 'normal' ? 600 : undefined }}>
+              {PRIORITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+            </select>
+          </div>
           <div style={{ flex: 1 }}>
             <label className="label">Status</label>
             <select className="input" value={status} onChange={e => setStatus(e.target.value)}
@@ -230,7 +249,12 @@ function ListView({ cards, onEdit, onDelete }: {
                 onMouseOver={e => (e.currentTarget as HTMLElement).style.background = 'var(--surface2)'}
                 onMouseOut={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
                 <td style={{ padding: '7px 8px', fontSize: 12, color: 'var(--text)', maxWidth: 240 }}>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6,
+                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {card.priority && card.priority !== 'normal' && (
+                      <span title={priorityLabel(card.priority)} style={{ flexShrink: 0,
+                        width: 6, height: 6, borderRadius: '50%', background: priorityColor(card.priority) }} />
+                    )}
                     {card.title}
                   </div>
                 </td>
@@ -318,6 +342,7 @@ function DesktopStatusView({ cards, boardId, onEdit, onCardsChange }: {
     kanbanApi.updateCard(updatedCard.id, {
       title: updatedCard.title,
       status: dstId,
+      priority: updatedCard.priority,
       dueDate: updatedCard.dueDate,
       notes: updatedCard.notes,
     }).catch(() => {
@@ -367,26 +392,46 @@ function DesktopStatusView({ cards, boardId, onEdit, onCardsChange }: {
                             onClick={() => !snap.isDragging && onEdit(card)}
                             onMouseOver={e => { if (!snap.isDragging) (e.currentTarget as HTMLElement).style.borderColor = status.color + '60' }}
                             onMouseOut={e => { if (!snap.isDragging) (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)' }}>
-                            <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500,
-                              overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
-                              WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
-                              {card.title}
-                            </div>
-                            {(card.dueDate || card.notes) && (
-                              <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                                {card.dueDate && (
-                                  <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
-                                    color: isOverdue(card.dueDate) ? '#ef4444' : 'var(--text-dim)' }}>
-                                    {isOverdue(card.dueDate) ? '⚠ ' : ''}{fmtDate(card.dueDate)}
-                                  </span>
-                                )}
-                                {card.notes && (
-                                  <span style={{ fontSize: 10, color: 'var(--text-dim)', opacity: 0.7 }}>
-                                    📝
-                                  </span>
-                                )}
+                            {/* Positioning context for the stripe below lives on this inner
+                                wrapper, not the draggable div above — hello-pangea/dnd sets
+                                position:fixed on that outer div's style while dragging, and a
+                                position:relative here would silently override it, breaking the
+                                library's cursor-tracking transform. Wraps the full card content
+                                (not just the title) so the stripe spans the whole card height,
+                                including the due-date/notes row on cards that have one. */}
+                            <div style={{ position: 'relative' }}>
+                              {/* Priority accent stripe — a separate overlay rather than a
+                                  border-left, since the hover/drag handlers above mutate
+                                  borderColor directly via the DOM (not React state), which
+                                  would otherwise clobber a border-left color set only at
+                                  render time. Negative left reaches into the card's own
+                                  padding to sit flush against its actual left edge. */}
+                              {card.priority && card.priority !== 'normal' && (
+                                <div style={{ position: 'absolute', left: -8, top: 0, bottom: 0, width: 3,
+                                  borderRadius: '7px 0 0 7px', background: priorityColor(card.priority) }} />
+                              )}
+                              <div style={{ fontSize: 12, color: 'var(--text)', fontWeight: 500,
+                                overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box',
+                                WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                                {card.priority === 'urgent' && <span title="Urgent">🔺 </span>}
+                                {card.title}
                               </div>
-                            )}
+                              {(card.dueDate || card.notes) && (
+                                <div style={{ marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                  {card.dueDate && (
+                                    <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace',
+                                      color: isOverdue(card.dueDate) ? '#ef4444' : 'var(--text-dim)' }}>
+                                      {isOverdue(card.dueDate) ? '⚠ ' : ''}{fmtDate(card.dueDate)}
+                                    </span>
+                                  )}
+                                  {card.notes && (
+                                    <span style={{ fontSize: 10, color: 'var(--text-dim)', opacity: 0.7 }}>
+                                      📝
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </Draggable>
@@ -417,7 +462,7 @@ function MobileStatusView({ cards, onEdit, onCardsChange }: {
     onCardsChange(updated)
     try {
       await kanbanApi.updateCard(card.id, {
-        title: card.title, status: newStatus, dueDate: card.dueDate, notes: card.notes
+        title: card.title, status: newStatus, priority: card.priority, dueDate: card.dueDate, notes: card.notes
       })
     } catch {}
   }
@@ -454,10 +499,15 @@ function MobileStatusView({ cards, onEdit, onCardsChange }: {
         {laneCards.map(card => (
           <div key={card.id} style={{ padding: '10px 12px', borderRadius: 8,
             background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderLeft: card.priority && card.priority !== 'normal'
+              ? `3px solid ${priorityColor(card.priority)}` : '1px solid var(--border)',
             display: 'flex', gap: 8, alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)',
-                marginBottom: 2 }}>{card.title}</div>
+                marginBottom: 2 }}>
+                {card.priority === 'urgent' && <span title="Urgent">🔺 </span>}
+                {card.title}
+              </div>
               {card.dueDate && (
                 <div style={{ fontSize: 10, color: isOverdue(card.dueDate) ? '#ef4444' : 'var(--text-dim)',
                   fontFamily: 'DM Mono, monospace' }}>
@@ -554,14 +604,14 @@ export default function KanbanOverlay() {
   }
 
 
-  const handleAddCard = async (data: { title: string; status: string; dueDate: string; notes: string }) => {
+  const handleAddCard = async (data: { title: string; status: string; priority: string; dueDate: string; notes: string }) => {
     if (!open) return
     const r = await kanbanApi.createCard(open.boardId, data)
     setCards(prev => [...prev, r.data])
     setAddingCard(false)
   }
 
-  const handleEditCard = async (data: { title: string; status: string; dueDate: string; notes: string }) => {
+  const handleEditCard = async (data: { title: string; status: string; priority: string; dueDate: string; notes: string }) => {
     if (!editingCard) return
     await kanbanApi.updateCard(editingCard.id, data)
     setCards(prev => prev.map(c => c.id === editingCard.id ? { ...c, ...data } : c))

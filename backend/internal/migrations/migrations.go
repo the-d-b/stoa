@@ -835,6 +835,11 @@ var migrations = []migration{
 		name:    "plex_music_account_token",
 		up: `ALTER TABLE plex_music_tokens ADD COLUMN account_token TEXT NOT NULL DEFAULT ''`,
 	},
+	{
+		version: 59,
+		name:    "kanban_card_priority",
+		up:      `ALTER TABLE kanban_cards ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }

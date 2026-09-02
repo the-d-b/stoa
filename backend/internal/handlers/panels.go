@@ -459,6 +459,20 @@ func userCanAccessPanel(db *sql.DB, claims *models.Claims, panelID, createdBy st
 	return count > 0
 }
 
+// integrationExists reports whether an integration row still exists,
+// independent of who can see it. Used to tell a stale reference (the
+// integration was deleted after a panel source was configured to use it)
+// apart from a genuine authorization denial — the two need different
+// handling where a panel can reference many integrations at once (Calendar,
+// Map): one dead source among several shouldn't take the whole panel down.
+func integrationExists(db *sql.DB, integrationID string) bool {
+	if integrationID == "" {
+		return false
+	}
+	var exists int
+	return db.QueryRow("SELECT 1 FROM integrations WHERE id=?", integrationID).Scan(&exists) == nil
+}
+
 // userCanAccessIntegration reports whether claims' user is allowed to use
 // this integration, mirroring ListIntegrations' exact visibility rules: own
 // integrations; SYSTEM integrations with no group restriction; SYSTEM

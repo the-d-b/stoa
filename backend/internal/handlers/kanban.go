@@ -30,11 +30,25 @@ type KanbanCard struct {
 	BoardID   string `json:"boardId"`
 	Title     string `json:"title"`
 	Status    string `json:"status"`
+	Priority  string `json:"priority"`
 	DueDate   string `json:"dueDate,omitempty"`
 	Notes     string `json:"notes,omitempty"`
 	SortOrder int    `json:"sortOrder"`
 	CreatedAt string `json:"createdAt"`
 	UpdatedAt string `json:"updatedAt"`
+}
+
+// normalizeKanbanPriority defends against empty/garbage input (including
+// callers that don't send the field at all, which decodes to "") — any
+// value outside the three the UI offers quietly falls back to "normal"
+// rather than persisting bad data or leaving the column blank.
+func normalizeKanbanPriority(p string) string {
+	switch p {
+	case "high", "urgent":
+		return p
+	default:
+		return "normal"
+	}
 }
 
 type KanbanBoardSummary struct {
@@ -225,7 +239,7 @@ func KanbanListCards(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		rows, err := db.Query(`
-			SELECT id, board_id, title, status,
+			SELECT id, board_id, title, status, priority,
 			       COALESCE(due_date,''), COALESCE(notes,''),
 			       sort_order, created_at, updated_at
 			FROM kanban_cards
@@ -240,7 +254,7 @@ func KanbanListCards(db *sql.DB) http.HandlerFunc {
 		cards := []KanbanCard{}
 		for rows.Next() {
 			var c KanbanCard
-			rows.Scan(&c.ID, &c.BoardID, &c.Title, &c.Status, &c.DueDate, &c.Notes, &c.SortOrder, &c.CreatedAt, &c.UpdatedAt)
+			rows.Scan(&c.ID, &c.BoardID, &c.Title, &c.Status, &c.Priority, &c.DueDate, &c.Notes, &c.SortOrder, &c.CreatedAt, &c.UpdatedAt)
 			cards = append(cards, c)
 		}
 		writeJSON(w, http.StatusOK, cards)
@@ -261,10 +275,11 @@ func KanbanCreateCard(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		var req struct {
-			Title   string `json:"title"`
-			Status  string `json:"status"`
-			DueDate string `json:"dueDate"`
-			Notes   string `json:"notes"`
+			Title    string `json:"title"`
+			Status   string `json:"status"`
+			Priority string `json:"priority"`
+			DueDate  string `json:"dueDate"`
+			Notes    string `json:"notes"`
 		}
 		json.NewDecoder(r.Body).Decode(&req)
 		if req.Title == "" {
@@ -274,6 +289,7 @@ func KanbanCreateCard(db *sql.DB) http.HandlerFunc {
 		if req.Status == "" {
 			req.Status = "not_started"
 		}
+		req.Priority = normalizeKanbanPriority(req.Priority)
 		var maxOrder int
 		db.QueryRow("SELECT COALESCE(MAX(sort_order),0) FROM kanban_cards WHERE board_id=? AND status=?", boardID, req.Status).Scan(&maxOrder)
 		id := generateID()
@@ -286,14 +302,14 @@ func KanbanCreateCard(db *sql.DB) http.HandlerFunc {
 			notes = req.Notes
 		}
 		if _, err := db.Exec(
-			`INSERT INTO kanban_cards (id,board_id,title,status,due_date,notes,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)`,
-			id, boardID, req.Title, req.Status, dueDate, notes, maxOrder+1, now, now,
+			`INSERT INTO kanban_cards (id,board_id,title,status,priority,due_date,notes,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+			id, boardID, req.Title, req.Status, req.Priority, dueDate, notes, maxOrder+1, now, now,
 		); err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
 		writeJSON(w, http.StatusOK, KanbanCard{
-			ID: id, BoardID: boardID, Title: req.Title, Status: req.Status,
+			ID: id, BoardID: boardID, Title: req.Title, Status: req.Status, Priority: req.Priority,
 			DueDate: req.DueDate, Notes: req.Notes, SortOrder: maxOrder + 1,
 			CreatedAt: now, UpdatedAt: now,
 		})
@@ -321,6 +337,7 @@ func KanbanUpdateCard(db *sql.DB) http.HandlerFunc {
 		var req struct {
 			Title     string `json:"title"`
 			Status    string `json:"status"`
+			Priority  string `json:"priority"`
 			DueDate   string `json:"dueDate"`
 			Notes     string `json:"notes"`
 			SortOrder *int   `json:"sortOrder"`
@@ -330,6 +347,7 @@ func KanbanUpdateCard(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "title required")
 			return
 		}
+		req.Priority = normalizeKanbanPriority(req.Priority)
 		now := time.Now().UTC().Format(time.RFC3339)
 		var dueDate, notes interface{}
 		if req.DueDate != "" {
@@ -339,11 +357,11 @@ func KanbanUpdateCard(db *sql.DB) http.HandlerFunc {
 			notes = req.Notes
 		}
 		if req.SortOrder != nil {
-			db.Exec(`UPDATE kanban_cards SET title=?,status=?,due_date=?,notes=?,sort_order=?,updated_at=? WHERE id=?`,
-				req.Title, req.Status, dueDate, notes, *req.SortOrder, now, id)
+			db.Exec(`UPDATE kanban_cards SET title=?,status=?,priority=?,due_date=?,notes=?,sort_order=?,updated_at=? WHERE id=?`,
+				req.Title, req.Status, req.Priority, dueDate, notes, *req.SortOrder, now, id)
 		} else {
-			db.Exec(`UPDATE kanban_cards SET title=?,status=?,due_date=?,notes=?,updated_at=? WHERE id=?`,
-				req.Title, req.Status, dueDate, notes, now, id)
+			db.Exec(`UPDATE kanban_cards SET title=?,status=?,priority=?,due_date=?,notes=?,updated_at=? WHERE id=?`,
+				req.Title, req.Status, req.Priority, dueDate, notes, now, id)
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}
@@ -423,9 +441,9 @@ func KanbanSearch(db *sql.DB) http.HandlerFunc {
 				FROM kanban_cards kc
 				JOIN kanban_boards kb ON kc.board_id=kb.id
 				JOIN panels p ON kb.panel_id=p.id
-				WHERE kc.title LIKE ? OR kc.notes LIKE ?
+				WHERE kc.title LIKE ? OR kc.notes LIKE ? OR kb.name LIKE ?
 				ORDER BY kc.updated_at DESC LIMIT 20
-			`, like, like)
+			`, like, like, like)
 		} else {
 			rows, err = db.Query(`
 				SELECT kc.id, kc.board_id, kb.id, kb.name, kc.title,
@@ -434,10 +452,10 @@ func KanbanSearch(db *sql.DB) http.HandlerFunc {
 				FROM kanban_cards kc
 				JOIN kanban_boards kb ON kc.board_id=kb.id
 				JOIN panels p ON kb.panel_id=p.id
-				WHERE (kc.title LIKE ? OR kc.notes LIKE ?)
+				WHERE (kc.title LIKE ? OR kc.notes LIKE ? OR kb.name LIKE ?)
 				  AND (p.created_by='SYSTEM' OR p.created_by=?)
 				ORDER BY kc.updated_at DESC LIMIT 20
-			`, like, like, claims.UserID)
+			`, like, like, like, claims.UserID)
 		}
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, err.Error())
