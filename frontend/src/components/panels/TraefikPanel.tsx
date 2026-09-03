@@ -422,10 +422,10 @@ export default function TraefikPanel({ panel, heightUnits }: Props) {
         )}
       </div>
 
-      {/* Two-column content */}
-      <div style={{ display: 'flex', gap: 16, flex: 1, minHeight: 0 }}>
-        {/* Services column */}
-        <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+      {/* Stacked content — Services then Routes, single scroll */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        {/* Services */}
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 4,
             textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Services ({services.length})
@@ -435,8 +435,8 @@ export default function TraefikPanel({ panel, heightUnits }: Props) {
           ))}
         </div>
 
-        {/* Routers column */}
-        <div style={{ flex: 1, overflowY: 'auto', minWidth: 0 }}>
+        {/* Routes */}
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 9, color: 'var(--text-dim)', marginBottom: 4,
             textTransform: 'uppercase', letterSpacing: '0.06em' }}>
             Routes ({routers.length})

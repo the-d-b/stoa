@@ -4,7 +4,7 @@ name: Traefik
 category: Network & Security
 tags: [proxy, self-hosted]
 official_url: https://traefik.io
-status: needs-testing
+status: tested
 polling: 30s
 secret_format: none
 url_required: true
@@ -48,15 +48,15 @@ HTTP/TCP route inventory with enabled/warning/disabled status, backend service h
 |---|---|
 | 1x | Route count + backend health + active providers |
 | 2-3x | Section chips + degraded backends + service list |
-| 4x+ | Two-column: service list + route table |
+| 4x+ | Service list + route table, stacked vertically |
 
 ### Screenshots
 
-| 1x | 2x | 4x |
+| | Light | Dark |
 |---|---|---|
-| ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
-
-*Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+| **1x** | ![1x light](./screenshots/1x-light.png) | ![1x dark](./screenshots/1x-dark.png) |
+| **2x** | ![2x light](./screenshots/2x-light.png) | ![2x dark](./screenshots/2x-dark.png) |
+| **4x** | ![4x light](./screenshots/4x-light.png) | ![4x dark](./screenshots/4x-dark.png) |
 
 ---
 

@@ -1188,7 +1188,7 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Traefik is a modern, cloud-native reverse proxy and load balancer. It automatically discovers your services (Docker, Kubernetes, and more) and routes incoming traffic to them, handling TLS certificates, middleware, and load balancing with minimal manual configuration — a popular front end for containerized homelab services.",
     "officialUrl": "https://traefik.io",
     "polling": "30s",
