@@ -37,7 +37,8 @@ type FireflyPanelData struct {
 	IntegrationID string `json:"integrationId"`
 	Version       string `json:"version"`
 	APIVersion    string `json:"apiVersion"`
-	// Summary items (current month)
+	Month         string `json:"month"` // YYYY-MM of the summary below
+	// Summary items (for Month above)
 	Summary []FireflySummaryItem `json:"summary"`
 	// Asset accounts
 	Accounts []FireflyAccount `json:"accounts"`
@@ -103,10 +104,24 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 		logErrorf("FIREFLYIII", "about error: %v", err)
 	}
 
-	// ── Summary (current month) ───────────────────────────────────────────────
+	// ── Summary (for the selected month) ──────────────────────────────────────
+	// monthOffset is the panel-selected month (0=current, -1=last month, …),
+	// passed as a live ?month= override — see GetPanelData. Firefly's summary
+	// endpoint already takes an arbitrary start/end range, so navigating
+	// months is just a different date window, no new upstream capability
+	// needed. The current month stops at today (matching "so far this
+	// month"); past/future months use the full calendar month.
+	monthOffset, _ := config["monthOffset"].(float64)
 	now := time.Now()
-	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).Format("2006-01-02")
-	end := now.Format("2006-01-02")
+	target := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, int(monthOffset), 0)
+	start := target.Format("2006-01-02")
+	var end string
+	if monthOffset == 0 {
+		end = now.Format("2006-01-02")
+	} else {
+		end = target.AddDate(0, 1, -1).Format("2006-01-02")
+	}
+	out.Month = target.Format("2006-01")
 	summaryPath := fmt.Sprintf("/api/v1/summary/basic?start=%s&end=%s", start, end)
 
 	if body, err := fireflyGet(baseURL, apiKey, summaryPath, skipTLS); err == nil {
@@ -122,27 +137,12 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 			LocalIcon      string `json:"local_icon"`
 		}
 		if json.Unmarshal(body, &raw) == nil {
-			// Priority order for display
-			priority := map[string]int{
-				"net-worth":     0,
-				"earned":        1,
-				"spent":         2,
-				"bills-paid":    3,
-				"bills-unpaid":  4,
-				"left-to-spend": 5,
-				"net-savings":   6,
-			}
 			for k, v := range raw {
 				// Derive a clean key prefix (strip currency suffix like -in-EUR)
 				cleanKey := k
 				if idx := strings.Index(k, "-in-"); idx > 0 {
 					cleanKey = k[:idx]
 				}
-				rank := 99
-				if r, ok := priority[cleanKey]; ok {
-					rank = r
-				}
-				_ = rank
 				out.Summary = append(out.Summary, FireflySummaryItem{
 					Key:            cleanKey,
 					Title:          v.Title,
@@ -153,11 +153,14 @@ func fetchFireflyPanelData(db *sql.DB, config map[string]interface{}) (*FireflyP
 					Icon:           v.LocalIcon,
 				})
 			}
-			// Sort by priority
+			// Sort by priority. "balance" — confirmed against Firefly's own
+			// BasicController.php source, not the "net-savings" key this
+			// used to assume, which doesn't exist in Firefly's API at all —
+			// is the period's earned-minus-spent figure.
 			rankOf := func(key string) int {
 				p := map[string]int{
 					"net-worth": 0, "earned": 1, "spent": 2,
-					"bills-paid": 3, "bills-unpaid": 4, "left-to-spend": 5, "net-savings": 6,
+					"bills-paid": 3, "bills-unpaid": 4, "left-to-spend": 5, "balance": 6,
 				}
 				if r, ok := p[key]; ok {
 					return r

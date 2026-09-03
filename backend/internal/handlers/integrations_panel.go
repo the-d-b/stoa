@@ -374,6 +374,14 @@ func GetPanelData(db *sql.DB) http.HandlerFunc {
 				filteredOverride = true
 			}
 		}
+		if m := r.URL.Query().Get("month"); m != "" {
+			var monthVal float64
+			if _, err := fmt.Sscanf(m, "%f", &monthVal); err == nil {
+				config["monthOffset"] = monthVal
+				hasOverride = true
+				filteredOverride = true
+			}
+		}
 
 		fetcher, ok := panelFetchers[panelType]
 		if !ok {

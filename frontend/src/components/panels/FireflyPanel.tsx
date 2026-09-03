@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
@@ -27,6 +27,7 @@ interface FireflyData {
   integrationId: string
   version: string
   apiVersion: string
+  month: string
   summary: FireflySummaryItem[]
   accounts: FireflyAccount[]
 }
@@ -48,7 +49,7 @@ function balanceColor(raw: string, key?: string): string {
   const n = parseFloat(raw)
   if (isNaN(n)) return 'var(--text)'
   if (key === 'spent' || key === 'bills-unpaid') return n < 0 ? 'var(--red)' : 'var(--green)'
-  if (key === 'earned' || key === 'net-worth' || key === 'net-savings' || key === 'left-to-spend') {
+  if (key === 'earned' || key === 'net-worth' || key === 'balance' || key === 'left-to-spend') {
     return n >= 0 ? 'var(--green)' : 'var(--red)'
   }
   return 'var(--text)'
@@ -61,7 +62,18 @@ const KEY_LABELS: Record<string, string> = {
   'bills-paid': 'Bills Paid',
   'bills-unpaid': 'Bills Unpaid',
   'left-to-spend': 'Left to Spend',
-  'net-savings': 'Net Savings',
+  'balance': 'Balance',
+}
+
+// The compact tile set shown at 1x/2x+ headers — kept small on purpose,
+// per spec net worth is NOT one of these (it's shown separately, added at 2x).
+const TILE_KEYS = ['earned', 'spent', 'left-to-spend', 'balance']
+
+function monthLabel(ym: string): string {
+  if (!ym) return ''
+  const [year, month] = ym.split('-')
+  return new Date(parseInt(year), parseInt(month) - 1, 1)
+    .toLocaleString(undefined, { month: 'long', year: 'numeric' })
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -78,20 +90,21 @@ function ColHeader({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SummaryChip({ item }: { item: FireflySummaryItem }) {
+function SummaryChip({ item, small = false }: { item: FireflySummaryItem; small?: boolean }) {
   const label = KEY_LABELS[item.key] || item.title || item.key
   const display = item.valueParsed || fmtBalance(item.value, item.currencySymbol)
   const color = balanceColor(item.value, item.key)
   return (
     <div style={{
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: '5px 10px', borderRadius: 8,
-      background: 'var(--surface2)', border: '1px solid var(--border)', minWidth: 72,
+      padding: small ? '2px 7px' : '5px 12px', borderRadius: 6,
+      background: 'var(--surface2)', border: '1px solid var(--border)',
+      minWidth: small ? 52 : 72,
     }}>
-      <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 2, textAlign: 'center' }}>
+      <div style={{ fontSize: small ? 8 : 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', lineHeight: 1.2, textAlign: 'center' }}>
         {label}
       </div>
-      <div style={{ fontSize: 13, fontWeight: 600, fontFamily: 'DM Mono, monospace', color }}>
+      <div style={{ fontSize: small ? 10 : 13, fontWeight: 600, fontFamily: 'DM Mono, monospace', color, lineHeight: 1.3 }}>
         {display}
       </div>
     </div>
@@ -132,6 +145,7 @@ function AccountRow({ account }: { account: FireflyAccount }) {
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export default function FireflyPanel({ panel, heightUnits }: { panel: Panel; heightUnits: number }) {
+  const [monthOffset, setMonthOffset] = useState(0)
   const [data, setData] = useState<FireflyData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -139,15 +153,29 @@ export default function FireflyPanel({ panel, heightUnits }: { panel: Panel; hei
   const config = (() => { try { return JSON.parse(panel.config || '{}') } catch { return {} } })()
   const integrationId: string = config.integrationId || ''
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!integrationId) { setLoading(false); return }
-    integrationsApi.getPanelData(panel.id)
-      .then(res => { setData(res.data); setLoading(false) })
-      .catch(e => { setError(e.response?.data?.error || e.message || 'Failed to load'); setLoading(false) })
-  }, [panel.id, integrationId])
+    try {
+      const res = await integrationsApi.getPanelData(panel.id, { month: monthOffset })
+      setData(res.data)
+      setError(null)
+    } catch (e: any) {
+      setError(e.response?.data?.error || e.message || 'Failed to load')
+    } finally { setLoading(false) }
+  }, [panel.id, integrationId, monthOffset])
 
+  const loadRef = useRef(load)
+  loadRef.current = load
+
+  useEffect(() => { load() }, [load])
+
+  // Mirrors PiHolePanel/FittrackeePanel's pattern: a background SSE broadcast
+  // reflects the integration's default (current month) fetch, not necessarily
+  // whatever month this panel has navigated to — so on any SSE signal,
+  // re-fetch live with the current monthOffset instead of applying the
+  // broadcast payload directly.
   const sseData = useSSE<FireflyData>(integrationId)
-  useEffect(() => { if (sseData !== null) setData(sseData) }, [sseData])
+  useEffect(() => { if (sseData !== null) loadRef.current() }, [sseData])
 
   const wrap = (children: React.ReactNode) => (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column', padding: '10px 14px', boxSizing: 'border-box', overflow: 'hidden' }}>
@@ -161,90 +189,95 @@ export default function FireflyPanel({ panel, heightUnits }: { panel: Panel; hei
   if (!data) return wrap(<div style={{ color: 'var(--text-dim)', fontSize: 13 }}>No data.</div>)
 
   const netWorth = data.summary.find(s => s.key === 'net-worth')
-  const topSummary = data.summary.filter(s => ['net-worth', 'earned', 'spent', 'left-to-spend'].includes(s.key))
-  const restSummary = data.summary.filter(s => !['net-worth', 'earned', 'spent', 'left-to-spend'].includes(s.key))
+  const tiles = TILE_KEYS.map(k => data.summary.find(s => s.key === k)).filter((s): s is FireflySummaryItem => !!s)
+  // "This Month" body list at 4x+ shows detail the tiles don't already cover
+  // (bills paid/unpaid) rather than repeating earned/spent/left-to-spend/balance.
+  const extraSummary = data.summary.filter(s => s.key !== 'net-worth' && !TILE_KEYS.includes(s.key))
 
-  // ── 1× ───────────────────────────────────────────────────────────────────
+  // ── 1× — data tiles only, no net worth ────────────────────────────────────
   if (heightUnits <= 1) {
-    return wrap(
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-        {topSummary.map(item => <SummaryChip key={item.key} item={item} />)}
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px 10px', boxSizing: 'border-box', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {tiles.map(item => <SummaryChip key={item.key} item={item} small />)}
+        </div>
       </div>
     )
   }
 
-  // ── 2–3× ─────────────────────────────────────────────────────────────────
+  // ── 2–3× — tiles + net worth, centered ────────────────────────────────────
   if (heightUnits <= 3) {
     return wrap(
-      <>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
-          {topSummary.map(item => <SummaryChip key={item.key} item={item} />)}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+          {tiles.map(item => <SummaryChip key={item.key} item={item} />)}
         </div>
-        <div style={{ flex: 1, display: 'flex', gap: 14, overflow: 'hidden', minHeight: 0 }}>
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5, overflow: 'hidden' }}>
-            <ColHeader>This Month</ColHeader>
-            {restSummary.map(item => <SummaryRow key={item.key} item={item} />)}
-          </div>
-          {data.accounts.length > 0 && (
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5, overflow: 'hidden' }}>
-              <ColHeader>Accounts</ColHeader>
-              {data.accounts.slice(0, 6).map(a => <AccountRow key={a.id} account={a} />)}
+        {netWorth && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Worth</div>
+            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'DM Mono, monospace', color: balanceColor(netWorth.value, 'net-worth') }}>
+              {netWorth.valueParsed || fmtBalance(netWorth.value, netWorth.currencySymbol)}
             </div>
-          )}
-        </div>
-      </>
+          </div>
+        )}
+      </div>
     )
   }
 
-  // ── 4×+ — three columns ───────────────────────────────────────────────────
+  // ── 4×+ — tiles + net worth header, accounts + this month body ───────────
   return wrap(
     <>
-      {netWorth && (
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Worth</div>
-          <div style={{ fontSize: 26, fontWeight: 700, fontFamily: 'DM Mono, monospace', color: balanceColor(netWorth.value, 'net-worth') }}>
-            {netWorth.valueParsed || fmtBalance(netWorth.value, netWorth.currencySymbol)}
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 10, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button onClick={() => setMonthOffset(m => m - 1)} title="Previous month" style={{
+            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-dim)',
+            fontSize: 13, padding: '0 4px', lineHeight: 1,
+          }}>‹</button>
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', minWidth: 90, textAlign: 'center' }}>
+            {monthLabel(data.month)}
           </div>
+          <button onClick={() => setMonthOffset(m => Math.min(0, m + 1))} disabled={monthOffset === 0}
+            title="Next month" style={{
+              background: 'none', border: 'none', cursor: monthOffset === 0 ? 'default' : 'pointer',
+              color: monthOffset === 0 ? 'var(--border)' : 'var(--text-dim)',
+              fontSize: 13, padding: '0 4px', lineHeight: 1,
+            }}>›</button>
         </div>
-      )}
-
-      <div style={{ flex: 1, display: 'flex', gap: 16, overflow: 'hidden', minHeight: 0 }}>
-
-        {/* Col 1 — Monthly summary */}
-        <div style={{ width: 180, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <ColHeader>This Month</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-            {data.summary.filter(s => s.key !== 'net-worth').map(item => (
-              <SummaryRow key={item.key} item={item} />
-            ))}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+          {tiles.map(item => <SummaryChip key={item.key} item={item} />)}
+        </div>
+        {netWorth && (
+          <div style={{ textAlign: 'center' }}>
+            <div style={{ fontSize: 10, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Net Worth</div>
+            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: 'DM Mono, monospace', color: balanceColor(netWorth.value, 'net-worth') }}>
+              {netWorth.valueParsed || fmtBalance(netWorth.value, netWorth.currencySymbol)}
+            </div>
           </div>
-        </div>
+        )}
+      </div>
 
-        {/* Col 2 — Accounts */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <ColHeader>Asset Accounts</ColHeader>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' }}>
-            {data.accounts.map(a => <AccountRow key={a.id} account={a} />)}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 12, minHeight: 0 }}>
+
+        {/* Accounts */}
+        {data.accounts.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', maxWidth: 440 }}>
+              <ColHeader>Accounts</ColHeader>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                {data.accounts.map(a => <AccountRow key={a.id} account={a} />)}
+              </div>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Col 3 — Server info */}
-        {data.version && (
-          <div style={{ width: 140, flexShrink: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <ColHeader>About</ColHeader>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {data.version && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50, flexShrink: 0 }}>Version</span>
-                  <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{data.version}</span>
-                </div>
-              )}
-              {data.apiVersion && (
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                  <span style={{ fontSize: 10, color: 'var(--text-dim)', width: 50, flexShrink: 0 }}>API</span>
-                  <span style={{ fontSize: 11, fontFamily: 'DM Mono, monospace', color: 'var(--text)' }}>{data.apiVersion}</span>
-                </div>
-              )}
+        {/* This Month — bills paid/unpaid, the detail not already in the tiles above */}
+        {extraSummary.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '100%', maxWidth: 440 }}>
+              <ColHeader>This Month</ColHeader>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                {extraSummary.map(item => <SummaryRow key={item.key} item={item} />)}
+              </div>
             </div>
           </div>
         )}

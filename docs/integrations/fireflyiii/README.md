@@ -4,7 +4,7 @@ name: Firefly III
 category: Finance
 tags: [finance, budgeting, self-hosted]
 official_url: https://www.firefly-iii.org
-status: needs-testing
+status: tested
 polling: 60min
 secret_format: api-key
 url_required: true
@@ -23,7 +23,11 @@ Firefly III is a self-hosted personal finance manager. You record income and exp
 
 ## Getting the key
 
-Firefly III → **Profile** (top-right) → **OAuth → Personal Access Tokens → Create new token** — copy it.
+Firefly III's Profile page offers **two different token types** on the same **OAuth** tab — Stoa needs the **Personal Access Token**, not an OAuth Client.
+
+Firefly III → **Profile** (top-right) → **OAuth** tab → scroll to the **Personal Access Tokens** section → **Create New Token** — give it a name, copy the generated token immediately (shown once).
+
+> **If you're asked for a Redirect URL, you're in the wrong section.** That's the "OAuth Clients" panel further up the same page — a separate authorization-code flow for apps that redirect a user's browser back after login. Stoa authenticates with a plain static token instead and has no redirect endpoint to receive that callback, so an OAuth Client won't work here. Personal Access Tokens ask for nothing but a name.
 
 - **Secret format:** Personal Access Token (PAT)
 - **URL:** required — point at your Firefly III port, e.g. `http://192.168.1.10:8080`
@@ -40,23 +44,23 @@ Firefly III → **Profile** (top-right) → **OAuth → Personal Access Tokens �
 
 ## Panel
 
-Monthly summary figures (earned, spent, net worth, bills paid/unpaid, left to spend, net savings) and asset account balances.
+Monthly summary figures (earned, spent, left to spend, balance, bills paid/unpaid) and net worth, styled after the Actual Budget panel. At 4x+, individual asset account balances and a month navigator (‹ › arrows) for browsing past months — the right arrow disables once you're back at the current month, since browsing into the future isn't meaningful for actuals.
 
 ### Height behavior
 
 | Height | What you see |
 |---|---|
-| 1x | Net worth + earned + spent + left to spend |
-| 2-3x | Summary chips + full monthly summary + account list |
-| 4x+ | Large net-worth header + monthly summary column + account balances column |
+| 1x | Compact tiles — earned, spent, left to spend, balance |
+| 2-3x | Same tiles + a prominent net worth figure below |
+| 4x+ | Tiles + net worth + month navigator, then account balances and bills paid/unpaid |
 
 ### Screenshots
 
-| 1x | 2x | 4x |
+| | Light | Dark |
 |---|---|---|
-| ![1x](./screenshots/1x.png) | ![2x](./screenshots/2x.png) | ![4x](./screenshots/4x.png) |
-
-*Screenshots pending - add as screenshots/1x.png, screenshots/2x.png, screenshots/4x.png.*
+| **1x** | ![1x light](./screenshots/1x-light.png) | ![1x dark](./screenshots/1x-dark.png) |
+| **2x** | ![2x light](./screenshots/2x-light.png) | ![2x dark](./screenshots/2x-dark.png) |
+| **4x** | ![4x light](./screenshots/4x-light.png) | ![4x dark](./screenshots/4x-dark.png) |
 
 ---
 
@@ -68,4 +72,4 @@ Add Firefly III as a calendar source (Profile/Admin → Calendar panel → Calen
 
 ## Notes
 
-Summary figures cover the current calendar month. Polls hourly - financial data changes infrequently.
+Summary figures default to the current calendar month (so far — not the full month) and update live when you navigate to a past month with the 4x+ panel's ‹ › arrows; the selected month is local to that view and resets to the current month on reload, not saved to the panel's config. Polls hourly — financial data changes infrequently.

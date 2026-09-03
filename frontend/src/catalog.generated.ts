@@ -1316,14 +1316,14 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Firefly III is a self-hosted personal finance manager. You record income and expenses across accounts, organize them with budgets, categories, and bills, and track net worth over time — a private, double-entry alternative to commercial budgeting apps.",
     "officialUrl": "https://www.firefly-iii.org",
     "polling": "60min",
     "secretFormat": "api-key",
     "urlRequired": true,
     "exampleUrl": "http://192.168.1.10:8080",
-    "gettingKey": "Firefly III → **Profile** (top-right) → **OAuth → Personal Access Tokens → Create new token** — copy it.\n\n- **Secret format:** Personal Access Token (PAT)\n- **URL:** required — point at your Firefly III port, e.g. `http://192.168.1.10:8080`"
+    "gettingKey": "Firefly III's Profile page offers **two different token types** on the same **OAuth** tab — Stoa needs the **Personal Access Token**, not an OAuth Client.\n\nFirefly III → **Profile** (top-right) → **OAuth** tab → scroll to the **Personal Access Tokens** section → **Create New Token** — give it a name, copy the generated token immediately (shown once).\n\n> **If you're asked for a Redirect URL, you're in the wrong section.** That's the \"OAuth Clients\" panel further up the same page — a separate authorization-code flow for apps that redirect a user's browser back after login. Stoa authenticates with a plain static token instead and has no redirect endpoint to receive that callback, so an OAuth Client won't work here. Personal Access Tokens ask for nothing but a name.\n\n- **Secret format:** Personal Access Token (PAT)\n- **URL:** required — point at your Firefly III port, e.g. `http://192.168.1.10:8080`"
   },
   {
     "id": "ghostfolio",
