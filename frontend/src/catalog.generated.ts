@@ -1679,7 +1679,7 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "wger is a self-hosted workout manager and fitness tracker. It lets you plan workout routines, log training sessions, track body weight and nutrition, and browse an exercise database — an open-source alternative to commercial fitness apps.",
     "officialUrl": "https://wger.de",
     "polling": "15min",
