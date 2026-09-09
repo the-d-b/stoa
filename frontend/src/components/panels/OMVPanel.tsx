@@ -3,7 +3,9 @@ import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
 interface OMVFilesystem { deviceFile: string; label: string; type: string; mountPoint: string; totalGb: number; usedGb: number; percent: number }
-interface OMVDisk { deviceName: string; model: string; sizeGb: number; tempC: number; powerMode: string }
+interface OMVDisk { deviceName: string; model: string; sizeGb: number; tempC: number; powerMode: string; smartStatus: string }
+interface OMVRaidArray { name: string; level: string; numDevices: number; devices: string[]; sizeGb: number; state: string }
+interface OMVAlert { level: string; message: string }
 interface OMVNetIface { name: string; rxMbs: number; txMbs: number; linkUp: boolean }
 interface OMVServices { running: number; stopped: number }
 interface OMVData {
@@ -14,10 +16,19 @@ interface OMVData {
   uptimeSecs: number
   filesystems: OMVFilesystem[]
   disks: OMVDisk[]
+  raidArrays: OMVRaidArray[]
   netInterfaces: OMVNetIface[]
   services: OMVServices
   shares: string[]
+  alerts: OMVAlert[]
 }
+
+// Same vocabulary/colors as TrueNASPanel's ALERT_COLOR/STATUS_COLOR, kept
+// visually consistent between the two NAS panels per user request.
+const ALERT_COLOR: Record<string, string> = { error: 'var(--red)', warning: 'var(--amber)' }
+const RAID_STATE_COLOR: Record<string, string> = { clean: 'var(--green)', active: 'var(--green)' }
+function raidStateColor(state: string) { return RAID_STATE_COLOR[state] || 'var(--amber)' }
+function smartColor(status: string) { return status === 'GOOD' ? 'var(--green)' : status ? 'var(--red)' : 'var(--text-dim)' }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 
@@ -180,9 +191,11 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
   const filesystems = data.filesystems || []
   const disks = (data.disks || []).filter(d => d.deviceName)
+  const raidArrays = data.raidArrays || []
   const netIfaces = data.netInterfaces || []
   const shares = data.shares || []
   const services = data.services || { running: 0, stopped: 0 }
+  const alerts = data.alerts || []
 
   const totalRxMbs = netIfaces.reduce((s, i) => s + (i.rxMbs || 0), 0)
   const totalTxMbs = netIfaces.reduce((s, i) => s + (i.txMbs || 0), 0)
@@ -228,15 +241,28 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
           ⚠ {services.stopped} svc down
         </span>
       )}
+      {alerts.length > 0 && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
+          background: alerts.some(a => a.level === 'error') ? '#f8717118' : '#fbbf2418',
+          border: `1px solid ${alerts.some(a => a.level === 'error') ? '#f8717130' : '#fbbf2430'}`,
+          color: alerts.some(a => a.level === 'error') ? 'var(--red)' : 'var(--amber)' }}>
+          ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
+        </span>
+      )}
     </div>
   )
 
-  // ── Arc rows ──────────────────────────────────────────────────────────────
+  // ── Arc row ───────────────────────────────────────────────────────────────
+  // OMV only has 3 of these (cpu/ram/net) vs TrueNAS's 6 across two rows, so
+  // all 3 fit comfortably on one row — no need for OMV's own second row.
   const Row1Arcs = ({ size = 72 }: { size?: number }) => (
     <ArcRow>
       <Arc pct={data.cpuPercent ?? 0} label={`${(data.cpuPercent ?? 0).toFixed(0)}%`} sub="cpu" size={size} />
       <Arc pct={data.ramPercent ?? 0} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
         sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
+      {(totalRxMbs > 0 || totalTxMbs > 0) && (
+        <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} size={size} />
+      )}
     </ArcRow>
   )
 
@@ -276,6 +302,10 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
         <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
           padding: '3px 6px', borderRadius: 5, background: 'var(--surface2)',
           border: '1px solid var(--border)', fontSize: 11 }}>
+          {d.smartStatus && (
+            <span title={`SMART: ${d.smartStatus}`} style={{ width: 6, height: 6, borderRadius: '50%',
+              flexShrink: 0, background: smartColor(d.smartStatus) }} />
+          )}
           <span style={{ color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0, minWidth: 28 }}>
             {d.deviceName}
           </span>
@@ -297,6 +327,50 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
           {d.powerMode === 'standby' && (
             <span style={{ fontSize: 9, color: 'var(--text-dim)' }}>standby</span>
           )}
+        </div>
+      ))}
+    </div>
+  )
+
+  // ── RAID arrays (mdadm — the multi-disk analog to TrueNAS pools) ─────────
+  const RaidRows = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {raidArrays.map((r, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
+          padding: '3px 6px', borderRadius: 5, background: 'var(--surface2)',
+          border: '1px solid var(--border)', fontSize: 11 }}>
+          <span title={r.state} style={{ width: 6, height: 6, borderRadius: '50%',
+            flexShrink: 0, background: raidStateColor(r.state) }} />
+          <span style={{ color: 'var(--text)', fontWeight: 500, flexShrink: 0 }}>{r.name}</span>
+          <span style={{ fontSize: 9, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
+            {r.level}
+          </span>
+          <span style={{ flex: 1, color: 'var(--text-muted)', overflow: 'hidden',
+            textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}>
+            {r.numDevices} disks
+          </span>
+          {r.sizeGb > 0 && (
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
+              {fmtSize(r.sizeGb)}
+            </span>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+
+  // ── Alerts — synthesized by the backend from reboot-required, pending
+  // package updates, degraded RAID, and failed SMART checks, since OMV has
+  // no unified "list current alerts" API of its own ─────────────────────
+  const Alerts = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {alerts.map((a, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 8px', borderRadius: 6, fontSize: 11,
+          background: a.level === 'error' ? '#f8717112' : '#fbbf2410',
+          border: `1px solid ${a.level === 'error' ? '#f8717130' : '#fbbf2430'}`,
+          color: ALERT_COLOR[a.level] || 'var(--text-muted)' }}>
+          <span style={{ flexShrink: 0, fontWeight: 600 }}>{a.level}</span>
+          <span style={{ flex: 1 }}>{a.message}</span>
         </div>
       ))}
     </div>
@@ -384,11 +458,6 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
     <div style={{ height: '100%', overflow: 'auto' }}>
       <HostPill />
       <Row1Arcs />
-      {(totalRxMbs > 0 || totalTxMbs > 0) && (
-        <ArcRow>
-          <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} />
-        </ArcRow>
-      )}
       {filesystems.length > 0 && <FilesystemRows />}
       <div style={{ marginTop: 8 }}><ServicesPill /></div>
     </div>
@@ -399,16 +468,14 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
     <div style={{ height: '100%', overflow: 'auto' }}>
       <HostPill />
       <Row1Arcs />
-      {(totalRxMbs > 0 || totalTxMbs > 0) && (
-        <ArcRow>
-          <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} />
-        </ArcRow>
-      )}
       {filesystems.length > 0 && (
         <>{sectionTitle('Filesystems')}<FilesystemRows /></>
       )}
       {disks.length > 0 && (
         <>{sectionTitle('Disks')}<DiskTable /></>
+      )}
+      {raidArrays.length > 0 && (
+        <>{sectionTitle('RAID')}<RaidRows /></>
       )}
       {netIfaces.length > 1 && (
         <>{sectionTitle('Network')}<NetIfaceList /></>
@@ -416,6 +483,9 @@ export default function OMVPanel({ panel, heightUnits }: { panel: Panel; heightU
       <div style={{ marginTop: 8 }}><ServicesPill /></div>
       {shares.length > 0 && (
         <>{sectionTitle(`Shares (${shares.length})`)}<ShareTags /></>
+      )}
+      {alerts.length > 0 && (
+        <>{sectionTitle('Alerts')}<Alerts /></>
       )}
     </div>
   )
