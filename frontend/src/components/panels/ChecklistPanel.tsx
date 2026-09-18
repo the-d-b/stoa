@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { checklistApi, ChecklistItem, Panel } from '../../api'
+import Linkify from '../common/Linkify'
 
 function fmtDate(d: string) {
   const dt = new Date(d + 'T00:00:00')
@@ -268,7 +269,7 @@ export default function ChecklistPanel({ panel, heightUnits = 2 }: { panel: Pane
                       fontSize: 13, color: item.completed ? 'var(--text-dim)' : 'var(--text)',
                       textDecoration: item.completed ? 'line-through' : 'none',
                       wordBreak: 'break-word', lineHeight: 1.4,
-                    }}>{item.text}</div>
+                    }}><Linkify text={item.text} /></div>
                     {item.dueDate && (
                       <div style={{ fontSize: 10, marginTop: 2, fontFamily: 'DM Mono, monospace',
                         color: overdue ? 'var(--red)' : today ? 'var(--amber)' : soon ? 'var(--amber)' : 'var(--text-dim)',

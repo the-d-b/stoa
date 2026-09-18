@@ -6,6 +6,7 @@ import { useTheme } from '../../context/ThemeContext'
 
 const isMobile = () => window.innerWidth < 640
 import { useChatSSE, useTypingSSE, useDMSSE } from '../../hooks/useSSE'
+import Linkify from '../common/Linkify'
 
 // ── Status dot colors ─────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
@@ -719,23 +720,6 @@ function DMView({
           }}>↑</button>
         </div>
       </div>
-    </>
-  )
-}
-
-// ── Linkify ───────────────────────────────────────────────────────────────────
-function Linkify({ text }: { text: string }) {
-  const parts = text.split(/(https?:\/\/[^\s<>'"]+)/g)
-  return (
-    <>
-      {parts.map((part, i) =>
-        /^https?:\/\//.test(part)
-          ? <a key={i} href={part} target="_blank" rel="noopener noreferrer"
-              style={{ color: 'inherit', textDecoration: 'underline', wordBreak: 'break-all' }}>
-              {part}
-            </a>
-          : <span key={i}>{part}</span>
-      )}
     </>
   )
 }

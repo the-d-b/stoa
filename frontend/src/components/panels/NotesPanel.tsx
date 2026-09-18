@@ -11,6 +11,20 @@ function timeAgo(iso: string) {
   return new Date(iso).toLocaleDateString(undefined, { month:'short', day:'numeric' })
 }
 
+function escapeHtml(s: string) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+// Turns pasted plain text containing bare URLs into HTML with clickable <a> tags.
+function linkifyToHtml(text: string) {
+  const parts = text.split(/(https?:\/\/[^\s<>'"]+)/g)
+  return parts.map(part =>
+    /^https?:\/\//.test(part)
+      ? `<a href="${escapeHtml(part)}" target="_blank" rel="noopener noreferrer">${escapeHtml(part)}</a>`
+      : escapeHtml(part).replace(/\n/g, '<br>')
+  ).join('')
+}
+
 function RichEditor({ value, onChange, readOnly = false }: { value: string; onChange: (v: string) => void; readOnly?: boolean }) {
   const { themeDef } = useTheme()
   const editorColor  = themeDef.vars['--text']
@@ -45,6 +59,16 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
     }
   }
 
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    if (readOnly) return
+    if (e.clipboardData.getData('text/html')) return // preserve rich paste as-is
+    const text = e.clipboardData.getData('text/plain')
+    if (!text || !/https?:\/\//.test(text)) return // nothing to linkify, let default paste happen
+    e.preventDefault()
+    document.execCommand('insertHTML', false, linkifyToHtml(text))
+    handleInput()
+  }
+
   const btnStyle = (active?: boolean): React.CSSProperties => ({
     padding: '3px 7px', borderRadius: 5, cursor: 'pointer', fontSize: 12, fontWeight: 600,
     background: active ? 'var(--accent-bg)' : 'var(--surface2)',
@@ -77,6 +101,7 @@ function RichEditor({ value, onChange, readOnly = false }: { value: string; onCh
         contentEditable={!readOnly}
         suppressContentEditableWarning
         onInput={handleInput}
+        onPaste={handlePaste}
         style={{
           flex: 1, overflowY: 'auto', padding: '12px 4px', outline: 'none',
           fontSize: 13, lineHeight: 1.6,

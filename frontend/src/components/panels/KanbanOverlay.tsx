@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { kanbanApi, KanbanCard } from '../../api'
+import Linkify from '../common/Linkify'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -268,7 +269,7 @@ function ListView({ cards, onEdit, onDelete }: {
                 </td>
                 <td style={{ padding: '7px 8px', fontSize: 11, color: 'var(--text-dim)',
                   maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {card.notes || '—'}
+                  {card.notes ? <Linkify text={card.notes} /> : '—'}
                 </td>
                 <td style={{ padding: '7px 4px' }}>
                   <button onClick={e => { e.stopPropagation(); onDelete(card) }}
@@ -517,7 +518,7 @@ function MobileStatusView({ cards, onEdit, onCardsChange }: {
               {card.notes && (
                 <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 2,
                   overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {card.notes}
+                  <Linkify text={card.notes} />
                 </div>
               )}
             </div>
