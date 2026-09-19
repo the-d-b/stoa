@@ -163,7 +163,7 @@ func CreateBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 	}
 }
 
-func UpdateBookmarkNode(db *sql.DB) http.HandlerFunc {
+func UpdateBookmarkNode(db *sql.DB, iconsDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id := mux.Vars(r)["id"]
 		var req models.UpdateNodeRequest
@@ -171,11 +171,33 @@ func UpdateBookmarkNode(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, "invalid request")
 			return
 		}
+
+		var nodeType models.NodeType
+		db.QueryRow("SELECT type FROM bookmark_nodes WHERE id=?", id).Scan(&nodeType)
+
+		// Mirror CreateBookmarkNode: a blank icon URL on a bookmark means
+		// "auto-scrape" — this is what lets clearing an existing icon and
+		// saving re-trigger the scraper instead of just saving a blank icon.
+		iconURL := req.IconURL
+		if nodeType == models.NodeBookmark && iconURL == "" && req.URL != "" {
+			remoteIcon := scrapeFavicon(req.URL)
+			if remoteIcon != "" && iconsDir != "" {
+				if localURL, err := downloadAndCacheIcon(remoteIcon, iconsDir); err == nil {
+					iconURL = localURL
+				} else {
+					logErrorf("ICONS", "cache failed, using remote: %v", err)
+					iconURL = remoteIcon
+				}
+			} else {
+				iconURL = remoteIcon
+			}
+		}
+
 		// Update name, url, icon_url, sort_order
 		_, err := db.Exec(`
 			UPDATE bookmark_nodes SET name=?, url=?, icon_url=?, sort_order=?
 			WHERE id=?
-		`, req.Name, nullStr(req.URL), nullStr(req.IconURL), req.SortOrder, id)
+		`, req.Name, nullStr(req.URL), nullStr(iconURL), req.SortOrder, id)
 		if err != nil {
 			writeError(w, http.StatusInternalServerError, "failed to update node")
 			return

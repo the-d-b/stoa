@@ -131,7 +131,7 @@ func main() {
 	// Personal bookmarks (any authenticated user)
 	protected.HandleFunc("/my/bookmarks", handlers.ListPersonalBookmarkTree(database)).Methods("GET")
 	protected.HandleFunc("/my/bookmarks", handlers.CreatePersonalBookmarkNode(database, iconsDir)).Methods("POST")
-	protected.HandleFunc("/my/bookmarks/{id}", handlers.UpdateBookmarkNode(database)).Methods("PUT")
+	protected.HandleFunc("/my/bookmarks/{id}", handlers.UpdateBookmarkNode(database, iconsDir)).Methods("PUT")
 	protected.HandleFunc("/my/bookmarks/{id}", handlers.DeleteBookmarkNode(database)).Methods("DELETE")
 	protected.HandleFunc("/my/bookmarks/{id}/move", handlers.MoveBookmarkNode(database)).Methods("PUT")
 	protected.HandleFunc("/my/bookmarks/{id}/subtree", handlers.GetSubtree(database)).Methods("GET")
@@ -435,7 +435,7 @@ func main() {
 
 	// Bookmarks (write)
 	admin.HandleFunc("/bookmarks", handlers.CreateBookmarkNode(database, iconsDir)).Methods("POST")
-	admin.HandleFunc("/bookmarks/{id}", handlers.UpdateBookmarkNode(database)).Methods("PUT")
+	admin.HandleFunc("/bookmarks/{id}", handlers.UpdateBookmarkNode(database, iconsDir)).Methods("PUT")
 	admin.HandleFunc("/bookmarks/{id}", handlers.DeleteBookmarkNode(database)).Methods("DELETE")
 	admin.HandleFunc("/bookmarks/{id}/move", handlers.MoveBookmarkNode(database)).Methods("PUT")
 	admin.HandleFunc("/bookmarks/cache-icon", handlers.CacheIcon(iconsDir)).Methods("POST")
