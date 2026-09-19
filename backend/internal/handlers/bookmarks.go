@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -473,32 +474,103 @@ func nullStr(s string) interface{} {
 	return s
 }
 
+// scrapeFavicon tries, in order: the site's own /favicon.ico, then a scrub of its
+// homepage HTML for a <link rel="icon"> (or similar), then — for public hosts only —
+// Google's favicon service as a last resort. Google's crawlers have never seen a
+// private-network host (an internal IP, a bare hostname, a .home/.lan domain, etc.),
+// so that fallback is skipped entirely there rather than returning a guaranteed-broken URL.
 func scrapeFavicon(rawURL string) string {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return ""
 	}
 	base := fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+
+	if icon := tryDirectFavicon(base); icon != "" {
+		return icon
+	}
+	if icon := scrapeHTMLIcon(base); icon != "" {
+		return icon
+	}
+	if isPrivateHost(parsed.Host) {
+		return ""
+	}
+	return tryGoogleFavicon(parsed.Host)
+}
+
+func tryDirectFavicon(base string) string {
 	faviconURL := base + "/favicon.ico"
 
 	client := &http.Client{Timeout: 3 * time.Second}
 	resp, err := client.Get(faviconURL)
 	if err != nil || resp.StatusCode != 200 {
-		return tryGoogleFavicon(parsed.Host)
+		return ""
 	}
 	defer resp.Body.Close()
 
 	contentType := resp.Header.Get("Content-Type")
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 64*1024))
 	if err != nil || len(body) < 10 {
-		return tryGoogleFavicon(parsed.Host)
+		return ""
 	}
 
 	if strings.Contains(contentType, "image") || strings.Contains(contentType, "icon") {
 		return faviconURL
 	}
-	return tryGoogleFavicon(parsed.Host)
+	return ""
 }
+
+var iconLinkTagRe = regexp.MustCompile(`(?is)<link\s+[^>]*rel=["'][^"']*icon[^"']*["'][^>]*>`)
+var iconHrefRe = regexp.MustCompile(`(?is)href=["']([^"']+)["']`)
+
+// scrapeHTMLIcon fetches the site's homepage and looks for a <link rel="icon">
+// (or "shortcut icon" / "apple-touch-icon" / etc.) declaring a custom icon path —
+// many self-hosted apps don't serve a bare /favicon.ico at all.
+func scrapeHTMLIcon(base string) string {
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(base + "/")
+	if err != nil || resp.StatusCode != 200 {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
+	if err != nil {
+		return ""
+	}
+
+	for _, tag := range iconLinkTagRe.FindAllString(string(body), -1) {
+		hrefMatch := iconHrefRe.FindStringSubmatch(tag)
+		if len(hrefMatch) < 2 {
+			continue
+		}
+		if resolved := resolveIconURL(base, hrefMatch[1]); resolved != "" {
+			return resolved
+		}
+	}
+	return ""
+}
+
+func resolveIconURL(base, href string) string {
+	href = strings.TrimSpace(href)
+	if href == "" || strings.HasPrefix(href, "data:") {
+		return ""
+	}
+	baseURL, err := url.Parse(base)
+	if err != nil {
+		return ""
+	}
+	ref, err := url.Parse(href)
+	if err != nil {
+		return ""
+	}
+	return baseURL.ResolveReference(ref).String()
+}
+
+// isPrivateHost (shared with chat_attachments.go) resolves the host and checks
+// whether it lands on a private/loopback/link-local IP — this is what tells us
+// Google's public crawlers could never have indexed it, regardless of what the
+// hostname itself looks like (e.g. "cars.myhome.me" resolving to a LAN IP).
 
 func tryGoogleFavicon(host string) string {
 	return fmt.Sprintf("https://www.google.com/s2/favicons?domain=%s&sz=64", host)
