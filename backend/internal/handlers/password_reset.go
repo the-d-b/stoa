@@ -142,7 +142,8 @@ func ResetConfirm(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "transaction error")
 			return
 		}
-		tx.Exec("UPDATE users SET password_hash=? WHERE id=?", hash, userID)
+		// Bump token_version so any session issued before this reset stops working.
+		tx.Exec("UPDATE users SET password_hash=?, token_version = token_version + 1 WHERE id=?", hash, userID)
 		tx.Exec("UPDATE password_reset_tokens SET used=1 WHERE token=?", req.Token)
 		if err := tx.Commit(); err != nil {
 			tx.Rollback()

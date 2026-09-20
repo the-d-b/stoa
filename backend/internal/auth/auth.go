@@ -120,13 +120,17 @@ func (s *Service) GenerateToken(user *models.User) (string, error) {
 		s.db.QueryRow("SELECT value FROM app_config WHERE key = 'session_secret'").Scan(&secret)
 	}
 
+	var tokenVersion int
+	s.db.QueryRow("SELECT token_version FROM users WHERE id = ?", user.ID).Scan(&tokenVersion)
+
 	duration := s.SessionDuration()
 	claims := jwt.MapClaims{
-		"userId":   user.ID,
-		"username": user.Username,
-		"role":     user.Role,
-		"exp":      time.Now().Add(duration).Unix(),
-		"iat":      time.Now().Unix(),
+		"userId":       user.ID,
+		"username":     user.Username,
+		"role":         user.Role,
+		"tokenVersion": tokenVersion,
+		"exp":          time.Now().Add(duration).Unix(),
+		"iat":          time.Now().Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -150,14 +154,42 @@ func (s *Service) ValidateToken(tokenStr string) (*models.Claims, error) {
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// tokenVersion is absent on tokens issued before this claim existed —
+		// treat that as version 0, matching every existing user's starting value.
+		tokenVersion := 0
+		if v, ok := claims["tokenVersion"].(float64); ok {
+			tokenVersion = int(v)
+		}
 		return &models.Claims{
-			UserID:   claims["userId"].(string),
-			Username: claims["username"].(string),
-			Role:     models.Role(claims["role"].(string)),
+			UserID:       claims["userId"].(string),
+			Username:     claims["username"].(string),
+			Role:         models.Role(claims["role"].(string)),
+			TokenVersion: tokenVersion,
 		}, nil
 	}
 
 	return nil, fmt.Errorf("invalid token")
+}
+
+// checkNotRevoked rejects a token whose embedded tokenVersion no longer matches
+// the user's current one (bumped on role change, password change, or account
+// disable) or whose user no longer exists — without this, a demoted admin,
+// a changed password, or a disabled/deleted account all stay fully valid on
+// any already-issued token until it naturally expires.
+func (s *Service) checkNotRevoked(claims *models.Claims) error {
+	var currentVersion, enabled int
+	err := s.db.QueryRow("SELECT token_version, enabled FROM users WHERE id = ?", claims.UserID).
+		Scan(&currentVersion, &enabled)
+	if err != nil {
+		return fmt.Errorf("user not found")
+	}
+	if enabled == 0 {
+		return fmt.Errorf("account disabled")
+	}
+	if currentVersion != claims.TokenVersion {
+		return fmt.Errorf("session invalidated")
+	}
+	return nil
 }
 
 func (s *Service) Middleware(next http.Handler) http.Handler {
@@ -172,6 +204,10 @@ func (s *Service) Middleware(next http.Handler) http.Handler {
 		claims, err := s.ValidateToken(tokenStr)
 		if err != nil {
 			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+			return
+		}
+		if err := s.checkNotRevoked(claims); err != nil {
+			http.Error(w, `{"error":"session invalidated"}`, http.StatusUnauthorized)
 			return
 		}
 
@@ -198,6 +234,10 @@ func (s *Service) FlexMiddleware(next http.Handler) http.Handler {
 		claims, err := s.ValidateToken(tokenStr)
 		if err != nil {
 			http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+			return
+		}
+		if err := s.checkNotRevoked(claims); err != nil {
+			http.Error(w, `{"error":"session invalidated"}`, http.StatusUnauthorized)
 			return
 		}
 		ctx := context.WithValue(r.Context(), UserContextKey, claims)

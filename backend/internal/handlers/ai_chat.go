@@ -121,7 +121,10 @@ func SendAIMessage(db *sql.DB) http.HandlerFunc {
 		var apiKey string
 		db.QueryRow(`SELECT value FROM secrets WHERE name = ? AND created_by = 'SYSTEM' LIMIT 1`, secretName).Scan(&apiKey)
 		if apiKey == "" {
-			db.QueryRow(`SELECT value FROM secrets WHERE LOWER(name) LIKE ? LIMIT 1`,
+			// Fallback fuzzy match — still SYSTEM-only. Without that restriction
+			// this became a client-controlled LIKE search (via req.Provider)
+			// across every user's secrets, not just admin-configured ones.
+			db.QueryRow(`SELECT value FROM secrets WHERE LOWER(name) LIKE ? AND created_by = 'SYSTEM' LIMIT 1`,
 				"%"+strings.ToLower(req.Provider)+"%").Scan(&apiKey)
 		}
 		if apiKey == "" {

@@ -525,7 +525,10 @@ func UpdateUserRole(db *sql.DB) http.HandlerFunc {
 		}
 		var targetName string
 		db.QueryRow("SELECT username FROM users WHERE id=?", id).Scan(&targetName)
-		db.Exec("UPDATE users SET role = ? WHERE id = ?", req.Role, id)
+		// Bumping token_version forces any already-issued token for this user to
+		// be re-validated on their next request — otherwise a demoted admin keeps
+		// admin access on their existing session until it naturally expires.
+		db.Exec("UPDATE users SET role = ?, token_version = token_version + 1 WHERE id = ?", req.Role, id)
 		logDebugf("ADMIN", "role_update user_id=%s new_role=%s", id, req.Role)
 		RecordAudit(db, claims.UserID, claims.Username, "user.role_change", id, targetName, map[string]string{"role": string(req.Role)})
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -1182,7 +1185,9 @@ func ChangeOwnPassword(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusInternalServerError, "failed to hash password")
 			return
 		}
-		db.Exec("UPDATE users SET password_hash=? WHERE id=?", string(newHash), claims.UserID)
+		// Bump token_version so any other already-issued session for this user
+		// (e.g. from a device that had the now-changed password) stops working.
+		db.Exec("UPDATE users SET password_hash=?, token_version = token_version + 1 WHERE id=?", string(newHash), claims.UserID)
 		RecordAudit(db, claims.UserID, claims.Username, "auth.password_change", "", "", nil)
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

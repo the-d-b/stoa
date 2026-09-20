@@ -187,9 +187,10 @@ type SetupGroup struct {
 }
 
 type Claims struct {
-	UserID   string `json:"userId"`
-	Username string `json:"username"`
-	Role     Role   `json:"role"`
+	UserID       string `json:"userId"`
+	Username     string `json:"username"`
+	Role         Role   `json:"role"`
+	TokenVersion int    `json:"tokenVersion"`
 }
 
 type UpdateTagRequest struct {

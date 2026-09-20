@@ -172,6 +172,10 @@ func CreateIntegration(db *sql.DB) http.HandlerFunc {
 		id := generateID()
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
+			if !userCanAccessSecret(db, claims, *req.SecretID) {
+				writeError(w, http.StatusForbidden, "not authorized to use that secret")
+				return
+			}
 			secretID = *req.SecretID
 		}
 		skipTLSInt := 0
@@ -219,6 +223,10 @@ func UpdateIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
+			if !userCanAccessSecret(db, claims, *req.SecretID) {
+				writeError(w, http.StatusForbidden, "not authorized to use that secret")
+				return
+			}
 			secretID = *req.SecretID
 		}
 		skipTLSInt := 0
@@ -317,6 +325,7 @@ func DeleteIntegration(db *sql.DB) http.HandlerFunc {
 
 func TestIntegration(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)
 		var req struct {
 			Type     string `json:"type"`
 			APIURL   string `json:"apiUrl"`
@@ -337,10 +346,23 @@ func TestIntegration(db *sql.DB) http.HandlerFunc {
 		req.APIURL = strings.TrimSpace(req.APIURL)
 		apiKey := ""
 		if req.SecretID != "" {
-			var enc string
-			if err := db.QueryRow("SELECT value FROM secrets WHERE id=?", req.SecretID).Scan(&enc); err == nil {
-				apiKey = decryptSecret(enc)
+			// Same ownership rule as RevealSecret/Update/Delete: without this, any
+			// authenticated user could pass an arbitrary secretId (someone else's
+			// personal secret, or a shared system secret) plus their own attacker-
+			// controlled apiUrl and exfiltrate the decrypted value via the outbound
+			// test request's auth header — no ownership check needed to see the
+			// plaintext, and no audit trail either, unlike a real reveal.
+			var ownerID, enc string
+			if err := db.QueryRow("SELECT created_by, value FROM secrets WHERE id=?", req.SecretID).
+				Scan(&ownerID, &enc); err != nil {
+				writeError(w, http.StatusNotFound, "secret not found")
+				return
 			}
+			if ownerID != claims.UserID && claims.Role != models.RoleAdmin {
+				writeError(w, http.StatusForbidden, "not your secret")
+				return
+			}
+			apiKey = decryptSecret(enc)
 		}
 		var err error
 		switch req.Type {
@@ -801,6 +823,10 @@ func UpdateMyIntegration(db *sql.DB) http.HandlerFunc {
 		}
 		var secretID interface{} = nil
 		if req.SecretID != nil && *req.SecretID != "" {
+			if !userCanAccessSecret(db, claims, *req.SecretID) {
+				writeError(w, http.StatusForbidden, "not authorized to use that secret")
+				return
+			}
 			secretID = *req.SecretID
 		}
 		skipTLSInt := 0

@@ -205,6 +205,45 @@ func ListSecrets(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+// userCanAccessSecret mirrors userCanAccessIntegration/userCanAccessPanel: the
+// secret's owner may always use it; a SYSTEM secret may be used if it has no
+// group restriction or the user belongs to one of its assigned groups; admins
+// may use any SYSTEM secret. Without this check, any user could point an
+// integration they own at a secretId belonging to someone else (or a SYSTEM
+// secret never shared to their group) and have Stoa use it on their behalf.
+func userCanAccessSecret(db *sql.DB, claims *models.Claims, secretID string) bool {
+	if secretID == "" {
+		return true
+	}
+	var createdBy string
+	if err := db.QueryRow("SELECT created_by FROM secrets WHERE id=?", secretID).Scan(&createdBy); err != nil {
+		return false
+	}
+	if createdBy == claims.UserID {
+		return true
+	}
+	if createdBy != "SYSTEM" {
+		return false
+	}
+	if claims.Role == models.RoleAdmin {
+		return true
+	}
+	var count int
+	db.QueryRow(`
+		SELECT COUNT(*) FROM secrets s
+		WHERE s.id = ?
+		AND (
+			NOT EXISTS (SELECT 1 FROM secret_groups WHERE secret_id = s.id)
+			OR EXISTS (
+				SELECT 1 FROM secret_groups sg
+				JOIN user_groups ug ON sg.group_id = ug.group_id
+				WHERE sg.secret_id = s.id AND ug.user_id = ?
+			)
+		)
+	`, secretID, claims.UserID).Scan(&count)
+	return count > 0
+}
+
 func CreateSecret(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(auth.UserContextKey).(*models.Claims)

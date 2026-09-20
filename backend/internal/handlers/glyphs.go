@@ -459,22 +459,19 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 		var config map[string]interface{}
 		json.Unmarshal([]byte(configStr), &config)
 
-		// Resolve API key — only needed for stocks/crypto
-		apiKey := ""
-		if secretID := stringVal(config, "secretId"); secretID != "" {
-			var encryptedVal string
-			if db.QueryRow("SELECT value FROM secrets WHERE id=?", secretID).Scan(&encryptedVal) == nil {
-				apiKey = decryptSecret(encryptedVal)
-			}
-		}
-		_ = apiKey // used by stocks/crypto below
-
 		switch tickerType {
 		case "stocks", "crypto":
 			// Read from market integration cache
 			integrationID := stringVal(config, "integrationId")
 			if integrationID == "" {
 				writeError(w, http.StatusBadRequest, "stocks/crypto ticker requires a market integration")
+				return
+			}
+			// A ticker's own config is client-supplied and unvalidated at
+			// save time — this is what stops a ticker from pointing at an
+			// integration the requesting user was never granted access to.
+			if !userCanAccessIntegration(db, claims, integrationID) {
+				writeError(w, http.StatusForbidden, "not your integration")
 				return
 			}
 			if cached, ok := cacheGet(integrationID); ok {
@@ -516,6 +513,10 @@ func GetTickerData(db *sql.DB) http.HandlerFunc {
 					return
 				}
 				writeJSON(w, http.StatusOK, data)
+				return
+			}
+			if !userCanAccessIntegration(db, claims, integrationID) {
+				writeError(w, http.StatusForbidden, "not your integration")
 				return
 			}
 			if cached, ok := cacheGet(integrationID); ok {

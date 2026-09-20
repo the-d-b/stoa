@@ -840,6 +840,15 @@ var migrations = []migration{
 		name:    "kanban_card_priority",
 		up:      `ALTER TABLE kanban_cards ADD COLUMN priority TEXT NOT NULL DEFAULT 'normal'`,
 	},
+	{
+		// Lets a role change, password change, or account disable invalidate
+		// already-issued JWTs instead of leaving them valid until natural
+		// expiry — bumped whenever one of those happens, checked against the
+		// version embedded in the token on every request.
+		version: 60,
+		name:    "users_token_version",
+		up:      `ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0`,
+	},
 }
 
 func min(a, b int) int { if a < b { return a }; return b }
