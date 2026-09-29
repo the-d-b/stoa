@@ -73,11 +73,7 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 	}
 
 	// Initial HTTP fetch — populates the cache before WebSocket is ready
-	raw, err := unraidHTTPQuery(apiURL, apiKey, unraidFullQuery, skipTLS)
-	if err != nil {
-		return fmt.Errorf("initial fetch: %w", err)
-	}
-	initial, err := buildUnraidPanelData(raw)
+	initial, err := unraidFetchAll(ig.id, apiURL, apiKey, skipTLS, true)
 	if err != nil {
 		return fmt.Errorf("initial fetch: %w", err)
 	}
@@ -184,11 +180,18 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 	cpuSubID := c.nextID()
 	memSubID := c.nextID()
 	netSubID := c.nextID()
+	arraySubID := c.nextID()
 
+	// Subscription return types are the SAME CpuUtilization/NetworkMetrics
+	// types the regular polling query already uses successfully (confirmed
+	// live: Unraid's error response named the exact type when the original
+	// field guesses — cpuUsage/iface — were wrong) — so these reuse the same
+	// field names as unraidCoreQuery rather than guessing a subscription-
+	// specific shape.
 	c.send(map[string]interface{}{ //nolint:errcheck
 		"id": cpuSubID, "type": "subscribe",
 		"payload": map[string]string{
-			"query": `subscription { systemMetricsCpu { cpuUsage { main } } }`,
+			"query": `subscription { systemMetricsCpu { percentTotal } }`,
 		},
 	})
 	c.send(map[string]interface{}{ //nolint:errcheck
@@ -200,7 +203,18 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 	c.send(map[string]interface{}{ //nolint:errcheck
 		"id": netSubID, "type": "subscribe",
 		"payload": map[string]string{
-			"query": `subscription { systemMetricsNetwork { iface { name rxSec txSec } } }`,
+			"query": `subscription { systemMetricsNetwork { name rxSec txSec } }`,
+		},
+	})
+	// arraySubscription pushes the same array/disk/pool shape as the regular
+	// query live — used here so IOPS (diffed from numReads/numWrites) gets
+	// genuine few-second resolution instead of only updating once per
+	// refreshSecs slow poll, which would understate an "IOPS" figure by
+	// averaging it over up to a minute of activity.
+	c.send(map[string]interface{}{ //nolint:errcheck
+		"id": arraySubID, "type": "subscribe",
+		"payload": map[string]string{
+			"query": `subscription { arraySubscription { ` + unraidArraySubQuery + ` } }`,
 		},
 	})
 
@@ -211,16 +225,14 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 		cpuSubID: func(data json.RawMessage, fresh *UnraidPanelData) bool {
 			var d struct {
 				SystemMetricsCpu struct {
-					CpuUsage []struct {
-						Main float64 `json:"main"`
-					} `json:"cpuUsage"`
+					PercentTotal float64 `json:"percentTotal"`
 				} `json:"systemMetricsCpu"`
 			}
-			if json.Unmarshal(data, &d) == nil && len(d.SystemMetricsCpu.CpuUsage) > 0 {
-				fresh.CPUPercent = d.SystemMetricsCpu.CpuUsage[0].Main
-				return true
+			if json.Unmarshal(data, &d) != nil {
+				return false
 			}
-			return false
+			fresh.CPUPercent = d.SystemMetricsCpu.PercentTotal
+			return true
 		},
 		memSubID: func(data json.RawMessage, fresh *UnraidPanelData) bool {
 			var d struct {
@@ -246,35 +258,51 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 			}
 			return false
 		},
+		// systemMetricsNetwork returns [NetworkMetrics!]! — a list of every
+		// interface per event, confirmed against the schema's Subscription
+		// type (the earlier "cannot query field iface" error only named the
+		// element type, not the list wrapper, which led to an incorrect
+		// single-object struct here that silently failed to unmarshal an
+		// array with no error path — hence updates vanishing with no log at
+		// all). Updates whichever existing interfaces match by name rather
+		// than replacing the whole list, since the slow poll decides which
+		// interfaces are real (filtering out loopback/no-IP ones).
 		netSubID: func(data json.RawMessage, fresh *UnraidPanelData) bool {
 			var d struct {
-				SystemMetricsNetwork struct {
-					Iface []struct {
-						Name  string       `json:"name"`
-						RxSec unraidBigInt `json:"rxSec"`
-						TxSec unraidBigInt `json:"txSec"`
-					} `json:"iface"`
+				SystemMetricsNetwork []struct {
+					Name  string  `json:"name"`
+					RxSec float64 `json:"rxSec"`
+					TxSec float64 `json:"txSec"`
 				} `json:"systemMetricsNetwork"`
 			}
-			if json.Unmarshal(data, &d) != nil {
+			if err := json.Unmarshal(data, &d); err != nil {
+				logErrorf("UNRAID", "net subscription payload parse error: %v", err)
 				return false
 			}
-			var ifaces []UnraidNetIface
-			for _, iface := range d.SystemMetricsNetwork.Iface {
-				if iface.Name == "lo" {
-					continue
+			updated := false
+			for _, entry := range d.SystemMetricsNetwork {
+				for i, iface := range fresh.NetInterfaces {
+					if iface.Name == entry.Name {
+						fresh.NetInterfaces[i].RxMBs = entry.RxSec / 1048576
+						fresh.NetInterfaces[i].TxMBs = entry.TxSec / 1048576
+						updated = true
+						break
+					}
 				}
-				ifaces = append(ifaces, UnraidNetIface{
-					Name:  iface.Name,
-					RxMBs: float64(iface.RxSec) / 1048576,
-					TxMBs: float64(iface.TxSec) / 1048576,
-				})
 			}
-			if len(ifaces) > 0 {
-				fresh.NetInterfaces = ifaces
-				return true
+			return updated
+		},
+		arraySubID: func(data json.RawMessage, fresh *UnraidPanelData) bool {
+			var d struct {
+				ArraySubscription unraidArrayPayload `json:"arraySubscription"`
 			}
-			return false
+			if err := json.Unmarshal(data, &d); err != nil {
+				logErrorf("UNRAID", "array subscription payload parse error: %v", err)
+				return false
+			}
+			totalReads, totalWrites := unraidApplyArray(fresh, d.ArraySubscription)
+			fresh.ReadIOPS, fresh.WriteIOPS = unraidTrackIOPS(ig.id, totalReads, totalWrites)
+			return true
 		},
 	}
 
@@ -316,24 +344,30 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 					cacheSet(ig.id, &fresh)
 				}
 			case "error":
-				logErrorf("UNRAID", "subscription error id=%s", msg.ID)
+				// Payload was previously discarded, hiding the actual reason
+				// a subscription failed — graphql-transport-ws sends an array
+				// of GraphQL error objects here.
+				var gqlErrs []struct {
+					Message string `json:"message"`
+				}
+				if json.Unmarshal(msg.Payload, &gqlErrs) == nil && len(gqlErrs) > 0 {
+					logErrorf("UNRAID", "subscription error id=%s: %s", msg.ID, gqlErrs[0].Message)
+				} else {
+					logErrorf("UNRAID", "subscription error id=%s: %s", msg.ID, strings.TrimSpace(string(msg.Payload)))
+				}
 			}
 		case <-pingTicker.C:
 			c.mu.Lock()
 			rawConn.WriteMessage(websocket.PingMessage, nil) //nolint:errcheck
 			c.mu.Unlock()
 		case <-refreshTicker.C:
-			// Re-poll slow-changing data (array state, disks, docker, VMs, shares)
-			pollRaw, pollErr := unraidHTTPQuery(apiURL, apiKey, unraidFullQuery, skipTLS)
+			// Re-poll slow-changing data (docker, VMs, shares, notifications).
+			// trackIOPS=false — arraySubscription already feeds IOPS on its
+			// own, faster cadence; see unraidFetchAll's doc comment.
+			rebuilt, pollErr := unraidFetchAll(ig.id, apiURL, apiKey, skipTLS, false)
 			if pollErr != nil {
 				logErrorf("UNRAID", "slow refresh error: %v", pollErr)
 				RecordIntegrationError(ig.id, ig.name, pollErr.Error())
-				continue
-			}
-			rebuilt, buildErr := buildUnraidPanelData(pollRaw)
-			if buildErr != nil {
-				logErrorf("UNRAID", "slow refresh parse error: %v", buildErr)
-				RecordIntegrationError(ig.id, ig.name, buildErr.Error())
 				continue
 			}
 			rebuilt.UIURL = uiURL
@@ -348,6 +382,10 @@ func runUnraidWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) error
 			}
 			if cur := unraidGetCached(ig.id); len(cur.NetInterfaces) > 0 {
 				rebuilt.NetInterfaces = cur.NetInterfaces
+			}
+			if cur := unraidGetCached(ig.id); cur.ReadIOPS > 0 || cur.WriteIOPS > 0 {
+				rebuilt.ReadIOPS = cur.ReadIOPS
+				rebuilt.WriteIOPS = cur.WriteIOPS
 			}
 			ClearIntegrationError(ig.id, ig.name)
 			cacheSet(ig.id, rebuilt)
@@ -365,16 +403,10 @@ func unraidPollLoop(db *sql.DB, ig integrationMeta, apiURL, uiURL, apiKey string
 		case <-stop:
 			return nil
 		case <-ticker.C:
-			raw, err := unraidHTTPQuery(apiURL, apiKey, unraidFullQuery, skipTLS)
+			fresh, err := unraidFetchAll(ig.id, apiURL, apiKey, skipTLS, true)
 			if err != nil {
 				logErrorf("UNRAID", "poll error: %v", err)
 				RecordIntegrationError(ig.id, ig.name, err.Error())
-				continue
-			}
-			fresh, buildErr := buildUnraidPanelData(raw)
-			if buildErr != nil {
-				logErrorf("UNRAID", "poll parse error: %v", buildErr)
-				RecordIntegrationError(ig.id, ig.name, buildErr.Error())
 				continue
 			}
 			fresh.UIURL = uiURL

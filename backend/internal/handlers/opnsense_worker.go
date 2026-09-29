@@ -17,7 +17,8 @@ import (
 // /api/diagnostics/traffic/stream/1  → per-second byte deltas per interface
 // /api/diagnostics/firewall/stream_log → live firewall log events
 //
-// Slow loop (30s): firmware, gateways, DNS stats, PF states, top talkers
+// Slow loop (configured refresh interval): firmware, gateways, DNS stats, PF
+// states, top talkers — everything not delivered by the two streams above.
 
 func StartOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) {
 	go func() {
@@ -75,7 +76,7 @@ func runOPNsenseWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) err
 	defer fwTicker.Stop()
 	defer fwReset.Stop()
 
-	slowTicker := time.NewTicker(30 * time.Second)
+	slowTicker := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)
 	defer slowTicker.Stop()
 
 	for {

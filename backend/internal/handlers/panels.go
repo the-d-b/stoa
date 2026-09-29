@@ -202,6 +202,17 @@ func UpdatePanel(db *sql.DB) http.HandlerFunc {
 				}
 			}
 		}
+
+		// Capture which integration this panel pointed to BEFORE the update —
+		// the cache only gets busted below if that actually changes. Without
+		// this, any edit that leaves the integration unchanged (resizing,
+		// renaming, moving) would still unconditionally discard perfectly
+		// good cached data, forcing a wait of up to the full refresh interval
+		// before the panel shows anything again, for no reason.
+		var oldConfigStr string
+		db.QueryRow("SELECT COALESCE(config,'{}') FROM panels WHERE id=?", id).Scan(&oldConfigStr)
+		oldIntegrationID, _ := parsePanelConfig(oldConfigStr)["integrationId"].(string)
+
 		// Admins can update SYSTEM-owned panels; users can only update their own
 		var result sql.Result
 		var err error
@@ -222,14 +233,9 @@ func UpdatePanel(db *sql.DB) http.HandlerFunc {
 			writeError(w, http.StatusForbidden, "panel not found or permission denied")
 			return
 		}
-		// Bust cache for this panel's integration so new config takes effect immediately
-		var configStr string
-		db.QueryRow("SELECT COALESCE(config,'{}') FROM panels WHERE id=?", id).Scan(&configStr)
-		var cfg map[string]interface{}
-		if json.Unmarshal([]byte(configStr), &cfg) == nil {
-			if integrationID, _ := cfg["integrationId"].(string); integrationID != "" {
-				cacheDeletePrefix(integrationID)
-			}
+		newIntegrationID, _ := parsePanelConfig(req.Config)["integrationId"].(string)
+		if newIntegrationID != "" && newIntegrationID != oldIntegrationID {
+			cacheDeletePrefix(newIntegrationID)
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	}

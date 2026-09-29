@@ -833,14 +833,14 @@ export const CATALOG: CatalogEntry[] = [
       "storage"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Synology DiskStation Manager (DSM) is the operating system that runs on Synology NAS appliances. It manages storage volumes and RAID, serves files over SMB/NFS/AFP, and runs a large ecosystem of first-party apps (Photos, Drive, Surveillance Station, and more) through a polished web-based desktop.",
     "officialUrl": "https://www.synology.com",
     "polling": "30s",
     "secretFormat": "username-password",
     "urlRequired": true,
     "exampleUrl": "http://192.168.1.10:5000",
-    "gettingKey": "Use your Synology DSM login in `username:password` form (e.g. `admin:yourpassword`). A dedicated read-only account is recommended.\n\n- **Secret format:** `username:password`\n- **URL:** required — point at your DSM port, e.g. `http://192.168.1.10:5000`"
+    "gettingKey": "Use your Synology DSM login in `username:password` form (e.g. `admin:yourpassword`).\n\n- **Secret format:** `username:password`\n- **URL:** required — point at your DSM port, e.g. `http://192.168.1.10:5000`\n- **Use an administrator account, not a limited one.** Storage Manager data (volumes, disks, shares) is read through DSM APIs (`SYNO.Core.Storage.*`) that a non-admin DSM user is typically not permitted to call at all — a limited account may log in fine and show CPU/RAM/network, while the storage sections stay silently empty. If you want a dedicated account rather than reusing your main admin login, put it in the `administrators` group.\n- **Disable two-factor auth on the account Stoa uses.** Stoa authenticates with a plain username/password against the DSM API — there's nowhere for a 2FA code to go. DSM will refuse login with a \"two-factor authentication required\" error for any account that has it enabled."
   },
   {
     "id": "truenas",
@@ -872,14 +872,14 @@ export const CATALOG: CatalogEntry[] = [
       "self-hosted"
     ],
     "builtin": false,
-    "status": "needs-testing",
+    "status": "tested",
     "whatIs": "Unraid is a NAS and application-server operating system built around a flexible, parity-protected array that lets you mix drive sizes and expand one disk at a time. Beyond storage it runs Docker containers and virtual machines, which makes it a popular all-in-one home-server OS.",
     "officialUrl": "https://unraid.net",
     "polling": "30s",
-    "secretFormat": "username-password",
+    "secretFormat": "api-key",
     "urlRequired": true,
     "exampleUrl": "http://192.168.1.10",
-    "gettingKey": "Use your Unraid WebUI login in `username:password` form (e.g. `root:yourpassword`).\n\n- **Secret format:** `username:password`\n- **URL:** required — point at your Unraid host, e.g. `http://192.168.1.10`"
+    "gettingKey": "Stoa talks to Unraid's GraphQL API (`/graphql`), which authenticates with a dedicated API key — not your WebUI username/password. Generate one from the Unraid WebUI, under **Settings → Management Access → API Keys** (exact wording may vary slightly by Unraid version — look for an \"API Keys\" section under Management Access). Give it read access to system/array/docker/vm data.\n\n- **Secret format:** API key only (not `username:password`)\n- **URL:** required — point at your Unraid host, e.g. `http://192.168.1.10`"
   },
   {
     "id": "adguard",

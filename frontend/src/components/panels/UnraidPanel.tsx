@@ -2,27 +2,32 @@ import { useEffect, useState, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
-interface UnraidDisk { name: string; sizeGb: number; tempC: number; status: string; color: string; numErrors: number }
+interface UnraidPool { name: string; status: string; color: string; usedGb: number; totalGb: number; percent: number }
+interface UnraidDiskSummary { total: number; healthy: number; issues: string[] }
+interface UnraidAlert { level: string; message: string }
 interface UnraidParityCheck { status: string; speed: string; duration: number; progress: number }
 interface UnraidNetIface { name: string; rxMbs: number; txMbs: number }
 interface UnraidShare { name: string }
 interface UnraidData {
   uiUrl: string; hostname: string; version: string
   cpuModel: string; cpuCores: number; cpuThreads: number
-  cpuPercent: number
+  cpuPercent: number; cpuTempC?: number
   ramTotalGb: number; ramUsedGb: number; ramPercent: number
+  readIops?: number; writeIops?: number
   arrayState: string; arrayUsedGb: number; arrayTotalGb: number; arrayPercent: number
-  disks: UnraidDisk[]
+  pools: UnraidPool[]
+  diskSummary: UnraidDiskSummary
   parityCheck?: UnraidParityCheck
   dockerRunning: number; dockerStopped: number
   vmRunning: number; vmStopped: number
   netInterfaces: UnraidNetIface[]
   shares: UnraidShare[]
+  alerts: UnraidAlert[]
 }
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
 
-const DISK_COLOR: Record<string, string> = {
+const STATUS_COLOR: Record<string, string> = {
   GREEN_ON:  'var(--green)',
   YELLOW_ON: 'var(--amber)',
   RED_ON:    'var(--red)',
@@ -37,8 +42,9 @@ const ARRAY_STATE_COLOR: Record<string, string> = {
   DISABLE_DISK: 'var(--red)',
 }
 
-function diskColor(d: UnraidDisk) {
-  return DISK_COLOR[d.color] || 'var(--text-dim)'
+const ALERT_COLOR: Record<string, string> = {
+  error:   'var(--red)',
+  warning: 'var(--amber)',
 }
 
 function pctColor(p: number) {
@@ -109,6 +115,34 @@ function Arc({ pct, label, sub, size = 72 }: { pct: number; label: string; sub?:
   )
 }
 
+// Mirrors the TrueNAS panel's Thermometer widget exactly, for visual parity.
+function Thermometer({ tempC, label, size = 72 }: { tempC: number; label: string; size?: number }) {
+  const maxTemp = 100
+  const minTemp = 20
+  const pct = Math.min(Math.max((tempC - minTemp) / (maxTemp - minTemp) * 100, 0), 100)
+  const col = tempC >= 80 ? 'var(--red)' : tempC >= 65 ? 'var(--amber)' : tempC >= 50 ? 'var(--amber)' : 'var(--green)'
+  const h = size * 0.42
+  const w = size < 60 ? 10 : 13
+  const bulbR = w * 1.05
+  const tubeW = w * 0.52
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: size }}>
+      <svg width={size} height={h + bulbR * 2 + 4} style={{ overflow: 'visible' }}>
+        <rect x={(size - tubeW) / 2} y={4} width={tubeW} height={h} rx={tubeW / 2} fill="var(--surface2)" />
+        <rect x={(size - tubeW) / 2} y={4 + h * (1 - pct / 100)} width={tubeW}
+          height={h * pct / 100} rx={tubeW / 2} fill={col} style={{ transition: 'all 0.6s ease' }} />
+        <circle cx={size / 2} cy={h + 4 + bulbR * 0.6} r={bulbR} fill="var(--surface2)" />
+        <circle cx={size / 2} cy={h + 4 + bulbR * 0.6} r={bulbR * 0.78} fill={col} style={{ transition: 'all 0.6s ease' }} />
+        <text x={size / 2} y={h + 4 + bulbR * 0.5 + 2} textAnchor="middle" dominantBaseline="middle"
+          fontSize={size < 60 ? 5 : 7} fontWeight="700" fontFamily="DM Mono, monospace" fill="var(--surface)">
+          {tempC.toFixed(0)}°
+        </text>
+      </svg>
+      <div style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 2, fontFamily: 'DM Mono, monospace' }}>{label}</div>
+    </div>
+  )
+}
+
 function NetWidget({ rxMbs, txMbs, size = 72 }: { rxMbs: number; txMbs: number; size?: number }) {
   function fmt(n: number) {
     if (n >= 1000) return `${(n / 1000).toFixed(1)}G`
@@ -141,6 +175,22 @@ function NetWidget({ rxMbs, txMbs, size = 72 }: { rxMbs: number; txMbs: number; 
         <text x={w-pad+2} y={iy2} fontSize={size < 60 ? 9 : 10} fontFamily="DM Mono, monospace" fill="var(--amber)" fontWeight="700" textAnchor="end">{fmt(rxMbs)}</text>
       </svg>
       <span style={{ fontSize: 8, color: 'var(--text-dim)', marginTop: 2, fontFamily: 'DM Mono, monospace' }}>net</span>
+    </div>
+  )
+}
+
+// Mirrors the TrueNAS panel's StatPill — a compact label+value tile for a
+// metric with no meaningful percent to put on an Arc gauge.
+function StatPill({ value, label, color, size = 72 }: { value: string; label: string; color?: string; size?: number }) {
+  const col = color || 'var(--accent)'
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', width: size, height: size * 0.7,
+      background: 'var(--surface2)', borderRadius: 10, border: `1px solid ${col}30` }}>
+      <span style={{ fontSize: size < 60 ? 13 : 16, fontWeight: 700,
+        fontFamily: 'DM Mono, monospace', color: col, lineHeight: 1 }}>{value}</span>
+      <span style={{ fontSize: 9, color: 'var(--text-dim)', marginTop: 3,
+        fontFamily: 'DM Mono, monospace' }}>{label}</span>
     </div>
   )
 }
@@ -184,10 +234,11 @@ export default function UnraidPanel({ panel, heightUnits }: { panel: Panel; heig
   if (!data)   return null
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
-  const disks = (data.disks || []).filter(d => d.name && d.color !== 'GREY_OFF')
-  const allDisks = data.disks || []
+  const pools = data.pools || []
+  const diskSummary = data.diskSummary || { total: 0, healthy: 0, issues: [] }
   const netIfaces = data.netInterfaces || []
   const shares = data.shares || []
+  const alerts = data.alerts || []
   const totalRxMbs = netIfaces.reduce((s, i) => s + (i.rxMbs || 0), 0)
   const totalTxMbs = netIfaces.reduce((s, i) => s + (i.txMbs || 0), 0)
 
@@ -229,6 +280,14 @@ export default function UnraidPanel({ panel, heightUnits }: { panel: Panel; heig
         color: arrayStateColor }}>
         {arrayStateLabel}
       </span>
+      {alerts.length > 0 && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
+          background: alerts.some(a => a.level === 'error') ? '#f8717118' : '#fbbf2418',
+          border: `1px solid ${alerts.some(a => a.level === 'error') ? '#f8717130' : '#fbbf2430'}`,
+          color: alerts.some(a => a.level === 'error') ? 'var(--red)' : 'var(--amber)' }}>
+          ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
+        </span>
+      )}
     </div>
   )
 
@@ -238,18 +297,25 @@ export default function UnraidPanel({ panel, heightUnits }: { panel: Panel; heig
       <Arc pct={data.cpuPercent ?? 0} label={`${(data.cpuPercent ?? 0).toFixed(0)}%`} sub="cpu" size={size} />
       <Arc pct={data.ramPercent ?? 0} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
         sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
-      {(data.arrayTotalGb ?? 0) > 0 && (
-        <Arc pct={data.arrayPercent ?? 0} label={`${(data.arrayPercent ?? 0).toFixed(0)}%`}
-          sub={`${fmtSize(data.arrayUsedGb)}/${fmtSize(data.arrayTotalGb)}`} size={size} />
+      {(data.cpuTempC ?? 0) > 0 && (
+        <Thermometer tempC={data.cpuTempC!} label="cpu temp" size={size} />
       )}
     </ArcRow>
   )
 
+  const readIops = data.readIops ?? 0
+  const writeIops = data.writeIops ?? 0
+  const fmtIops = (n: number) => n >= 10 ? n.toFixed(0) : n.toFixed(1)
+
   const Row2Arcs = ({ size = 72 }: { size?: number }) => {
-    if (totalRxMbs === 0 && totalTxMbs === 0) return null
+    const hasNet = totalRxMbs > 0 || totalTxMbs > 0
+    const hasIops = readIops > 0 || writeIops > 0
+    if (!hasNet && !hasIops) return null
     return (
       <ArcRow>
-        <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} size={size} />
+        {hasNet && <NetWidget rxMbs={totalRxMbs} txMbs={totalTxMbs} size={size} />}
+        {hasIops && <StatPill value={fmtIops(readIops)} label="read iops" color="var(--green)" size={size} />}
+        {hasIops && <StatPill value={fmtIops(writeIops)} label="write iops" color="var(--amber)" size={size} />}
       </ArcRow>
     )
   }
@@ -272,61 +338,67 @@ export default function UnraidPanel({ panel, heightUnits }: { panel: Panel; heig
     )
   }
 
-  // ── Array capacity bar ────────────────────────────────────────────────────
-  const ArrayBar = () => {
-    if ((data.arrayTotalGb ?? 0) === 0) return null
+  // ── Pools (array + cache pools, matching the TrueNAS panel's Pools section) ──
+  const PoolRows = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+      {pools.map(p => (
+        <div key={p.name}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+              background: STATUS_COLOR[p.color] || 'var(--text-dim)' }} />
+            <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>{p.name}</span>
+            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
+              {fmtSize(p.usedGb)}/{fmtSize(p.totalGb)}
+            </span>
+            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
+              color: pctColor(p.percent) }}>
+              {p.percent.toFixed(0)}%
+            </span>
+          </div>
+          <div style={{ paddingLeft: 14 }}><MiniBar pct={p.percent} /></div>
+        </div>
+      ))}
+    </div>
+  )
+
+  // ── Disk health summary — a count, not a list; see backend doc comment on
+  // why the underlying SMART signal is a hint, not a guarantee ───────────────
+  const DiskHealthLine = () => {
+    if (diskSummary.total === 0) return null
+    const allHealthy = diskSummary.issues.length === 0
     return (
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: arrayStateColor }} />
-          <span style={{ fontSize: 12, fontWeight: 500, flex: 1 }}>Array</span>
-          <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>
-            {fmtSize(data.arrayUsedGb)}/{fmtSize(data.arrayTotalGb)}
-          </span>
-          <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', width: 32, textAlign: 'right',
-            color: pctColor(data.arrayPercent ?? 0) }}>
-            {(data.arrayPercent ?? 0).toFixed(0)}%
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+            background: allHealthy ? 'var(--green)' : 'var(--amber)' }} />
+          <span>{diskSummary.total} disk{diskSummary.total !== 1 ? 's' : ''}</span>
+          <span style={{ color: allHealthy ? 'var(--text-dim)' : 'var(--amber)' }}>
+            {allHealthy ? '· all healthy' : `· ${diskSummary.issues.length} to check`}
           </span>
         </div>
-        <div style={{ paddingLeft: 14 }}><MiniBar pct={data.arrayPercent ?? 0} /></div>
+        {!allHealthy && (
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', paddingLeft: 14, fontFamily: 'DM Mono, monospace' }}>
+            {diskSummary.issues.join(', ')}
+          </div>
+        )}
       </div>
     )
   }
 
-  // ── Disk table ────────────────────────────────────────────────────────────
-  const DiskTable = () => {
-    const rows = disks.length > 0 ? disks : allDisks.slice(0, 12)
-    if (rows.length === 0) return null
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {rows.map((d, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-            padding: '3px 6px', borderRadius: 5, background: 'var(--surface2)',
-            border: '1px solid var(--border)', fontSize: 11 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: diskColor(d) }} />
-            <span style={{ flex: 1, color: 'var(--text)', minWidth: 0, overflow: 'hidden',
-              textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.name}</span>
-            {d.sizeGb > 0 && (
-              <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
-                {fmtSize(d.sizeGb)}
-              </span>
-            )}
-            {d.tempC > 0 && (
-              <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', flexShrink: 0,
-                color: d.tempC >= 85 ? 'var(--red)' : d.tempC >= 70 ? 'var(--amber)' : 'var(--text-muted)' }}>
-                {d.tempC}°
-              </span>
-            )}
-            {d.numErrors > 0 && (
-              <span style={{ fontSize: 10, color: 'var(--red)', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
-                {d.numErrors}err
-              </span>
-            )}
-          </div>
-        ))}
-      </div>
-    )
-  }
+  // ── Alerts ────────────────────────────────────────────────────────────────
+  const Alerts = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {alerts.map((a, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 8px', borderRadius: 6, fontSize: 11,
+          background: a.level === 'error' ? '#f8717112' : '#fbbf2410',
+          border: `1px solid ${a.level === 'error' ? '#f8717130' : '#fbbf2430'}`,
+          color: ALERT_COLOR[a.level] || 'var(--text-muted)' }}>
+          <span style={{ flexShrink: 0, fontWeight: 600, textTransform: 'uppercase' }}>{a.level}</span>
+          <span style={{ flex: 1 }}>{a.message}</span>
+        </div>
+      ))}
+    </div>
+  )
 
   // ── Docker / VM counts ────────────────────────────────────────────────────
   const Pill = ({ label, value, color }: { label: string; value: number; color?: string }) => (
@@ -407,7 +479,7 @@ export default function UnraidPanel({ panel, heightUnits }: { panel: Panel; heig
       <ParityCheckBar />
       <Row1Arcs />
       <Row2Arcs />
-      <ArrayBar />
+      {pools.length > 0 && <PoolRows />}
       <DockerVMRow />
     </div>
   )
@@ -419,16 +491,21 @@ export default function UnraidPanel({ panel, heightUnits }: { panel: Panel; heig
       <ParityCheckBar />
       <Row1Arcs />
       <Row2Arcs />
-      <ArrayBar />
       <DockerVMRow />
-      {disks.length > 0 && (
-        <>{sectionTitle('Disks')}<DiskTable /></>
+      {pools.length > 0 && (
+        <>{sectionTitle('Pools')}<PoolRows /></>
+      )}
+      {diskSummary.total > 0 && (
+        <>{sectionTitle('Disks')}<DiskHealthLine /></>
       )}
       {netIfaces.length > 1 && (
         <>{sectionTitle('Network')}<NetIfaceList /></>
       )}
       {shares.length > 0 && (
         <>{sectionTitle(`Shares (${shares.length})`)}<ShareList /></>
+      )}
+      {alerts.length > 0 && (
+        <>{sectionTitle('Alerts')}<Alerts /></>
       )}
     </div>
   )

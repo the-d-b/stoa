@@ -3,12 +3,15 @@ import { integrationsApi, Panel } from '../../api'
 import { useSSE } from '../../hooks/useSSE'
 
 interface SynoVolume { id: string; name: string; status: string; raidType: string; fsType: string; totalGb: number; usedGb: number; usedPct: number }
-interface SynoDisk { name: string; device: string; model: string; sizeGb: number; tempC: number; status: string; smartStatus: string; diskType: string }
+interface SynoDiskSummary { total: number; healthy: number; issues: string[] }
+interface SynoAlert { level: string; message: string }
 interface SynoNetIface { device: string; rxMbs: number; txMbs: number }
 interface SynoData {
   uiUrl: string; hostname: string; model: string; dsmVersion: string; uptimeSecs: number
   cpuPercent: number; ramPercent: number; ramTotalGb: number; ramUsedGb: number
-  volumes: SynoVolume[]; disks: SynoDisk[]; netIfaces: SynoNetIface[]; shares: string[]
+  diskReadMbs: number; diskWriteMbs: number; diskBusy: number
+  volumes: SynoVolume[]; diskSummary: SynoDiskSummary; netIfaces: SynoNetIface[]; shares: string[]
+  alerts: SynoAlert[]
 }
 
 // ── Formatters ────────────────────────────────────────────────────────────────
@@ -24,8 +27,9 @@ function volumeStatusColor(status: string) {
   return 'var(--text-dim)'
 }
 
-function smartColor(s: string) {
-  return s === 'normal' ? 'var(--green)' : s ? 'var(--red)' : 'var(--text-dim)'
+const ALERT_COLOR: Record<string, string> = {
+  error:   'var(--red)',
+  warning: 'var(--amber)',
 }
 
 function fmtSize(gb: number) {
@@ -49,10 +53,6 @@ function fmtUptime(secs: number) {
   if (d > 0) return `${d}d ${h}h`
   if (h > 0) return `${h}h ${m}m`
   return `${m}m`
-}
-
-function tempColor(c: number) {
-  return c >= 55 ? 'var(--red)' : c >= 45 ? 'var(--amber)' : 'var(--text-muted)'
 }
 
 function fmtRaidType(r: string) {
@@ -188,15 +188,14 @@ export default function SynologyPanel({ panel, heightUnits }: { panel: Panel; he
 
   const uiUrl = (data.uiUrl || '').replace(/\/$/, '')
   const volumes = data.volumes || []
-  const disks = data.disks || []
+  const diskSummary = data.diskSummary || { total: 0, healthy: 0, issues: [] }
   const netIfaces = data.netIfaces || []
   const shares = data.shares || []
+  const alerts = data.alerts || []
 
   const totalRxMbs = netIfaces.reduce((s, i) => s + (i.rxMbs || 0), 0)
   const totalTxMbs = netIfaces.reduce((s, i) => s + (i.txMbs || 0), 0)
   const uptime = fmtUptime(data.uptimeSecs)
-  const degradedVolumes = volumes.filter(v => v.status !== 'normal' && v.status !== '')
-  const failedDisks = disks.filter(d => d.status === 'damaged' || d.status === 'crashed' || (d.smartStatus && d.smartStatus !== 'normal'))
 
   const sectionTitle = (text: string) => (
     <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase',
@@ -231,16 +230,12 @@ export default function SynologyPanel({ panel, heightUnits }: { panel: Panel; he
           up {uptime}
         </span>
       )}
-      {degradedVolumes.length > 0 && (
-        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
-          background: '#fbbf2418', border: '1px solid #fbbf2430', color: 'var(--amber)' }}>
-          ⚠ {degradedVolumes.length} vol {degradedVolumes[0].status}
-        </span>
-      )}
-      {failedDisks.length > 0 && (
-        <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 6,
-          background: '#f8717118', border: '1px solid #f8717130', color: 'var(--red)' }}>
-          ✕ {failedDisks.length} disk warn
+      {alerts.length > 0 && (
+        <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, fontWeight: 600,
+          background: alerts.some(a => a.level === 'error') ? '#f8717118' : '#fbbf2418',
+          border: `1px solid ${alerts.some(a => a.level === 'error') ? '#f8717130' : '#fbbf2430'}`,
+          color: alerts.some(a => a.level === 'error') ? 'var(--red)' : 'var(--amber)' }}>
+          ⚠ {alerts.length} alert{alerts.length !== 1 ? 's' : ''}
         </span>
       )}
     </div>
@@ -252,6 +247,9 @@ export default function SynologyPanel({ panel, heightUnits }: { panel: Panel; he
       <Arc pct={data.cpuPercent ?? 0} label={`${(data.cpuPercent ?? 0).toFixed(0)}%`} sub="cpu" size={size} />
       <Arc pct={data.ramPercent ?? 0} label={`${(data.ramPercent ?? 0).toFixed(0)}%`}
         sub={(data.ramTotalGb ?? 0) > 0 ? `${fmtSize(data.ramUsedGb)} ram` : 'ram'} size={size} />
+      <Arc pct={Math.min(data.diskBusy ?? 0, 100)}
+        label={`io ${(data.diskBusy ?? 0).toFixed(0)}%`}
+        sub={(data.diskReadMbs ?? 0) > 0 ? `↓${fmtMbs(data.diskReadMbs ?? 0)}` : 'disk busy'} size={size} />
     </ArcRow>
   )
 
@@ -286,80 +284,39 @@ export default function SynologyPanel({ panel, heightUnits }: { panel: Panel; he
     </div>
   )
 
-  // ── Disk table (4x+) ──────────────────────────────────────────────────────
-  const DiskTable = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {disks.map((d, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-          padding: '3px 6px', borderRadius: 5, background: 'var(--surface2)',
-          border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0, minWidth: 32 }}>
-            {d.device || d.name}
-          </span>
-          <span style={{ flex: 1, color: 'var(--text-muted)', overflow: 'hidden',
-            textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 10 }}>
-            {d.model || d.name}
-          </span>
-          {d.sizeGb > 0 && (
-            <span style={{ fontSize: 10, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace', flexShrink: 0 }}>
-              {fmtSize(d.sizeGb)}
-            </span>
-          )}
-          {d.tempC > 0 && (
-            <span style={{ fontSize: 10, fontFamily: 'DM Mono, monospace', flexShrink: 0,
-              color: tempColor(d.tempC) }}>
-              {d.tempC}°
-            </span>
-          )}
-          {d.smartStatus && (
-            <span style={{ fontSize: 9, fontFamily: 'DM Mono, monospace', flexShrink: 0,
-              color: smartColor(d.smartStatus) }}>
-              {d.smartStatus === 'normal' ? 'OK' : d.smartStatus}
-            </span>
-          )}
-        </div>
-      ))}
-    </div>
-  )
-
-  // ── Disk temps (2x-3x compact view) ──────────────────────────────────────
-  const DiskTemps = () => {
-    const withTemp = disks.filter(d => d.tempC > 0)
-    if (withTemp.length === 0) return null
-    const rows: SynoDisk[][] = []
-    for (let i = 0; i < withTemp.length; i += 4) rows.push(withTemp.slice(i, i + 4))
+  // ── Disk health summary — a count, not a list ─────────────────────────────
+  const DiskHealthLine = () => {
+    if (diskSummary.total === 0) return null
+    const allHealthy = diskSummary.issues.length === 0
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {rows.map((row, ri) => (
-          <div key={ri} style={{ display: 'flex', gap: 5 }}>
-            {row.map((d, di) => (
-              <div key={di} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 4,
-                padding: '2px 6px', borderRadius: 5, background: 'var(--surface2)',
-                border: '1px solid var(--border)', fontSize: 10, fontFamily: 'DM Mono, monospace' }}>
-                <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>{d.device || d.name}</span>
-                <span style={{ fontWeight: 600, color: tempColor(d.tempC) }}>{d.tempC}°</span>
-              </div>
-            ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+            background: allHealthy ? 'var(--green)' : 'var(--amber)' }} />
+          <span>{diskSummary.total} disk{diskSummary.total !== 1 ? 's' : ''}</span>
+          <span style={{ color: allHealthy ? 'var(--text-dim)' : 'var(--amber)' }}>
+            {allHealthy ? '· all healthy' : `· ${diskSummary.issues.length} to check`}
+          </span>
+        </div>
+        {!allHealthy && (
+          <div style={{ fontSize: 10, color: 'var(--text-dim)', paddingLeft: 14, fontFamily: 'DM Mono, monospace' }}>
+            {diskSummary.issues.join(', ')}
           </div>
-        ))}
+        )}
       </div>
     )
   }
 
-  // ── Network iface list (4x+) ──────────────────────────────────────────────
-  const NetIfaceList = () => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {netIfaces.map((iface, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6,
-          padding: '3px 6px', borderRadius: 5, background: 'var(--surface2)',
-          border: '1px solid var(--border)', fontSize: 11 }}>
-          <span style={{ flex: 1, color: 'var(--text-dim)', fontFamily: 'DM Mono, monospace' }}>{iface.device}</span>
-          <span style={{ fontSize: 10, color: 'var(--green)', fontFamily: 'DM Mono, monospace' }}>
-            ↑{fmtMbs(iface.txMbs)}
-          </span>
-          <span style={{ fontSize: 10, color: 'var(--amber)', fontFamily: 'DM Mono, monospace' }}>
-            ↓{fmtMbs(iface.rxMbs)}
-          </span>
+  // ── Alerts ────────────────────────────────────────────────────────────────
+  const Alerts = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {alerts.map((a, i) => (
+        <div key={i} style={{ display: 'flex', gap: 8, padding: '5px 8px', borderRadius: 6, fontSize: 11,
+          background: a.level === 'error' ? '#f8717112' : '#fbbf2410',
+          border: `1px solid ${a.level === 'error' ? '#f8717130' : '#fbbf2430'}`,
+          color: ALERT_COLOR[a.level] || 'var(--text-muted)' }}>
+          <span style={{ flexShrink: 0, fontWeight: 600, textTransform: 'uppercase' }}>{a.level}</span>
+          <span style={{ flex: 1 }}>{a.message}</span>
         </div>
       ))}
     </div>
@@ -414,9 +371,6 @@ export default function SynologyPanel({ panel, heightUnits }: { panel: Panel; he
         </ArcRow>
       )}
       {volumes.length > 0 && <VolumeRows />}
-      {disks.length > 0 && (
-        <div style={{ marginTop: 8 }}><DiskTemps /></div>
-      )}
       <div style={{ marginTop: 8 }}><SharesPill /></div>
     </div>
   )
@@ -434,14 +388,14 @@ export default function SynologyPanel({ panel, heightUnits }: { panel: Panel; he
       {volumes.length > 0 && (
         <>{sectionTitle('Volumes')}<VolumeRows /></>
       )}
-      {disks.length > 0 && (
-        <>{sectionTitle('Disks')}<DiskTable /></>
-      )}
-      {netIfaces.length > 1 && (
-        <>{sectionTitle('Network')}<NetIfaceList /></>
+      {diskSummary.total > 0 && (
+        <>{sectionTitle('Disks')}<DiskHealthLine /></>
       )}
       {shares.length > 0 && (
         <>{sectionTitle(`Shares (${shares.length})`)}<ShareTags /></>
+      )}
+      {alerts.length > 0 && (
+        <>{sectionTitle('Alerts')}<Alerts /></>
       )}
     </div>
   )

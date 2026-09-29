@@ -19,19 +19,37 @@ var errSynoUnauth = errors.New("synology: session invalid")
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type SynologyPanelData struct {
-	UIURL      string         `json:"uiUrl"`
-	Hostname   string         `json:"hostname"`
-	Model      string         `json:"model"`
-	DSMVersion string         `json:"dsmVersion"`
-	UptimeSecs int64          `json:"uptimeSecs"`
-	CPUPercent float64        `json:"cpuPercent"`
-	RAMPercent float64        `json:"ramPercent"`
-	RAMTotalGB float64        `json:"ramTotalGb"`
-	RAMUsedGB  float64        `json:"ramUsedGb"`
-	Volumes    []SynoVolume   `json:"volumes"`
-	Disks      []SynoDisk     `json:"disks"`
-	NetIfaces  []SynoNetIface `json:"netIfaces"`
-	Shares     []string       `json:"shares"`
+	UIURL        string          `json:"uiUrl"`
+	Hostname     string          `json:"hostname"`
+	Model        string          `json:"model"`
+	DSMVersion   string          `json:"dsmVersion"`
+	UptimeSecs   int64           `json:"uptimeSecs"`
+	CPUPercent   float64         `json:"cpuPercent"`
+	RAMPercent   float64         `json:"ramPercent"`
+	RAMTotalGB   float64         `json:"ramTotalGb"`
+	RAMUsedGB    float64         `json:"ramUsedGb"`
+	DiskReadMBs  float64         `json:"diskReadMbs"`
+	DiskWriteMBs float64         `json:"diskWriteMbs"`
+	DiskBusy     float64         `json:"diskBusy"` // percent, aggregate across all disks
+	Volumes      []SynoVolume    `json:"volumes"`
+	DiskSummary  SynoDiskSummary `json:"diskSummary"`
+	NetIfaces    []SynoNetIface  `json:"netIfaces"`
+	Shares       []string        `json:"shares"`
+	Alerts       []SynoAlert     `json:"alerts"`
+}
+
+// SynoDiskSummary is a count, not a per-disk list — "N disks · all healthy",
+// naming only the ones worth a look, matching how the Unraid/OMV panels
+// summarize disk health rather than enumerating every drive.
+type SynoDiskSummary struct {
+	Total   int      `json:"total"`
+	Healthy int      `json:"healthy"`
+	Issues  []string `json:"issues"`
+}
+
+type SynoAlert struct {
+	Level   string `json:"level"` // "warning" | "error"
+	Message string `json:"message"`
 }
 
 type SynoVolume struct {
@@ -43,17 +61,6 @@ type SynoVolume struct {
 	TotalGB  float64 `json:"totalGb"`
 	UsedGB   float64 `json:"usedGb"`
 	UsedPct  float64 `json:"usedPct"`
-}
-
-type SynoDisk struct {
-	Name        string  `json:"name"`   // "Disk 1"
-	Device      string  `json:"device"` // "sda"
-	Model       string  `json:"model"`  // "WDC WD40EFRX"
-	SizeGB      float64 `json:"sizeGb"`
-	TempC       int     `json:"tempC"`
-	Status      string  `json:"status"`      // "normal", "damaged"
-	SMARTStatus string  `json:"smartStatus"` // "normal", "failed_read"
-	DiskType    string  `json:"diskType"`    // "DATA", "CACHE", "SPARE"
 }
 
 type SynoNetIface struct {
@@ -199,8 +206,14 @@ func synoGet(baseURL, sid, api, method string, version int, extra map[string]str
 
 // ── Data fetch ────────────────────────────────────────────────────────────────
 
-func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, error) {
-	data := &SynologyPanelData{UIURL: uiURL}
+// synoFetchFast fetches DSM info + live utilization (CPU, RAM, network, disk
+// I/O). Split out from synoFetchSlow so the two can be composed by
+// synoFetchAll — both run on the same user-configured refresh interval,
+// there's no separate fast/slow polling cadence here (DSM's webapi has no
+// live-push mechanism at all — session-cookie REST only — so there's no
+// "live" tier to poll faster; every field updates at the same rate).
+func synoFetchFast(apiURL, sid string, skipTLS bool) (*SynologyPanelData, error) {
+	data := &SynologyPanelData{}
 	anyOK := false
 
 	// ── DSM info ──────────────────────────────────────────────────────────────
@@ -246,6 +259,19 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 				Rx     float64 `json:"rx"` // KB/s
 				Tx     float64 `json:"tx"` // KB/s
 			} `json:"network"`
+			Disk struct {
+				Total struct {
+					// Field is literally "read_byte"/"write_byte" (not
+					// "read_kb" like network's rx/tx) — treated as bytes/sec
+					// accordingly, unlike network's KB/s. Unverified against
+					// a real sustained transfer; sanity-check the displayed
+					// MB/s against DSM's own Resource Monitor once there's
+					// real disk I/O to compare against.
+					ReadByte    float64 `json:"read_byte"`
+					WriteByte   float64 `json:"write_byte"`
+					Utilization float64 `json:"utilization"` // percent, disk busy
+				} `json:"total"`
+			} `json:"disk"`
 		}
 		if json.Unmarshal(raw, &util) == nil {
 			cpu := util.CPU.UserLoad + util.CPU.SystemLoad + util.CPU.OtherLoad
@@ -274,6 +300,9 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 					TxMBs:  iface.Tx / 1024,
 				})
 			}
+			data.DiskReadMBs = util.Disk.Total.ReadByte / 1048576
+			data.DiskWriteMBs = util.Disk.Total.WriteByte / 1048576
+			data.DiskBusy = util.Disk.Total.Utilization
 		}
 	} else if errors.Is(err, errSynoUnauth) {
 		return nil, err
@@ -281,17 +310,50 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 		logErrorf("SYNOLOGY", "utilization error: %v", err)
 	}
 
-	// ── Volumes ───────────────────────────────────────────────────────────────
-	if raw, err := synoGet(apiURL, sid, "SYNO.Core.Storage.Volume", "list", 1,
-		map[string]string{"limit": "-1"}, skipTLS); err == nil {
+	if !anyOK {
+		return nil, fmt.Errorf("synology unreachable — check URL, credentials, and TLS settings (see server log for details)")
+	}
+	return data, nil
+}
+
+// synoFetchSlow fetches storage (volumes + disk health summary) and shares —
+// the other half of synoFetchAll, see synoFetchFast's doc comment.
+func synoFetchSlow(apiURL, sid string, skipTLS bool) (*SynologyPanelData, error) {
+	data := &SynologyPanelData{DiskSummary: SynoDiskSummary{Issues: []string{}}}
+	anyOK := false
+
+	// ── Storage: volumes, disks, and pools (one combined call) ───────────────────
+	// DSM's own Storage Manager doesn't use SYNO.Core.Storage.Volume/.Disk at
+	// all — those still exist in the API registry (SYNO.API.Info reports them
+	// as valid) but reject every real request with error 101. Confirmed via
+	// the browser's own network calls against a live DSM 7.2.2 instance that
+	// the real API is SYNO.Storage.CGI.Storage / load_info, which returns
+	// disks, storagePools, and volumes together in one response.
+	if raw, err := synoGet(apiURL, sid, "SYNO.Storage.CGI.Storage", "load_info", 1, nil, skipTLS); err == nil {
 		anyOK = true
 		var resp struct {
+			Disks []struct {
+				ID          string `json:"id"`
+				Device      string `json:"device"`
+				Name        string `json:"name"`
+				Model       string `json:"model"`
+				SizeTotal   string `json:"size_total"` // bytes as string
+				Temp        int    `json:"temp"`       // -1 = no data (disk idle / not in a pool)
+				Status      string `json:"status"`
+				SMARTStatus string `json:"smart_status"` // null on the wire for unused disks; unmarshals fine to ""
+				DiskType    string `json:"diskType"`
+			} `json:"disks"`
+			StoragePools []struct {
+				ID         string `json:"id"`
+				DeviceType string `json:"device_type"` // e.g. "raid_0" — more specific than either volume's or pool's own "raidType" field ("multiple")
+			} `json:"storagePools"`
 			Volumes []struct {
 				ID       string `json:"id"`
-				Name     string `json:"name"`
-				Status   string `json:"status"`
-				RAIDType string `json:"raid_type"`
+				VolPath  string `json:"vol_path"` // "/volume1"
+				VolDesc  string `json:"vol_desc"` // user-given name
 				FSType   string `json:"fs_type"`
+				PoolPath string `json:"pool_path"` // joins to storagePools[].id
+				Status   string `json:"status"`
 				Size     struct {
 					Total string `json:"total"` // bytes as string
 					Used  string `json:"used"`
@@ -299,6 +361,10 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 			} `json:"volumes"`
 		}
 		if json.Unmarshal(raw, &resp) == nil {
+			poolRaidType := map[string]string{}
+			for _, p := range resp.StoragePools {
+				poolRaidType[p.ID] = p.DeviceType
+			}
 			for _, v := range resp.Volumes {
 				totalBytes, _ := strconv.ParseInt(strings.TrimSpace(v.Size.Total), 10, 64)
 				usedBytes, _ := strconv.ParseInt(strings.TrimSpace(v.Size.Used), 10, 64)
@@ -308,7 +374,10 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 				if totalGB > 0 {
 					pct = usedGB / totalGB * 100
 				}
-				name := v.Name
+				name := v.VolDesc
+				if name == "" {
+					name = v.VolPath
+				}
 				if name == "" {
 					name = v.ID
 				}
@@ -316,55 +385,51 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 					ID:       v.ID,
 					Name:     name,
 					Status:   v.Status,
-					RAIDType: v.RAIDType,
+					RAIDType: poolRaidType[v.PoolPath],
 					FSType:   v.FSType,
 					TotalGB:  totalGB,
 					UsedGB:   usedGB,
 					UsedPct:  pct,
 				})
-			}
-		}
-	} else {
-		logErrorf("SYNOLOGY", "volumes error: %v", err)
-	}
-
-	// ── Disks ─────────────────────────────────────────────────────────────────
-	if raw, err := synoGet(apiURL, sid, "SYNO.Core.Storage.Disk", "list", 1,
-		map[string]string{"limit": "-1", "include_emptyslot": "false"}, skipTLS); err == nil {
-		anyOK = true
-		var resp struct {
-			Disks []struct {
-				Name        string `json:"name"`
-				Device      string `json:"device"`
-				Model       string `json:"model"`
-				SizeTotal   string `json:"size_total"` // bytes as string
-				Temp        int    `json:"temp"`
-				Status      string `json:"status"`
-				SMARTStatus string `json:"smart_status"`
-				DiskType    string `json:"diskType"`
-				Type        string `json:"type"` // "DISK", "EXPANDER", etc.
-			} `json:"disks"`
-		}
-		if json.Unmarshal(raw, &resp) == nil {
-			for _, d := range resp.Disks {
-				if d.Type == "EXPANDER" {
-					continue
+				if v.Status != "" && v.Status != "normal" {
+					level := "warning"
+					if v.Status == "crashed" || v.Status == "error" {
+						level = "error"
+					}
+					data.Alerts = append(data.Alerts, SynoAlert{Level: level, Message: fmt.Sprintf("Volume %s is %s", name, v.Status)})
 				}
-				sizeBytes, _ := strconv.ParseInt(strings.TrimSpace(d.SizeTotal), 10, 64)
-				data.Disks = append(data.Disks, SynoDisk{
-					Name:        d.Name,
-					Device:      d.Device,
-					Model:       d.Model,
-					SizeGB:      float64(sizeBytes) / 1073741824,
-					TempC:       d.Temp,
-					Status:      d.Status,
-					SMARTStatus: d.SMARTStatus,
-					DiskType:    d.DiskType,
-				})
 			}
+			// Disk health — a count with named exceptions, not a per-disk list
+			// (see SynoDiskSummary's doc comment). Synology's SMART data has
+			// been confirmed accurate in testing (unlike some other NAS APIs),
+			// so this is a reliable signal, not just a best-effort one.
+			for _, d := range resp.Disks {
+				data.DiskSummary.Total++
+				name := d.Name
+				if name == "" {
+					name = d.ID
+				}
+				device := strings.TrimPrefix(d.Device, "/dev/")
+				label := name
+				if device != "" {
+					label += " (" + device + ")"
+				}
+				switch {
+				case d.Status == "damaged" || d.Status == "crashed":
+					data.Alerts = append(data.Alerts, SynoAlert{Level: "error", Message: fmt.Sprintf("Disk %s is %s", label, d.Status)})
+					data.DiskSummary.Issues = append(data.DiskSummary.Issues, label)
+				case d.SMARTStatus != "" && d.SMARTStatus != "normal":
+					data.Alerts = append(data.Alerts, SynoAlert{Level: "warning", Message: fmt.Sprintf("Disk %s SMART status: %s", label, d.SMARTStatus)})
+					data.DiskSummary.Issues = append(data.DiskSummary.Issues, label)
+				default:
+					data.DiskSummary.Healthy++
+				}
+			}
+		} else {
+			logErrorf("SYNOLOGY", "storage: unexpected response: %s", strings.TrimSpace(string(raw)))
 		}
 	} else {
-		logErrorf("SYNOLOGY", "disks error: %v", err)
+		logErrorf("SYNOLOGY", "storage error: %v", err)
 	}
 
 	// ── Shared folders ────────────────────────────────────────────────────────
@@ -392,6 +457,28 @@ func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, 
 		return nil, fmt.Errorf("synology unreachable — check URL, credentials, and TLS settings (see server log for details)")
 	}
 
+	return data, nil
+}
+
+// synoFetchAll runs both synoFetchFast and synoFetchSlow — this is the one
+// the worker actually calls, once per the integration's own configured
+// refresh interval. Kept as two separate functions purely for code
+// organization (system stats vs. storage/shares), not for polling at
+// different rates.
+func synoFetchAll(apiURL, sid, uiURL string, skipTLS bool) (*SynologyPanelData, error) {
+	data, err := synoFetchFast(apiURL, sid, skipTLS)
+	if err != nil {
+		return nil, err
+	}
+	if slow, serr := synoFetchSlow(apiURL, sid, skipTLS); serr == nil {
+		data.Volumes = slow.Volumes
+		data.DiskSummary = slow.DiskSummary
+		data.Shares = slow.Shares
+		data.Alerts = slow.Alerts
+	} else {
+		logErrorf("SYNOLOGY", "slow fetch error: %v", serr)
+	}
+	data.UIURL = uiURL
 	return data, nil
 }
 

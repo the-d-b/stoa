@@ -2,17 +2,13 @@ package handlers
 
 import (
 	"database/sql"
-	"encoding/json"
-	"fmt"
 	"time"
 )
 
-// StartProxmoxWorker runs two loops:
-//   - Fast (3s): polls /nodes/{node}/status for CPU, memory, network — cheap call
-//   - Slow (60s): runs full fetchProxmoxPanelData for VMs, storage, temps etc
+// StartProxmoxWorker polls the full panel data (VMs, storage, CPU/mem/net,
+// temps) on the integration's configured refresh interval.
 func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 	go func() {
-		// Warm the cache immediately with full data
 		if data, err := fetchProxmoxPanelData(db, map[string]interface{}{"integrationId": ig.id}); err == nil {
 			cacheSet(ig.id, data)
 			ClearIntegrationError(ig.id, ig.name)
@@ -20,127 +16,23 @@ func StartProxmoxWorker(db *sql.DB, ig integrationMeta, stop chan struct{}) {
 			RecordIntegrationError(ig.id, ig.name, err.Error())
 		}
 
-		fastTick := time.NewTicker(3 * time.Second)
-		slowTick := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)
-		defer fastTick.Stop()
-		defer slowTick.Stop()
-
-		// Track last known node name so we don't re-resolve on every fast tick
-		var cachedNode, cachedAPIURL, cachedAPIKey string
-		var cachedSkipTLS bool
-
-		resolveNode := func() bool {
-			apiURL, _, apiKey, skipTLS, err := resolveIntegration(db, ig.id)
-			if err != nil {
-				logErrorf("PROXMOX", "resolve error: %v", err)
-				return false
-			}
-			cachedAPIURL = apiURL
-			cachedAPIKey = apiKey
-			cachedSkipTLS = skipTLS
-
-			// Get first node name
-			body, err := proxmoxGet(apiURL, apiKey, "/nodes", skipTLS)
-			if err != nil {
-				logErrorf("PROXMOX", "nodes error: %v", err)
-				return false
-			}
-			var resp struct {
-				Data []struct {
-					Node string `json:"node"`
-				} `json:"data"`
-			}
-			if json.Unmarshal(body, &resp) != nil || len(resp.Data) == 0 {
-				return false
-			}
-			cachedNode = resp.Data[0].Node
-			return true
-		}
-
-		resolveNode()
+		ticker := time.NewTicker(time.Duration(ig.refreshSecs) * time.Second)
+		defer ticker.Stop()
 
 		for {
 			select {
 			case <-stop:
 				return
 
-			case <-fastTick.C:
-				if cachedNode == "" {
-					resolveNode()
-					continue
-				}
-				// Fast poll: just node status — CPU, mem, net
-				body, err := proxmoxGet(cachedAPIURL, cachedAPIKey,
-					fmt.Sprintf("/nodes/%s/status", cachedNode), cachedSkipTLS)
-				if err != nil {
-					logErrorf("PROXMOX", "fast poll error: %v", err)
-					RecordIntegrationError(ig.id, ig.name, err.Error())
-					cachedNode = "" // re-resolve next tick
-					continue
-				}
-				cpuPct, memPct, netInMbps, netOutMbps, perr := proxmoxParseFastStatus(body)
-				if perr != nil {
-					continue
-				}
-
-				// Merge fast metrics into existing cached data
-				existing, ok := cacheGet(ig.id)
-				if !ok {
-					continue
-				}
-				// Type-assert to update in place — cache stores *ProxmoxPanelData
-				if panel, ok := existing.(*ProxmoxPanelData); ok {
-					updated := *panel // copy
-					updated.CPU.Used = cpuPct
-					updated.Memory.Used = memPct
-					updated.NetIn = netInMbps
-					updated.NetOut = netOutMbps
-					cacheSet(ig.id, &updated)
-					ClearIntegrationError(ig.id, ig.name)
-				}
-
-			case <-slowTick.C:
-				// Full refresh — VMs, storage, temps, everything
+			case <-ticker.C:
 				if data, err := fetchProxmoxPanelData(db, map[string]interface{}{"integrationId": ig.id}); err == nil {
 					cacheSet(ig.id, data)
 					ClearIntegrationError(ig.id, ig.name)
-					// Re-resolve node in case it changed
-					resolveNode()
 				} else {
-					logErrorf("PROXMOX", "slow poll error: %v", err)
+					logErrorf("PROXMOX", "poll error: %v", err)
 					RecordIntegrationError(ig.id, ig.name, err.Error())
 				}
 			}
 		}
 	}()
-}
-
-// proxmoxParseFastStatus decodes /nodes/{node}/status for the fast (3s)
-// poll — CPU, memory, and network rate only, the cheap subset of what the
-// full fetchProxmoxPanelData pulls every 60s. Split out from the worker's
-// poll loop for testability.
-func proxmoxParseFastStatus(body []byte) (cpuPct, memPct, netInMbps, netOutMbps float64, err error) {
-	var statusResp struct {
-		Data struct {
-			CPU    float64 `json:"cpu"`
-			MaxCPU int     `json:"maxcpu"`
-			Memory struct {
-				Used  int64 `json:"used"`
-				Total int64 `json:"total"`
-			} `json:"memory"`
-			NetIn  float64 `json:"netin"`
-			NetOut float64 `json:"netout"`
-		} `json:"data"`
-	}
-	if err := json.Unmarshal(body, &statusResp); err != nil {
-		return 0, 0, 0, 0, err
-	}
-	d := statusResp.Data
-	cpuPct = d.CPU * 100
-	if d.Memory.Total > 0 {
-		memPct = float64(d.Memory.Used) / float64(d.Memory.Total) * 100
-	}
-	netInMbps = d.NetIn * 8 / 1_000_000
-	netOutMbps = d.NetOut * 8 / 1_000_000
-	return cpuPct, memPct, netInMbps, netOutMbps, nil
 }
