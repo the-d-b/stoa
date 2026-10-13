@@ -91,9 +91,9 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Integration | Status | Secret | URL | Polling | Page |
 |---|---|---|---|---|---|
 | TrueNAS | ✅ Tested | Plain API key — TrueNAS → Credentials → API Keys | Required | 30 s | [truenas/](truenas/) |
-| Unraid | 🔶 Need Testing | `username:password` — your Unraid login | Required | 30 s | [unraid/](unraid/) |
+| Unraid | ✅ Tested | API key — Unraid → Settings → Management Access → API Keys | Required | 30 s | [unraid/](unraid/) |
 | OpenMediaVault | 🔶 Need Testing | `username:password` — your OMV login | Required | 30 s | [omv/](omv/) |
-| Synology DSM | 🔶 Need Testing | `username:password` — your Synology login | Required | 30 s | [synology/](synology/) |
+| Synology DSM | ✅ Tested | `username:password` — your Synology login | Required | 30 s | [synology/](synology/) |
 | QNAP QTS | 🔶 Need Testing | `username:password` — your QNAP login | Required | 30 s | [qnap/](qnap/) |
 | Proxmox | ✅ Tested | `user@realm!tokenid:secret` — Proxmox API token (full string) | Required | 30 s | [proxmox/](proxmox/) |
 | Nextcloud | ✅ Tested | `username:password` — use an app password from Settings → Security | Required | 5 min | [nextcloud/](nextcloud/) |
@@ -186,7 +186,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 | Calendar | ✅ Tested | Aggregates many sources (arr apps, Google Calendar, CalDAV, ICS, Home Assistant, finance, comics) into one calendar | [calendar/](calendar/) |
 | Map | 🧪 Experimental | Live location map — aggregates GPS sources (Life360 first; more planned) | [map/](map/) |
 | Security Posture | 🔶 Need Testing | Detected version + known CVEs for your network/storage integrations — auto-discovered, no source picker | [security-posture/](security-posture/) |
-| Docker Apps | 🔶 Need Testing | App-launcher tiles auto-discovered from Docker `homepage.*` labels, grouped and collapsible | [docker-apps/](docker-apps/) |
+| Docker Apps | ✅ Tested | App-launcher tiles auto-discovered from Docker `homepage.*` labels, grouped and collapsible | [docker-apps/](docker-apps/) |
 | Kanban | ✅ Tested | Local task boards — data stored in Stoa's database | [kanban/](kanban/) |
 | Notes | ✅ Tested | Shared markdown-capable notes with multi-user locking | [notes/](notes/) |
 | Checklist | ✅ Tested | Shared checklists with real-time state sync | [checklist/](checklist/) |
@@ -206,8 +206,8 @@ All credentials use a single "API key / secret" field. The format varies by serv
 
 | Format | Example | Used by |
 |---|---|---|
-| Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy, Homebox (or `email:password`, see below) |
-| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Unraid, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Fittrackee |
+| Plain API key | `abc123...` | Sonarr, Radarr, Lidarr, TrueNAS, Unraid, Jellyfin, Kuma, Immich, Kavita, SABnzbd, Prowlarr, Bazarr, autobrr, NextDNS, Paperless-ngx, Grocy, Homebox (or `email:password`, see below) |
+| `username:password` | `admin:mysecret` | Synology, QNAP, OMV, Transmission, qBittorrent (legacy), ruTorrent, NZBGet, PhotoPrism, Navidrome, OpenWrt, Omada, AdGuard, Blue Iris, Nextcloud, Fittrackee |
 | Bare password (no username) | `mysecret` | Deluge, wg-easy |
 | `email:password` | `me@example.com:pass` | Nginx Proxy Manager, Fittrackee, Homebox (fallback — API token preferred) |
 | `username:apiKey` | `alice:abc123` | Last.fm |

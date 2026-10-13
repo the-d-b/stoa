@@ -3,7 +3,7 @@ id: docker-apps
 name: Docker Apps
 category: Stoa Features
 tags: [docker, built-in]
-status: new
+status: tested
 ---
 
 # Docker Apps
@@ -45,6 +45,14 @@ Only the static-tile subset of Homepage's labels is honored:
 |---|---|
 | 1x | Total tile count across all groups |
 | 2x+ | Grouped, collapsible tile grid — click a group header to collapse/expand it |
+
+### Screenshots
+
+| | Light | Dark |
+|---|---|---|
+| **1x** | ![1x light](./screenshots/1x-light.png) | ![1x dark](./screenshots/1x-dark.png) |
+| **2x** | ![2x light](./screenshots/2x-light.png) | ![2x dark](./screenshots/2x-dark.png) |
+| **4x** | ![4x light](./screenshots/4x-light.png) | ![4x dark](./screenshots/4x-dark.png) |
 
 ---
 

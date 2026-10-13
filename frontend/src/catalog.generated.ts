@@ -1877,7 +1877,7 @@ export const CATALOG: CatalogEntry[] = [
       "built-in"
     ],
     "builtin": true,
-    "status": "new",
+    "status": "tested",
     "whatIs": "The Docker Apps panel is a built-in Stoa panel that auto-discovers app-launcher tiles from labels on your running Docker containers, reusing [Homepage](https://gethomepage.dev)'s `homepage.*` label convention. No integration or per-app configuration is needed beyond the labels themselves."
   },
   {
