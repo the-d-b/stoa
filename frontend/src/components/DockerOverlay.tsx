@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { dockerApi, DockerHostData, DockerContainer } from '../api'
 
 interface Props {
@@ -11,6 +11,45 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+type SortKey = 'name' | 'status' | 'state' | 'cpu' | 'mem'
+type SortDir = 'asc' | 'desc'
+
+const COLUMNS: { label: string; key: SortKey | null }[] = [
+  { label: 'Container', key: 'name' },
+  { label: 'Status',    key: 'status' },
+  { label: 'State',     key: 'state' },
+  { label: 'CPU',       key: 'cpu' },
+  { label: 'Memory',    key: 'mem' },
+  { label: '',          key: null },
+]
+
+// Default order (no header clicked): running first, then by name.
+function defaultCompare(a: DockerContainer, b: DockerContainer): number {
+  if (a.state === 'running' && b.state !== 'running') return -1
+  if (a.state !== 'running' && b.state === 'running') return 1
+  return a.name.localeCompare(b.name)
+}
+
+function sortContainers(list: DockerContainer[], key: SortKey | null, dir: SortDir): DockerContainer[] {
+  const out = [...list]
+  if (!key) return out.sort(defaultCompare)
+  const sign = dir === 'asc' ? 1 : -1
+  return out.sort((a, b) => {
+    // CPU/memory are only meaningful for running containers — stopped ones
+    // always sink to the bottom regardless of direction.
+    if (key === 'cpu' || key === 'mem') {
+      const ar = a.state === 'running', br = b.state === 'running'
+      if (ar !== br) return ar ? -1 : 1
+      const av = key === 'cpu' ? a.cpu : a.memUsed
+      const bv = key === 'cpu' ? b.cpu : b.memUsed
+      if (av !== bv) return (av - bv) * sign
+      return a.name.localeCompare(b.name)
+    }
+    const c = a[key].localeCompare(b[key], undefined, { numeric: true, sensitivity: 'base' })
+    return c !== 0 ? c * sign : a.name.localeCompare(b.name)
+  })
 }
 
 const STATE_COLORS: Record<string, string> = {
@@ -125,6 +164,9 @@ export default function DockerOverlay({ open, onClose }: Props) {
   const [hosts, setHosts] = useState<DockerHostData[]>([])
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState(0)
+  const [filter, setFilter] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey | null>(null)
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -142,10 +184,15 @@ export default function DockerOverlay({ open, onClose }: Props) {
 
   useEffect(() => {
     if (!open) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    // Esc clears an active filter first, then closes on the next press.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      if (filter) setFilter('')
+      else onClose()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, onClose, filter])
 
   const handleAction = async (hostId: string, containerId: string, action: 'start' | 'stop' | 'restart') => {
     await dockerApi.containerAction(hostId, containerId, action)
@@ -153,9 +200,29 @@ export default function DockerOverlay({ open, onClose }: Props) {
     setTimeout(load, 800)
   }
 
+  const activeHost = hosts[activeTab]
+
+  // Clicking a header sorts by it ascending; clicking it again flips direction.
+  const onHeaderClick = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortKey(key); setSortDir('asc') }
+  }
+
+  const visibleContainers = useMemo(() => {
+    const list = activeHost?.containers ?? []
+    const q = filter.trim().toLowerCase()
+    const filtered = q
+      ? list.filter(c =>
+          c.name.toLowerCase().includes(q) ||
+          c.image.toLowerCase().includes(q) ||
+          c.status.toLowerCase().includes(q) ||
+          c.state.toLowerCase().includes(q))
+      : list
+    return sortContainers(filtered, sortKey, sortDir)
+  }, [activeHost, filter, sortKey, sortDir])
+
   if (!open) return null
 
-  const activeHost = hosts[activeTab]
   const runningCount = activeHost?.containers?.filter(c => c.state === 'running').length ?? 0
   const totalCount = activeHost?.containers?.length ?? 0
 
@@ -189,10 +256,20 @@ export default function DockerOverlay({ open, onClose }: Props) {
             {!loading && activeHost && (
               <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
                 {runningCount}/{totalCount} running
+                {filter.trim() && ` · ${visibleContainers.length} shown`}
               </span>
             )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              type="search" value={filter} onChange={e => setFilter(e.target.value)}
+              placeholder="Filter containers…" aria-label="Filter containers"
+              style={{
+                width: 220, padding: '5px 10px', fontSize: 13, borderRadius: 7,
+                border: '1px solid var(--border)', background: 'var(--surface2)',
+                color: 'var(--text)', outline: 'none',
+              }}
+            />
             <button onClick={load} disabled={loading} title="Refresh" style={{
               background: 'none', border: '1px solid var(--border)', borderRadius: 7,
               color: 'var(--text-muted)', cursor: loading ? 'default' : 'pointer',
@@ -236,10 +313,24 @@ export default function DockerOverlay({ open, onClose }: Props) {
             borderBottom: '1px solid var(--border)',
             background: 'var(--surface2)', flexShrink: 0,
           }}>
-            {['Container', 'Status', 'State', 'CPU', 'Memory', ''].map((h, i) => (
-              <div key={i} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-dim)',
-                textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</div>
-            ))}
+            {COLUMNS.map((col, i) => {
+              const active = col.key !== null && col.key === sortKey
+              const style = {
+                fontSize: 11, fontWeight: 600, textTransform: 'uppercase' as const,
+                letterSpacing: '0.05em', color: active ? 'var(--accent2)' : 'var(--text-dim)',
+              }
+              if (!col.key) return <div key={i} style={style}>{col.label}</div>
+              const key = col.key
+              return (
+                <button key={i} onClick={() => onHeaderClick(key)}
+                  title={`Sort by ${col.label.toLowerCase()}`}
+                  style={{ ...style, background: 'none', border: 'none', padding: 0,
+                    cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 4 }}>
+                  {col.label}
+                  {active && <span style={{ fontSize: 9 }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+                </button>
+              )
+            })}
           </div>
         )}
 
@@ -267,16 +358,15 @@ export default function DockerOverlay({ open, onClose }: Props) {
               No containers found on {activeHost.name}.
             </div>
           )}
-          {!loading && activeHost && !activeHost.error && activeHost.containers
-            .sort((a, b) => {
-              if (a.state === 'running' && b.state !== 'running') return -1
-              if (a.state !== 'running' && b.state === 'running') return 1
-              return a.name.localeCompare(b.name)
-            })
-            .map(c => (
-              <ContainerRow key={c.id} c={c} hostId={activeHost.id} onAction={handleAction} />
-            ))
-          }
+          {!loading && activeHost && !activeHost.error && activeHost.containers.length > 0
+            && visibleContainers.length === 0 && (
+            <div style={{ padding: 32, textAlign: 'center', color: 'var(--text-dim)', fontSize: 13 }}>
+              No containers match “{filter}”.
+            </div>
+          )}
+          {!loading && activeHost && !activeHost.error && visibleContainers.map(c => (
+            <ContainerRow key={c.id} c={c} hostId={activeHost.id} onAction={handleAction} />
+          ))}
         </div>
 
       </div>
