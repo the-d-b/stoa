@@ -185,7 +185,7 @@ All integrations Stoa supports. Each row links to a dedicated page with full set
 |---|---|---|---|
 | Calendar | ✅ Tested | Aggregates many sources (arr apps, Google Calendar, CalDAV, ICS, Home Assistant, finance, comics) into one calendar | [calendar/](calendar/) |
 | Map | 🧪 Experimental | Live location map — aggregates GPS sources (Life360 first; more planned) | [map/](map/) |
-| Security Posture | 🔶 Need Testing | Detected version + known CVEs for your network/storage integrations — auto-discovered, no source picker | [security-posture/](security-posture/) |
+| Security Posture | ✅ Tested | Best-effort, at-a-glance CVE view for a curated set of products — will show false positives and miss things; not a vulnerability scanner | [security-posture/](security-posture/) |
 | Docker Apps | ✅ Tested | App-launcher tiles auto-discovered from Docker `homepage.*` labels, grouped and collapsible | [docker-apps/](docker-apps/) |
 | Kanban | ✅ Tested | Local task boards — data stored in Stoa's database | [kanban/](kanban/) |
 | Notes | ✅ Tested | Shared markdown-capable notes with multi-user locking | [notes/](notes/) |

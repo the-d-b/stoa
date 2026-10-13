@@ -4,7 +4,9 @@
  * for that product (from NVD). No source picker: every configured
  * integration in the covered list is included automatically. Deliberately
  * does not assert "you are affected" — shows the version and the CVE list
- * side by side and leaves the correlation to the viewer.
+ * side by side and leaves the correlation to the viewer. CVEs the backend
+ * couldn't check against the running version (unverifiable) are listed
+ * dimmed but left out of every count and severity color.
  */
 import { useState, useEffect, useCallback } from 'react'
 import { integrationsApi, Panel } from '../../api'
@@ -17,6 +19,7 @@ interface CVEItem {
   cvssScore: number
   published: string
   url: string
+  unverifiable?: boolean
 }
 
 interface SecPostureEntry {
@@ -26,7 +29,13 @@ interface SecPostureEntry {
   uiUrl?: string
   version?: string
   cves: CVEItem[]
+  cveDataReady?: boolean
 }
+
+const UNVERIFIABLE_TITLE = "NVD's affected-version data for this CVE can't be compared to your running version (for example, it records the fix as a date) — check the vendor's advisory"
+
+// Counted CVEs exclude unverifiable ones, which are shown but never scored.
+const counted = (cves: CVEItem[]) => cves.filter(c => !c.unverifiable)
 
 const SEVERITY_COLOR: Record<string, string> = {
   CRITICAL: '#dc2626', HIGH: '#f97316', MEDIUM: 'var(--amber)', LOW: '#65a30d', UNKNOWN: 'var(--text-dim)',
@@ -59,8 +68,9 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
   if (loading) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-dim)', fontSize: 13 }}>Loading…</div>
   if (error) return <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 4, color: 'var(--amber)', fontSize: 12 }}><span>⚠</span><span>{error}</span></div>
 
-  const totalCVEs = entries.reduce((sum, e) => sum + e.cves.length, 0)
-  const worstOverall = worstSeverity(entries.flatMap(e => e.cves))
+  const totalCVEs = entries.reduce((sum, e) => sum + counted(e.cves).length, 0)
+  const worstOverall = worstSeverity(entries.flatMap(e => counted(e.cves)))
+  const pendingCount = entries.filter(e => !e.cveDataReady).length
 
   // ── 1x — compact summary ──────────────────────────────────────────────
   if (heightUnits <= 1) {
@@ -72,6 +82,11 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
         <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>
           known CVEs across {entries.length} product{entries.length !== 1 ? 's' : ''}
         </div>
+        {pendingCount > 0 && (
+          <div style={{ fontSize: 10, color: 'var(--text-dim)' }}>
+            CVE data pending for {pendingCount}
+          </div>
+        )}
       </div>
     )
   }
@@ -89,7 +104,12 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
   return (
     <div style={{ height: '100%', minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
       {entries.map(e => {
-        const worst = worstSeverity(e.cves)
+        const scored = counted(e.cves)
+        const unchecked = e.cves.length - scored.length
+        const worst = worstSeverity(scored)
+        // Counted CVEs first, unverifiable ones after, each keeping NVD's
+        // severity-then-recency order.
+        const ordered = [...scored, ...e.cves.filter(c => c.unverifiable)]
         const isOpen = expanded === e.integrationId
         const icon = integrationIconUrl(e.type)
         return (
@@ -110,24 +130,36 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
                   v{e.version.replace(/^v/i, '')}
                 </span>
               )}
-              {e.cves.length > 0 ? (
+              {!e.cveDataReady ? (
+                <span style={{ fontSize: 11, color: 'var(--text-dim)', flexShrink: 0 }}
+                  title="CVE data for this product hasn't been fetched from NVD yet — it refreshes in the background">
+                  no CVE data yet
+                </span>
+              ) : scored.length > 0 ? (
                 <span style={{
                   fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 10, flexShrink: 0,
                   background: SEVERITY_COLOR[worst] + '22', color: SEVERITY_COLOR[worst],
                 }}>
-                  {e.cves.length} CVE{e.cves.length !== 1 ? 's' : ''}
+                  {scored.length} CVE{scored.length !== 1 ? 's' : ''}
                 </span>
               ) : (
                 <span style={{ fontSize: 11, color: 'var(--green)', flexShrink: 0 }}>clean</span>
+              )}
+              {e.cveDataReady && unchecked > 0 && (
+                <span style={{ fontSize: 10, color: 'var(--text-dim)', flexShrink: 0 }} title={UNVERIFIABLE_TITLE}>
+                  +{unchecked} unchecked
+                </span>
               )}
             </div>
 
             {isOpen && heightUnits >= 4 && (
               <div style={{ borderTop: '1px solid var(--border)', padding: '6px 10px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {e.cves.slice(0, 20).map(c => (
-                  <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer" style={{
+                {ordered.slice(0, 20).map(c => (
+                  <a key={c.id} href={c.url} target="_blank" rel="noopener noreferrer"
+                    title={c.unverifiable ? UNVERIFIABLE_TITLE : undefined} style={{
                     display: 'flex', flexDirection: 'column', gap: 2, textDecoration: 'none',
                     color: 'inherit', padding: '4px 6px', borderRadius: 6, flexShrink: 0,
+                    opacity: c.unverifiable ? 0.55 : 1,
                   }}
                     onMouseOver={ev => ev.currentTarget.style.background = 'var(--surface)'}
                     onMouseOut={ev => ev.currentTarget.style.background = 'transparent'}>
@@ -137,6 +169,11 @@ export default function SecurityPosturePanel({ panel, heightUnits }: { panel: Pa
                         background: SEVERITY_COLOR[c.severity] + '22', color: SEVERITY_COLOR[c.severity],
                       }}>{c.severity}{c.cvssScore > 0 ? ` ${c.cvssScore}` : ''}</span>
                       <span style={{ fontSize: 12, fontWeight: 500 }}>{c.id}</span>
+                      {c.unverifiable && (
+                        <span style={{ fontSize: 10, color: 'var(--text-dim)', fontStyle: 'italic' }}>
+                          can't check against version
+                        </span>
+                      )}
                       <span style={{ fontSize: 10, color: 'var(--text-dim)', marginLeft: 'auto' }}>{c.published}</span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.4,

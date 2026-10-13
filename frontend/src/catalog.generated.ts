@@ -1938,8 +1938,8 @@ export const CATALOG: CatalogEntry[] = [
       "built-in"
     ],
     "builtin": true,
-    "status": "new",
-    "whatIs": "The Security Posture panel is a built-in Stoa panel that, for a curated set of network- and storage-facing integrations, shows each one's detected running version alongside known CVEs for that product from the NVD. It auto-discovers your configured integrations — no source picker — and matches CVEs in one of two modes (CPE version-filtered, or keyword), described below."
+    "status": "tested",
+    "whatIs": "The Security Posture panel is a built-in Stoa panel that gives you an at-a-glance, **best-effort** view of published CVEs for some of the products you've connected to Stoa. For a curated set of covered integration types, it shows each one's detected running version next to CVEs pulled from the public [NVD](https://nvd.nist.gov/) (National Vulnerability Database). It is a quick prompt to go look at something — not a vulnerability scanner, and not an authoritative answer to \"am I vulnerable?\""
   },
   {
     "id": "custom",

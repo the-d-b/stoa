@@ -50,9 +50,12 @@ func tnFindCall(t *testing.T, calls []tnCall, method string) func(json.RawMessag
 func TestTnSlowCalls_SystemInfo(t *testing.T) {
 	data := &TrueNASPanelData{}
 	handle := tnFindCall(t, tnSlowCalls(data), "system.info")
-	handle(json.RawMessage(`{"hostname":"nas1","version":"TrueNAS-SCALE-24.10","model":"Xeon E-2288G","cores":8}`))
+	handle(json.RawMessage(`{"hostname":"nas1","version":"TrueNAS-SCALE-24.10","model":"Xeon E-2288G","cores":8,"physmem":17179869184}`))
 	if data.Hostname != "nas1" || data.Version != "TrueNAS-SCALE-24.10" || data.CPUModel != "Xeon E-2288G" || data.CPUCores != 8 {
 		t.Errorf("system.info handler produced unexpected data: %+v", data)
+	}
+	if data.TotalRAM != "16 GB RAM" {
+		t.Errorf("TotalRAM = %q, want \"16 GB RAM\"", data.TotalRAM)
 	}
 }
 

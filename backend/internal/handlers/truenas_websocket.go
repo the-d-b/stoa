@@ -85,59 +85,15 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 		return fmt.Errorf("resolve: %w", err)
 	}
 
-	wsURL, err := toWebSocketURL(apiURL)
+	c, msgCh, readErrCh, closeFn, err := tnConnectAndAuth(apiURL, apiKey, skipTLS)
 	if err != nil {
-		return fmt.Errorf("url: %w", err)
+		return err
 	}
-	wsURL += "/websocket"
+	defer closeFn()
 
-	tlsCfg := &tls.Config{
-		Renegotiation: tls.RenegotiateOnceAsClient,
-	}
-	if skipTLS {
-		tlsCfg.InsecureSkipVerify = true //nolint:gosec
-		logDebugf("TRUENAS", "skipTLS enabled")
-	}
-
-	dialer := websocket.Dialer{
-		HandshakeTimeout: 15 * time.Second,
-		ReadBufferSize:   65536,
-		WriteBufferSize:  8192,
-		TLSClientConfig:  tlsCfg,
-	}
-
-	logDebugf("TRUENAS", "connecting to %s", wsURL)
-	rawConn, _, err := dialer.Dial(wsURL, http.Header{"User-Agent": []string{"Stoa/1.0"}})
-	if err != nil {
-		return fmt.Errorf("dial: %w", err)
-	}
-	defer rawConn.Close()
-	rawConn.SetReadLimit(1 << 20)
-	logDebugf("TRUENAS", "connected")
-
-	c := &tnConn{conn: rawConn}
-
-	// ── Single reader goroutine — ALL reads go through here ───────────────
-	// This prevents concurrent read races between auth/slow-data and the main loop
-	msgCh := make(chan *tnMessage, 64)
-	readErrCh := make(chan error, 1)
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				readErrCh <- fmt.Errorf("read panic: %v", r)
-			}
-		}()
-		for {
-			var msg tnMessage
-			if err := rawConn.ReadJSON(&msg); err != nil {
-				readErrCh <- err
-				return
-			}
-			msgCh <- &msg
-		}
-	}()
-
-	// readMsg reads the next message from the single reader
+	// readMsg reads the next message from the single reader — used for the
+	// initial slow-data fetch below, before the main select loop takes over
+	// reading msgCh/readErrCh directly.
 	readMsg := func(timeout time.Duration) (*tnMessage, error) {
 		select {
 		case msg := <-msgCh:
@@ -148,51 +104,6 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 			return nil, fmt.Errorf("read timeout after %s", timeout)
 		}
 	}
-
-	// readUntilMsg reads until a message with the given msg type arrives
-	readUntilMsg := func(msgType string) (*tnMessage, error) {
-		deadline := time.Now().Add(15 * time.Second)
-		for time.Now().Before(deadline) {
-			msg, err := readMsg(time.Until(deadline))
-			if err != nil {
-				return nil, err
-			}
-			if msg.Msg == msgType {
-				return msg, nil
-			}
-		}
-		return nil, fmt.Errorf("timeout waiting for %s", msgType)
-	}
-
-	// ── DDP Handshake ─────────────────────────────────────────────────────
-	if err := c.send(map[string]interface{}{
-		"msg": "connect", "version": "1", "support": []string{"1"},
-	}); err != nil {
-		return fmt.Errorf("connect send: %w", err)
-	}
-	if _, err := readUntilMsg("connected"); err != nil {
-		return fmt.Errorf("connect recv: %w", err)
-	}
-
-	// ── Auth ──────────────────────────────────────────────────────────────
-	authID := c.nextID()
-	if err := c.send(map[string]interface{}{
-		"msg": "method", "id": authID,
-		"method": "auth.login_with_api_key",
-		"params": []string{apiKey},
-	}); err != nil {
-		return fmt.Errorf("auth send: %w", err)
-	}
-	authResp, err := readUntilMsg("result")
-	if err != nil {
-		return fmt.Errorf("auth recv: %w", err)
-	}
-	var authOK bool
-	json.Unmarshal(authResp.Result, &authOK)
-	if !authOK {
-		return fmt.Errorf("auth failed — check API key")
-	}
-	logDebugf("TRUENAS", "authenticated")
 
 	// ── Initial slow data — using shared reader ───────────────────────────
 	data := &TrueNASPanelData{UIURL: uiURL}
@@ -266,7 +177,7 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 			}
 		case <-pingTicker.C:
 			c.mu.Lock()
-			rawConn.WriteMessage(websocket.PingMessage, nil)
+			c.conn.WriteMessage(websocket.PingMessage, nil)
 			c.mu.Unlock()
 		case <-refreshTicker.C:
 			// Send slow data requests — add pending handlers to map
@@ -280,6 +191,180 @@ func runTrueNASWorker(db *sql.DB, ig integrationMeta, stop <-chan struct{}) erro
 			pendingMu.Unlock()
 		}
 	}
+}
+
+// ── Connect + auth (shared by the long-lived worker and one-shot callers) ─────
+
+// tnConnectAndAuth dials the TrueNAS WebSocket API, performs the DDP
+// handshake, and authenticates with the given API key. This is the one place
+// that knows how to establish a TrueNAS session — used by the background
+// worker above for its long-lived connection, and by the one-shot helpers
+// below (tnTestConnection, tnFetchPanelDataSync) for connection testing and
+// cache-miss fallback fetches. TrueNAS deprecated its REST API in 25.x (to be
+// removed in 26.04), so everything goes over this native WebSocket API now —
+// there is no REST fallback anywhere in the TrueNAS integration.
+//
+// Returns the raw message/error channels (not just a readMsg helper) because
+// the worker's main loop needs to select on them directly alongside its
+// tickers; one-shot callers can wrap them in a simple readMsg closure.
+func tnConnectAndAuth(apiURL, apiKey string, skipTLS bool) (c *tnConn, msgCh <-chan *tnMessage, readErrCh <-chan error, closeFn func(), err error) {
+	wsURL, err := toWebSocketURL(apiURL)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("url: %w", err)
+	}
+	wsURL += "/websocket"
+
+	tlsCfg := &tls.Config{
+		Renegotiation: tls.RenegotiateOnceAsClient,
+	}
+	if skipTLS {
+		tlsCfg.InsecureSkipVerify = true //nolint:gosec
+		logDebugf("TRUENAS", "skipTLS enabled")
+	}
+
+	dialer := websocket.Dialer{
+		HandshakeTimeout: 15 * time.Second,
+		ReadBufferSize:   65536,
+		WriteBufferSize:  8192,
+		TLSClientConfig:  tlsCfg,
+	}
+
+	logDebugf("TRUENAS", "connecting to %s", wsURL)
+	rawConn, _, err := dialer.Dial(wsURL, http.Header{"User-Agent": []string{"Stoa/1.0"}})
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("dial: %w", err)
+	}
+	rawConn.SetReadLimit(1 << 20)
+	logDebugf("TRUENAS", "connected")
+
+	c = &tnConn{conn: rawConn}
+	closeFn = func() { rawConn.Close() }
+
+	// ── Single reader goroutine — ALL reads go through here ───────────────
+	// This prevents concurrent read races between auth/slow-data and the main loop
+	msgChInternal := make(chan *tnMessage, 64)
+	readErrChInternal := make(chan error, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				readErrChInternal <- fmt.Errorf("read panic: %v", r)
+			}
+		}()
+		for {
+			var msg tnMessage
+			if err := rawConn.ReadJSON(&msg); err != nil {
+				readErrChInternal <- err
+				return
+			}
+			msgChInternal <- &msg
+		}
+	}()
+
+	readMsg := func(timeout time.Duration) (*tnMessage, error) {
+		select {
+		case msg := <-msgChInternal:
+			return msg, nil
+		case err := <-readErrChInternal:
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("read timeout after %s", timeout)
+		}
+	}
+	readUntilMsg := func(msgType string) (*tnMessage, error) {
+		deadline := time.Now().Add(15 * time.Second)
+		for time.Now().Before(deadline) {
+			msg, err := readMsg(time.Until(deadline))
+			if err != nil {
+				return nil, err
+			}
+			if msg.Msg == msgType {
+				return msg, nil
+			}
+		}
+		return nil, fmt.Errorf("timeout waiting for %s", msgType)
+	}
+
+	// ── DDP Handshake ─────────────────────────────────────────────────────
+	if err := c.send(map[string]interface{}{
+		"msg": "connect", "version": "1", "support": []string{"1"},
+	}); err != nil {
+		closeFn()
+		return nil, nil, nil, nil, fmt.Errorf("connect send: %w", err)
+	}
+	if _, err := readUntilMsg("connected"); err != nil {
+		closeFn()
+		return nil, nil, nil, nil, fmt.Errorf("connect recv: %w", err)
+	}
+
+	// ── Auth ──────────────────────────────────────────────────────────────
+	authID := c.nextID()
+	if err := c.send(map[string]interface{}{
+		"msg": "method", "id": authID,
+		"method": "auth.login_with_api_key",
+		"params": []string{apiKey},
+	}); err != nil {
+		closeFn()
+		return nil, nil, nil, nil, fmt.Errorf("auth send: %w", err)
+	}
+	authResp, err := readUntilMsg("result")
+	if err != nil {
+		closeFn()
+		return nil, nil, nil, nil, fmt.Errorf("auth recv: %w", err)
+	}
+	var authOK bool
+	json.Unmarshal(authResp.Result, &authOK)
+	if !authOK {
+		closeFn()
+		return nil, nil, nil, nil, fmt.Errorf("auth failed — check API key")
+	}
+	logDebugf("TRUENAS", "authenticated")
+
+	return c, msgChInternal, readErrChInternal, closeFn, nil
+}
+
+// tnTestConnection dials, authenticates, and immediately disconnects — used
+// by the "test connection" action when creating or editing a TrueNAS
+// integration. Goes over the same native WebSocket API as everything else;
+// a successful auth is sufficient proof the URL, API key, and TLS settings
+// are all correct.
+func tnTestConnection(apiURL, apiKey string, skipTLS bool) error {
+	_, _, _, closeFn, err := tnConnectAndAuth(apiURL, apiKey, skipTLS)
+	if err != nil {
+		return err
+	}
+	closeFn()
+	return nil
+}
+
+// tnFetchPanelDataSync performs a one-shot synchronous fetch of the full slow
+// dataset (system info, pools, alerts, disk temps, VMs, apps) over the native
+// WebSocket API. Used as the cache-miss fallback for on-demand panel/glyph
+// requests that land before the background worker has populated its first
+// cache entry — the normal case is the worker's cache, this is only the
+// cold-start/race-window path.
+func tnFetchPanelDataSync(apiURL, apiKey, uiURL string, skipTLS bool) (*TrueNASPanelData, error) {
+	c, msgCh, readErrCh, closeFn, err := tnConnectAndAuth(apiURL, apiKey, skipTLS)
+	if err != nil {
+		return nil, err
+	}
+	defer closeFn()
+
+	readMsg := func(timeout time.Duration) (*tnMessage, error) {
+		select {
+		case msg := <-msgCh:
+			return msg, nil
+		case err := <-readErrCh:
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("read timeout after %s", timeout)
+		}
+	}
+
+	data := &TrueNASPanelData{UIURL: uiURL}
+	if err := tnFetchSlowData(c, data, readMsg); err != nil {
+		return nil, err
+	}
+	return data, nil
 }
 
 // ── Slow data helpers ─────────────────────────────────────────────────────────
@@ -306,7 +391,8 @@ func tnSendSlowRequests(c *tnConn, data *TrueNASPanelData) tnSlowHandler {
 
 func tnFetchSlowData(c *tnConn, data *TrueNASPanelData, readMsg func(time.Duration) (*tnMessage, error)) error {
 	handlers := tnSendSlowRequests(c, data)
-	remaining := len(handlers)
+	total := len(handlers)
+	remaining, succeeded := total, 0
 	deadline := time.Now().Add(30 * time.Second)
 	for remaining > 0 && time.Now().Before(deadline) {
 		msg, err := readMsg(time.Until(deadline))
@@ -320,12 +406,18 @@ func tnFetchSlowData(c *tnConn, data *TrueNASPanelData, readMsg func(time.Durati
 		if entry, ok := handlers[id]; ok {
 			if msg.Error == nil {
 				entry.handle(msg.Result)
+				succeeded++
 			} else {
 				logDebugf("TRUENAS", "slow call %s failed: %s", entry.method, string(msg.Error.Error))
 			}
 			delete(handlers, id)
 			remaining--
 		}
+	}
+	// Every call failed or timed out — surface an error instead of letting
+	// the caller render an all-zeros panel as if it were real data.
+	if succeeded == 0 {
+		return fmt.Errorf("no TrueNAS calls succeeded (%d failed or timed out) — check API key permissions", total)
 	}
 	return nil
 }
@@ -344,6 +436,7 @@ func tnSlowCalls(data *TrueNASPanelData) []tnCall {
 				Version  string `json:"version"`
 				Model    string `json:"model"`
 				Cores    int    `json:"cores"`
+				PhysMem  int64  `json:"physmem"`
 			}
 			if json.Unmarshal(r, &info) != nil {
 				return
@@ -352,6 +445,9 @@ func tnSlowCalls(data *TrueNASPanelData) []tnCall {
 			data.Version = info.Version
 			data.CPUModel = info.Model
 			data.CPUCores = info.Cores
+			if info.PhysMem > 0 {
+				data.TotalRAM = fmt.Sprintf("%.0f GB RAM", float64(info.PhysMem)/1073741824)
+			}
 		}},
 		{method: "pool.query", params: json.RawMessage(`[]`), handle: func(r json.RawMessage) {
 			var pools []struct {

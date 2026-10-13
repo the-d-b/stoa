@@ -52,7 +52,7 @@ Grouped by scope — these range from "an afternoon" to "a new product surface":
 - **The one piece that's genuine domain-knowledge work, not infrastructure engineering**: path *and* `PUID`/`PGID` consistency across every container in a stack. Sonarr/Radarr hardlink-move files into the library rather than copy them, which only works if the download and library folders are the exact same mountpoint inside every container — get this wrong and nothing errors, it just silently degrades (slow copy+delete, or eventual disk-space surprises) or breaks Plex's ability to see newly-imported files. This is the classic self-hosted-media-stack gotcha (see TRaSH Guides), and the reason a curated catalog beats an open one: the "correct" answer for this specific, extremely well-trodden app combination is already known and only needs to be encoded once, not re-derived per user config.
 - **Auto-registering the deployed app as a Stoa integration** (so "1-click deploy" also means "already monitored") is a separate, per-app follow-on — pulling back a freshly-deployed app's API key differs by app (some support pre-seeding it via env var, others only generate it on first boot and need a post-deploy poll) — worth treating as a nice-to-have layered on top of the deploy step, not part of its core scope.
 - Rough shape: (1) a straightforward Portainer integration, (2) a small hand-curated catalog of compose templates, (3) a UI that pushes the deployment through the Portainer integration. Real prior art to lean on rather than designing from scratch: the Portainer API itself, community-created Portainer templates, and the general approach Swizzin and DockSTARTer already take to batch-deploying pre-wired app stacks.
-- **Security note, independent of catalog size**: Portainer deploy access is effectively host-level (can mount arbitrary paths, run privileged containers) — a genuine step up in trust level from anything Stoa does today, where every existing write action (add to Radarr, create a calendar event) is scoped to that one app's own API and can't escape it. This doesn't shrink just because the app catalog is small — sequence after the holistic security review (§5), given the stakes of the authorization-gap class of bug (already found and fixed once this session in Stoa's existing write-action surface) are meaningfully higher once a bug there could mean host access instead of "someone added a movie to your Radarr."
+- **Security note, independent of catalog size**: Portainer deploy access is effectively host-level (can mount arbitrary paths, run privileged containers) — a genuine step up in trust level from anything Stoa does today, where every existing write action (add to Radarr, create a calendar event) is scoped to that one app's own API and can't escape it. This doesn't shrink just because the app catalog is small — sequence after the holistic security review (§6), given the stakes of the authorization-gap class of bug (already found and fixed once this session in Stoa's existing write-action surface) are meaningfully higher once a bug there could mean host access instead of "someone added a movie to your Radarr."
 
 **AI assistant:**
 - Chat interface over Stoa's aggregated *current-state* data and existing write actions — e.g. "add this to Radarr," "how's CPU right now," "what's trending on TMDB," "do any of my Lidarr artists have concerts coming up." Deliberately scoped to what Stoa already knows/can query live — no historical/trend data store implied or needed. Still cuts across every integration Stoa has, so it'd need its own scoping pass whenever it's picked up, but smaller than "build analytics infrastructure first."
@@ -66,7 +66,13 @@ Grouped by scope — these range from "an afternoon" to "a new product surface":
 
 ---
 
-## 5. Holistic reviews
+## 5. Tech debt
+
+See [`tech-debt.md`](./tech-debt.md) for full context on each item. Newest: the TrueNAS integration's API-key login call (`auth.login_with_api_key`) is deprecated for removal in TrueNAS 27 and needs migrating before then. Also recent: panels show stale cached data with no stale/offline indicator when an integration's source goes down (found while powering off the Synology test VM) — the failure is tracked server-side already, just not surfaced on the panel itself.
+
+---
+
+## 6. Holistic reviews
 
 - Full code review
 - Full security review

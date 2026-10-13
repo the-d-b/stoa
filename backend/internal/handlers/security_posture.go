@@ -30,6 +30,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -102,6 +103,11 @@ type CVEItem struct {
 	CVSSScore   float64 `json:"cvssScore"`
 	Published   string  `json:"published"` // YYYY-MM-DD
 	URL         string  `json:"url"`
+	// Unverifiable marks a CPE-mode CVE whose NVD version range couldn't be
+	// compared to the running version (e.g. NVD recorded the fix boundary as a
+	// date) and no comparable range ruled it in. Shown dimmed and left out of
+	// counts rather than hidden — see cveApplicability.
+	Unverifiable bool `json:"unverifiable,omitempty"`
 	// ranges holds the affected-version ranges NVD attached to this CVE for the
 	// matched product (CPE mode only). Used to filter to the running version;
 	// unexported so it never reaches the frontend.
@@ -429,26 +435,54 @@ func compareVersions(a, b []int) int {
 	return 0
 }
 
-// cveAppliesToVersion reports whether running falls within any of the CVE's
-// affected-version ranges. An unknown or unparseable running version, or a CVE
-// with no ranges, is treated as "applies" — the panel never hides something it
-// can't rule out.
-func cveAppliesToVersion(c CVEItem, running string) bool {
+// cveApplicability is the result of checking a CVE against a running version.
+type cveApplicability int
+
+const (
+	cveExcluded     cveApplicability = iota // a comparable range rules it out
+	cveApplies                              // in range, or nothing to rule it out with
+	cveUnverifiable                         // only incomparable ranges (e.g. date bounds)
+)
+
+var dateShapedBound = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
+
+// boundComparable reports whether an NVD range bound can be compared against
+// a dotted version. NVD sometimes records the fix boundary as a date (e.g.
+// "2020-06-15" for CVE-2020-5742 on Plex) — parseVersion would read that as
+// version 2020 and wrongly flag every real release as affected.
+func boundComparable(b string) bool {
+	return b == "" || (!dateShapedBound.MatchString(b) && len(parseVersion(b)) > 0)
+}
+
+// cveCheckVersion classifies a CPE-mode CVE against the running version. An
+// unknown or unparseable running version, or a CVE with no ranges, is treated
+// as "applies" — the panel never hides something it can't rule out. Ranges
+// with incomparable bounds can't rule anything in or out; if they're all the
+// CVE has, it's reported as unverifiable rather than applies or excluded.
+func cveCheckVersion(c CVEItem, running string) cveApplicability {
 	if running == "" || len(c.ranges) == 0 {
-		return true
+		return cveApplies
 	}
 	rv := parseVersion(running)
 	if len(rv) == 0 {
-		return true
+		return cveApplies
 	}
+	sawIncomparable := false
 	for _, r := range c.ranges {
 		if r.unbounded {
-			return true
+			return cveApplies
 		}
 		if r.exact != "" {
-			if compareVersions(rv, parseVersion(r.exact)) == 0 {
-				return true
+			if !boundComparable(r.exact) {
+				sawIncomparable = true
+			} else if compareVersions(rv, parseVersion(r.exact)) == 0 {
+				return cveApplies
 			}
+			continue
+		}
+		if !boundComparable(r.startIncluding) || !boundComparable(r.startExcluding) ||
+			!boundComparable(r.endIncluding) || !boundComparable(r.endExcluding) {
+			sawIncomparable = true
 			continue
 		}
 		ok := true
@@ -465,10 +499,13 @@ func cveAppliesToVersion(c CVEItem, running string) bool {
 			ok = false
 		}
 		if ok {
-			return true
+			return cveApplies
 		}
 	}
-	return false
+	if sawIncomparable {
+		return cveUnverifiable
+	}
+	return cveExcluded
 }
 
 // ── Background worker ─────────────────────────────────────────────────────
@@ -522,14 +559,14 @@ func secPostureTickOnce(db *sql.DB) {
 			label = securityPostureTypes[t]
 			items, err = nvdFetchCVEs(label, apiKey)
 		}
-		secPostureCacheMu.Lock()
-		secPostureLastFetch[t] = now
-		secPostureCacheMu.Unlock()
 		if err != nil {
+			// Leave lastFetch untouched so the next hourly tick retries, rather
+			// than waiting a full refresh interval with stale or no data.
 			logErrorf("SECPOSTURE", "fetch %s (%s): %v", t, label, err)
 			continue
 		}
 		secPostureCacheMu.Lock()
+		secPostureLastFetch[t] = now
 		secPostureCVECache[t] = items
 		secPostureCacheMu.Unlock()
 		logDebugf("SECPOSTURE", "refreshed %s (%s): %d CVEs", t, label, len(items))
@@ -650,6 +687,10 @@ type SecPostureEntry struct {
 	UIURL         string    `json:"uiUrl"`
 	Version       string    `json:"version,omitempty"`
 	CVEs          []CVEItem `json:"cves"`
+	// CVEDataReady is false until NVD data for this type has been fetched at
+	// least once (cold start, or NVD unreachable) — so the panel can say "no
+	// data yet" instead of a misleading "clean".
+	CVEDataReady bool `json:"cveDataReady"`
 }
 
 type SecPosturePanelData struct {
@@ -720,12 +761,18 @@ func fetchSecurityPosturePanelData(db *sql.DB, config map[string]interface{}) (*
 		}
 		json.Unmarshal([]byte(configStr), &igConfig) //nolint:errcheck
 		if cves, ok := secPostureGetCVEs(igType); ok {
+			entry.CVEDataReady = true
 			if _, isCPE := securityPostureCPE[igType]; isCPE {
 				// CPE mode: filter to CVEs whose NVD version ranges include the
-				// running version. Exact, so the ignore-date is not applied here.
+				// running version (the ignore-date is not applied here). CVEs
+				// whose ranges can't be compared are kept but flagged.
 				filtered := make([]CVEItem, 0, len(cves))
 				for _, c := range cves {
-					if cveAppliesToVersion(c, entry.Version) {
+					switch cveCheckVersion(c, entry.Version) {
+					case cveApplies:
+						filtered = append(filtered, c)
+					case cveUnverifiable:
+						c.Unverifiable = true // c is a copy; the shared cache is untouched
 						filtered = append(filtered, c)
 					}
 				}

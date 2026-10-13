@@ -55,6 +55,41 @@ Raised while discussing whether Stoa should notify on events (a download finishi
 
 ---
 
+## Panels show stale cached data with no indication when an integration's source goes offline
+
+**Status:** deferred — confirmed real, not yet designed.
+
+Raised after powering off a Synology test VM: the Synology panel kept showing the last-known CPU/RAM numbers from before shutdown, hours later, with nothing on screen suggesting the data was stale.
+
+**Confirmed via code, not assumed:** the panel cache (`backend/internal/handlers/cache.go`) never expires and is only ever overwritten by the next *successful* fetch — a failed fetch just logs the error and leaves the existing cache entry (and its `fetchedAt` timestamp) untouched, so the last good payload keeps being served indefinitely, including re-pushed over SSE to any client that (re)connects. This is the shared caching mechanism every polling integration uses, so the gap is universal, not Synology-specific.
+
+The failure *is* tracked server-side — `RecordIntegrationError`/`ClearIntegrationError` (`backend/internal/handlers/health.go`) maintain per-integration health status (consecutive error count, last error, category) — but that only surfaces in **Admin → Sessions → Integration Health**, a separate admin-only page. No dashboard panel reads that state; none show any stale/offline/error indicator today.
+
+**Options considered, not yet chosen:**
+1. Surface the existing health status on the panel itself once consecutive errors cross some threshold (e.g. an "offline since ..." badge), reusing `IntegrationStatus` rather than inventing new tracking.
+2. Use `cacheEntry.fetchedAt` age relative to the integration's configured `refreshSecs` (e.g. flag once data is >2-3x older than expected) instead of/alongside an error count — would also catch a worker that's silently wedged rather than actively erroring.
+3. Some combination: error-based indicator when the integration is actively failing, age-based indicator as a fallback for the "worker just isn't running" case.
+
+Open questions not yet worked through: per-panel or per-integration (a shared integration used by multiple panels should probably show the same state everywhere); how prominent the indicator should be vs. how much it clutters a normally-healthy dashboard; whether to grey out/dim stale numbers instead of or in addition to a badge.
+
+**Current state:** not started — deliberately deferred for dedicated design thought rather than a quick bolt-on.
+
+---
+
+## TrueNAS: `auth.login_with_api_key` is deprecated for removal in TrueNAS 27
+
+**Status:** deferred — works through TrueNAS 26; must migrate before 27.
+
+The TrueNAS integration authenticates every WebSocket session with `auth.login_with_api_key` — all of it goes through one place, `tnConnectAndAuth` in `backend/internal/handlers/truenas_websocket.go` (background worker, connection test, and cold-start fetch). The TrueNAS 26.0.0 beta release notes list the legacy `auth.login` and `auth.login_with_api_key` methods as deprecated for removal in TrueNAS 27, replaced by a newer API-key login method added during the 26 betas.
+
+**Not yet investigated:** the new method's name and parameters, which TrueNAS version first ships it (sets the oldest version a migrated Stoa can still talk to — may need to try the new method and fall back to the legacy one), and whether the legacy DDP `/websocket` endpoint Stoa connects to has its own removal timeline separate from the REST API removal in 26 (Stoa no longer uses REST anywhere in the TrueNAS integration).
+
+**Related upgrade gotcha (not a Stoa change):** API keys created through the TrueNAS API with a method allow-list are revoked on upgrade to 26. Keys created in the UI are unaffected.
+
+Sources: [TrueNAS 26 deprecations](https://www.truenas.com/docs/scale/26/gettingstarted/deprecations/), [26.0.0 BETA.3 release notes](https://update-master.freenas.org/scale/TrueNAS-26-BETA/TrueNAS-26.0.0-BETA.3.release-notes.txt).
+
+---
+
 ## Pi-hole time-range picker (7d/30d) — built to spec, not yet confirmed live
 
 **Status:** shipped, pending real-world verification.

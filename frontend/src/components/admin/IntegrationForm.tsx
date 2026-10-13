@@ -1499,9 +1499,10 @@ export default function IntegrationForm({
         )}
         {SEC_POSTURE_TYPES.includes(activeType) && SEC_POSTURE_CPE_TYPES.includes(activeType) && (
           <div style={{ fontSize: 11, color: 'var(--text-dim)', maxWidth: 460, lineHeight: 1.5 }}>
-            🛡 Security Posture matches this product's CVEs against your running version
-            {detectedVersion ? <> (<code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{detectedVersion}</code>)</> : null} via
-            NVD's structured version data — only CVEs that actually apply are shown, so there's no ignore-date to set.
+            🛡 Security Posture filters this product's CVEs against your running version
+            {detectedVersion ? <> (<code style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{detectedVersion}</code>)</> : null} using
+            NVD's recorded version ranges, so there's no ignore-date to set. Best effort: CVEs whose NVD ranges are missing
+            or unreadable are still shown, so expect some that don't apply.
           </div>
         )}
         {SEC_POSTURE_TYPES.includes(activeType) && !SEC_POSTURE_CPE_TYPES.includes(activeType) && (

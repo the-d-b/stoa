@@ -124,7 +124,7 @@ export const PANEL_TYPES: {
   // Stoa Features
   { id: 'calendar',     label: 'Calendar',     desc: 'Calendar with sources',                         needsIntegration: false, category: 'Stoa Features' },
   { id: 'map',          label: 'Map',          desc: 'Live location map with sources — GPS markers from any added source (Life360 first), maximize for a full-screen view with a person roster', needsIntegration: false, category: 'Stoa Features' },
-  { id: 'securityposture', label: 'Security Posture', desc: 'Detected version + known CVEs for your network/storage-facing integrations (auto-discovered — no source picker)', needsIntegration: false, category: 'Stoa Features' },
+  { id: 'securityposture', label: 'Security Posture', desc: 'Best-effort, at-a-glance view of published NVD CVEs next to the detected version for a curated set of integrations — expect false positives and misses; not a vulnerability scanner (auto-discovered — no source picker)', needsIntegration: false, category: 'Stoa Features' },
   { id: 'dockerapps', label: 'Docker Apps', desc: 'App launcher tiles auto-discovered from Docker container labels — same homepage.name/icon/href/description/group/weight labels as the Homepage dashboard, grouped and collapsible (auto-discovered — no source picker)', needsIntegration: false, category: 'Stoa Features' },
   { id: 'kanban',      label: 'Kanban',       desc: 'Task boards — multiple boards per panel, list and status (board) views, drag-to-reorder on desktop, calendar source for due dates, full-text search', needsIntegration: false, category: 'Stoa Features' },
   { id: 'notes',        label: 'Notes',        desc: 'Multi-note notepad panel',                      needsIntegration: false, category: 'Stoa Features' },
